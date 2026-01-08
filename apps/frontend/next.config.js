@@ -3,11 +3,6 @@ const nextConfig = {
   // Enable standalone output for Docker optimization
   output: 'standalone',
   
-  // Disable telemetry in production
-  telemetry: {
-    enabled: false,
-  },
-  
   // Image optimization settings
   images: {
     remotePatterns: [],
@@ -28,14 +23,18 @@ const nextConfig = {
   
   // Environment variables exposed to browser
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+    // This is used for client-side calls if needed, though mostly we use rewrites
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL, 
   },
 
   async rewrites() {
+    // In production (Railway), BFF_URL should be set to the private service URL
+    // e.g. http://bff.railway.internal:8080
+    const bffUrl = process.env.BFF_URL || 'http://localhost:8080';
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:8080/api/:path*', // Proxy to BFF
+        destination: `${bffUrl}/api/:path*`, // Proxy to BFF
       },
     ];
   },
