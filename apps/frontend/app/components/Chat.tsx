@@ -48,7 +48,7 @@ export default function Chat() {
               }`}
             >
               {m.content}
-              {m.toolInvocations?.map((toolInvocation) => {
+              {m.toolInvocations?.map((toolInvocation: any) => {
                 const toolCallId = toolInvocation.toolCallId;
                 
                 // Render tool calls (optional visualization)
