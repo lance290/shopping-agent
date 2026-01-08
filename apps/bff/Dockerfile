@@ -3,15 +3,19 @@
 
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production --frozen-lockfile && npm cache clean --force
+# Install pnpm
+RUN npm install -g pnpm
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm i --frozen-lockfile
 
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package*.json tsconfig.json ./
-RUN npm ci --frozen-lockfile
+# Install pnpm
+RUN npm install -g pnpm
+COPY package.json pnpm-lock.yaml* tsconfig.json ./
+RUN pnpm i --frozen-lockfile
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
 FROM node:20-alpine AS runner
 RUN apk add --no-cache dumb-init

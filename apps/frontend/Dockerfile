@@ -12,12 +12,14 @@ WORKDIR /app
 # Install libc6-compat for Alpine compatibility
 RUN apk add --no-cache libc6-compat
 
+# Install pnpm
+RUN npm install -g pnpm
+
 # Copy package files
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml* ./
 
 # Install dependencies
-RUN npm ci --frozen-lockfile && \
-    npm cache clean --force
+RUN pnpm i --frozen-lockfile
 
 # ============================================
 # Stage 2: Builder
@@ -25,6 +27,9 @@ RUN npm ci --frozen-lockfile && \
 FROM node:20-alpine AS builder
 
 WORKDIR /app
+
+# Install pnpm
+RUN npm install -g pnpm
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
@@ -38,7 +43,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
 
 # Build Next.js application
 # This creates the .next directory
-RUN npm run build
+RUN pnpm run build
 
 # ============================================
 # Stage 3: Production Runner
