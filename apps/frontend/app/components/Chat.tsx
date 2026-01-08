@@ -6,7 +6,7 @@ import { Send, Bot, User } from 'lucide-react';
 export default function Chat() {
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
     api: '/api/chat',
-  }) as any;
+  } as any) as any;
 
   return (
     <div className="flex flex-col h-full border-r border-gray-200 bg-gray-50 w-1/3 min-w-[300px]">
