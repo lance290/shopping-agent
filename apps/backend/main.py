@@ -12,7 +12,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from sourcing import SourcingRepository, SearchResult
 from database import init_db, get_session
-from models import Row, RowBase
+from models import Row, RowBase, RowCreate, RequestSpec
 
 # Create FastAPI app
 app = FastAPI(
