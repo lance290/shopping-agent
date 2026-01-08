@@ -25,7 +25,7 @@ export default function Chat() {
           </div>
         )}
         
-        {messages.map((m) => (
+        {messages.map((m: any) => (
           <div
             key={m.id}
             className={`flex gap-3 ${

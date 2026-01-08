@@ -6,13 +6,17 @@ import os
 import ssl
 
 # Default to a local postgres if not set
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/shopping_agent")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/shopping_agent"
 
 # Ensure asyncpg driver is used in the connection string
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 elif DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+print(f"DEBUG: DATABASE_URL starts with: {DATABASE_URL[:15]}...") # Debug log (safe)
 
 # Configure connection args for production (Railway) to handle SSL correctly
 connect_args = {}
