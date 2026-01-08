@@ -1,0 +1,171 @@
+# Pulumi Monorepo Configuration
+# Use this stack for monorepo deployments with multiple services
+
+name: monorepo-deployment
+runtime: nodejs
+description: "Monorepo infrastructure with configurable services and databases"
+
+config:
+  # GCP Configuration
+  region:
+    type: string
+    default: "us-central1"
+  
+  # Application Configuration
+  appName:
+    type: string
+    default: "monorepo-app"
+  
+  # Service Configuration (true/false to enable/disable)
+  frontend:
+    type: boolean
+    default: true
+  
+  backend:
+    type: boolean
+    default: true
+  
+  admin:
+    type: boolean
+    default: false
+  
+  worker:
+    type: boolean
+    default: false
+  
+  # Database Configuration (true/false to enable/disable)
+  postgres:
+    type: boolean
+    default: true
+  
+  redis:
+    type: boolean
+    default: true
+  
+  mongodb:
+    type: boolean
+    default: false
+  
+  neo4j:
+    type: boolean
+    default: false
+  
+  # Frontend Configuration
+  frontendPort:
+    type: integer
+    default: 3000
+  
+  frontendCpu:
+    type: string
+    default: "1000m"
+  
+  frontendMemory:
+    type: string
+    default: "512Mi"
+  
+  frontendMaxInstances:
+    type: integer
+    default: 10
+  
+  frontendConcurrency:
+    type: integer
+    default: 100
+  
+  # Backend Configuration
+  backendPort:
+    type: integer
+    default: 8080
+  
+  backendCpu:
+    type: string
+    default: "1000m"
+  
+  backendMemory:
+    type: string
+    default: "512Mi"
+  
+  backendMaxInstances:
+    type: integer
+    default: 10
+  
+  backendConcurrency:
+    type: integer
+    default: 100
+  
+  # Admin Configuration
+  adminPort:
+    type: integer
+    default: 3001
+  
+  adminCpu:
+    type: string
+    default: "1000m"
+  
+  adminMemory:
+    type: string
+    default: "512Mi"
+  
+  adminMaxInstances:
+    type: integer
+    default: 5
+  
+  adminConcurrency:
+    type: integer
+    default: 50
+  
+  # Worker Configuration
+  workerCpu:
+    type: string
+    default: "500m"
+  
+  workerMemory:
+    type: string
+    default: "256Mi"
+  
+  workerMaxInstances:
+    type: integer
+    default: 3
+  
+  workerConcurrency:
+    type: integer
+    default: 1
+  
+  # PostgreSQL Configuration
+  postgresTier:
+    type: string
+    default: "db-f1-micro"
+  
+  postgresDiskSize:
+    type: integer
+    default: 10
+  
+  postgresVersion:
+    type: string
+    default: "POSTGRES_15"
+  
+  # Redis Configuration
+  redisTier:
+    type: string
+    default: "BASIC"
+  
+  redisMemorySize:
+    type: integer
+    default: 1
+  
+  redisVersion:
+    type: string
+    default: "REDIS_7_0"
+  
+  # MongoDB Configuration
+  mongodbTier:
+    type: string
+    default: "M0"
+  
+  # Neo4j Configuration
+  neo4jTier:
+    type: string
+    default: "db-n1-standard-1"
+  
+  neo4jDiskSize:
+    type: integer
+    default: 10

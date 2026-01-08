@@ -1,0 +1,939 @@
+macros:
+  - name: /constitution
+    prompt: |
+      Read .windsurf/constitution.md and output the repo-specific summary in the exact format D.5.
+      Output ONLY that fenced block.
+
+  - name: /update-constitution
+    prompt: |
+      Intelligently update the existing .windsurf/constitution.md without overwriting current content:
+
+      1. **Read current constitution** - Understand existing priorities, code organization rules, and guardrails
+      2. **Analyze codebase context** - Use Windsurf's understanding of the current project structure, tech stack, and patterns
+      3. **Identify gaps or improvements** - Look for missing principles that would benefit this specific codebase
+      4. **Propose enhancements** - Suggest additions or refinements that complement existing rules
+      5. **Preserve existing content** - Never remove or contradict current constitution principles
+
+      Focus on areas like:
+      - Project-specific architectural patterns discovered in the codebase
+      - Technology stack considerations (frameworks, databases, deployment patterns)
+      - Team workflow improvements based on repository structure
+      - Security or compliance requirements evident from the code
+      - Performance or scalability principles relevant to the current architecture
+
+      Output format: `# cfoi.constitution-update.v1` YAML block with:
+      - CurrentConstitution: Summary of existing constitution content
+      - ProposedAdditions: New sections or rules to add (with rationale)
+      - Enhancements: Improvements to existing sections (with explanations)
+      - TechStackSpecific: Constitution rules specific to detected technologies
+      - ProjectContext: How the updates relate to the current codebase
+      - PreservationNotes: Confirmation that existing content will be preserved
+      - UpdatedConstitution: Complete updated constitution content (existing + new)
+
+      Output ONLY that fenced block.
+
+  - name: /plan
+    prompt: |
+      🛡️ GUARDRAIL-ENFORCED PLANNING - Create plan with human approval
+      
+      ## STEP 0: ⛔ MANDATORY TEST VERIFICATION (BLOCKER)
+      
+      **CRITICAL**: Cannot start planning on a broken codebase!
+      
+      Display this message and **STOP**:
+      ```
+      ⛔ PRE-PLANNING TEST VERIFICATION REQUIRED
+      
+      Before creating a plan, verify ALL tests pass:
+      
+      Run:
+        npm run test:all
+        # OR: npm test
+        # OR: your project's test command
+      
+      Expected: ✅ ALL TESTS PASS (0 failures, 0 skipped)
+      
+      If ANY tests fail OR are skipped:
+        ❌ STOP - Cannot plan on broken codebase
+        → Fix ALL failing tests first
+        → Unskip ALL skipped tests (no .skip, .todo, xit, etc.)
+        → Tests must RUN, not be skipped or commented out
+        → Or run /checkpoint to rollback
+        → Document failures in ERRORS.md
+      
+      ⛔ THIS IS A BLOCKER - DO NOT PROCEED IF TESTS FAIL OR ARE SKIPPED
+      
+      Reply:
+        "all tests pass" → I'll proceed with planning
+        "tests fail" → I'll help you fix them
+        "no tests yet" → I'll note this and proceed
+      ```
+      
+      **WAIT** - Do not proceed until human confirms ALL tests pass or no tests exist.
+      
+      ## STEP 1: Get Current Branch
+      
+      1. Get branch name: `git branch --show-current`
+      2. Set directory: `.cfoi/branches/[branch-name]/`
+      3. Create directory if it doesn't exist
+
+      ## STEP 2: Subagent Exploration (Research First)
+      
+      Before planning, research the codebase:
+      - Search for similar features or patterns
+      - Identify relevant files and structure
+      - Check dependencies and imports
+      - Find potential conflicts or integration points
+      
+      Display exploration findings summary (keeps main context clean).
+
+      ## STEP 3: Generate Plan with Extended Thinking
+      
+      Create comprehensive CFOI plan using Windsurf's analysis:
+      - Leverage codebase understanding for accurate file paths
+      - Use realistic API contracts based on current architecture
+      - Suggest test files matching existing patterns
+      - Consider current git branch and recent changes
+      - **ALL artifacts go in** `.cfoi/branches/[branch-name]/`
+
+      Generate plan with:
+      - UserStory: Clear user-facing value
+      - E2E: Realistic end-to-end test steps (for click-testing)
+      - API: OpenAPI contracts fitting existing patterns
+      - Schemas: Data structures consistent with codebase
+      - Domain: Business rules aligning with domain logic
+      - Fixtures: Test data matching current patterns
+      - Done: Concrete acceptance criteria
+
+      **CRITICAL**: Write to `.cfoi/branches/[branch-name]/plan.md` (NOT chat output)
+
+      ## STEP 4: ⚠️ HUMAN CHECKPOINT - Plan Approval (MANDATORY)
+      
+      Display the plan file location and ask human to review:
+      ```
+      📋 Plan created at: .cfoi/branches/[branch-name]/plan.md
+      
+      Please review and verify:
+      - User story is clear and achievable
+      - E2E test steps are realistic
+      - API contracts fit existing architecture
+      - Success criteria are objective and testable
+      - No major risks or blockers
+      
+      DECISION: Approve, revise, or cancel?
+      - ✅ Approve → Proceed to step 5
+      - 📝 Revise → Tell me what to change
+      - ❌ Cancel → Document why and pivot
+      
+      **Do not proceed until you approve the plan!**
+      ```
+      
+      **STOP** - wait for human approval
+
+      ## STEP 5: Initialize Tracking Files
+      
+      Create branch-specific tracking (only after approval):
+      
+      1. `.cfoi/branches/[branch-name]/PROGRESS.md`:
+      ```markdown
+      # Progress - Branch: [branch-name]
+      
+      ## Current Status
+      Plan approved, ready to start tasks
+      
+      ## Next Steps
+      - Run /task to break down into implementation steps
+      ```
+      
+      2. `.cfoi/branches/[branch-name]/ERRORS.md`:
+      ```markdown
+      # Known Issues - Branch: [branch-name]
+      
+      No errors yet.
+      ```
+      
+      3. `.cfoi/branches/[branch-name]/DECISIONS.md`:
+      ```markdown
+      # Architectural Decisions - Branch: [branch-name]
+      
+      ## Plan Decisions
+      [Document why plan was structured this way]
+      ```
+      
+      4. `.cfoi/branches/[branch-name]/metrics.json`:
+      ```json
+      {
+        "branch": "[branch-name]",
+        "planApproved": "[timestamp]",
+        "errorBudget": {
+          "maxErrorsPerTask": 3,
+          "maxErrorsPerSession": 10
+        },
+        "timeTracking": {
+          "lastContextCompaction": null
+        }
+      }
+      ```
+
+      ## STEP 6: Confirm Initialization
+      
+      Display:
+      ```
+      ✅ Guardrail-Enforced Plan Complete
+      
+      Files created:
+      - .cfoi/branches/[branch-name]/plan.md
+      - .cfoi/branches/[branch-name]/PROGRESS.md
+      - .cfoi/branches/[branch-name]/ERRORS.md
+      - .cfoi/branches/[branch-name]/DECISIONS.md
+      - .cfoi/branches/[branch-name]/metrics.json
+      
+      Next: Run /task to break down into implementation steps
+      ```
+
+  - name: /clarify
+    prompt: |
+      Ask at most 5 clarifying questions needed to execute the slice plan.
+      If nothing blocks execution, set Blockers: "No blockers".
+      Output ONLY the D.2 block.
+
+  - name: /task
+    prompt: |
+      🛡️ GUARDRAIL-ENFORCED TASK BREAKDOWN - Decompose plan into verified tasks
+      
+      ## STEP 1: Load Approved Plan
+      
+      1. Get branch name: `git branch --show-current`
+      2. Read plan: `.cfoi/branches/[branch-name]/plan.md`
+      3. Confirm plan was human-approved
+      4. If no plan exists → Stop and run /plan first
+
+      ## STEP 2: Generate Task Breakdown
+      
+      Using Windsurf's capabilities, break plan into tasks:
+      - Use file analysis for realistic paths fitting codebase
+      - Leverage tech stack understanding for commands
+      - Consider existing patterns for consistency
+      - Each task <45 minutes, follows constitution
+      - Align with repository architecture (routes/controllers/repositories)
+
+      For EACH task, specify:
+      - **E2E flow to build** (Click-First approach - what to implement)
+      - **Manual verification steps** (how human will click-test it)
+      - **Files to create/modify** (specific paths)
+      - **Tests to write AFTER** (to lock in working behavior)
+      - **Dependencies** on other tasks
+      - **Error budget** allocation (max 3 errors)
+      - **Estimated time** <45 minutes
+
+      **CRITICAL**: Write to `.cfoi/branches/[branch-name]/tasks.md` (NOT chat output)
+
+      ## STEP 3: Task Quality Verification
+      
+      Verify each task includes:
+      - ✅ Clear E2E flow ("user can click X and see Y")
+      - ✅ Manual test steps (how human verifies it works)
+      - ✅ Specific files to change (not vague)
+      - ✅ Success criteria (what "working" looks like)
+      - ✅ Estimated time <45 minutes
+      - ✅ Error handling requirements
+      - ✅ Test requirements (to write AFTER feature works)
+      
+      Flag any tasks that are too vague or too large.
+
+      ## STEP 4: ⚠️ HUMAN CHECKPOINT - Task Review (MANDATORY)
+      
+      Display:
+      ```
+      📋 Tasks created at: .cfoi/branches/[branch-name]/tasks.md
+      
+      Please review and verify:
+      - Each task is <45 minutes
+      - E2E flows are clear and testable
+      - Manual verification steps make sense
+      - Task order makes sense
+      - No "implement everything" mega-tasks
+      - Error budget is reasonable (3 per task)
+      
+      DECISION: Approve, revise, or re-plan?
+      - ✅ Approve → Proceed to step 5
+      - 📝 Revise → Tell me which tasks to adjust
+      - ❌ Re-plan → Return to /plan
+      
+      **Do not proceed until you approve!**
+      ```
+      
+      **STOP** - wait for human approval
+
+      ## STEP 5: Initialize Task Tracking
+      
+      Update `.cfoi/branches/[branch-name]/metrics.json`:
+      ```json
+      {
+        "tasks": {
+          "total": [count],
+          "completed": 0,
+          "inProgress": 0,
+          "remaining": [count]
+        },
+        "currentTask": null,
+        "errorBudget": {
+          "perTask": 3,
+          "currentTaskErrors": 0
+        }
+      }
+      ```
+      
+      Update `.cfoi/branches/[branch-name]/PROGRESS.md`:
+      ```markdown
+      ## Task Breakdown Complete
+      
+      Total tasks: [count]
+      Ready to start: Task 1
+      
+      ## Task Checklist
+      - [ ] Task 1: [description]
+      - [ ] Task 2: [description]
+      ...
+      ```
+
+      ## STEP 6: Confirm Ready
+      
+      Display:
+      ```
+      ✅ Guardrail-Enforced Tasks Complete
+      
+      Files updated:
+      - .cfoi/branches/[branch-name]/tasks.md
+      - .cfoi/branches/[branch-name]/metrics.json
+      - .cfoi/branches/[branch-name]/PROGRESS.md
+      
+      Total tasks: [count]
+      Average time per task: [estimate]
+      
+      Next: Run /implement to start Task 1
+      
+      Reminder: Build experience FIRST, click-test, THEN write tests
+      ```
+
+  - name: /implement
+    prompt: |
+      🚀 CLICK-FIRST IMPLEMENTATION (Tests → Commit → Build → Click-Test → Tests)
+
+      ## 1. Verify Green Baseline
+      - Ask the human to run the project's full test command (`npm run test:all`, or equivalent).
+      - Accept: `all tests pass`, `no tests yet`, or help resolve failures before continuing.
+
+      ## 2. Commit & Push Previous Work
+      - If there are outstanding changes from the prior task, remind the human to `git add`, `commit`, and `push`.
+      - Wait for a response of `committed` or `nothing to commit`.
+
+      ## 3. Build the Experience First
+      - Quote the current task from `.cfoi/branches/<branch>/tasks.md`.
+      - Implement the feature end-to-end (no tests yet) following `.windsurf/constitution.md`.
+      - Capture a brief summary (files touched, manual test instructions) in `.cfoi/branches/<branch>/proof/<task-id>/build-log.md`.
+
+      ## 4. Human Click-Test Checkpoint
+      - Pause and prompt the human to manually verify the behaviour.
+      - Wait for ✅ or ❌. If broken, fix and repeat the manual check.
+      - Log the confirmation in `.cfoi/branches/<branch>/proof/<task-id>/manual.md`.
+
+      ## 5. Lock It In With Tests
+      - Write the unit/integration/E2E tests that capture the verified behaviour.
+      - Run `./tools/verify-implementation.sh` and the full test suite.
+      - Record commands, log paths, and coverage in `.cfoi/branches/<branch>/proof/<task-id>/automation.md`.
+      - Finish with a short recap and remind the human to commit/push when satisfied.
+
+  - name: /env
+    prompt: |
+      Propose an ephemeral environment plan for the current branch using Cloud Run + Pulumi TS,
+      with per-branch Mongo/Neo4j/Redis/SQL, and compliance flags.
+      Output ONLY the D.6 YAML block.
+
+  - name: /compliance
+    prompt: |
+      Map CASA/HIPAA/SOC2/GDPR flags to concrete controls and Pulumi CrossGuard enforcement.
+      Output ONLY the D.7 YAML block.
+
+  - name: /setup
+    prompt: |
+      Generate the onboarding script (Bash) to set up Git hooks, package.json scripts,
+      seed/scaffold placeholders, and Playwright install. Output ONLY the D.8 Bash block.
+
+  - name: /setup:nodehooks
+    prompt: |
+      Generate NodeJS-based Git hooks (commit-msg, post-commit, pre-commit, pre-push)
+      and set core.hooksPath to .githooks-node. Output ONLY the D.9 Bash block.
+
+  - name: /promote
+    prompt: |
+      Emit a promotion plan to move the current branch stack to 'staging' or 'prod'
+      using Pulumi (traffic split or blue/green), including manual approval steps.
+      Output a fenced YAML block with keys: EnvFrom, EnvTo, PulumiStacks, Steps[], Validation[].
+
+  - name: /env:destroy
+    prompt: |
+      Emit a fenced bash block that destroys the current PR's Pulumi stack and
+      cleans up ephemeral DBs/secrets safely. Keys: pulumi destroy, stack rm, safety notes.
+
+  - name: /release
+    prompt: |
+      Ask for semver input (default patch), then output a fenced YAML block with keys:
+      Version, Date, Changes (from merged PR titles), MigrationNotes, Rollback.
+
+  - name: /risk
+    prompt: |
+      Capture risks/mitigations/rollback for the slice in <10 lines.
+      Output a fenced YAML block with keys: Risks[], Mitigations[], Rollback.
+
+  - name: /retro
+    prompt: |
+      End-of-week retro. Output a fenced YAML block with: Wins[], Learned[], Actions[] (owners & dates).
+
+  - name: /verify
+    prompt: |
+      DUAL-AGENT VERIFICATION - Independent review of implementation
+
+      You are a SEPARATE AI agent reviewing the implementation. Provide fresh, objective analysis.
+
+      ## STEP 1: Load Context
+      
+      1. Get current branch: `git branch --show-current`
+      2. Read plan: `.cfoi/branches/[branch-name]/plan.md`
+      3. Read tasks: `.cfoi/branches/[branch-name]/tasks.md`
+      4. Read implementation notes: `.cfoi/branches/[branch-name]/implement-[task-id].md`
+      5. Identify files changed (from implementation notes)
+
+      ## STEP 2: Review Implementation Against Plan (CRITICAL)
+      
+      **PLAN ALIGNMENT CHECK** - This is the most important verification:
+      
+      1. Quote EXACT task from tasks.md
+      2. Quote what was ACTUALLY implemented (from code/files)
+      3. Identify any drift or scope creep
+      
+      Verify:
+      - ✅ Does code solve the EXACT problem in the plan? (not something extra)
+      - ✅ Are test requirements met?
+      - ✅ Is success criteria achieved?
+      - ✅ Does it follow the E2E flow specified?
+      - ❌ Flag if implementation differs from plan (scope creep, missing features, etc.)
+
+      ## STEP 3: Constitution Compliance Check
+      
+      Verify code follows `.windsurf/constitution.md`:
+      - ✅ Routes/controllers/repositories pattern?
+      - ✅ No duplicate code?
+      - ✅ Files under 450 lines?
+      - ✅ Pure functions preferred?
+      - ✅ Co-location principles?
+      - ✅ Error handling present?
+      - ✅ No direct DB calls outside repositories?
+
+      ## STEP 4: Anti-Pattern Detection
+      
+      Flag any of these issues:
+      - ❌ TODO or FIXME comments
+      - ❌ Placeholder implementations (pass, raise NotImplementedError, etc.)
+      - ❌ Missing error handling
+      - ❌ Hardcoded values that should be config
+      - ❌ Imports scattered (not at top)
+      - ❌ Trivial tests (just imports, no assertions)
+
+      ## STEP 5: Test Quality Analysis
+      
+      Review test files:
+      - ✅ Tests actually assert something meaningful?
+      - ✅ Happy path covered?
+      - ✅ Error cases covered?
+      - ✅ Edge cases covered?
+      - ❌ Tests are NOT just imports or trivial?
+
+      ## STEP 6: Generate Review Report
+      
+      Create comprehensive review in this format:
+      
+      ```markdown
+      # Code Review - Task [task-id]
+      
+      ## Summary
+      - Overall Assessment: [APPROVE / REQUEST_CHANGES / REJECT]
+      - Code Quality: [HIGH / MEDIUM / LOW]
+      - Test Coverage: [GOOD / ADEQUATE / INSUFFICIENT]
+      - Constitution Compliance: [X/10]
+      
+      ## Strengths
+      - [What was done well]
+      
+      ## Issues Found
+      - **[HIGH/MEDIUM/LOW]**: [Issue description]
+        - Location: [file:line]
+        - Recommendation: [How to fix]
+      
+      ## Plan Alignment
+      - [x] Solves problem from plan
+      - [x] Meets acceptance criteria
+      - [ ] Missing: [what's missing if any]
+      
+      ## Test Quality
+      - [x] Tests are meaningful
+      - [x] Happy path covered
+      - [ ] Missing: [what tests missing if any]
+      
+      ## Constitution Compliance
+      - [x] Routes/controllers pattern
+      - [x] No code duplication
+      - [ ] Violation: [specific violations if any]
+      
+      ## Recommendation
+      [APPROVE and proceed] OR [REQUEST_CHANGES: list specific changes needed]
+      ```
+      
+      Save to `.cfoi/branches/[branch-name]/review-[task-id].md`
+
+      ## STEP 7: Display Summary
+      
+      Show this to human:
+      
+      ```
+      🔍 Code Review Complete
+      
+      Assessment: [APPROVE / REQUEST_CHANGES / REJECT]
+      Issues: [count] high, [count] medium, [count] low
+      
+      Full report: .cfoi/branches/[branch-name]/review-[task-id].md
+      
+      [If REQUEST_CHANGES, list top 3 issues to fix]
+      ```
+
+      ## CRITICAL
+      
+      - Be OBJECTIVE - you're a fresh reviewer, not the implementer
+      - Flag ALL issues - don't be lenient
+      - Provide SPECIFIC locations and fixes
+      - If HIGH severity issues → REJECT or REQUEST_CHANGES
+      - Assessment should be honest and helpful
+
+  - name: /compact
+    prompt: |
+      🔄 CONTEXT COMPACTION - Reset context while preserving state
+
+      ## STEP 1: Check If Needed
+      
+      1. Read `.cfoi/branches/[branch-name]/metrics.json`
+      2. Check `lastContextCompaction` timestamp
+      3. Calculate time since last compaction
+      4. If >30 minutes OR manually triggered → Proceed
+      5. If recent (<30 min) and not forced → Skip
+
+      ## STEP 2: Summarize Progress
+      
+      Generate progress summary covering:
+      - Completed tasks (with descriptions)
+      - Current task (status, what's done, what's next)
+      - Key decisions made (why we chose X over Y)
+      - What's working (tested and verified features)
+      - Next steps (what to do next)
+      
+      Append summary to `.cfoi/branches/[branch-name]/PROGRESS.md` with timestamp
+
+      ## STEP 3: Document Known Errors
+      
+      Summarize any open issues:
+      - Active errors (description, attempted fixes, status)
+      - Resolved errors (brief note on solution)
+      - Warnings to remember
+      
+      Append to `.cfoi/branches/[branch-name]/ERRORS.md` with timestamp
+
+      ## STEP 4: Capture Architectural Decisions
+      
+      Document decisions made:
+      - Why we chose X over Y
+      - Pattern decisions
+      - Technical choices
+      
+      Append to `.cfoi/branches/[branch-name]/DECISIONS.md` with timestamp
+
+      ## STEP 5: Update Metrics
+      
+      Update `.cfoi/branches/[branch-name]/metrics.json`:
+      ```json
+      {
+        "lastContextCompaction": "[current timestamp]",
+        "compactionCount": [increment],
+        "totalMinutesSinceStart": [calculate]
+      }
+      ```
+
+      ## STEP 6: Tell Human to Run /clear
+      
+      Display:
+      ```
+      ✅ State Preserved - Ready for Context Reset
+      
+      Saved to:
+      - PROGRESS.md (latest summary)
+      - ERRORS.md (known issues)
+      - DECISIONS.md (architectural choices)
+      - metrics.json (updated)
+      
+      NOW RUN: /clear
+      
+      After clearing, I'll reload essential context automatically.
+      ```
+      
+      **STOP** - wait for human to run /clear
+
+      ## STEP 7: After /clear, Reload Essential Context
+      
+      Load in priority order:
+      1. Constitution: `.windsurf/constitution.md`
+      2. Plan: `.cfoi/branches/[branch-name]/plan.md`
+      3. Progress: `.cfoi/branches/[branch-name]/PROGRESS.md` (latest summary only)
+      4. Current task: From `.cfoi/branches/[branch-name]/tasks.md`
+      5. Recent errors: Last 3 from `ERRORS.md`
+      6. Key decisions: From `DECISIONS.md`
+      
+      **DO NOT reload**: old error messages, dead ends, redundant file reads
+
+      ## STEP 8: Confirm Ready
+      
+      Display:
+      ```
+      🔄 Context Compacted Successfully
+      
+      ✅ Loaded:
+      - Constitution
+      - Plan  
+      - Progress summary
+      - Current task: [task id]
+      - Known errors: [count] active
+      
+      📊 Stats:
+      - Context tokens saved: ~estimate
+      - Fresh start with essential state
+      
+      Ready to continue!
+      ```
+
+  - name: /checkpoint
+    prompt: |
+      💾 CHECKPOINT - Save working state with tests passing
+
+      ## STEP 1: ⛔ MANDATORY TEST VERIFICATION (BLOCKER)
+      
+      **CRITICAL**: Cannot checkpoint with failing tests!
+      
+      Display this message and **STOP**:
+      ```
+      ⛔ MANDATORY CHECKPOINT TEST VERIFICATION
+      
+      Before creating checkpoint, verify ALL tests pass:
+      
+      Run:
+        npm run test:all
+        # OR: npm test
+        # OR: your project's test command
+      
+      Expected: ✅ ALL TESTS PASS (0 failures, 0 skipped)
+      
+      If ANY tests fail OR are skipped:
+        ❌ STOP - Cannot checkpoint broken code
+        → Fix ALL failing tests first
+        → Unskip ALL skipped tests (no .skip, .todo, xit, etc.)
+        → Tests must RUN, not be skipped or commented out
+        → Or rollback to last working commit
+        → Update ERRORS.md with failures
+      
+      Why this matters:
+        - Checkpoints are rollback points
+        - Cannot rollback to broken state
+        - Must maintain "always green" history
+        - Skipped tests = untested code = broken checkpoint
+      
+      ⛔ THIS IS A BLOCKER - DO NOT PROCEED IF TESTS FAIL OR ARE SKIPPED
+      
+      Reply:
+        "all tests pass" → I'll proceed with checkpoint
+        "tests fail" → I'll help fix them first
+      
+      **STOP** - Do not proceed until human confirms ALL tests pass
+
+      ## STEP 2: Run Verification Script
+      
+      Display:
+      ```
+      Running quality checks...
+      
+      Please run: ./tools/verify-implementation.sh
+      
+      ⚠️ Must pass all checks. If it fails, fix issues first.
+      
+      Reply with "verification pass" when ready to proceed.
+      ```
+      
+      **STOP** - wait for human confirmation
+
+      ## STEP 3: Show Changes
+      
+      Display current diff:
+      ```
+      git diff
+      ```
+      
+      Ask: "Review the changes. Are they complete and correct? (yes/no)"
+      
+      **STOP** - wait for human confirmation
+
+      ## STEP 4: Commit Working Code
+      
+      If human approves:
+      
+      1. Stage changes: `git add .`
+      2. Create descriptive commit message
+      3. Display proposed message:
+         ```
+         feat(task-X): [clear description of what was added/changed]
+         ```
+      4. Ask for approval or edit
+      5. Commit: `git commit -m "[message]"`
+
+      ## STEP 5: Update Tracking
+      
+      1. Mark task complete in `.cfoi/branches/[branch-name]/tasks.md`
+      2. Update `.cfoi/branches/[branch-name]/PROGRESS.md` with checkpoint info
+      3. Update `.cfoi/branches/[branch-name]/metrics.json`:
+         - Increment completedTasks
+         - Record checkpoint timestamp and commit SHA
+         - Reset error budget to 0 for next task
+
+      ## STEP 6: Consider Pushing
+      
+      Ask: "Should I push to remote? (Recommended after every 3 commits)"
+      
+      If yes: `git push origin [branch-name]`
+
+      ## STEP 7: Check Context Compaction
+      
+      Check if >30 min since last compaction.
+      If yes, suggest: "Consider running /compact for fresh context"
+
+      ## STEP 8: Confirm Checkpoint
+      
+      Display:
+      ```
+      ✅ Checkpoint Complete
+      
+      Committed: [commit message]
+      SHA: [commit sha]
+      
+      📊 Progress:
+      - Tasks: X/Y complete
+      - Tests: All passing ✅
+      - Error budget reset: 0/3
+      
+      🎯 Next: [next task description]
+      
+      💾 Rollback point created
+      ```
+
+  - name: /update
+    prompt: |
+      🔄 FRAMEWORK UPDATE - Update to latest version with guardrails
+
+      ## STEP 1: Check Current State
+      
+      1. Check if framework directory exists:
+         - Look for `Infra-As-Code/` subdirectory
+         - Or check if framework files are in project root
+      2. Identify current branch: `git branch --show-current`
+      3. Check for uncommitted changes: `git status`
+      
+      If uncommitted changes exist, warn user to commit or stash first.
+
+      ## STEP 2: Create Backup
+      
+      Display:
+      ```
+      ⚠️ Creating backup before update...
+      
+      Run these commands:
+      
+      # Create backup branch
+      git checkout -b backup-before-update-$(date +%Y%m%d)
+      git add .
+      git commit -m "backup: before framework update" || true
+      git push origin backup-before-update-$(date +%Y%m%d) || true
+      git checkout -
+      
+      Reply "backup done" when ready to proceed.
+      ```
+      
+      **STOP** - wait for user confirmation
+
+      ## STEP 3: Run Framework Update
+      
+      Display:
+      ```
+      Running framework update...
+      
+      # Navigate to framework directory
+      cd Infra-As-Code  # or appropriate path
+      
+      # Pull latest changes
+      git pull origin main
+      
+      # Run update (overwrites framework files)
+      ./install.sh --update
+      
+      This will update:
+      - .windsurf/workflows/ (new guardrails)
+      - .windsurf/macros.yaml (enforced /implement)
+      - .githooks/ (latest checks)
+      - tools/ (new scripts)
+      - docs/ (strategy guides)
+      
+      ⚠️ Will ask before overwriting constitution
+      
+      Reply "update done" when install completes.
+      ```
+      
+      **STOP** - wait for user confirmation
+
+      ## STEP 4: Migrate to New Structure
+      
+      Check if old `.cfoi/slices/` structure exists.
+      
+      If yes, display:
+      ```
+      🔄 Migrating to new branch-based structure...
+      
+      Old: .cfoi/slices/[slice-name]/
+      New: .cfoi/branches/[branch-name]/
+      
+      I'll help you migrate. What's your current branch?
+      ```
+      
+      Then generate migration commands:
+      ```bash
+      # Create new branch directory
+      mkdir -p .cfoi/branches/[branch-name]
+      
+      # Copy plan/tasks from most recent slice
+      cp .cfoi/slices/[most-recent]/plan.md .cfoi/branches/[branch-name]/
+      cp .cfoi/slices/[most-recent]/tasks.md .cfoi/branches/[branch-name]/
+      
+      # Initialize new tracking files
+      # (PROGRESS.md, ERRORS.md, DECISIONS.md, metrics.json)
+      ```
+      
+      Create these files with appropriate initial content.
+
+      ## STEP 5: Review Changes
+      
+      Display:
+      ```
+      Reviewing what changed...
+      
+      git diff .windsurf/macros.yaml
+      git diff .windsurf/workflows/implement.md
+      
+      Key updates:
+      - /implement now enforces all 7 guardrails
+      - /verify - new dual-agent review
+      - /compact - new context compaction
+      - /checkpoint - new rollback points
+      - Auto-compaction every 30 min
+      
+      Review the changes? (yes/no)
+      ```
+
+      ## STEP 6: Test New Workflows
+      
+      Display:
+      ```
+      ✅ Update Complete - Test New Workflows
+      
+      Try these commands:
+      - /plan - Should show subagent exploration
+      - /task - Should include E2E flows
+      - /implement - Should enforce guardrails
+      - /verify - NEW - dual-agent review
+      - /compact - NEW - context compaction
+      - /checkpoint - NEW - save state
+      
+      All workflows now include human checkpoints!
+      ```
+
+      ## STEP 7: Commit Updates
+      
+      Generate commit message:
+      ```bash
+      git add .windsurf .githooks .github tools docs .cfoi
+      git commit -m "chore: update framework with guardrail enforcement
+      
+      - Add error prevention guardrails to /implement
+      - Add /verify, /compact, /checkpoint workflows
+      - Update plan/task with human checkpoints
+      - Migrate to branch-based .cfoi structure
+      - Auto-compaction every 30 minutes"
+      
+      git push origin [branch-name]
+      ```
+
+      ## What Changed
+      
+      Display summary:
+      ```
+      📋 Framework Update Summary
+      
+      ✅ Updated Workflows:
+      - plan.md - Added exploration + human approval
+      - task.md - Added E2E flows + verification
+      - implement.md - All 7 guardrails enforced
+      
+      ✅ New Workflows:
+      - verify.md - Dual-agent code review
+      - compact.md - Context compaction
+      - checkpoint.md - Save working state
+      
+      ✅ Updated Macros:
+      - /implement - Guardrail enforcement
+      - /verify - NEW
+      - /compact - NEW (auto-triggered)
+      - /checkpoint - NEW
+      
+      ✅ New Structure:
+      - .cfoi/branches/[branch]/ (was slices/)
+      - PROGRESS.md, ERRORS.md, DECISIONS.md
+      - metrics.json for error budget tracking
+      
+      🎯 Ready for error-free development!
+      ```
+
+  - name: /claude-flow-swarm
+    prompt: |
+      Read .windsurf/workflows/claude-flow-swarm.md and follow the steps for multi-agent orchestration.
+
+  - name: /effort-new
+    prompt: |
+      Read .windsurf/workflows/effort-new.md and follow the steps to create a new effort.
+
+  - name: /effort-list
+    prompt: |
+      Read .windsurf/workflows/effort-list.md and follow the steps to list all efforts.
+
+  - name: /effort-switch
+    prompt: |
+      Read .windsurf/workflows/effort-switch.md and follow the steps to switch between efforts.
+
+  - name: /observability
+    prompt: |
+      Read .windsurf/workflows/observability.md and follow the steps to add instrumentation.
+
+  - name: /review-loop
+    prompt: |
+      Read .windsurf/workflows/review-loop.md and follow the steps for deep iterative code review.
+
+      - WindsurfIntegration: { leveraged: ["list of Windsurf capabilities used"], recommendations: ["how to better integrate with Windsurf"] }

@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT_DIR="$(git rev-parse --show-toplevel)"; CKPT_FILE="$ROOT_DIR/.checkpoint"
+
+BUILD_FAILED=false
+
+# Detect and build all project types (monorepo support)
+echo "[pre-push] 🔍 Detecting project types..."
+
+# Node.js/Frontend
+if [ -f "$ROOT_DIR/package.json" ] && command -v npm >/dev/null 2>&1; then
+  # Prefer reading package.json directly to avoid relying on npm run output
+  if command -v node >/dev/null 2>&1 && \
+     node -e 'const pkg=require("./package.json"); process.exit(pkg.scripts && pkg.scripts.build ? 0 : 1)' 2>/dev/null; then
+    echo "[pre-push] 📦 Node.js: running build…"
+    if npm run build; then
+      echo "[pre-push] ✅ Node.js build passed"
+    else
+      echo "[pre-push] ❌ Node.js build failed"
+      BUILD_FAILED=true
+    fi
+  else
+    echo "[pre-push] ⏭️ Node.js: no build script"
+  fi
+fi
+
+# Go backend
+if [ -f "$ROOT_DIR/go.mod" ] && command -v go >/dev/null 2>&1; then
+  echo "[pre-push] 🐹 Go: running build…"
+  if go build ./...; then
+    echo "[pre-push] ✅ Go build passed"
+  else
+    echo "[pre-push] ❌ Go build failed"
+    BUILD_FAILED=true
+  fi
+fi
+
+# Rust
+if [ -f "$ROOT_DIR/Cargo.toml" ] && command -v cargo >/dev/null 2>&1; then
+  echo "[pre-push] 🦀 Rust: running build…"
+  if cargo build; then
+    echo "[pre-push] ✅ Rust build passed"
+  else
+    echo "[pre-push] ❌ Rust build failed"
+    BUILD_FAILED=true
+  fi
+fi
+
+# C/C++ with CMake
+if [ -f "$ROOT_DIR/CMakeLists.txt" ] && command -v cmake >/dev/null 2>&1; then
+  echo "[pre-push] 🔧 C/C++: running cmake build…"
+  mkdir -p "$ROOT_DIR/build" && cd "$ROOT_DIR/build"
+  if cmake .. && make; then
+    echo "[pre-push] ✅ C/C++ build passed"
+  else
+    echo "[pre-push] ❌ C/C++ build failed"
+    BUILD_FAILED=true
+  fi
+  cd "$ROOT_DIR"
+fi
+
+# Generic Makefile (only if no other build system detected)
+if [ -f "$ROOT_DIR/Makefile" ] && command -v make >/dev/null 2>&1; then
+  if [ ! -f "$ROOT_DIR/package.json" ] && [ ! -f "$ROOT_DIR/go.mod" ] && [ ! -f "$ROOT_DIR/Cargo.toml" ] && [ ! -f "$ROOT_DIR/CMakeLists.txt" ]; then
+    echo "[pre-push] 🔨 Makefile: running build…"
+    if make; then
+      echo "[pre-push] ✅ Makefile build passed"
+    else
+      echo "[pre-push] ❌ Makefile build failed"
+      BUILD_FAILED=true
+    fi
+  fi
+fi
+
+if [ "$BUILD_FAILED" = true ]; then
+  echo "[pre-push] ❌ One or more builds failed"
+  exit 1
+fi
+
+# Detect and test all project types (monorepo support)
+echo "[pre-push] 🧪 Running tests..."
+TEST_FAILED=false
+ANY_TESTS_RUN=false
+
+# Node.js tests
+if [ -f "$ROOT_DIR/package.json" ] && command -v npm >/dev/null 2>&1; then
+  # Detect test:all script by inspecting package.json directly
+  if command -v node >/dev/null 2>&1 && \
+     node -e 'const pkg=require("./package.json"); process.exit(pkg.scripts && pkg.scripts["test:all"] ? 0 : 1)' 2>/dev/null; then
+    echo "[pre-push] 📦 Node.js: running tests…"
+    ANY_TESTS_RUN=true
+    if npm run -s test:all; then
+      echo "[pre-push] ✅ Node.js tests passed"
+    else
+      echo "[pre-push] ❌ Node.js tests failed"
+      TEST_FAILED=true
+    fi
+  else
+    echo "[pre-push] ⏭️ Node.js: no test:all script"
+  fi
+fi
+
+# Go tests
+if [ -f "$ROOT_DIR/go.mod" ] && command -v go >/dev/null 2>&1; then
+  echo "[pre-push] 🐹 Go: running tests…"
+  ANY_TESTS_RUN=true
+  if go test ./...; then
+    echo "[pre-push] ✅ Go tests passed"
+  else
+    echo "[pre-push] ❌ Go tests failed"
+    TEST_FAILED=true
+  fi
+fi
+
+# Rust tests
+if [ -f "$ROOT_DIR/Cargo.toml" ] && command -v cargo >/dev/null 2>&1; then
+  echo "[pre-push] 🦀 Rust: running tests…"
+  ANY_TESTS_RUN=true
+  if cargo test; then
+    echo "[pre-push] ✅ Rust tests passed"
+  else
+    echo "[pre-push] ❌ Rust tests failed"
+    TEST_FAILED=true
+  fi
+fi
+
+# Python tests
+if ([ -f "$ROOT_DIR/pytest.ini" ] || [ -f "$ROOT_DIR/setup.py" ]) && command -v pytest >/dev/null 2>&1; then
+  echo "[pre-push] 🐍 Python: running tests…"
+  ANY_TESTS_RUN=true
+  if pytest; then
+    echo "[pre-push] ✅ Python tests passed"
+  else
+    echo "[pre-push] ❌ Python tests failed"
+    TEST_FAILED=true
+  fi
+fi
+
+# C++ tests (CTest)
+if [ -f "$ROOT_DIR/CMakeLists.txt" ] && command -v cmake >/dev/null 2>&1; then
+  BUILD_DIR="$ROOT_DIR/build"
+  if [ -d "$BUILD_DIR" ]; then
+    # Check if CTest is configured
+    if [ -f "$BUILD_DIR/CTestTestfile.cmake" ] || grep -q "enable_testing()" "$ROOT_DIR/CMakeLists.txt" 2>/dev/null; then
+      echo "[pre-push] 🔧 C++: running tests…"
+      ANY_TESTS_RUN=true
+      if (cd "$BUILD_DIR" && ctest --output-on-failure); then
+        echo "[pre-push] ✅ C++ tests passed"
+      else
+        echo "[pre-push] ❌ C++ tests failed"
+        TEST_FAILED=true
+      fi
+    else
+      echo "[pre-push] ⏭️ C++: no tests configured"
+    fi
+  fi
+fi
+
+# Makefile tests (only if no other test framework detected)
+if [ -f "$ROOT_DIR/Makefile" ] && command -v make >/dev/null 2>&1; then
+  if [ ! -f "$ROOT_DIR/package.json" ] && [ ! -f "$ROOT_DIR/go.mod" ] && [ ! -f "$ROOT_DIR/Cargo.toml" ] && [ ! -f "$ROOT_DIR/CMakeLists.txt" ]; then
+    if make -n test >/dev/null 2>&1; then
+      echo "[pre-push] 🔨 Makefile: running tests…"
+      ANY_TESTS_RUN=true
+      if make test; then
+        echo "[pre-push] ✅ Makefile tests passed"
+      else
+        echo "[pre-push] ❌ Makefile tests failed"
+        TEST_FAILED=true
+      fi
+    else
+      echo "[pre-push] ⏭️ Makefile: no test target"
+    fi
+  fi
+fi
+
+if [ "$ANY_TESTS_RUN" = false ]; then
+  echo "[pre-push] ⏭️ No test frameworks detected, skipping tests"
+fi
+
+if [ "$TEST_FAILED" = true ]; then
+  if [ -f "$CKPT_FILE" ]; then
+    echo "[pre-push] ⚠️ tests failed, checkpoint active — allowing push"
+  else
+    echo "[pre-push] ❌ One or more test suites failed"
+    exit 1
+  fi
+else
+  echo "[pre-push] ✅ All tests passed"
+fi

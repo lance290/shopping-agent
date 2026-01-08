@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT_DIR="$(git rev-parse --show-toplevel)"; CKPT_FILE="$ROOT_DIR/.checkpoint"
+[ -f "$CKPT_FILE" ] && rm -f "$CKPT_FILE" && echo "[post-commit] cleared checkpoint"

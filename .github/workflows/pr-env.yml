@@ -1,0 +1,187 @@
+name: PR Env
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+env:
+  REGION: us-central1
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
+jobs:
+  deploy:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+
+      - name: Install Pulumi CLI
+        uses: pulumi/setup-pulumi@v3
+
+      - name: Install dependencies
+        if: ${{ hashFiles('package.json') != '' }}
+        run: npm install --no-audit --no-fund
+
+      - name: Install Pulumi dependencies
+        run: npm install --no-audit --no-fund
+        working-directory: infra/pulumi
+
+      - name: Create Pulumi state bucket if needed
+        run: |
+          gsutil mb gs://${{ env.GCP_PROJECT_ID }}-pulumi-state || echo "Bucket already exists"
+
+      - name: Pulumi Login
+        run: pulumi login gs://${{ env.GCP_PROJECT_ID }}-pulumi-state
+        working-directory: infra/pulumi
+
+      - name: Stack Select
+        run: pulumi stack select ${{ env.GCP_PROJECT_ID }}.${{ github.head_ref }} --create
+        working-directory: infra/pulumi
+
+      - name: Configure Stack
+        run: |
+          pulumi config set gcp:project ${{ env.GCP_PROJECT_ID }}
+          pulumi config set region ${{ env.REGION }}
+          pulumi config set branch ${{ github.head_ref }}
+          pulumi config set appName ${{ github.event.repository.name }}
+        working-directory: infra/pulumi
+
+      - name: Provision Infrastructure
+        run: pulumi up --yes
+        working-directory: infra/pulumi
+
+      - name: Get Service URL
+        id: get-url
+        run: |
+          SERVICE_URL=$(pulumi stack output serviceUrl)
+          echo "service_url=$SERVICE_URL" >> $GITHUB_OUTPUT
+        working-directory: infra/pulumi
+
+      - name: Wait for Service to be Ready
+        run: |
+          echo "Waiting for service to be ready..."
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            
+            if curl -f "${{ steps.get-url.outputs.service_url }}/health" > /dev/null 2>&1; then
+              echo "✅ Service is ready!"
+              exit 0
+            fi
+            
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS - Service not ready yet, waiting 10s..."
+            
+            if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+              echo "❌ Service failed to become ready after $MAX_ATTEMPTS attempts (5 minutes)"
+              echo "Check Cloud Run logs for details:"
+              echo "https://console.cloud.google.com/run/detail/${{ env.REGION }}/${{ github.event.repository.name }}-${{ github.head_ref }}/logs"
+              exit 1
+            fi
+            
+            sleep 10
+          done
+
+      - name: Seed Synthetic Data
+        if: ${{ hashFiles('package.json') != '' }}
+        run: npm run seed:pr
+        env:
+          SERVICE_URL: ${{ steps.get-url.outputs.service_url }}
+
+      - name: Run Tests
+        if: ${{ hashFiles('package.json') != '' }}
+        run: npm run test:all
+        env:
+          SERVICE_URL: ${{ steps.get-url.outputs.service_url }}
+
+      - name: Comment PR with Environment URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 **Ephemeral Environment Ready!**
+              
+              **Branch:** \`${{ github.head_ref }}\`
+              **Environment URL:** ${{ steps.get-url.outputs.service_url }}
+              
+              Available endpoints:
+              - 🏠 [Main App](${{ steps.get-url.outputs.service_url }})
+              - 🔍 [Health Check](${{ steps.get-url.outputs.service_url }}/health)
+              - 🧪 [Test API](${{ steps.get-url.outputs.service_url }}/api/test)
+              
+              This environment will be automatically destroyed when the PR is closed.`
+            })
+
+  destroy:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+
+      - name: Install Pulumi CLI
+        uses: pulumi/setup-pulumi@v3
+
+      - name: Install Pulumi dependencies
+        run: npm install --no-audit --no-fund
+        working-directory: infra/pulumi
+
+      - name: Pulumi Login
+        run: pulumi login gs://${{ env.GCP_PROJECT_ID }}-pulumi-state
+        working-directory: infra/pulumi
+
+      - name: Stack Select
+        run: pulumi stack select ${{ env.GCP_PROJECT_ID }}.${{ github.head_ref }}
+        working-directory: infra/pulumi
+
+      - name: Destroy Infrastructure
+        run: pulumi destroy --yes
+        working-directory: infra/pulumi
+
+      - name: Remove Stack
+        run: pulumi stack rm --yes
+        working-directory: infra/pulumi
+
+      - name: Comment PR with Cleanup Confirmation
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🧹 **Ephemeral Environment Cleaned Up**
+              
+              The ephemeral environment for branch \`${{ github.head_ref }}\` has been successfully destroyed.
+              All resources have been removed to save costs.`
+            })

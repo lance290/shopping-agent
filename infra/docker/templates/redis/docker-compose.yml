@@ -1,0 +1,69 @@
+# Redis Docker Compose Template
+# Standalone Redis service for caching and session storage
+
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis-dev
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - ./backups:/backups
+    networks:
+      - redis-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Optional: Redis Commander for management
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: redis-commander-dev
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    depends_on:
+      - redis
+    networks:
+      - redis-network
+    restart: unless-stopped
+    profiles:
+      - admin
+
+  # Optional: Redis Insight for monitoring
+  redis-insight:
+    image: redislabs/redisinsight:latest
+    container_name: redis-insight-dev
+    ports:
+      - "${REDIS_INSIGHT_PORT:-8001}:8001"
+    volumes:
+      - redis_insight_data:/db
+    depends_on:
+      - redis
+    networks:
+      - redis-network
+    restart: unless-stopped
+    profiles:
+      - monitor
+
+networks:
+  redis-network:
+    driver: bridge
+    name: redis-dev-network
+
+volumes:
+  redis_data:
+    name: redis-dev-data
+  redis_insight_data:
+    name: redis-dev-insight-data

@@ -1,0 +1,40 @@
+# Development Environment
+config:
+  # GCP Configuration
+  gcp:project: your-project-dev
+  gcp:region: us-central1
+  
+  # Application Configuration
+  app:appName: myapp
+  app:containerImage: gcr.io/your-project-dev/myapp:dev
+  
+  # Resource Limits (Small for dev)
+  app:cpu: "1000m"
+  app:memory: "512Mi"
+  app:minReplicas: 1
+  app:maxReplicas: 5
+  app:timeout: 300
+  app:concurrency: 100
+  
+  # Cloud Provider Selection
+  app:deployToGCP: true
+  app:deployToRailway: true  # Enable for Railway preview
+  app:deployToModal: false
+  
+  # Secrets (encrypted by Pulumi)
+  app:databaseUrl:
+    secure: <encrypted-dev-db-connection-string>
+  app:apiKey:
+    secure: <encrypted-api-key>
+  app:jwtSecret:
+    secure: <encrypted-jwt-secret>
+  
+  # Railway Configuration
+  app:railwayToken:
+    secure: <encrypted-railway-token>
+  app:railwayProjectId: <railway-project-id>
+  
+  # Optional: Modal Configuration
+  # app:modalToken:
+  #   secure: <encrypted-modal-token>
+  # app:modalGpu: "any"

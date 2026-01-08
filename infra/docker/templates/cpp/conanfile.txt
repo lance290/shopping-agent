@@ -1,0 +1,21 @@
+[requires]
+# HTTP server library (header-only, lightweight)
+cpp-httplib/0.14.3
+
+# JSON library (for request/response handling)
+nlohmann_json/3.11.3
+
+# Testing framework (optional, uncomment if needed)
+# gtest/1.14.0
+
+[generators]
+CMakeDeps
+CMakeToolchain
+
+[options]
+# Configure options for dependencies
+cpp-httplib:with_openssl=True
+cpp-httplib:with_zlib=True
+
+[layout]
+cmake_layout

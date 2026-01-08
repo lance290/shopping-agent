@@ -1,0 +1,36 @@
+# PR Environment Template (Ephemeral)
+# Copy this to Pulumi.pr-<number>.yaml for each PR
+config:
+  # GCP Configuration
+  gcp:project: your-project-dev
+  gcp:region: us-central1
+  
+  # Application Configuration
+  app:appName: myapp
+  app:containerImage: gcr.io/your-project-dev/myapp:pr-123
+  
+  # Resource Limits (Minimal for PRs)
+  app:cpu: "500m"
+  app:memory: "256Mi"
+  app:minReplicas: 0  # Scale to zero when idle
+  app:maxReplicas: 2
+  app:timeout: 300
+  app:concurrency: 50
+  
+  # Cloud Provider Selection
+  app:deployToGCP: true
+  app:deployToRailway: false  # Optional: enable for PR previews
+  app:deployToModal: false
+  
+  # Secrets (encrypted by Pulumi)
+  app:databaseUrl:
+    secure: <encrypted-pr-db-connection-string>
+  app:apiKey:
+    secure: <encrypted-api-key>
+  app:jwtSecret:
+    secure: <encrypted-jwt-secret>
+  
+  # Railway Configuration (if enabled)
+  # app:railwayToken:
+  #   secure: <encrypted-railway-token>
+  # app:railwayProjectId: <railway-project-id>

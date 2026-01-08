@@ -1,0 +1,45 @@
+# Prometheus Configuration
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'docker-local'
+    environment: 'dev'
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter (system metrics)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Example application
+  - job_name: 'example-app'
+    static_configs:
+      - targets: ['example-app:8080']
+    metrics_path: '/metrics'
+
+  # Add your services here
+  # - job_name: 'your-service'
+  #   static_configs:
+  #     - targets: ['your-service:8080']
+
+  # Service discovery (Kubernetes)
+  # - job_name: 'kubernetes-pods'
+  #   kubernetes_sd_configs:
+  #     - role: pod
+
+# Alerting rules (optional)
+# rule_files:
+#   - 'alerts/*.yml'
+
+# Alertmanager configuration (optional)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']

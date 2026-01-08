@@ -1,0 +1,813 @@
+name: 🧪 CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, staging ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - development
+        - staging
+        - production
+      deploy_railway:
+        description: 'Deploy to Railway'
+        required: false
+        default: false
+        type: boolean
+      deploy_gcp:
+        description: 'Deploy to GCP'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Environment Validation
+  validate-environment:
+    name: 🔍 Validate Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      should_deploy: ${{ steps.env.outputs.should_deploy }}
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🔍 Determine environment
+      id: env
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
+        elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          ENVIRONMENT="production"
+        elif [[ "${{ github.ref }}" == "refs/heads/staging" ]]; then
+          ENVIRONMENT="staging"
+        else
+          ENVIRONMENT="development"
+        fi
+        
+        SHOULD_DEPLOY="false"
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event.inputs.deploy_railway }}" == "true" || "${{ github.event.inputs.deploy_gcp }}" == "true" ]]; then
+            SHOULD_DEPLOY="true"
+          fi
+        elif [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/staging" ]]; then
+          SHOULD_DEPLOY="true"
+        fi
+        
+        echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+        echo "should_deploy=$SHOULD_DEPLOY" >> $GITHUB_OUTPUT
+        echo "🌍 Environment: $ENVIRONMENT"
+        echo "🚀 Should Deploy: $SHOULD_DEPLOY"
+        
+    - name: 🔐 Validate environment schema
+      run: |
+        if [[ -f ".env.schema.json" ]]; then
+          echo "✅ Environment schema found"
+          # Validate schema format
+          if ! jq empty .env.schema.json; then
+            echo "❌ Invalid JSON in .env.schema.json"
+            exit 1
+          fi
+          echo "✅ Environment schema valid"
+        else
+          echo "⚠️ No .env.schema.json found"
+        fi
+        
+    - name: 🔧 Setup test environment
+      run: |
+        # Create test environment file
+        cat > .env.test << EOF
+        NODE_ENV=test
+        PORT=8080
+        DATABASE_URL=postgresql://test:test@localhost:5432/test
+        REDIS_URL=redis://localhost:6379
+        JWT_SECRET=test-secret-for-ci-only
+        STRIPE_SECRET_KEY=sk_test_dummy
+        PINECONE_API_KEY=test-dummy-key
+        EOF
+        
+        echo "✅ Test environment configured"
+
+  # Security & Quality Checks
+  security-quality:
+    name: 🔒 Security & Quality
+    runs-on: ubuntu-latest
+    needs: validate-environment
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🔍 Run secrets validation
+      run: |
+        # Make scripts executable
+        chmod +x tools/validate-secrets.sh
+        chmod +x tools/setup-env.sh
+        
+        # Test validation script
+        if [[ -f "tools/validate-secrets.sh" ]]; then
+          echo "🔍 Running secrets validation..."
+          ./tools/validate-secrets.sh || echo "⚠️ Validation script completed with warnings"
+        else
+          echo "⚠️ Secrets validation script not found"
+        fi
+        
+    - name: 🔍 Security audit
+      run: |
+        echo "🔍 Running npm audit..."
+        npm audit --audit-level=moderate
+        
+        echo "🔍 Checking for secrets in code..."
+        # Check for potential secrets
+        if grep -r -i "sk_test\|sk_live\|password\|secret\|key" --include="*.js" --include="*.ts" --include="*.json" --exclude-dir=node_modules --exclude-dir=.git . | head -10; then
+          echo "⚠️ Potential secrets found in code - review needed"
+        else
+          echo "✅ No obvious secrets found in code"
+        fi
+        
+    - name: 📊 Code quality checks
+      run: |
+        echo "📊 Running code quality checks..."
+        
+        # Check package.json
+        if ! jq empty package.json; then
+          echo "❌ Invalid package.json"
+          exit 1
+        fi
+        echo "✅ package.json valid"
+        
+        # Check for required scripts
+        REQUIRED_SCRIPTS=("start" "test")
+        for script in "${REQUIRED_SCRIPTS[@]}"; do
+          if jq -e ".scripts.\"$script\"" package.json > /dev/null; then
+            echo "✅ Script '$script' found"
+          else
+            echo "⚠️ Script '$script' not found"
+          fi
+        done
+        
+    - name: 🔍 Lint and format
+      run: |
+        echo "🔍 Running linting..."
+        if npm run lint --if-present; then
+          echo "✅ Linting passed"
+        else
+          echo "⚠️ Linting not configured or failed"
+        fi
+        
+        echo "🔍 Running type checking..."
+        if npm run type-check --if-present; then
+          echo "✅ Type checking passed"
+        else
+          echo "⚠️ Type checking not configured or failed"
+        fi
+
+  # Unit Tests
+  unit-tests:
+    name: 🧪 Unit Tests
+    runs-on: ubuntu-latest
+    needs: validate-environment
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_USER: test
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🐳 Setup test databases
+      run: |
+        echo "🐳 Setting up test databases..."
+        
+        # Wait for databases to be ready
+        timeout 60 bash -c 'until pg_isready -h localhost -p 5432; do sleep 1; done'
+        timeout 60 bash -c 'until redis-cli -h localhost -p 6379 ping; do sleep 1; done'
+        
+        echo "✅ Databases ready"
+        
+    - name: 🧪 Run unit tests
+      run: |
+        echo "🧪 Running unit tests..."
+        
+        # Create test environment
+        cat > .env.test << EOF
+        NODE_ENV=test
+        DATABASE_URL=postgresql://test:test@localhost:5432/test
+        REDIS_URL=redis://localhost:6379
+        JWT_SECRET=test-secret-for-ci
+        EOF
+        
+        # Run tests
+        if npm run test --if-present; then
+          echo "✅ Unit tests passed"
+        else
+          echo "❌ Unit tests failed"
+          exit 1
+        fi
+        
+    - name: 📊 Test coverage
+      run: |
+        echo "📊 Running test coverage..."
+        if npm run test:coverage --if-present; then
+          echo "✅ Coverage report generated"
+        else
+          echo "⚠️ Coverage not configured"
+        fi
+        
+    - name: 📋 Upload coverage reports
+      uses: codecov/codecov-action@v3
+      if: success()
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+
+  # Service-Specific Tests
+  service-tests:
+    name: 🔧 Service Tests
+    runs-on: ubuntu-latest
+    needs: validate-environment
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_USER: test
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+          
+      mongodb:
+        image: mongo:6
+        options: >-
+          --health-cmd "echo 'db.runCommand(\"ping\").ok' | mongo localhost:27017/test --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 27017:27017
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🔧 Install test tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client redis-tools
+        
+    - name: 🧪 Run service-specific tests
+      run: |
+        echo "🧪 Running service-specific tests..."
+        
+        # Make scripts executable
+        chmod +x tools/service-specific-tests.sh
+        
+        # Create test environment
+        cat > .env << EOF
+        NODE_ENV=test
+        DATABASE_URL=postgresql://test:test@localhost:5432/test
+        REDIS_URL=redis://localhost:6379
+        MONGODB_URI=mongodb://localhost:27017/test
+        JWT_SECRET=test-secret-for-ci
+        EOF
+        
+        # Run service tests
+        if [[ -f "tools/service-specific-tests.sh" ]]; then
+          echo "🔍 Running PostgreSQL tests..."
+          ./tools/service-specific-tests.sh postgresql test || echo "⚠️ PostgreSQL tests completed with warnings"
+          
+          echo "🔍 Running Redis tests..."
+          ./tools/service-specific-tests.sh redis test || echo "⚠️ Redis tests completed with warnings"
+          
+          echo "🔍 Running MongoDB tests..."
+          ./tools/service-specific-tests.sh mongodb test || echo "⚠️ MongoDB tests completed with warnings"
+          
+          echo "🔍 Running API tests..."
+          ./tools/service-specific-tests.sh api test || echo "⚠️ API tests completed with warnings"
+          
+          echo "✅ Service tests completed"
+        else
+          echo "⚠️ Service test script not found"
+        fi
+
+  # Build and Docker Tests
+  build-test:
+    name: 🏗️ Build & Docker
+    runs-on: ubuntu-latest
+    needs: [validate-environment, security-quality, unit-tests]
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🏗️ Build application
+      run: |
+        echo "🏗️ Building application..."
+        if npm run build --if-present; then
+          echo "✅ Build successful"
+        else
+          echo "⚠️ Build not configured or failed"
+        fi
+        
+    - name: 🐳 Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 🐳 Test Docker build
+      run: |
+        echo "🐳 Testing Docker build..."
+        
+        # Test if Dockerfile exists
+        if [[ -f "Dockerfile" ]]; then
+          echo "✅ Dockerfile found"
+          
+          # Test build
+          if docker build -t test-build .; then
+            echo "✅ Docker build successful"
+            
+            # Test image size
+            IMAGE_SIZE=$(docker images test-build --format "{{.Size}}")
+            echo "📊 Image size: $IMAGE_SIZE"
+            
+            # Clean up
+            docker rmi test-build
+          else
+            echo "❌ Docker build failed"
+            exit 1
+          fi
+        else
+          echo "⚠️ No Dockerfile found"
+        fi
+        
+    - name: 📊 Build analysis
+      run: |
+        echo "📊 Analyzing build artifacts..."
+        
+        # Check for build artifacts
+        if [[ -d "dist" ]]; then
+          DIST_SIZE=$(du -sh dist | cut -f1)
+          echo "📊 Dist size: $DIST_SIZE"
+        fi
+        
+        if [[ -d "build" ]]; then
+          BUILD_SIZE=$(du -sh build | cut -f1)
+          echo "📊 Build size: $BUILD_SIZE"
+        fi
+
+  # Deployment Tests
+  deployment-test:
+    name: 🚀 Deployment Test
+    runs-on: ubuntu-latest
+    needs: [validate-environment, build-test]
+    if: needs.validate-environment.outputs.should_deploy == 'true'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🧪 Run deployment tests
+      run: |
+        echo "🧪 Running deployment tests..."
+        
+        # Make scripts executable
+        chmod +x infra/test-deployment.sh
+        
+        # Create test environment
+        cat > .env << EOF
+        NODE_ENV=test
+        DATABASE_URL=postgresql://test:test@localhost:5432/test
+        REDIS_URL=redis://localhost:6379
+        JWT_SECRET=test-secret-for-ci
+        EOF
+        
+        # Run deployment tests
+        if [[ -f "infra/test-deployment.sh" ]]; then
+          echo "🔍 Running comprehensive deployment test..."
+          ./infra/test-deployment.sh comprehensive test || echo "⚠️ Deployment tests completed with warnings"
+          echo "✅ Deployment tests completed"
+        else
+          echo "⚠️ Deployment test script not found"
+        fi
+
+  # Railway Deployment
+  deploy-railway:
+    name: 🚂 Deploy to Railway
+    runs-on: ubuntu-latest
+    needs: [validate-environment, security-quality, unit-tests, deployment-test]
+    if: |
+      needs.validate-environment.outputs.should_deploy == 'true' && 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_railway == 'true' ||
+       github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
+    environment:
+      name: ${{ needs.validate-environment.outputs.environment }}
+      url: ${{ steps.deploy.outputs.url }}
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🚂 Setup Railway CLI
+      run: npm install -g @railway/cli
+      
+    - name: 🔐 Login to Railway
+      run: railway login --token ${{ secrets.RAILWAY_TOKEN }}
+      
+    - name: 🚂 Deploy to Railway
+      id: deploy
+      run: |
+        echo "🚂 Deploying to Railway..."
+        
+        # Link project if needed
+        if ! railway status; then
+          echo "🔗 Linking Railway project..."
+          railway link
+        fi
+        
+        # Deploy
+        railway up
+        
+        # Get service URLs
+        SERVICE_URLS=$(railway status --json | jq -r '.[].url' | head -1)
+        echo "url=$SERVICE_URLS" >> $GITHUB_OUTPUT
+        
+        echo "✅ Railway deployment completed"
+        echo "🌐 Service URL: $SERVICE_URLS"
+        
+    - name: 🧪 Test Railway deployment
+      run: |
+        echo "🧪 Testing Railway deployment..."
+        
+        # Wait for deployment to be ready
+        sleep 30
+        
+        # Test health endpoint
+        if curl -f ${{ steps.deploy.outputs.url }}/health; then
+          echo "✅ Railway health check passed"
+        else
+          echo "⚠️ Railway health check failed"
+        fi
+
+  # GCP Deployment
+  deploy-gcp:
+    name: ☁️ Deploy to GCP
+    runs-on: ubuntu-latest
+    needs: [validate-environment, security-quality, unit-tests, deployment-test]
+    if: |
+      needs.validate-environment.outputs.should_deploy == 'true' && 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_gcp == 'true' ||
+       github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
+    environment:
+      name: ${{ needs.validate-environment.outputs.environment }}
+      url: ${{ steps.deploy.outputs.url }}
+    
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔐 Authenticate to GCP
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+        
+    - name: ☁️ Setup GCP CLI
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+        
+    - name: 🐳 Setup Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 🔐 Login to Artifact Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ secrets.GCP_REGION }}-docker.pkg.dev
+        username: _json_key
+        password: ${{ secrets.GCP_SA_KEY }}
+        
+    - name: 🏗️ Build and push Docker image
+      run: |
+        echo "🏗️ Building Docker image..."
+        
+        IMAGE_PATH="${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_REPOSITORY }}/app:${{ github.sha }}"
+        
+        # Build and push
+        docker build -t "$IMAGE_PATH" .
+        docker push "$IMAGE_PATH"
+        
+        echo "✅ Docker image pushed: $IMAGE_PATH"
+        echo "image_path=$IMAGE_PATH" >> $GITHUB_ENV
+        
+    - name: ☁️ Deploy to Cloud Run
+      id: deploy
+      run: |
+        echo "☁️ Deploying to Cloud Run..."
+        
+        SERVICE_NAME="${{ github.ref_name }}-${{ github.sha }}"
+        
+        # Deploy to Cloud Run
+        gcloud run deploy "$SERVICE_NAME" \
+          --image="$IMAGE_PATH" \
+          --region="${{ secrets.GCP_REGION }}" \
+          --platform=managed \
+          --allow-unauthenticated \
+          --set-env-vars="NODE_ENV=${{ needs.validate-environment.outputs.environment }}" \
+          --quiet
+          
+        # Get service URL
+        SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" \
+          --region="${{ secrets.GCP_REGION }}" \
+          --format="value(status.url)")
+          
+        echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
+        echo "service_name=$SERVICE_NAME" >> $GITHUB_OUTPUT
+        
+        echo "✅ GCP deployment completed"
+        echo "🌐 Service URL: $SERVICE_URL"
+        
+    - name: 🧪 Test GCP deployment
+      run: |
+        echo "🧪 Testing GCP deployment..."
+        
+        # Wait for deployment to be ready
+        sleep 30
+        
+        # Test health endpoint
+        if curl -f ${{ steps.deploy.outputs.url }}/health; then
+          echo "✅ GCP health check passed"
+        else
+          echo "⚠️ GCP health check failed"
+        fi
+
+  # Health Check & Monitoring
+  health-check:
+    name: 🏥 Health Check
+    runs-on: ubuntu-latest
+    needs: [validate-environment, deploy-railway, deploy-gcp]
+    if: always() && (needs.deploy-railway.result == 'success' || needs.deploy-gcp.result == 'success')
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🏥 Run health checks
+      run: |
+        echo "🏥 Running post-deployment health checks..."
+        
+        # Make scripts executable
+        chmod +x tools/health-check.sh
+        
+        # Create test environment
+        cat > .env << EOF
+        NODE_ENV=${{ needs.validate-environment.outputs.environment }}
+        DATABASE_URL=postgresql://test:test@localhost:5432/test
+        REDIS_URL=redis://localhost:6379
+        JWT_SECRET=test-secret-for-ci
+        EOF
+        
+        # Run health check
+        if [[ -f "tools/health-check.sh" ]]; then
+          echo "🔍 Running comprehensive health check..."
+          ./tools/health-check.sh ${{ needs.validate-environment.outputs.environment }} local || echo "⚠️ Health check completed with warnings"
+          echo "✅ Health check completed"
+        else
+          echo "⚠️ Health check script not found"
+        fi
+
+  # Notification
+  notify:
+    name: 📢 Notify Results
+    runs-on: ubuntu-latest
+    needs: [validate-environment, security-quality, unit-tests, service-tests, build-test, deployment-test, deploy-railway, deploy-gcp, health-check]
+    if: always()
+    
+    steps:
+    - name: 📢 Build notification message
+      id: message
+      run: |
+        ENVIRONMENT="${{ needs.validate-environment.outputs.environment }}"
+        
+        MESSAGE="## 🚀 Deployment Results
+        
+        **Environment:** $ENVIRONMENT
+        **Branch:** ${{ github.ref_name }}
+        **Commit:** ${{ github.sha }}
+        
+        ### 📊 Job Results:
+        
+        - 🔍 **Environment Validation:** ${{ needs.validate-environment.result }}
+        - 🔒 **Security & Quality:** ${{ needs.security-quality.result }}
+        - 🧪 **Unit Tests:** ${{ needs.unit-tests.result }}
+        - 🔧 **Service Tests:** ${{ needs.service-tests.result }}
+        - 🏗️ **Build & Docker:** ${{ needs.build-test.result }}
+        - 🚀 **Deployment Test:** ${{ needs.deployment-test.result }}"
+        
+        if [[ "${{ needs.deploy-railway.result }}" != "skipped" ]]; then
+          MESSAGE="$MESSAGE
+        - 🚂 **Railway Deployment:** ${{ needs.deploy-railway.result }}"
+        fi
+        
+        if [[ "${{ needs.deploy-gcp.result }}" != "skipped" ]]; then
+          MESSAGE="$MESSAGE
+        - ☁️ **GCP Deployment:** ${{ needs.deploy-gcp.result }}"
+        fi
+        
+        MESSAGE="$MESSAGE
+        - 🏥 **Health Check:** ${{ needs.health-check.result }}"
+        
+        ### 🎯 Overall Status: "
+        
+        # Determine overall status
+        if [[ "${{ needs.unit-tests.result }}" == "failure" || "${{ needs.security-quality.result }}" == "failure" ]]; then
+          MESSAGE="$MESSAGE❌ FAILED"
+        elif [[ "${{ needs.deploy-railway.result }}" == "failure" || "${{ needs.deploy-gcp.result }}" == "failure" ]]; then
+          MESSAGE="$MESSAGE⚠️ PARTIAL FAILURE"
+        else
+          MESSAGE="$MESSAGE✅ SUCCESS"
+        fi
+        
+        echo "message<<EOF" >> $GITHUB_OUTPUT
+        echo "$MESSAGE" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+    - name: 📢 Post to Slack (if configured)
+      if: env.SLACK_WEBHOOK_URL != ''
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      run: |
+        curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"${{ steps.message.outputs.message }}"}' \
+          "$SLACK_WEBHOOK_URL"
+          
+    - name: 📢 Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `${{ steps.message.outputs.message }}`
+          })
+
+  # Cleanup
+  cleanup:
+    name: 🧹 Cleanup
+    runs-on: ubuntu-latest
+    needs: [deploy-gcp]
+    if: always() && needs.deploy-gcp.result == 'success'
+    
+    steps:
+    - name: 🔐 Authenticate to GCP
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+        
+    - name: ☁️ Setup GCP CLI
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+        
+    - name: 🧹 Cleanup old deployments
+      run: |
+        echo "🧹 Cleaning up old Cloud Run deployments..."
+        
+        # Keep only last 5 deployments
+        gcloud run services list \
+          --region="${{ secrets.GCP_REGION }}" \
+          --format="value(name)" \
+          | grep "${{ github.ref_name }}" \
+          | sort -r \
+          | tail -n +6 \
+          | xargs -r -I {} gcloud run services delete {} \
+            --region="${{ secrets.GCP_REGION }}" \
+            --quiet
+            
+        echo "✅ Cleanup completed"

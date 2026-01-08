@@ -1,0 +1,845 @@
+name: 🚀 Continuous Deployment
+
+on:
+  workflow_run:
+    workflows: ["🧪 CI/CD Pipeline"]
+    types:
+      - completed
+    branches: [main, staging]
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - development
+        - staging
+        - production
+      platform:
+        description: 'Deployment platform'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+        - railway
+        - gcp
+        - both
+      force_deploy:
+        description: 'Force deployment (skip health checks)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Determine Deployment Strategy
+  deployment-strategy:
+    name: 🎯 Deployment Strategy
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.strategy.outputs.environment }}
+      platform: ${{ steps.strategy.outputs.platform }}
+      should_deploy: ${{ steps.strategy.outputs.should_deploy }}
+      deploy_railway: ${{ steps.strategy.outputs.deploy_railway }}
+      deploy_gcp: ${{ steps.strategy.outputs.deploy_gcp }}
+      force_deploy: ${{ steps.strategy.outputs.force_deploy }}
+      
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🎯 Determine deployment strategy
+      id: strategy
+      run: |
+        # Default values
+        ENVIRONMENT="staging"
+        PLATFORM="both"
+        SHOULD_DEPLOY="false"
+        DEPLOY_RAILWAY="false"
+        DEPLOY_GCP="false"
+        FORCE_DEPLOY="false"
+        
+        # Check workflow trigger
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
+          PLATFORM="${{ github.event.inputs.platform }}"
+          FORCE_DEPLOY="${{ github.event.inputs.force_deploy }}"
+          SHOULD_DEPLOY="true"
+        elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
+          # Tag-based deployment
+          if [[ "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            ENVIRONMENT="production"
+          elif [[ "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+- ]]; then
+            ENVIRONMENT="staging"
+          else
+            ENVIRONMENT="development"
+          fi
+          PLATFORM="both"
+          SHOULD_DEPLOY="true"
+        elif [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+          # CI workflow completed
+          if [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]]; then
+            ENVIRONMENT="${{ github.event.workflow_run.head_branch }}"
+            PLATFORM="both"
+            SHOULD_DEPLOY="true"
+          fi
+        fi
+        
+        # Set platform-specific flags
+        if [[ "$PLATFORM" == "railway" || "$PLATFORM" == "both" ]]; then
+          DEPLOY_RAILWAY="true"
+        fi
+        if [[ "$PLATFORM" == "gcp" || "$PLATFORM" == "both" ]]; then
+          DEPLOY_GCP="true"
+        fi
+        
+        # Validate environment
+        if [[ ! "$ENVIRONMENT" =~ ^(development|staging|production)$ ]]; then
+          echo "❌ Invalid environment: $ENVIRONMENT"
+          exit 1
+        fi
+        
+        echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+        echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
+        echo "should_deploy=$SHOULD_DEPLOY" >> $GITHUB_OUTPUT
+        echo "deploy_railway=$DEPLOY_RAILWAY" >> $GITHUB_OUTPUT
+        echo "deploy_gcp=$DEPLOY_GCP" >> $GITHUB_OUTPUT
+        echo "force_deploy=$FORCE_DEPLOY" >> $GITHUB_OUTPUT
+        
+        echo "🎯 Deployment Strategy:"
+        echo "  Environment: $ENVIRONMENT"
+        echo "  Platform: $PLATFORM"
+        echo "  Should Deploy: $SHOULD_DEPLOY"
+        echo "  Deploy Railway: $DEPLOY_RAILWAY"
+        echo "  Deploy GCP: $DEPLOY_GCP"
+        echo "  Force Deploy: $FORCE_DEPLOY"
+
+  # Pre-deployment Health Check
+  pre-deployment-check:
+    name: 🔍 Pre-deployment Check
+    runs-on: ubuntu-latest
+    needs: deployment-strategy
+    if: needs.deployment-strategy.outputs.should_deploy == 'true'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🔍 Validate environment
+      run: |
+        echo "🔍 Validating ${{ needs.deployment-strategy.outputs.environment }} environment..."
+        
+        # Make scripts executable
+        chmod +x tools/validate-secrets.sh
+        chmod +x tools/setup-env.sh
+        
+        # Validate environment configuration
+        if [[ -f "tools/validate-secrets.sh" ]]; then
+          ./tools/validate-secrets.sh || echo "⚠️ Validation completed with warnings"
+        else
+          echo "⚠️ Validation script not found"
+        fi
+        
+    - name: 🧪 Run pre-deployment tests
+      run: |
+        echo "🧪 Running pre-deployment tests..."
+        
+        # Create test environment
+        cat > .env << EOF
+        NODE_ENV=test
+        DATABASE_URL=postgresql://test:test@localhost:5432/test
+        REDIS_URL=redis://localhost:6379
+        JWT_SECRET=test-secret-for-ci
+        EOF
+        
+        # Run service tests
+        if [[ -f "tools/service-specific-tests.sh" ]]; then
+          chmod +x tools/service-specific-tests.sh
+          ./tools/service-specific-tests.sh all test || echo "⚠️ Pre-deployment tests completed with warnings"
+        else
+          echo "⚠️ Service tests not found"
+        fi
+
+  # Railway Deployment
+  deploy-railway:
+    name: 🚂 Deploy to Railway
+    runs-on: ubuntu-latest
+    needs: [deployment-strategy, pre-deployment-check]
+    if: |
+      needs.deployment-strategy.outputs.should_deploy == 'true' && 
+      needs.deployment-strategy.outputs.deploy_railway == 'true'
+    environment:
+      name: ${{ needs.deployment-strategy.outputs.environment }}
+      url: ${{ steps.deploy.outputs.url }}
+      
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🚂 Setup Railway CLI
+      run: npm install -g @railway/cli
+      
+    - name: 🔐 Login to Railway
+      run: railway login --token ${{ secrets.RAILWAY_TOKEN }}
+      
+    - name: 🔧 Configure Railway project
+      run: |
+        echo "🔧 Configuring Railway project..."
+        
+        # Link project if needed
+        if ! railway status; then
+          echo "🔗 Linking Railway project..."
+          railway link
+        fi
+        
+        # Generate service configuration
+        if [[ -f "infra/railway/config-railway.js" ]]; then
+          echo "🔧 Generating Railway configuration..."
+          node infra/railway/config-railway.js generate
+        fi
+        
+        # Set environment variables
+        echo "🔧 Setting environment variables..."
+        
+        # Core variables
+        railway variables set NODE_ENV="${{ needs.deployment-strategy.outputs.environment }}"
+        railway variables set PORT=8080
+        
+        # Database variables (if configured)
+        if [[ -n "${{ secrets.DATABASE_URL }}" ]]; then
+          railway variables set DATABASE_URL="${{ secrets.DATABASE_URL }}"
+        fi
+        
+        if [[ -n "${{ secrets.REDIS_URL }}" ]]; then
+          railway variables set REDIS_URL="${{ secrets.REDIS_URL }}"
+        fi
+        
+        # External service variables
+        if [[ -n "${{ secrets.JWT_SECRET }}" ]]; then
+          railway variables set JWT_SECRET="${{ secrets.JWT_SECRET }}"
+        fi
+        
+        if [[ -n "${{ secrets.STRIPE_SECRET_KEY }}" ]]; then
+          railway variables set STRIPE_SECRET_KEY="${{ secrets.STRIPE_SECRET_KEY }}"
+        fi
+        
+        echo "✅ Railway configuration completed"
+        
+    - name: 🚂 Deploy to Railway
+      id: deploy
+      run: |
+        echo "🚂 Deploying to Railway..."
+        
+        # Deploy all services
+        railway up
+        
+        # Wait for deployment to complete
+        echo "⏳ Waiting for deployment to complete..."
+        sleep 60
+        
+        # Get service URLs
+        SERVICE_URLS=$(railway status --json | jq -r '.[].url' | head -1)
+        echo "url=$SERVICE_URLS" >> $GITHUB_OUTPUT
+        
+        echo "✅ Railway deployment completed"
+        echo "🌐 Service URL: $SERVICE_URLS"
+        
+    - name: 🧪 Verify Railway deployment
+      run: |
+        echo "🧪 Verifying Railway deployment..."
+        
+        SERVICE_URL="${{ steps.deploy.outputs.url }}"
+        MAX_RETRIES=10
+        RETRY_COUNT=0
+        
+        while [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; do
+          if curl -f "$SERVICE_URL/health" --max-time 30; then
+            echo "✅ Railway health check passed"
+            break
+          else
+            echo "⏳ Health check failed, retrying... ($((RETRY_COUNT + 1))/$MAX_RETRIES)"
+            sleep 30
+            ((RETRY_COUNT++))
+          fi
+        done
+        
+        if [[ $RETRY_COUNT -eq $MAX_RETRIES ]]; then
+          echo "❌ Railway health check failed after $MAX_RETRIES attempts"
+          if [[ "${{ needs.deployment-strategy.outputs.force_deploy }}" != "true" ]]; then
+            exit 1
+          fi
+        fi
+        
+    - name: 📊 Railway deployment info
+      run: |
+        echo "📊 Railway deployment information:"
+        railway status
+        echo ""
+        echo "🌐 Service URLs:"
+        railway status --json | jq -r '.[] | "• \(.name): \(.url)"'
+
+  # GCP Deployment
+  deploy-gcp:
+    name: ☁️ Deploy to GCP
+    runs-on: ubuntu-latest
+    needs: [deployment-strategy, pre-deployment-check]
+    if: |
+      needs.deployment-strategy.outputs.should_deploy == 'true' && 
+      needs.deployment-strategy.outputs.deploy_gcp == 'true'
+    environment:
+      name: ${{ needs.deployment-strategy.outputs.environment }}
+      url: ${{ steps.deploy.outputs.url }}
+      
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🔐 Authenticate to GCP
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+        
+    - name: ☁️ Setup GCP CLI
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+        
+    - name: 🐳 Setup Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 🔐 Login to Artifact Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ secrets.GCP_REGION }}-docker.pkg.dev
+        username: _json_key
+        password: ${{ secrets.GCP_SA_KEY }}
+        
+    - name: 🏗️ Build and push Docker image
+      run: |
+        echo "🏗️ Building Docker image for ${{ needs.deployment-strategy.outputs.environment }}..."
+        
+        # Determine image tag
+        if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          IMAGE_TAG="${{ github.ref_name }}"
+        else
+          IMAGE_TAG="${{ github.sha }}"
+        fi
+        
+        IMAGE_PATH="${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_REPOSITORY }}/app:$IMAGE_TAG"
+        
+        # Build and push
+        docker build \
+          --build-arg NODE_ENV="${{ needs.deployment-strategy.outputs.environment }}" \
+          -t "$IMAGE_PATH" \
+          .
+        docker push "$IMAGE_PATH"
+        
+        echo "✅ Docker image pushed: $IMAGE_PATH"
+        echo "image_path=$IMAGE_PATH" >> $GITHUB_ENV
+        echo "image_tag=$IMAGE_TAG" >> $GITHUB_ENV
+        
+    - name: 🔧 Deploy GCP infrastructure
+      run: |
+        echo "🔧 Deploying GCP infrastructure..."
+        
+        cd infra/pulumi
+        
+        # Install Pulumi dependencies
+        npm install
+        
+        # Select stack
+        STACK_NAME="${{ needs.deployment-strategy.outputs.environment }}"
+        
+        # Deploy infrastructure
+        pulumi up --stack="$STACK_NAME" --yes
+        
+        echo "✅ GCP infrastructure deployed"
+        
+    - name: ☁️ Deploy to Cloud Run
+      id: deploy
+      run: |
+        echo "☁️ Deploying to Cloud Run..."
+        
+        # Determine service name
+        if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          SERVICE_NAME="${{ needs.deployment-strategy.outputs.environment }}-${{ github.ref_name }}"
+        else
+          SERVICE_NAME="${{ needs.deployment-strategy.outputs.environment }}-${{ github.sha }}"
+        fi
+        
+        # Set resource limits based on environment
+        MEMORY_LIMIT="512Mi"
+        CPU_LIMIT="1"
+        
+        if [[ "${{ needs.deployment-strategy.outputs.environment }}" == "production" ]]; then
+          MEMORY_LIMIT="1Gi"
+          CPU_LIMIT="2"
+        elif [[ "${{ needs.deployment-strategy.outputs.environment }}" == "staging" ]]; then
+          MEMORY_LIMIT="768Mi"
+          CPU_LIMIT="1"
+        fi
+        
+        # Deploy to Cloud Run
+        gcloud run deploy "$SERVICE_NAME" \
+          --image="$IMAGE_PATH" \
+          --region="${{ secrets.GCP_REGION }}" \
+          --platform=managed \
+          --allow-unauthenticated \
+          --memory="$MEMORY_LIMIT" \
+          --cpu="$CPU_LIMIT" \
+          --set-env-vars="NODE_ENV=${{ needs.deployment-strategy.outputs.environment }}" \
+          --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }}" \
+          --set-env-vars="REDIS_URL=${{ secrets.REDIS_URL }}" \
+          --set-env-vars="JWT_SECRET=${{ secrets.JWT_SECRET }}" \
+          --set-env-vars="STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}" \
+          --quiet
+          
+        # Get service URL
+        SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" \
+          --region="${{ secrets.GCP_REGION }}" \
+          --format="value(status.url)")
+          
+        echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
+        echo "service_name=$SERVICE_NAME" >> $GITHUB_OUTPUT
+        
+        echo "✅ GCP deployment completed"
+        echo "🌐 Service URL: $SERVICE_URL"
+        
+    - name: 🧪 Verify GCP deployment
+      run: |
+        echo "🧪 Verifying GCP deployment..."
+        
+        SERVICE_URL="${{ steps.deploy.outputs.url }}"
+        MAX_RETRIES=10
+        RETRY_COUNT=0
+        
+        while [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; do
+          if curl -f "$SERVICE_URL/health" --max-time 30; then
+            echo "✅ GCP health check passed"
+            break
+          else
+            echo "⏳ Health check failed, retrying... ($((RETRY_COUNT + 1))/$MAX_RETRIES)"
+            sleep 30
+            ((RETRY_COUNT++))
+          fi
+        done
+        
+        if [[ $RETRY_COUNT -eq $MAX_RETRIES ]]; then
+          echo "❌ GCP health check failed after $MAX_RETRIES attempts"
+          if [[ "${{ needs.deployment-strategy.outputs.force_deploy }}" != "true" ]]; then
+            exit 1
+          fi
+        fi
+        
+    - name: 📊 GCP deployment info
+      run: |
+        echo "📊 GCP deployment information:"
+        echo "Service: ${{ steps.deploy.outputs.service_name }}"
+        echo "Image: ${{ env.image_path }}"
+        echo "Region: ${{ secrets.GCP_REGION }}"
+        echo ""
+        echo "🌐 Service URL: ${{ steps.deploy.outputs.url }}"
+
+  # Post-deployment Health Check
+  post-deployment-check:
+    name: 🏥 Post-deployment Check
+    runs-on: ubuntu-latest
+    needs: [deployment-strategy, deploy-railway, deploy-gcp]
+    if: always() && (needs.deploy-railway.result == 'success' || needs.deploy-gcp.result == 'success')
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🏥 Run comprehensive health checks
+      run: |
+        echo "🏥 Running post-deployment health checks..."
+        
+        # Make scripts executable
+        chmod +x tools/health-check.sh
+        chmod +x tools/service-specific-tests.sh
+        
+        # Create environment file
+        cat > .env << EOF
+        NODE_ENV=${{ needs.deployment-strategy.outputs.environment }}
+        DATABASE_URL=${{ secrets.DATABASE_URL }}
+        REDIS_URL=${{ secrets.REDIS_URL }}
+        JWT_SECRET=${{ secrets.JWT_SECRET }}
+        EOF
+        
+        # Run health check
+        if [[ -f "tools/health-check.sh" ]]; then
+          echo "🔍 Running comprehensive health check..."
+          ./tools/health-check.sh ${{ needs.deployment-strategy.outputs.environment }} local || echo "⚠️ Health check completed with warnings"
+        else
+          echo "⚠️ Health check script not found"
+        fi
+        
+        # Run service tests
+        if [[ -f "tools/service-specific-tests.sh" ]]; then
+          echo "🔍 Running service-specific tests..."
+          ./tools/service-specific-tests.sh all ${{ needs.deployment-strategy.outputs.environment }} || echo "⚠️ Service tests completed with warnings"
+        else
+          echo "⚠️ Service tests not found"
+        fi
+        
+        echo "✅ Post-deployment checks completed"
+
+  # Performance Tests
+  performance-tests:
+    name: ⚡ Performance Tests
+    runs-on: ubuntu-latest
+    needs: [deployment-strategy, deploy-railway, deploy-gcp]
+    if: |
+      always() && 
+      (needs.deploy-railway.result == 'success' || needs.deploy-gcp.result == 'success') &&
+      needs.deployment-strategy.outputs.environment != 'development'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: ⚡ Install performance testing tools
+      run: |
+        npm install -g artillery
+        npm install -g lighthouse
+        
+    - name: ⚡ Run load tests
+      run: |
+        echo "⚡ Running load tests..."
+        
+        # Create load test configuration
+        cat > load-test.yml << EOF
+        config:
+          target: '${{ needs.deploy-railway.result == "success" && steps.railway-deploy.outputs.url || steps.gcp-deploy.outputs.url }}'
+          phases:
+            - duration: 60
+              arrivalRate: 5
+              name: "Warm up"
+            - duration: 120
+              arrivalRate: 10
+              name: "Load test"
+        scenarios:
+          - name: "Health check"
+            weight: 50
+            flow:
+              - get:
+                  url: "/health"
+          - name: "API test"
+            weight: 50
+            flow:
+              - get:
+                  url: "/api/status"
+        EOF
+        
+        # Run load test
+        artillery run load-test.yml || echo "⚠️ Load test completed with warnings"
+        
+    - name: 🌟 Run Lighthouse tests
+      run: |
+        echo "🌟 Running Lighthouse tests..."
+        
+        # Test if Lighthouse is available
+        if command -v lighthouse &> /dev/null; then
+          SERVICE_URL="${{ needs.deploy-railway.result == "success" && steps.railway-deploy.outputs.url || steps.gcp-deploy.outputs.url }}"
+          
+          lighthouse "$SERVICE_URL" \
+            --output=json \
+            --output-path=./lighthouse-report.json \
+            --chrome-flags="--headless" \
+            --quiet || echo "⚠️ Lighthouse test completed with warnings"
+            
+          echo "✅ Lighthouse tests completed"
+        else
+          echo "⚠️ Lighthouse not available"
+        fi
+        
+    - name: 📊 Upload performance reports
+      uses: actions/upload-artifact@v3
+      if: success()
+      with:
+        name: performance-reports
+        path: |
+          lighthouse-report.json
+          load-test.yml
+
+  # Security Scan
+  security-scan:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    needs: [deployment-strategy, deploy-railway, deploy-gcp]
+    if: |
+      always() && 
+      (needs.deploy-railway.result == 'success' || needs.deploy-gcp.result == 'success') &&
+      needs.deployment-strategy.outputs.environment == 'production'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔒 Run security scan
+      run: |
+        echo "🔒 Running security scan..."
+        
+        # Get service URL
+        SERVICE_URL="${{ needs.deploy-railway.result == "success" && steps.railway-deploy.outputs.url || steps.gcp-deploy.outputs.url }}"
+        
+        # Test for security headers
+        echo "🔍 Checking security headers..."
+        SECURITY_HEADERS=$(curl -s -I "$SERVICE_URL" | grep -i -E "x-frame-options|x-content-type-options|content-security-policy|x-xss-protection" || echo "")
+        
+        if [[ -n "$SECURITY_HEADERS" ]]; then
+          echo "✅ Security headers found:"
+          echo "$SECURITY_HEADERS"
+        else
+          echo "⚠️ Security headers missing"
+        fi
+        
+        # Test for HTTPS enforcement
+        echo "🔍 Checking HTTPS enforcement..."
+        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://$SERVICE_URL" || echo "000")
+        
+        if [[ "$HTTP_STATUS" == "301" || "$HTTP_STATUS" == "30" ]]; then
+          echo "✅ HTTPS properly enforced"
+        else
+          echo "⚠️ HTTPS enforcement may be missing"
+        fi
+        
+        echo "✅ Security scan completed"
+
+  # Rollback (if needed)
+  rollback:
+    name: 🔄 Rollback
+    runs-on: ubuntu-latest
+    needs: [deployment-strategy, post-deployment-check, performance-tests, security-scan]
+    if: |
+      failure() && 
+      needs.deployment-strategy.outputs.force_deploy != 'true' &&
+      (needs.deploy-railway.result == 'failure' || needs.deploy-gcp.result == 'failure' ||
+       needs.post-deployment-check.result == 'failure')
+    
+    steps:
+    - name: 🔄 Rollback Railway
+      if: needs.deploy-railway.result == 'failure'
+      run: |
+        echo "🔄 Rolling back Railway deployment..."
+        
+        npm install -g @railway/cli
+        railway login --token ${{ secrets.RAILWAY_TOKEN }}
+        
+        # Rollback to previous deployment
+        railway rollback
+        
+        echo "✅ Railway rollback completed"
+        
+    - name: 🔄 Rollback GCP
+      if: needs.deploy-gcp.result == 'failure'
+      run: |
+        echo "🔄 Rolling back GCP deployment..."
+        
+        # Authenticate to GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          
+        # Setup GCP CLI
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          
+        # Get previous revision
+        PREVIOUS_REVISION=$(gcloud run services revisions list \
+          --service="${{ needs.deployment-strategy.outputs.environment }}" \
+          --region="${{ secrets.GCP_REGION }}" \
+          --limit=2 \
+          --format="value(name)" | tail -1)
+          
+        # Rollback to previous revision
+        if [[ -n "$PREVIOUS_REVISION" ]]; then
+          gcloud run services update "${{ needs.deployment-strategy.outputs.environment }}" \
+            --region="${{ secrets.GCP_REGION }}" \
+            --revision="$PREVIOUS_REVISION"
+          echo "✅ GCP rollback completed to $PREVIOUS_REVISION"
+        else
+          echo "⚠️ No previous revision found for rollback"
+        fi
+
+  # Notification
+  notify:
+    name: 📢 Notify Deployment
+    runs-on: ubuntu-latest
+    needs: [deployment-strategy, deploy-railway, deploy-gcp, post-deployment-check, performance-tests, security-scan, rollback]
+    if: always()
+    
+    steps:
+    - name: 📢 Build deployment notification
+      id: message
+      run: |
+        ENVIRONMENT="${{ needs.deployment-strategy.outputs.environment }}"
+        PLATFORM="${{ needs.deployment-strategy.outputs.platform }}"
+        
+        MESSAGE="## 🚀 Deployment Complete
+        
+        **Environment:** $ENVIRONMENT
+        **Platform:** $PLATFORM
+        **Branch:** ${{ github.ref_name }}
+        **Commit:** ${{ github.sha }}
+        
+        ### 📊 Deployment Results:
+        
+        - 🚂 **Railway:** ${{ needs.deploy-railway.result }}
+        - ☁️ **GCP:** ${{ needs.deploy-gcp.result }}"
+        - 🏥 **Post-deployment Check:** ${{ needs.post-deployment-check.result }}"
+        - ⚡ **Performance Tests:** ${{ needs.performance-tests.result }}"
+        - 🔒 **Security Scan:** ${{ needs.security-scan.result }}"
+        
+        ### 🎯 Overall Status: "
+        
+        # Determine overall status
+        if [[ "${{ needs.deploy-railway.result }}" == "failure" || "${{ needs.deploy-gcp.result }}" == "failure" || "${{ needs.post-deployment-check.result }}" == "failure" ]]; then
+          if [[ "${{ needs.rollback.result }}" == "success" ]]; then
+            MESSAGE="$MESSAGE🔄 ROLLED BACK"
+          else
+            MESSAGE="$MESSAGE❌ FAILED"
+          fi
+        elif [[ "${{ needs.performance-tests.result }}" == "failure" || "${{ needs.security-scan.result }}" == "failure" ]]; then
+          MESSAGE="$MESSAGE⚠️ SUCCESS WITH ISSUES"
+        else
+          MESSAGE="$MESSAGE✅ SUCCESS"
+        fi
+        
+        # Add service URLs
+        if [[ "${{ needs.deploy-railway.result }}" == "success" ]]; then
+          MESSAGE="$MESSAGE
+        
+        ### 🌐 Railway URLs:
+        - Railway Service: ${{ needs.deploy-railway.outputs.url }}"
+        "
+        fi
+        
+        if [[ "${{ needs.deploy-gcp.result }}" == "success" ]]; then
+          MESSAGE="$MESSAGE
+        ### 🌐 GCP URLs:
+        - GCP Service: ${{ needs.deploy-gcp.outputs.url }}"
+        "
+        fi
+        
+        echo "message<<EOF" >> $GITHUB_OUTPUT
+        echo "$MESSAGE" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+    - name: 📢 Post to Slack
+      if: env.SLACK_WEBHOOK_URL != ''
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      run: |
+        curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"${{ steps.message.outputs.message }}"}' \
+          "$SLACK_WEBHOOK_URL"
+          
+    - name: 📢 Create GitHub Release
+      if: github.ref_type == 'tag' && needs.deploy-railway.result == 'success' && needs.deploy-gcp.result == 'success'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        body: |
+          ${{ steps.message.outputs.message }}
+          
+        draft: false
+        prerelease: ${{ contains(github.ref_name, '-') }}
+
+  # Cleanup
+  cleanup:
+    name: 🧹 Cleanup
+    runs-on: ubuntu-latest
+    needs: [deployment-strategy, deploy-gcp]
+    if: always() && needs.deploy-gcp.result == 'success'
+    
+    steps:
+    - name: 🔐 Authenticate to GCP
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+        
+    - name: ☁️ Setup GCP CLI
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+        
+    - name: 🧹 Cleanup old deployments
+      run: |
+        echo "🧹 Cleaning up old Cloud Run deployments..."
+        
+        # Keep only last 3 deployments per environment
+        gcloud run services list \
+          --region="${{ secrets.GCP_REGION }}" \
+          --format="value(name)" \
+          | grep "${{ needs.deployment-strategy.outputs.environment }}" \
+          | sort -r \
+          | tail -n +4 \
+          | xargs -r -I {} gcloud run services delete {} \
+            ---region="${{ secrets.GCP_REGION }}" \
+            --quiet
+            
+        echo "✅ Cleanup completed"

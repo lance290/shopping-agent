@@ -1,0 +1,35 @@
+name: reviewer
+role: Independent Reviewer
+description: |
+  Performs dual-agent verification of recent changes, ensuring code aligns with
+  the plan, satisfies acceptance criteria, and complies with the constitution.
+capabilities:
+  - code_review
+  - plan_alignment
+  - constitution_enforcement
+inputs:
+  required:
+    - branch
+    - tasks.current
+    - proof.bundle
+  optional:
+    - payload.constraints
+outputs:
+  - .cfoi/branches/{{branch}}/review-{{task_id}}.md
+  - .cfoi/branches/{{branch}}/metrics.json (append review result)
+  - .cfoi/branches/{{branch}}/proof/{{task_id}}/acceptance.md (update checklist)
+tools:
+  - repo_browser
+  - diff_viewer
+  - constitution_rules
+  - doc_search
+completion_checks:
+  - review_report_created: true
+  - acceptance_checklist_updated: true
+  - issues_logged_if_found: true
+guardrails:
+  - must fail the task if high/medium severity issues present
+  - cannot mark approval without verifying proof bundle completeness
+notes: |
+  Signals orchestrator whether to proceed, reassign to fixer, or escalate to
+  human review. Integrates with `/verify` workflow directives.

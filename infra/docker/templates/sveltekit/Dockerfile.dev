@@ -1,0 +1,31 @@
+# SvelteKit Development Dockerfile
+# Includes development tools and debugging
+FROM node:18-alpine
+
+# Install development dependencies
+RUN apk add --no-cache libc6-compat curl
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json package-lock.json* ./
+
+# Install all dependencies (including dev)
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Create non-root user for development
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 svelte
+
+# Set ownership
+RUN chown -R svelte:nodejs /app
+USER svelte
+
+# Development port
+EXPOSE 5173
+
+# Development server with hot reload
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

@@ -1,0 +1,145 @@
+name: Railway PR Env
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+jobs:
+  deploy:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      SERVICE_NAME: ${{ github.event.repository.name }}-${{ github.head_ref }}
+      ENV_NAME: review-pr-${{ github.event.number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preconditions
+        run: |
+          if [ -z "${RAILWAY_PROJECT_ID}" ] || [ -z "${RAILWAY_TOKEN}" ]; then
+            echo "RAILWAY_PROJECT_ID or RAILWAY_TOKEN not configured; skipping Railway deploy." >&2
+            echo "::notice title=Railway skipped::Set RAILWAY_PROJECT_ID repo var and RAILWAY_TOKEN secret to enable Railway PR envs."
+            exit 0
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with: { node-version: 20 }
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Login and Link Project
+        run: |
+          export RAILWAY_TOKEN
+          railway login --token "$RAILWAY_TOKEN"
+          railway link --project "$RAILWAY_PROJECT_ID"
+
+      - name: Create/Select Environment
+        run: |
+          export RAILWAY_TOKEN
+          # Try to create env; ignore error if exists
+          railway environment create "$ENV_NAME" || true
+          railway environment use "$ENV_NAME"
+
+      - name: Create/Select Service
+        run: |
+          export RAILWAY_TOKEN
+          # Try to create service; ignore error if exists
+          railway service create "$SERVICE_NAME" || true
+          railway service "$SERVICE_NAME"
+
+      - name: Set Environment Variables
+        run: |
+          export RAILWAY_TOKEN
+          railway variables set BRANCH_NAME="${{ github.head_ref }}" PR_NUMBER="${{ github.event.number }}" ENVIRONMENT="review" || true
+
+      - name: Detect deployable app
+        id: detect
+        run: |
+          if [ -f Dockerfile ] || [ -f package.json ]; then
+            echo "deployable=true" >> $GITHUB_OUTPUT
+          else
+            echo "deployable=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to Railway (if app present)
+        if: steps.detect.outputs.deployable == 'true'
+        env:
+          RAILWAY_CLI_NO_CI_PROMPT: "1"
+        run: |
+          export RAILWAY_TOKEN
+          railway up --service "$SERVICE_NAME" --yes
+
+      - name: Comment PR with Railway environment info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `🚆 Railway environment prepared\n\n- Environment: \`${process.env.ENV_NAME}\`\n- Service: \`${process.env.SERVICE_NAME}\`\n- Project: \`${process.env.RAILWAY_PROJECT_ID}\`\n\nIf this repo contains an app (Dockerfile or package.json), it was deployed automatically. Otherwise, the environment is ready and can be linked to your app repository.\n\nNote: Configure repo var RAILWAY_PROJECT_ID and secret RAILWAY_TOKEN to enable deployments.`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            })
+
+  destroy:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      SERVICE_NAME: ${{ github.event.repository.name }}-${{ github.head_ref }}
+      ENV_NAME: review-pr-${{ github.event.number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preconditions
+        run: |
+          if [ -z "${RAILWAY_PROJECT_ID}" ] || [ -z "${RAILWAY_TOKEN}" ]; then
+            echo "RAILWAY_PROJECT_ID or RAILWAY_TOKEN not configured; skipping Railway cleanup." >&2
+            echo "::notice title=Railway skipped::Set RAILWAY_PROJECT_ID repo var and RAILWAY_TOKEN secret to enable Railway PR envs."
+            exit 0
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with: { node-version: 20 }
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Login and Link Project
+        run: |
+          export RAILWAY_TOKEN
+          railway login --token "$RAILWAY_TOKEN"
+          railway link --project "$RAILWAY_PROJECT_ID"
+
+      - name: Select Environment
+        run: |
+          export RAILWAY_TOKEN
+          railway environment use "$ENV_NAME" || true
+
+      - name: Delete Service
+        run: |
+          export RAILWAY_TOKEN
+          railway service "$SERVICE_NAME" || true
+          railway service delete "$SERVICE_NAME" --yes || true
+
+      - name: Delete Environment
+        run: |
+          export RAILWAY_TOKEN
+          railway environment delete "$ENV_NAME" --yes || true
+
+      - name: Comment PR with Cleanup Confirmation
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `🧹 Railway environment cleaned up\n\n- Environment: \`${process.env.ENV_NAME}\`\n- Service: \`${process.env.SERVICE_NAME}\``;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            })

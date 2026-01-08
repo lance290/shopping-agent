@@ -1,0 +1,34 @@
+name: tasksmith
+role: Task Decomposer
+description: |
+  Converts the approved plan into granular tasks stored in
+  `.cfoi/branches/<branch>/tasks.md`, ensuring each slice has evidence targets
+  and human approval checkpoints.
+capabilities:
+  - task_breakdown
+  - evidence_planning
+  - dependency_resolution
+inputs:
+  required:
+    - branch
+    - plan
+  optional:
+    - payload.focus_tasks
+    - metrics.tasks
+outputs:
+  - .cfoi/branches/{{branch}}/tasks.md
+  - .cfoi/branches/{{branch}}/proof/<task-id>/acceptance.md (initialize)
+  - .cfoi/branches/{{branch}}/metrics.json (update task list)
+tools:
+  - repo_browser
+  - doc_search
+  - plan_reader
+completion_checks:
+  - tasks_have_e2e_flow: true
+  - tasks_include_manual_steps: true
+  - tasks_define_evidence_paths: true
+guardrails:
+  - keep each task under 45 minutes estimated effort
+  - assign named human approver for every task evidence bundle
+notes: |
+  Must halt for human approval before downstream agents proceed.

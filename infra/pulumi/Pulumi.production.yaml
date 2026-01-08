@@ -1,0 +1,47 @@
+# Production Environment
+config:
+  # GCP Configuration
+  gcp:project: your-project-prod
+  gcp:region: us-central1
+  
+  # Application Configuration
+  app:appName: myapp
+  app:containerImage: gcr.io/your-project-prod/myapp:production
+  
+  # Resource Limits (Large for production)
+  app:cpu: "2000m"
+  app:memory: "2Gi"
+  app:minReplicas: 2  # Always keep warm
+  app:maxReplicas: 20
+  app:timeout: 300
+  app:concurrency: 100
+  
+  # Cloud Provider Selection
+  app:deployToGCP: true
+  app:deployToRailway: true  # Enable for load balancing/redundancy
+  app:deployToModal: true    # Enable for ML inference workloads
+  
+  # Secrets (encrypted by Pulumi)
+  app:databaseUrl:
+    secure: <encrypted-prod-db-connection-string>
+  app:apiKey:
+    secure: <encrypted-api-key>
+  app:jwtSecret:
+    secure: <encrypted-jwt-secret>
+  
+  # Railway Configuration
+  app:railwayToken:
+    secure: <encrypted-railway-token>
+  app:railwayProjectId: <railway-prod-project-id>
+  
+  # Modal Configuration (for ML workloads)
+  app:modalToken:
+    secure: <encrypted-modal-token>
+  app:modalGpu: "a10g"  # Specify GPU type for production
+  app:huggingfaceToken:
+    secure: <encrypted-hf-token>
+  app:openaiApiKey:
+    secure: <encrypted-openai-key>
+  
+  # IAM Configuration (restrict access in production)
+  app:allowedUsers: "serviceAccount:prod-bot@yourproject.iam.gserviceaccount.com"

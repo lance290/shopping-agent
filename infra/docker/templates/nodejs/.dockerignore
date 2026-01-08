@@ -1,0 +1,62 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+.npm
+.yarn
+
+# Build outputs
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Development files
+src/
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+__tests__/
+test/
+tests/
+coverage/
+
+# Environment files (NEVER include in Docker image)
+.env
+.env.*
+!.env.example
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation
+README.md
+docs/
+*.md
+!package.json
+
+# Logs
+logs/
+*.log
+
+# Misc
+.cache/
+.temp/
+tmp/

@@ -1,0 +1,37 @@
+# Development Dockerfile for Node.js/TypeScript
+# Optimized for fast iteration with hot reload
+# Use with docker-compose for local development
+
+FROM node:20-alpine
+
+# Install development tools
+RUN apk add --no-cache \
+    git \
+    python3 \
+    make \
+    g++
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY tsconfig.json* ./
+
+# Install all dependencies (including dev)
+RUN npm install
+
+# Copy source (will be overridden by volume mount in docker-compose)
+COPY . .
+
+# Expose dev server port
+EXPOSE 8080
+EXPOSE 9229
+
+# Enable source maps for debugging
+ENV NODE_ENV=development \
+    NODE_OPTIONS="--enable-source-maps" \
+    PORT=8080
+
+# Start development server with hot reload
+# Assumes you have a "dev" script in package.json
+CMD ["npm", "run", "dev"]

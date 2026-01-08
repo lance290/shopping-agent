@@ -1,0 +1,462 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT_DIR="$(git rev-parse --show-toplevel)"; CKPT_FILE="$ROOT_DIR/.checkpoint"
+
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "detached-head")
+if [ "$CURRENT_BRANCH" = "HEAD" ]; then
+  CURRENT_BRANCH="detached-head"
+fi
+
+CFOI_BRANCH_DIR="$ROOT_DIR/.cfoi/branches/$CURRENT_BRANCH"
+
+# Guardrail: ensure Python virtualenv is active when project ships one
+if [ -d "$ROOT_DIR/.venv" ] && [ -z "${PRECOMMIT_ALLOW_SYSTEM_PYTHON:-}" ]; then
+  if [ -z "${VIRTUAL_ENV:-}" ]; then
+    echo "[pre-commit] ❌ .venv detected but not active."
+    echo "Activate it first: source .venv/bin/activate"
+    echo "Override (not recommended): export PRECOMMIT_ALLOW_SYSTEM_PYTHON=1"
+    exit 1
+  fi
+  if [ "$(cd "$VIRTUAL_ENV" && pwd)" != "$(cd "$ROOT_DIR/.venv" && pwd)" ]; then
+    echo "[pre-commit] ❌ Using a different virtualenv ($VIRTUAL_ENV)."
+    echo "Activate the local venv: source .venv/bin/activate"
+    echo "Override: export PRECOMMIT_ALLOW_SYSTEM_PYTHON=1"
+    exit 1
+  fi
+fi
+
+run_formatter() {
+  local status=0
+  local any_formatter_run=false
+  
+  # Node.js/JavaScript/TypeScript formatter
+  if [ -f "$ROOT_DIR/package.json" ] && command -v npm >/dev/null 2>&1; then
+    if npm run -s 2>/dev/null | grep -q "format"; then
+      echo "[pre-commit] 📦 Formatting Node.js code..."
+      (cd "$ROOT_DIR" && npm run --silent format) || status=$?
+      any_formatter_run=true
+    fi
+  fi
+  
+  # Python formatter (Black)
+  if [ -x "$ROOT_DIR/.venv/bin/black" ]; then
+    echo "[pre-commit] 🐍 Formatting Python code..."
+    (cd "$ROOT_DIR" && "$ROOT_DIR/.venv/bin/black" .) || status=$?
+    any_formatter_run=true
+  fi
+  
+  # Go formatter
+  if [ -f "$ROOT_DIR/go.mod" ] && command -v gofmt >/dev/null 2>&1; then
+    echo "[pre-commit] 🐹 Formatting Go code..."
+    (cd "$ROOT_DIR" && gofmt -w .) || status=$?
+    any_formatter_run=true
+  fi
+  
+  # Rust formatter
+  if [ -f "$ROOT_DIR/Cargo.toml" ] && command -v cargo >/dev/null 2>&1; then
+    echo "[pre-commit] 🦀 Formatting Rust code..."
+    (cd "$ROOT_DIR" && cargo fmt) || status=$?
+    any_formatter_run=true
+  fi
+  
+  # C++ formatter (clang-format)
+  if [ -f "$ROOT_DIR/CMakeLists.txt" ] || [ -f "$ROOT_DIR/.clang-format" ]; then
+    if command -v clang-format >/dev/null 2>&1; then
+      echo "[pre-commit] 🔧 Formatting C++ code..."
+      find "$ROOT_DIR" -type f \( -name "*.cpp" -o -name "*.hpp" -o -name "*.cc" -o -name "*.h" -o -name "*.cxx" \) -exec clang-format -i {} + || status=$?
+      any_formatter_run=true
+    fi
+  fi
+  
+  if [ "$any_formatter_run" = false ]; then
+    echo "[pre-commit] ⏭️ No formatters detected"
+  fi
+  
+  return $status
+}
+
+# Format code (language-aware, monorepo support)
+if [ -f "$CKPT_FILE" ]; then
+  run_formatter || true
+else
+  run_formatter
+fi
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=AM | tr '\n' ' ')
+[ -z "$STAGED_FILES" ] && exit 0
+
+# Exclude binary/build files from all checks
+EXCLUDE_REGEX='\.(lock|svg|png|jpg|jpeg|gif|ico|webp|mp3|mp4|mov|pdf|wasm)$|^dist/|^build/|^out/|^.next/|^coverage/|^.turbo/|^package-lock\.json$'
+
+# Exempt documentation and planning files from line limits
+# Includes Markdown docs, CFOI planning artifacts, env templates, framework docs (.windsurf/),
+# CI workflows (.github/workflows/), archived docs (docs/old/), infra config (infra/pulumi/config-monorepo.js),
+# and lock files (package-lock.json, yarn.lock, pnpm-lock.yaml, Gemfile.lock, Cargo.lock, etc.).
+EXEMPT_FROM_LINE_LIMIT='(\.md$|\.cfoi/|cfoi-slice-|cfoi-plan-|cfoi-task-|cfoi-implement-|env\.example$|\.env\.example$|\.windsurf/|^\.windsurf/|^\.github/workflows/|^docs/old/|^infra/pulumi/config-monorepo\.js$|^tools/validate-secrets\.sh$|-lock\.(json|yaml|yml)$|\.lock$|lock\.json$|go\.sum$)'
+
+FAIL=0
+
+# ============================================================================
+# LINTING (Multi-language support)
+# ============================================================================
+echo "[pre-commit] 🔍 Running linters..."
+
+# Node.js/JavaScript/TypeScript linting
+if [ -f "$ROOT_DIR/package.json" ] && command -v npm >/dev/null 2>&1; then
+  if npm run -s 2>/dev/null | grep -q "lint"; then
+    echo "[pre-commit] 📦 Node.js: running linter..."
+    if npm run -s lint; then
+      echo "[pre-commit] ✅ Node.js lint passed"
+    else
+      echo "[pre-commit] ❌ Node.js lint failed"
+      FAIL=$((FAIL+5))
+    fi
+  fi
+fi
+
+# Go linting (golangci-lint or go vet)
+if [ -f "$ROOT_DIR/go.mod" ] && command -v go >/dev/null 2>&1; then
+  if command -v golangci-lint >/dev/null 2>&1; then
+    echo "[pre-commit] 🐹 Go: running golangci-lint..."
+    if golangci-lint run ./...; then
+      echo "[pre-commit] ✅ Go lint passed"
+    else
+      echo "[pre-commit] ❌ Go lint failed"
+      FAIL=$((FAIL+5))
+    fi
+  else
+    echo "[pre-commit] 🐹 Go: running go vet..."
+    if go vet ./...; then
+      echo "[pre-commit] ✅ Go vet passed"
+    else
+      echo "[pre-commit] ❌ Go vet failed"
+      FAIL=$((FAIL+5))
+    fi
+  fi
+fi
+
+# Rust linting (clippy)
+if [ -f "$ROOT_DIR/Cargo.toml" ] && command -v cargo >/dev/null 2>&1; then
+  echo "[pre-commit] 🦀 Rust: running clippy..."
+  if cargo clippy -- -D warnings; then
+    echo "[pre-commit] ✅ Rust clippy passed"
+  else
+    echo "[pre-commit] ❌ Rust clippy failed"
+    FAIL=$((FAIL+5))
+  fi
+fi
+
+# Python linting (flake8, pylint, or ruff)
+if ([ -f "$ROOT_DIR/pytest.ini" ] || [ -f "$ROOT_DIR/setup.py" ] || [ -f "$ROOT_DIR/pyproject.toml" ]); then
+  if command -v ruff >/dev/null 2>&1; then
+    echo "[pre-commit] 🐍 Python: running ruff..."
+    if ruff check .; then
+      echo "[pre-commit] ✅ Python ruff passed"
+    else
+      echo "[pre-commit] ❌ Python ruff failed"
+      FAIL=$((FAIL+5))
+    fi
+  elif [ -x "$ROOT_DIR/.venv/bin/flake8" ]; then
+    echo "[pre-commit] 🐍 Python: running flake8..."
+    if "$ROOT_DIR/.venv/bin/flake8" .; then
+      echo "[pre-commit] ✅ Python flake8 passed"
+    else
+      echo "[pre-commit] ❌ Python flake8 failed"
+      FAIL=$((FAIL+5))
+    fi
+  elif [ -x "$ROOT_DIR/.venv/bin/pylint" ]; then
+    echo "[pre-commit] 🐍 Python: running pylint..."
+    if "$ROOT_DIR/.venv/bin/pylint" **/*.py; then
+      echo "[pre-commit] ✅ Python pylint passed"
+    else
+      echo "[pre-commit] ❌ Python pylint failed"
+      FAIL=$((FAIL+5))
+    fi
+  fi
+fi
+
+# C++ linting (clang-tidy or cppcheck)
+if [ -f "$ROOT_DIR/CMakeLists.txt" ]; then
+  if command -v clang-tidy >/dev/null 2>&1; then
+    echo "[pre-commit] 🔧 C++: running clang-tidy..."
+    if find "$ROOT_DIR" -type f \( -name "*.cpp" -o -name "*.cc" -o -name "*.cxx" \) -exec clang-tidy {} -- \; 2>&1 | grep -q "error:"; then
+      echo "[pre-commit] ❌ C++ clang-tidy failed"
+      FAIL=$((FAIL+5))
+    else
+      echo "[pre-commit] ✅ C++ clang-tidy passed"
+    fi
+  elif command -v cppcheck >/dev/null 2>&1; then
+    echo "[pre-commit] 🔧 C++: running cppcheck..."
+    if cppcheck --enable=all --error-exitcode=1 --quiet "$ROOT_DIR" 2>&1; then
+      echo "[pre-commit] ✅ C++ cppcheck passed"
+    else
+      echo "[pre-commit] ❌ C++ cppcheck failed"
+      FAIL=$((FAIL+5))
+    fi
+  fi
+fi
+
+# ============================================================================
+# TYPE CHECKING (Multi-language support)
+# ============================================================================
+echo "[pre-commit] 🔍 Running type checkers..."
+
+# TypeScript type checking
+if [ -f "$ROOT_DIR/tsconfig.json" ] && command -v npx >/dev/null 2>&1; then
+  # Check if staged files include TypeScript
+  HAS_TS=$(echo "$STAGED_FILES" | grep -E '\.(ts|tsx)$' || true)
+  
+  if [ -n "$HAS_TS" ]; then
+    echo "[pre-commit] 📦 TypeScript: running type checker..."
+    # Run TypeScript compiler, capture output
+    TSC_OUTPUT=$(cd "$ROOT_DIR" && npx tsc --noEmit 2>&1 || true)
+    
+    # Separate real errors from "unexpected any" warnings
+    REAL_ERRORS=$(echo "$TSC_OUTPUT" | grep -v "Unsafe use of any" | grep -E '^.*\([0-9]+,[0-9]+\): error TS[0-9]+:' | grep -v "\.cfoi/" || true)
+    ANY_WARNINGS=$(echo "$TSC_OUTPUT" | grep "Unsafe use of any" | grep -v "\.cfoi/" || true)
+    
+    # Display "unexpected any" warnings (non-blocking)
+    if [ -n "$ANY_WARNINGS" ]; then
+      echo "[pre-commit] ⚠️  TypeScript 'any' type warnings (non-blocking):"
+      echo "$ANY_WARNINGS" | head -10
+      if [ "$(echo "$ANY_WARNINGS" | wc -l)" -gt 10 ]; then
+        echo "     ... and $(($(echo "$ANY_WARNINGS" | wc -l) - 10)) more 'any' warnings"
+      fi
+      echo ""
+    fi
+    
+    # Check for real type errors (blocking)
+    if [ -n "$REAL_ERRORS" ]; then
+      echo "[pre-commit] ❌ TypeScript type errors found:"
+      echo "$REAL_ERRORS"
+      FAIL=$((FAIL+10))
+    else
+      echo "[pre-commit] ✅ TypeScript type checking passed"
+    fi
+  fi
+fi
+
+# Python type checking (mypy)
+if ([ -f "$ROOT_DIR/pytest.ini" ] || [ -f "$ROOT_DIR/setup.py" ] || [ -f "$ROOT_DIR/pyproject.toml" ]); then
+  if [ -x "$ROOT_DIR/.venv/bin/mypy" ]; then
+    echo "[pre-commit] 🐍 Python: running mypy..."
+    if "$ROOT_DIR/.venv/bin/mypy" .; then
+      echo "[pre-commit] ✅ Python mypy passed"
+    else
+      echo "[pre-commit] ❌ Python mypy failed"
+      FAIL=$((FAIL+10))
+    fi
+  elif command -v mypy >/dev/null 2>&1; then
+    echo "[pre-commit] 🐍 Python: running mypy..."
+    if mypy .; then
+      echo "[pre-commit] ✅ Python mypy passed"
+    else
+      echo "[pre-commit] ❌ Python mypy failed"
+      FAIL=$((FAIL+10))
+    fi
+  fi
+fi
+
+# Rust type checking (already done by cargo check, but explicit here)
+if [ -f "$ROOT_DIR/Cargo.toml" ] && command -v cargo >/dev/null 2>&1; then
+  echo "[pre-commit] 🦀 Rust: running type checker..."
+  if cargo check; then
+    echo "[pre-commit] ✅ Rust type checking passed"
+  else
+    echo "[pre-commit] ❌ Rust type checking failed"
+    FAIL=$((FAIL+10))
+  fi
+fi
+
+# Go type checking (already done by go vet, but explicit here)
+if [ -f "$ROOT_DIR/go.mod" ] && command -v go >/dev/null 2>&1; then
+  echo "[pre-commit] 🐹 Go: running type checker..."
+  if go build -o /dev/null ./... 2>/dev/null; then
+    echo "[pre-commit] ✅ Go type checking passed"
+  else
+    echo "[pre-commit] ❌ Go type checking failed"
+    FAIL=$((FAIL+10))
+  fi
+fi
+
+# C++ type checking (compile check)
+if [ -f "$ROOT_DIR/CMakeLists.txt" ] && command -v cmake >/dev/null 2>&1; then
+  echo "[pre-commit] 🔧 C++: running type checker..."
+  BUILD_DIR="$ROOT_DIR/build"
+  mkdir -p "$BUILD_DIR"
+  JOBS=1
+  if command -v nproc >/dev/null 2>&1; then
+    JOBS=$(nproc)
+  elif command -v sysctl >/dev/null 2>&1; then
+    JOBS=$(sysctl -n hw.ncpu 2>/dev/null || echo 1)
+  fi
+  if (cd "$BUILD_DIR" && cmake .. >/dev/null 2>&1 && make -j"$JOBS" >/dev/null 2>&1); then
+    echo "[pre-commit] ✅ C++ type checking passed"
+  else
+    echo "[pre-commit] ❌ C++ type checking failed"
+    FAIL=$((FAIL+10))
+  fi
+fi
+
+# Evidence expectations (tests + coverage)
+EXPECT_EVIDENCE=false
+for f in $STAGED_FILES; do
+  [[ "$f" =~ $EXCLUDE_REGEX ]] && continue
+  if [[ "$f" =~ \.(js|ts|tsx|jsx|py|go|rs|java|cs|json|yml|yaml)$ ]]; then
+    EXPECT_EVIDENCE=true
+    break
+  fi
+done
+
+if [ "$EXPECT_EVIDENCE" = true ] && [ -d "$CFOI_BRANCH_DIR" ]; then
+  # Read current effort from .current-effort file
+  CURRENT_EFFORT_FILE="$CFOI_BRANCH_DIR/.current-effort"
+  
+  if [ ! -f "$CURRENT_EFFORT_FILE" ]; then
+    echo "[pre-commit] ⚠️  No active effort (.current-effort missing). Skipping evidence check."
+    echo "Tip: Use /effort-new to create an effort, or create .current-effort manually"
+  else
+    CURRENT_EFFORT=$(cat "$CURRENT_EFFORT_FILE" | tr -d '\n')
+    EFFORT_DIR="$CFOI_BRANCH_DIR/efforts/$CURRENT_EFFORT"
+    
+    if [ ! -d "$EFFORT_DIR" ]; then
+      echo "[pre-commit] ❌ Effort directory not found: $EFFORT_DIR"
+      echo "Expected effort: $CURRENT_EFFORT"
+      FAIL=$((FAIL+1))
+    else
+      # Find latest task directory (T1, T2, T3...) that actually contains evidence.
+      # Workflows may create stub folders for future tasks; those should not block commits.
+      LATEST_TASK_WITH_EVIDENCE=""
+      PROOF_ROOT="$EFFORT_DIR/proof"
+      if [ -d "$PROOF_ROOT" ]; then
+        TASK_DIRS=$(ls -1d "$PROOF_ROOT"/T* 2>/dev/null | sort -V || true)
+        if [ -n "$TASK_DIRS" ]; then
+          for task_dir in $TASK_DIRS; do
+            [ -d "$task_dir" ] || continue
+            if [ -f "$task_dir/test-results.log" ] || [ -f "$task_dir/coverage-summary.json" ]; then
+              LATEST_TASK_WITH_EVIDENCE="$task_dir"
+            fi
+          done
+        fi
+      fi
+      
+      if [ -z "$LATEST_TASK_WITH_EVIDENCE" ]; then
+        echo "[pre-commit] ⚠️  No proof evidence detected yet under $EFFORT_DIR/proof/"
+        echo "Tip: Workflows may create stub task folders. Evidence checks begin once test/coverage files exist."
+      else
+        TASK_NAME=$(basename "$LATEST_TASK_WITH_EVIDENCE")
+        TEST_LOG="$LATEST_TASK_WITH_EVIDENCE/test-results.log"
+        COVERAGE_SUMMARY="$LATEST_TASK_WITH_EVIDENCE/coverage-summary.json"
+        
+        echo "[pre-commit] 🔍 Checking evidence for effort: $CURRENT_EFFORT, task: $TASK_NAME"
+        
+        if [ ! -f "$TEST_LOG" ]; then
+          echo "[pre-commit] ❌ Missing test evidence for $CURRENT_EFFORT/$TASK_NAME"
+          echo "Expected: $TEST_LOG"
+          echo "Run tests and copy output: npm test > test-output.log && cp test-output.log \"$TEST_LOG\""
+          FAIL=$((FAIL+1))
+        else
+          # Check freshness (within 60 minutes)
+          TEST_AGE=$(($(date +%s) - $(stat -f %m "$TEST_LOG" 2>/dev/null || echo 0)))
+          if [ "$TEST_AGE" -gt 3600 ]; then
+            echo "[pre-commit] ⚠️  Test evidence is older than 60 minutes for $TASK_NAME"
+            echo "Re-run tests to refresh evidence"
+          fi
+        fi
+        
+        if [ ! -f "$COVERAGE_SUMMARY" ]; then
+          echo "[pre-commit] ❌ Missing coverage summary for $CURRENT_EFFORT/$TASK_NAME"
+          echo "Expected: $COVERAGE_SUMMARY"
+          echo "Run tests with coverage and copy: npm test -- --coverage && cp coverage/coverage-summary.json \"$COVERAGE_SUMMARY\""
+          FAIL=$((FAIL+1))
+        fi
+        
+        # Check for manual verification notes
+        MANUAL_VERIFICATION="$LATEST_TASK_WITH_EVIDENCE/manual-verification.md"
+        if [ ! -f "$MANUAL_VERIFICATION" ]; then
+          echo "[pre-commit] ℹ️  Tip: Add manual verification notes to $MANUAL_VERIFICATION"
+        fi
+        
+        if [ -f "$TEST_LOG" ] && [ -f "$COVERAGE_SUMMARY" ]; then
+          echo "[pre-commit] ✅ Evidence verified for $CURRENT_EFFORT/$TASK_NAME"
+        fi
+      fi
+    fi
+  fi
+fi
+
+# Check file size limits
+for f in $STAGED_FILES; do
+  [[ "$f" =~ $EXCLUDE_REGEX ]] && continue
+  [ -f "$f" ] || continue
+  
+  # Skip line limit check for exempt files (documentation/planning)
+  if [[ "$f" =~ $EXEMPT_FROM_LINE_LIMIT ]]; then
+    continue
+  fi
+  
+  LINES=$(wc -l < "$f" | tr -d ' ')
+  if [ "$LINES" -gt 450 ]; then 
+    echo "[pre-commit] ❌ $f has $LINES lines (>450)"
+    FAIL=$((FAIL+1))
+  fi
+done
+# CRITICAL: Check for test deletion (agents delete tests to avoid fixing them)
+echo "[pre-commit] 🔒 Checking for test deletion..."
+DELETED_TESTS=$(git diff --cached --name-only --diff-filter=D | grep -E '\.(test|spec)\.(js|ts|tsx|jsx|py)$' || true)
+
+TEST_DELETION_FLAG="$ROOT_DIR/.git/.test-deletion-detected"
+rm -f "$TEST_DELETION_FLAG"
+
+if [ -n "$DELETED_TESTS" ]; then
+  echo "[pre-commit] ⛔ CRITICAL: Test file deletion detected!"
+  echo ""
+  for testfile in $DELETED_TESTS; do
+    echo "  ❌ DELETED: $testfile"
+  done
+  echo ""
+  echo "🚨 DELETING TESTS IS FORBIDDEN WITHOUT APPROVAL"
+  echo ""
+  echo "If tests are truly obsolete:"
+  echo "  1. Add [delete-tests] to commit message"
+  echo "  2. Document reason in commit message"
+  echo ""
+  # Store deleted files for commit-msg hook to validate
+  echo "$DELETED_TESTS" > "$TEST_DELETION_FLAG"
+  echo "[pre-commit] ⚠️  Test deletion will be validated by commit-msg hook"
+fi
+
+# Check for reduced test count in modified test files
+MODIFIED_TESTS=$(git diff --cached --name-only --diff-filter=M | grep -E '\.(test|spec)\.(js|ts|tsx|jsx|py)$' || true)
+TEST_REDUCTION_FLAG="$ROOT_DIR/.git/.test-reduction-detected"
+rm -f "$TEST_REDUCTION_FLAG"
+
+if [ -n "$MODIFIED_TESTS" ]; then
+  for testfile in $MODIFIED_TESTS; do
+    STAGED_COUNT=$(git show ":$testfile" | grep -cE '(^\s*it\(|^\s*test\(|^\s*def test_)' || echo 0)
+    HEAD_COUNT=$(git show "HEAD:$testfile" 2>/dev/null | grep -cE '(^\s*it\(|^\s*test\(|^\s*def test_)' || echo 0)
+    
+    if [ "$STAGED_COUNT" -lt "$HEAD_COUNT" ]; then
+      DELETED_COUNT=$((HEAD_COUNT - STAGED_COUNT))
+      echo "[pre-commit] ⛔ CRITICAL: $testfile lost $DELETED_COUNT test case(s)!"
+      echo "  Was: $HEAD_COUNT tests, Now: $STAGED_COUNT tests"
+      echo ""
+      echo "🚨 Test count decreased! This requires approval."
+      echo ""
+      # Store test reduction info for commit-msg hook to validate
+      echo "$testfile: -$DELETED_COUNT tests" >> "$TEST_REDUCTION_FLAG"
+    fi
+  done
+  
+  if [ -f "$TEST_REDUCTION_FLAG" ]; then
+    echo "[pre-commit] ⚠️  Test reduction will be validated by commit-msg hook"
+    echo "Add [delete-tests] to your commit message if this is intentional"
+  fi
+fi
+
+if [ "$FAIL" -gt 0 ] && [ ! -f "$CKPT_FILE" ]; then 
+  echo "[pre-commit] ❌ Fix issues above or use [checkpoint] to bypass temporarily"
+  exit 1
+fi
+
+echo "[pre-commit] ✅ OK"

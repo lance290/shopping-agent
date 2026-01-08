@@ -1,0 +1,25 @@
+# World Models & Model-Based RL
+torch>=2.1.0
+gymnasium>=0.29.0  # OpenAI Gym successor
+numpy>=1.24.0
+
+# Dreamer v3 (state-of-the-art world model)
+# dreamerv3>=3.0.0  # Install from source if needed
+
+# Alternative: Stable Baselines3 for comparison
+stable-baselines3>=2.2.0
+
+# Visualization
+matplotlib>=3.8.0
+tensorboard>=2.15.0
+
+# Optional: MuJoCo physics engine
+# mujoco>=3.0.0
+
+# API Server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Utilities
+python-dotenv>=1.0.0
+tqdm>=4.66.0

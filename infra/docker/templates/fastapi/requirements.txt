@@ -1,0 +1,15 @@
+# FastAPI and dependencies
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# Database drivers (uncomment what you need)
+# psycopg2-binary>=2.9.0  # PostgreSQL
+# pymongo>=4.5.0  # MongoDB
+# redis>=5.0.0  # Redis
+# neo4j>=5.13.0  # Neo4j
+
+# Common utilities
+python-dotenv>=1.0.0
+httpx>=0.25.0  # For async HTTP requests

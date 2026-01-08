@@ -1,0 +1,37 @@
+steps:
+  - name: gcr.io/cloud-builders/npm
+    args: ["ci"]
+  - name: gcr.io/cloud-builders/npm
+    args: ["run", "seed:pr"]
+  - name: gcr.io/cloud-builders/gcloud
+    dir: infra/pulumi
+    args: ["pulumi", "login", "gs://my-pulumi-state"]
+  - name: gcr.io/cloud-builders/gcloud
+    dir: infra/pulumi
+    args: ["pulumi", "stack", "select", "acme.$BRANCH", "--create"]
+  - name: gcr.io/cloud-builders/gcloud
+    dir: infra/pulumi
+    entrypoint: bash
+    args:
+      - "-c"
+      - |
+        set -euo pipefail
+        BRANCH="${BRANCH_NAME//\//-}"
+        echo "[cloudbuild] retrieving datastore secrets for ${BRANCH}";
+        MONGODB_URI=$(gcloud secrets versions access latest --secret="atlas-connection-string")
+        NEO4J_URI=$(gcloud secrets versions access latest --secret="neo4j-uri")
+        NEO4J_USER=$(gcloud secrets versions access latest --secret="neo4j-user")
+        NEO4J_PASSWORD=$(gcloud secrets versions access latest --secret="neo4j-password")
+        pulumi config set env:mongoUri "$MONGODB_URI" --secret --stack acme.$BRANCH
+        pulumi config set env:neo4jUri "$NEO4J_URI" --secret --stack acme.$BRANCH
+        pulumi config set env:neo4jUser "$NEO4J_USER" --secret --stack acme.$BRANCH
+        pulumi config set env:neo4jPassword "$NEO4J_PASSWORD" --secret --stack acme.$BRANCH
+  - name: gcr.io/cloud-builders/gcloud
+    dir: infra/pulumi
+    args: ["pulumi", "up", "--yes"]
+  - name: gcr.io/cloud-builders/npm
+    args: ["run", "test:all"]
+substitutions:
+  _REGION: "us-central1"
+  BRANCH: "$BRANCH_NAME"
+timeout: "1200s"

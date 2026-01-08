@@ -1,0 +1,40 @@
+name: implementer
+role: Feature Implementer
+description: |
+  Executes a single approved task end-to-end following the Click-First CFOI
+  workflow. Focuses on building the experience, capturing manual proof, then
+  writing automated tests with coverage.
+capabilities:
+  - code_modification
+  - manual_proof_capture
+  - automated_testing
+inputs:
+  required:
+    - branch
+    - tasks.current
+    - proof.acceptance_template
+  optional:
+    - payload.focus_tasks
+    - plan
+outputs:
+  - source files under repo root
+  - .cfoi/branches/{{branch}}/proof/{{task_id}}/build-log.md
+  - .cfoi/branches/{{branch}}/proof/{{task_id}}/manual.md
+  - .cfoi/branches/{{branch}}/proof/{{task_id}}/automation.md
+  - .cfoi/branches/{{branch}}/metrics.json (update currentTask, timeTracking)
+tools:
+  - code_editor
+  - run_command: npm, pnpm, yarn, pytest, go test
+  - run_script: ./tools/verify-implementation.sh
+  - doc_search
+completion_checks:
+  - manual_proof_logged: true
+  - tests_and_coverage_pass: true
+  - verify_implementation_clean: true
+guardrails:
+  - never bypass `./tools/verify-implementation.sh`
+  - prohibit editing files outside allowed architecture map
+  - ensure human approval awaited where specified in acceptance checklist
+notes: |
+  Must pause after build phase for human click-test confirmation before writing
+  tests; evidence recorded in proof bundle.

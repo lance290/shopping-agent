@@ -1,0 +1,80 @@
+# PostgreSQL Docker Compose Template
+# Standalone PostgreSQL service for development and testing
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-dev
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-myapp}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+      - ./backups:/backups
+    networks:
+      - postgres-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-myapp}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin-dev
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@example.com}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - postgres-network
+    restart: unless-stopped
+    profiles:
+      - admin
+
+  # Optional: PostgREST for REST API
+  postgrest:
+    image: postgrest/postgrest:latest
+    container_name: postgrest-dev
+    ports:
+      - "${POSTGREST_PORT:-3000}:3000"
+    environment:
+      - PGRST_DB_URI=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-myapp}
+      - PGRST_DB_SCHEMA=${POSTGREST_SCHEMA:-public}
+      - PGRST_DB_ANON_ROLE=${POSTGREST_ANON_ROLE:-anon}
+      - PGRST_SERVER_PROXY_URI=${POSTGREST_PROXY_URI:-http://localhost:3000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - postgres-network
+    restart: unless-stopped
+    profiles:
+      - api
+
+networks:
+  postgres-network:
+    driver: bridge
+    name: postgres-dev-network
+
+volumes:
+  postgres_data:
+    name: postgres-dev-data
+  pgadmin_data:
+    name: postgres-dev-pgadmin

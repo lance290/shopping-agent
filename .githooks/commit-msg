@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -uo pipefail
+MSG_FILE="$1"; ROOT_DIR="$(git rev-parse --show-toplevel)"; CKPT_FILE="$ROOT_DIR/.checkpoint"
+
+# Check for checkpoint flag
+if grep -qi "\[checkpoint\]" "$MSG_FILE"; then 
+  echo "1" > "$CKPT_FILE"
+else 
+  [ -f "$CKPT_FILE" ] && rm -f "$CKPT_FILE"
+fi
+
+# Validate [delete-tests] flag if test deletion/reduction was detected
+TEST_DELETION_FLAG="$ROOT_DIR/.git/.test-deletion-detected"
+TEST_REDUCTION_FLAG="$ROOT_DIR/.git/.test-reduction-detected"
+
+if [ -f "$TEST_DELETION_FLAG" ] || [ -f "$TEST_REDUCTION_FLAG" ]; then
+  if ! grep -qi "\[delete-tests\]" "$MSG_FILE"; then
+    echo ""
+    echo "[commit-msg] ❌ COMMIT REJECTED: Test deletion/reduction requires [delete-tests] flag"
+    echo ""
+    
+    if [ -f "$TEST_DELETION_FLAG" ]; then
+      echo "Test files deleted:"
+      cat "$TEST_DELETION_FLAG"
+      echo ""
+    fi
+    
+    if [ -f "$TEST_REDUCTION_FLAG" ]; then
+      echo "Test cases reduced:"
+      cat "$TEST_REDUCTION_FLAG"
+      echo ""
+    fi
+    
+    echo "To proceed, add [delete-tests] to your commit message and explain why."
+    echo "Example: git commit --amend"
+    echo ""
+    
+    # Clean up flag files
+    rm -f "$TEST_DELETION_FLAG" "$TEST_REDUCTION_FLAG"
+    exit 1
+  else
+    echo "[commit-msg] ✅ [delete-tests] flag found - test deletion approved"
+  fi
+fi
+
+# Clean up flag files on success
+rm -f "$TEST_DELETION_FLAG" "$TEST_REDUCTION_FLAG"

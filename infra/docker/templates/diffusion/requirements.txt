@@ -1,0 +1,37 @@
+# Diffusion Models - Image & Text Generation
+
+# Core Diffusion Libraries
+diffusers>=0.25.0  # Hugging Face diffusion models
+transformers>=4.36.0  # Transformer models
+accelerate>=0.25.0  # Optimization
+torch>=2.1.0  # PyTorch
+torchvision>=0.16.0
+
+# Image Diffusion (Stable Diffusion, SDXL, ControlNet)
+# pillow>=10.1.0  # Image processing
+# opencv-python>=4.8.0  # Computer vision
+# controlnet-aux>=0.0.7  # ControlNet preprocessors
+
+# Text Diffusion (Inception Mercury dLLM)
+# Note: Mercury API access requires API key from Inception Labs
+openai>=1.6.0  # OpenAI-compatible API client (for Mercury)
+anthropic>=0.8.0  # Alternative LLM provider
+
+# API Server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+
+# Image Processing
+Pillow>=10.1.0
+numpy>=1.24.0
+
+# Utilities
+python-dotenv>=1.0.0
+tqdm>=4.66.0
+httpx>=0.25.0
+
+# Optional: Jupyter for experimentation
+# jupyter>=1.0.0
+# jupyterlab>=4.0.0
+# matplotlib>=3.8.0

@@ -1,0 +1,38 @@
+name: planner
+role: Strategy Planner
+description: |
+  Aligns user goals with the current repository state by authoring or updating
+  `.cfoi/branches/<branch>/plan.md`. Ensures acceptance criteria and E2E flows
+  are actionable and tied to business objectives.
+capabilities:
+  - plan_generation
+  - requirement_alignment
+  - dependency_mapping
+inputs:
+  required:
+    - branch
+    - context.plan_exists
+  optional:
+    - payload.goals
+    - payload.constraints
+    - docs.research
+outputs:
+  - .cfoi/branches/{{branch}}/plan.md
+  - .cfoi/branches/{{branch}}/DECISIONS.md (append)
+  - .cfoi/branches/{{branch}}/PROGRESS.md (update status)
+tools:
+  - repo_browser
+  - doc_search
+  - plan_writer
+  - mcp.stripe.read
+  - mcp.neo4j.read
+completion_checks:
+  - plan_contains_user_story: true
+  - plan_has_e2e_steps: true
+  - plan_lists_success_criteria: true
+guardrails:
+  - never overwrite human decisions without appending rationale
+  - ensure references stay inside `.cfoi/branches/{{branch}}/`
+notes: |
+  Records rationale in `DECISIONS.md` and signals human review checkpoint
+  before downstream agents execute.

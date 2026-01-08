@@ -1,0 +1,33 @@
+# QA Environment
+config:
+  # GCP Configuration
+  gcp:project: your-project-staging
+  gcp:region: us-central1
+  
+  # Application Configuration
+  app:appName: myapp
+  app:containerImage: gcr.io/your-project-staging/myapp:qa
+  
+  # Resource Limits (Medium for QA)
+  app:cpu: "1500m"
+  app:memory: "1Gi"
+  app:minReplicas: 1
+  app:maxReplicas: 8
+  app:timeout: 300
+  app:concurrency: 100
+  
+  # Cloud Provider Selection
+  app:deployToGCP: true
+  app:deployToRailway: false
+  app:deployToModal: false
+  
+  # Secrets (encrypted by Pulumi)
+  app:databaseUrl:
+    secure: <encrypted-qa-db-connection-string>
+  app:apiKey:
+    secure: <encrypted-api-key>
+  app:jwtSecret:
+    secure: <encrypted-jwt-secret>
+  
+  # IAM Configuration (restrict access in QA)
+  app:allowedUsers: "user:qa-team@yourcompany.com,serviceAccount:qa-bot@yourproject.iam.gserviceaccount.com"

@@ -1,0 +1,97 @@
+# Neo4j Docker Compose Template
+# Standalone Neo4j service for graph database
+
+version: '3.8'
+
+services:
+  neo4j:
+    image: neo4j:5-community
+    container_name: neo4j-dev
+    ports:
+      - "${NEO4J_HTTP_PORT:-7474}:7474"  # HTTP
+      - "${NEO4J_BOLT_PORT:-7687}:7687"  # Bolt
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-password}
+      - NEO4J_PLUGINS=["apoc", "graph-data-science", "graphql"]
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*,gds.*,graphql.*
+      - NEO4J_dbms_security_procedures_allowlist=apoc.*,gds.*,graphql.*
+      - NEO4J_dbms_memory_heap_initial__size=${NEO4J_HEAP_INITIAL:-512m}
+      - NEO4J_dbms_memory_heap_max__size=${NEO4J_HEAP_MAX:-1G}
+      - NEO4J_dbms_memory_pagecache_size=${NEO4J_PAGECACHE:-512m}
+      - NEO4J_dbms_default_listen_address=0.0.0.0
+      - NEO4J_dbms_connector_bolt_listen_address=0.0.0.0:7687
+      - NEO4J_dbms_connector_http_listen_address=0.0.0.0:7474
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/var/lib/neo4j/import
+      - neo4j_plugins:/plugins
+      - ./init:/var/lib/neo4j/import:ro
+      - ./backups:/backups
+    networks:
+      - neo4j-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD:-password}", "RETURN 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # Optional: Neo4j Browser (built into Neo4j)
+  # Access at http://localhost:7474
+
+  # Optional: GraphQL endpoint
+  graphql:
+    image: neo4j/graphql:latest
+    container_name: neo4j-graphql-dev
+    ports:
+      - "${NEO4J_GRAPHQL_PORT:-4000}:4000"
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password}
+      - GRAPHQL_LISTEN_PORT=4000
+      - GRAPHQL_LISTEN_HOST=0.0.0.0
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    networks:
+      - neo4j-network
+    restart: unless-stopped
+    profiles:
+      - graphql
+
+  # Optional: Bloom (Neo4j visualization)
+  bloom:
+    image: neo4j/bloom:latest
+    container_name: neo4j-bloom-dev
+    ports:
+      - "${NEO4J_BLOOM_PORT}:7474"
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password}
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    networks:
+      - neo4j-network
+    restart: unless-stopped
+    profiles:
+      - bloom
+
+networks:
+  neo4j-network:
+    driver: bridge
+    name: neo4j-dev-network
+
+volumes:
+  neo4j_data:
+    name: neo4j-dev-data
+  neo4j_logs:
+    name: neo4j-dev-logs
+  neo4j_import:
+    name: neo4j-dev-import
+  neo4j_plugins:
+    name: neo4j-dev-plugins

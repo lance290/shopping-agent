@@ -1,0 +1,17 @@
+# Grafana Dashboard Provisioning
+# Auto-loads dashboards from JSON files
+
+apiVersion: 1
+
+providers:
+  - name: 'default'
+    orgId: 1
+    folder: 'Service Dashboards'
+    folderUid: 'service-dashboards'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

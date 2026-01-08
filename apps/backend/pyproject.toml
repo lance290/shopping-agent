@@ -1,0 +1,31 @@
+[project]
+name = "shopping-agent-backend"
+version = "0.1.0"
+description = "Shopping Agent backend (FastAPI)"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.104.0",
+  "uvicorn[standard]>=0.24.0",
+  "pydantic>=2.0.0",
+  "pydantic-settings>=2.0.0",
+  "python-dotenv>=1.0.0",
+  "httpx>=0.25.0",
+  "sqlalchemy>=2.0.0",
+  "alembic>=1.13.0",
+  "asyncpg>=0.29.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.1.0",
+]
+
+[tool.uv]
+
+[tool.uv.sources]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

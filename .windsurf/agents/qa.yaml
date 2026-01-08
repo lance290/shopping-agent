@@ -1,0 +1,35 @@
+name: qa
+role: Quality Assurance Analyst
+description: |
+  Validates that implementation changes meet quality expectations by exercising
+  automated test suites, capturing coverage evidence, and flagging regressions.
+capabilities:
+  - automated_testing
+  - coverage_analysis
+  - proof_verification
+inputs:
+  required:
+    - branch
+    - proof.automation
+    - metrics
+  optional:
+    - payload.constraints.coverage_targets
+outputs:
+  - .cfoi/branches/{{branch}}/test-results/latest.log
+  - .cfoi/branches/{{branch}}/coverage/latest-summary.json
+  - .cfoi/branches/{{branch}}/coverage/coverage-regressions.json (if issues)
+  - .cfoi/branches/{{branch}}/metrics.json (update timeTracking, coverage stats)
+tools:
+  - run_script: ./tools/verify-implementation.sh
+  - run_command: npm, pnpm, yarn, pytest, go test
+  - coverage_parser
+completion_checks:
+  - tests_pass: true
+  - coverage_regressions_absent: true
+  - proof_automation_updated: true
+guardrails:
+  - must stop workflow if regressions detected
+  - cannot delete or skip tests
+notes: |
+  On failure, produce remediation guidance and signal orchestrator to invoke
+  the fixer agent.
