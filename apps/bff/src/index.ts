@@ -202,6 +202,68 @@ fastify.patch('/api/rows/:id', async (request, reply) => {
   }
 });
 
+// ============ AUTH PROXY ROUTES ============
+
+fastify.post('/api/auth/start', async (request, reply) => {
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request.body),
+    });
+    const data = await response.json();
+    reply.status(response.status).send(data);
+  } catch (err) {
+    fastify.log.error(err);
+    reply.status(500).send({ error: 'Failed to start auth' });
+  }
+});
+
+fastify.post('/api/auth/verify', async (request, reply) => {
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request.body),
+    });
+    const data = await response.json();
+    reply.status(response.status).send(data);
+  } catch (err) {
+    fastify.log.error(err);
+    reply.status(500).send({ error: 'Failed to verify auth' });
+  }
+});
+
+fastify.get('/api/auth/me', async (request, reply) => {
+  try {
+    const authHeader = request.headers.authorization;
+    const response = await fetch(`${BACKEND_URL}/auth/me`, {
+      method: 'GET',
+      headers: authHeader ? { Authorization: authHeader } : {},
+    });
+    const data = await response.json();
+    reply.status(response.status).send(data);
+  } catch (err) {
+    fastify.log.error(err);
+    reply.status(500).send({ error: 'Failed to check auth' });
+  }
+});
+
+fastify.post('/api/auth/logout', async (request, reply) => {
+  try {
+    const authHeader = request.headers.authorization;
+    const response = await fetch(`${BACKEND_URL}/auth/logout`, {
+      method: 'POST',
+      headers: authHeader ? { Authorization: authHeader } : {},
+    });
+    const data = await response.json();
+    reply.status(response.status).send(data);
+  } catch (err) {
+    fastify.log.error(err);
+    reply.status(500).send({ error: 'Failed to logout' });
+  }
+});
+
 // Start server
 const start = async () => {
   try {

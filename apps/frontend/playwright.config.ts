@@ -7,8 +7,14 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   reporter: 'list',
+  webServer: {
+    command: 'pnpm dev',
+    url: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000,
+  },
   use: {
-    baseURL: 'https://frontend-production-1306.up.railway.app',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
     trace: 'on-first-retry',
     screenshot: 'on',
   },

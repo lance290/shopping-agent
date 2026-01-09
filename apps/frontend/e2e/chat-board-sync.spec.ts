@@ -34,6 +34,21 @@ test.describe('Chat-Board Synchronization Flow', () => {
     });
     await page.waitForTimeout(8000); // Wait for full response
 
+    // Wait for product search to complete (spinner hidden) before checking links
+    await page.locator('text=Searching products...').waitFor({ state: 'hidden', timeout: 60000 }).catch(() => {
+      console.log('Search spinner did not disappear in time, continuing...');
+    });
+
+    // Regression: clicking a product image should open a real page.
+    // Concretely: the product tile should render as an anchor with an http(s) href.
+    // If upstream providers don't provide a product url, the UI should fall back to a Google Shopping search URL.
+    const productLink = page.locator('a.bg-gray-800').first();
+    await expect(productLink).toBeVisible({ timeout: 30000 });
+    const href = await productLink.getAttribute('href');
+    console.log(`First product href: ${href}`);
+    expect(href).toBeTruthy();
+    expect(href || '').toMatch(/^https?:\/\//);
+
     // Verify a card was created
     const cardsAfterStep1 = await page.locator(cardSelector).count();
     console.log(`Cards after step 1: ${cardsAfterStep1}`);

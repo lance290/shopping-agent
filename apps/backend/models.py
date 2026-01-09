@@ -1,7 +1,24 @@
 from typing import Optional, List
 from datetime import datetime
+import hashlib
+import secrets
 from sqlmodel import Field, SQLModel, Relationship
 from pydantic import ConfigDict
+
+
+def hash_token(token: str) -> str:
+    """Hash a token (code or session) using SHA-256."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def generate_verification_code() -> str:
+    """Generate a 6-digit verification code."""
+    return f"{secrets.randbelow(1000000):06d}"
+
+
+def generate_session_token() -> str:
+    """Generate a cryptographically secure session token."""
+    return secrets.token_urlsafe(32)
 
 # Shared properties
 class RowBase(SQLModel):
@@ -65,3 +82,27 @@ class Bid(SQLModel, table=True):
     
     row: Row = Relationship(back_populates="bids")
     seller: Optional[Seller] = Relationship(back_populates="bids")
+
+
+class AuthLoginCode(SQLModel, table=True):
+    """Stores verification codes for email login. Only one active code per email."""
+    __tablename__ = "auth_login_code"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(index=True)
+    code_hash: str
+    is_active: bool = True
+    attempt_count: int = 0
+    locked_until: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class AuthSession(SQLModel, table=True):
+    """Stores active user sessions."""
+    __tablename__ = "auth_session"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(index=True)
+    session_token_hash: str = Field(index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    revoked_at: Optional[datetime] = None

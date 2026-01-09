@@ -1,5 +1,8 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { useShoppingStore } from '../store';
+import { render, screen } from '@testing-library/react';
+import React from 'react';
+import ProcurementBoard from '../components/Board';
 
 describe('Chat-Board Synchronization', () => {
   beforeEach(() => {
@@ -59,5 +62,30 @@ describe('Chat-Board Synchronization', () => {
     
     expect(match).toBeDefined();
     expect(match?.id).toBe(32); // Should reuse the active card
+  });
+
+  test('Product tile links to sales page when clicking image (regression)', () => {
+    const store = useShoppingStore.getState();
+    store.setSearchResults([
+      {
+        title: 'Test Product 1',
+        price: 19.99,
+        currency: 'USD',
+        merchant: 'Test Merchant',
+        url: 'https://example.com/product/123',
+        image_url: 'https://example.com/image.jpg',
+        rating: null,
+        reviews_count: null,
+        shipping_info: null,
+        source: 'test',
+      },
+    ]);
+
+    render(React.createElement(ProcurementBoard));
+
+    const img = screen.getByAltText('Test Product 1');
+    const link = img.closest('a');
+    expect(link).not.toBeNull();
+    expect(link?.getAttribute('href')).toBe('https://example.com/product/123');
   });
 });

@@ -2,18 +2,61 @@
 FastAPI Application Example
 Production-ready template with health checks and CORS
 """
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 import os
-from datetime import datetime
+import httpx
+from datetime import datetime, timedelta
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from sourcing import SourcingRepository, SearchResult
 from database import init_db, get_session
-from models import Row, RowBase, RowCreate, RequestSpec
+from models import (
+    Row, RowBase, RowCreate, RequestSpec,
+    AuthLoginCode, AuthSession,
+    hash_token, generate_verification_code, generate_session_token
+)
+
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+FROM_EMAIL = os.getenv("FROM_EMAIL", "Agent Shopper <shopper@info.xcor-cto.com>")
+
+
+async def send_verification_email(to_email: str, code: str) -> bool:
+    """Send verification code via Resend API. Returns True on success."""
+    if not RESEND_API_KEY:
+        print(f"[AUTH] RESEND_API_KEY not set. Code would be sent to {to_email}")
+        return True
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": FROM_EMAIL,
+                    "to": [to_email],
+                    "subject": "Your verification code",
+                    "text": f"Your verification code is: {code}",
+                },
+            )
+            if 200 <= response.status_code < 300:
+                print(f"[AUTH] Email sent to {to_email}")
+                return True
+            else:
+                print(f"[AUTH] Resend error: {response.status_code}")
+                return False
+    except httpx.TimeoutException:
+        print(f"[AUTH] Resend timeout for {to_email}")
+        return False
+    except httpx.RequestError as e:
+        print(f"[AUTH] Resend request error: {type(e).__name__}")
+        return False
 
 # Create FastAPI app
 app = FastAPI(
@@ -148,6 +191,180 @@ async def update_row(row_id: int, row_update: RowUpdate, session: AsyncSession =
 async def search_listings(request: SearchRequest):
     results = await sourcing_repo.search_all(request.query, gl=request.gl, hl=request.hl)
     return {"results": results}
+
+
+# ============ AUTH ENDPOINTS ============
+
+LOCKOUT_MINUTES = 45
+MAX_ATTEMPTS = 5
+
+
+class AuthStartRequest(BaseModel):
+    email: EmailStr
+
+
+class AuthStartResponse(BaseModel):
+    status: str
+    locked_until: Optional[datetime] = None
+
+
+@app.post("/auth/start", response_model=AuthStartResponse)
+async def auth_start(request: AuthStartRequest, session: AsyncSession = Depends(get_session)):
+    """Send a verification code to the user's email."""
+    email = request.email.lower()
+    now = datetime.utcnow()
+    
+    # Check for existing active codes and lockout, then invalidate them
+    result = await session.exec(
+        select(AuthLoginCode)
+        .where(AuthLoginCode.email == email, AuthLoginCode.is_active == True)
+    )
+    existing_codes = result.all()
+    
+    for existing_code in existing_codes:
+        if existing_code.locked_until and existing_code.locked_until > now:
+            raise HTTPException(
+                status_code=429,
+                detail={"status": "locked", "locked_until": existing_code.locked_until.isoformat()}
+            )
+        existing_code.is_active = False
+        session.add(existing_code)
+    
+    # Generate new code
+    code = generate_verification_code()
+    new_login_code = AuthLoginCode(
+        email=email,
+        code_hash=hash_token(code),
+        is_active=True,
+        attempt_count=0,
+        locked_until=None,
+    )
+    session.add(new_login_code)
+    await session.commit()
+    
+    # Send email
+    await send_verification_email(email, code)
+    
+    return {"status": "sent"}
+
+
+class AuthVerifyRequest(BaseModel):
+    email: EmailStr
+    code: str
+
+
+class AuthVerifyResponse(BaseModel):
+    status: str
+    session_token: Optional[str] = None
+
+
+@app.post("/auth/verify", response_model=AuthVerifyResponse)
+async def auth_verify(request: AuthVerifyRequest, session: AsyncSession = Depends(get_session)):
+    """Verify the code and create a session."""
+    email = request.email.lower()
+    now = datetime.utcnow()
+    
+    # Find active code for this email
+    result = await session.exec(
+        select(AuthLoginCode)
+        .where(AuthLoginCode.email == email, AuthLoginCode.is_active == True)
+    )
+    login_code = result.first()
+    
+    if not login_code:
+        raise HTTPException(status_code=400, detail="No active code found. Request a new one.")
+    
+    # Check lockout
+    if login_code.locked_until and login_code.locked_until > now:
+        raise HTTPException(
+            status_code=429,
+            detail={"status": "locked", "locked_until": login_code.locked_until.isoformat()}
+        )
+    
+    # Verify code
+    if hash_token(request.code) != login_code.code_hash:
+        login_code.attempt_count += 1
+        if login_code.attempt_count >= MAX_ATTEMPTS:
+            login_code.locked_until = now + timedelta(minutes=LOCKOUT_MINUTES)
+            login_code.is_active = False
+        session.add(login_code)
+        await session.commit()
+        
+        remaining = MAX_ATTEMPTS - login_code.attempt_count
+        if remaining <= 0:
+            raise HTTPException(
+                status_code=429,
+                detail={"status": "locked", "locked_until": login_code.locked_until.isoformat()}
+            )
+        raise HTTPException(status_code=400, detail=f"Invalid code. {remaining} attempts remaining.")
+    
+    # Code is valid - deactivate it
+    login_code.is_active = False
+    session.add(login_code)
+    
+    # Create session
+    token = generate_session_token()
+    new_session = AuthSession(
+        email=email,
+        session_token_hash=hash_token(token),
+    )
+    session.add(new_session)
+    await session.commit()
+    
+    return {"status": "ok", "session_token": token}
+
+
+class AuthMeResponse(BaseModel):
+    authenticated: bool
+    email: Optional[str] = None
+
+
+async def get_current_session(
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+) -> Optional[AuthSession]:
+    """Extract and validate session from Authorization header."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    
+    token = authorization[7:]
+    token_hash = hash_token(token)
+    
+    result = await session.exec(
+        select(AuthSession)
+        .where(AuthSession.session_token_hash == token_hash, AuthSession.revoked_at == None)
+    )
+    return result.first()
+
+
+@app.get("/auth/me", response_model=AuthMeResponse)
+async def auth_me(
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    """Check if user is authenticated."""
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return {"authenticated": True, "email": auth_session.email}
+
+
+@app.post("/auth/logout")
+async def auth_logout(
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    """Revoke the current session."""
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    auth_session.revoked_at = datetime.utcnow()
+    session.add(auth_session)
+    await session.commit()
+    
+    return {"status": "ok"}
+
 
 # Startup event
 @app.on_event("startup")

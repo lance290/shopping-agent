@@ -50,10 +50,10 @@ export default function ProcurementBoard() {
                 {displayProducts.map((product: Product, idx: number) => (
                   <a
                     key={idx}
-                    href={product.url || '#'}
+                    href={product.url || `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(product.title)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all group block ${product.url ? 'cursor-pointer' : 'cursor-default'}`}
+                    className="bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all group block cursor-pointer"
                   >
                     <div className="aspect-square bg-gray-700 relative overflow-hidden">
                       {product.image_url ? (

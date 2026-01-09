@@ -4,6 +4,19 @@ from abc import ABC, abstractmethod
 import httpx
 import os
 
+
+def normalize_url(url: str) -> str:
+    url = (url or "").strip()
+    if not url:
+        return ""
+    if url.startswith("/"):
+        return f"https://www.google.com{url}"
+    if url.startswith("//"):
+        return f"https:{url}"
+    if url.startswith("www."):
+        return f"https://{url}"
+    return url
+
 class SearchResult(BaseModel):
     title: str
     price: float
@@ -51,11 +64,13 @@ class SearchAPIProvider(SourcingProvider):
                 except ValueError:
                     price = 0.0
                 
+                url = normalize_url(item.get("product_link") or item.get("offers_link") or item.get("link", ""))
+
                 results.append(SearchResult(
                     title=item.get("title", "Unknown"),
                     price=price,
                     merchant=item.get("seller") or item.get("source", "Unknown"),
-                    url=item.get("product_link") or item.get("offers_link") or item.get("link", ""),
+                    url=url,
                     image_url=item.get("thumbnail"),
                     rating=item.get("rating"),
                     reviews_count=item.get("reviews"),
@@ -93,12 +108,14 @@ class SerpAPIProvider(SourcingProvider):
                     price = float(price_str)
                 except ValueError:
                     price = 0.0
+
+                url = normalize_url(item.get("product_link") or item.get("offers_link") or item.get("link", ""))
                 
                 results.append(SearchResult(
                     title=item.get("title", "Unknown"),
                     price=price,
                     merchant=item.get("source", "Unknown"),
-                    url=item.get("link", ""),
+                    url=url,
                     image_url=item.get("thumbnail"),
                     rating=item.get("rating"),
                     reviews_count=item.get("reviews"),
@@ -137,12 +154,14 @@ class ValueSerpProvider(SourcingProvider):
                     price = float(price_str)
                 except ValueError:
                     price = 0.0
+
+                url = normalize_url(item.get("product_link") or item.get("offers_link") or item.get("link", ""))
                 
                 results.append(SearchResult(
                     title=item.get("title", "Unknown"),
                     price=price,
                     merchant=item.get("source", "Unknown"),
-                    url=item.get("link", ""),
+                    url=url,
                     image_url=item.get("thumbnail"),
                     rating=item.get("rating"),
                     reviews_count=item.get("reviews"),
@@ -180,7 +199,7 @@ class RainforestAPIProvider(SourcingProvider):
                     title=item.get("title", "Unknown"),
                     price=float(price) if price else 0.0,
                     merchant="Amazon",
-                    url=item.get("link", ""),
+                    url=normalize_url(item.get("link", "")),
                     image_url=item.get("image"),
                     rating=item.get("rating"),
                     reviews_count=item.get("ratings_total"),
@@ -250,7 +269,7 @@ class GoogleCustomSearchProvider(SourcingProvider):
                     title=item.get("title", "Unknown"),
                     price=0.0,  # Google CSE doesn't return prices
                     merchant="Google Search",
-                    url=item.get("link", ""),
+                    url=normalize_url(item.get("link", "")),
                     image_url=item.get("link"),
                     source="google_cse"
                 ))
@@ -307,5 +326,7 @@ class SourcingRepository:
                 all_results.extend(results)
             except Exception as e:
                 print(f"Provider {name} failed: {e}")
+        filtered_results = [r for r in all_results if normalize_url(getattr(r, 'url', ''))[:4] == 'http']
         print(f"[SourcingRepository] Total results: {len(all_results)}")
-        return all_results
+        print(f"[SourcingRepository] Results with http(s) url: {len(filtered_results)}")
+        return filtered_results
