@@ -16,7 +16,7 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const { setSearchResults, setSearchStart, activeRowId, setActiveRowId, updateRow } = useShoppingStore();
+  const { rows, setRows, searchResults, setSearchResults, setSearchStart, activeRowId, setActiveRowId, updateRow, searchContext } = useShoppingStore();
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -74,39 +74,48 @@ export default function Chat() {
           if (searchMatch && searchMatch[1] !== currentQuery) {
             currentQuery = searchMatch[1];
             const queryToSearch = currentQuery;
-            console.log('[Chat] Starting search for:', queryToSearch);
+            console.log('[Chat] Starting search for:', queryToSearch, 'activeRowId:', currentRowId);
             setSearchStart({ query: queryToSearch, rowId: currentRowId });
             
-            // Fetch search results
-            fetch('/api/search', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ query: queryToSearch }),
-            })
-              .then(res => res.json())
-              .then(data => {
-                console.log('[Chat] Search results:', data.results?.length || 0, 'products');
-                setSearchResults(data.results || [], { query: queryToSearch, rowId: currentRowId });
-              })
-              .catch(err => console.error('[Chat] Search error:', err));
+            // Fetch search results and update store
+            try {
+              const searchRes = await fetch('/api/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: queryToSearch }),
+              });
+              const searchData = await searchRes.json();
+              console.log('[Chat] Search results:', searchData.results?.length || 0, 'products');
+              setSearchResults(searchData.results || [], { query: queryToSearch, rowId: currentRowId });
+            } catch (err) {
+              console.error('[Chat] Search error:', err);
+            }
               
-            // Update row title if we have an active row
+            // Update row title if we have an active row - MUST PERSIST
             if (currentRowId) {
-              console.log('[Chat] Updating row title:', currentRowId, queryToSearch);
+              console.log('[Chat] Updating row title:', currentRowId, '->', queryToSearch);
+              
+              // Optimistic update in store
               const { updateRow } = useShoppingStore.getState();
-              // Optimistic update
               updateRow(currentRowId, { title: queryToSearch });
               
-              fetch(`/api/rows?id=${currentRowId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: queryToSearch }),
-              })
-              .then(res => {
-                if (res.ok) console.log('[Chat] PATCH success');
-                else console.error('[Chat] PATCH failed', res.status);
-              })
-              .catch(console.error);
+              // Persist to database - await this!
+              try {
+                const patchRes = await fetch(`/api/rows?id=${currentRowId}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ title: queryToSearch }),
+                });
+                if (patchRes.ok) {
+                  const updatedRow = await patchRes.json();
+                  console.log('[Chat] PATCH success:', updatedRow);
+                } else {
+                  const errorText = await patchRes.text();
+                  console.error('[Chat] PATCH failed:', patchRes.status, errorText);
+                }
+              } catch (err) {
+                console.error('[Chat] PATCH error:', err);
+              }
             } else {
               console.warn('[Chat] No active row to update title');
             }

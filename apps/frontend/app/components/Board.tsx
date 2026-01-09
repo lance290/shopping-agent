@@ -93,7 +93,10 @@ export default function ProcurementBoard() {
 
   const selectRow = (row: Row) => {
     if (activeRowId === row.id) return;
+    console.log('[Board] Selecting row:', row.id, row.title);
     setActiveRowId(row.id);
+    // Set search context to this row's title - this is now the source of truth
+    setSearchStart({ query: row.title, rowId: row.id });
     searchRowProducts(row);
   };
 
