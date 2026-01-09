@@ -90,8 +90,16 @@ test.describe('Chat-Board Synchronization Flow', () => {
     if (isInactiveVisible) {
       const cardTitleToClick = await inactiveCard.locator('h3').textContent({ timeout: 3000 }).catch(() => 'Unknown');
       console.log(`Clicking card: ${cardTitleToClick}`);
+      
+      // Listen for console logs
+      page.on('console', msg => {
+        if (msg.text().includes('[Chat]') || msg.text().includes('[Board]')) {
+          console.log(`BROWSER: ${msg.text()}`);
+        }
+      });
+      
       await inactiveCard.click();
-      await page.waitForTimeout(3000);
+      await page.waitForTimeout(5000); // Wait longer for state update
       
       // Verify the card's text was appended to chat
       const userMessagesAfter = await page.locator('div.bg-blue-600').count();

@@ -1,11 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Package, DollarSign, Trash2, Search, Star, Truck, X } from 'lucide-react';
-import { useShoppingStore, Row, Product } from '../store';
+import { Package, Search, Star, Truck, X } from 'lucide-react';
+import { useShoppingStore, Product } from '../store';
 
 export default function ProcurementBoard() {
-  const [loading, setLoading] = useState(true);
   const store = useShoppingStore();
 
   const selectedRow = store.rows.find(r => r.id === store.activeRowId) || null;
@@ -14,138 +12,9 @@ export default function ProcurementBoard() {
   const displayProducts = store.searchResults;
   const displayQuery = store.currentQuery || selectedRow?.title || '';
 
-  const fetchRows = async () => {
-    try {
-      const res = await fetch('/api/rows', { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        store.setRows(Array.isArray(data) ? data : []);
-      }
-    } catch (e) {
-      console.error("Failed to fetch rows", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deleteRow = async (id: number) => {
-    try {
-      const res = await fetch(`/api/rows?id=${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        store.removeRow(id);
-      }
-    } catch (e) {
-      console.error("Failed to delete row", e);
-    }
-  };
-
-  /**
-   * CARD CLICK FLOW (Step 3):
-   * 3a. User clicks a card
-   * 3b. The query is set in Zustand as the source of truth
-   * 3c. The text from the card is appended to the chat (via store update)
-   * 3d. We run the search
-   * 3e. Goto step 2 (continued chat flow)
-   */
-  const handleCardClick = async (row: Row) => {
-    if (store.activeRowId === row.id) return;
-    
-    console.log('[Board] === CARD CLICK FLOW START ===');
-    console.log('[Board] 3a. User clicked card:', row.id, row.title);
-
-    // 3b. Set query in Zustand as source of truth
-    store.setCurrentQuery(row.title);
-    store.setActiveRowId(row.id);
-    // 3c. Trigger chat append via cardClickQuery
-    store.setCardClickQuery(row.title);
-    console.log('[Board] 3b-3c. Zustand updated - query:', row.title, 'activeRowId:', row.id, 'cardClickQuery set');
-
-    // 3d. Run the search
-    console.log('[Board] 3d. Running search for:', row.title);
-    store.setIsSearching(true);
-    try {
-      const res = await fetch('/api/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: row.title }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        console.log('[Board] Search returned:', data.results?.length || 0, 'products');
-        store.setSearchResults(data.results || []);
-      }
-    } catch (e) {
-      console.error('[Board] Search failed:', e);
-      store.setSearchResults([]);
-    }
-
-    console.log('[Board] === CARD CLICK FLOW END ===');
-    // 3e. Now the user can continue typing in chat (goto step 2)
-  };
-
-  useEffect(() => {
-    fetchRows();
-  }, []);
-
   return (
     <div className="flex-1 flex bg-gray-900 overflow-hidden">
-      {/* Left: Row List */}
-      <div className="w-80 bg-gray-800 border-r border-gray-700 flex flex-col">
-        <div className="p-4 border-b border-gray-700">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-white">Requests</h2>
-            <button onClick={fetchRows} className="text-sm text-blue-400 hover:text-blue-300">
-              Refresh
-            </button>
-          </div>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto p-2 space-y-2">
-          {loading && store.rows.length === 0 && (
-            <div className="text-center text-gray-500 py-10">Loading...</div>
-          )}
-
-          {!loading && store.rows.length === 0 && (
-            <div className="text-center text-gray-500 py-10">
-              <Package className="mx-auto h-8 w-8 text-gray-600 mb-2" />
-              <p className="text-sm">No requests yet</p>
-            </div>
-          )}
-
-          {store.rows.map((row: Row) => (
-            <div
-              key={row.id}
-              onClick={() => handleCardClick(row)}
-              className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                selectedRow?.id === row.id 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
-              }`}
-            >
-              <div className="flex justify-between items-start">
-                <h3 className="font-medium text-sm line-clamp-1">{row.title}</h3>
-                <button
-                  onClick={(e) => { e.stopPropagation(); deleteRow(row.id); }}
-                  className="p-1 hover:bg-red-500/20 rounded"
-                >
-                  <Trash2 size={14} className="text-red-400" />
-                </button>
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  row.status === 'sourcing' ? 'bg-yellow-500/20 text-yellow-400' : 
-                  row.status === 'closed' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
-                }`}>
-                  {row.status}
-                </span>
-                <span className="text-xs text-gray-400">#{row.id}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Right: Product Grid */}
+      {/* Product Grid */}
       <div className="flex-1 overflow-y-auto">
         {!store.currentQuery && !selectedRow && displayProducts.length === 0 && !store.isSearching ? (
           <div className="flex items-center justify-center h-full text-gray-500">

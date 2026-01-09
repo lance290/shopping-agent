@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Package, Trash2, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
+import { Package, Trash2, ChevronLeft, Menu } from 'lucide-react';
 import { useShoppingStore, Row } from '../store';
 
 export default function RequestsSidebar() {
@@ -78,7 +78,7 @@ export default function RequestsSidebar() {
 
   if (!isExpanded) {
     return (
-      <div className="h-full bg-gray-800 border-r border-gray-700 flex flex-col items-center py-4 w-12 transition-all duration-300">
+      <div className="h-full bg-gray-800 border-r border-gray-700 flex flex-col items-center py-4 w-12 transition-all duration-300 shrink-0">
         <button 
           onClick={() => setIsExpanded(true)}
           className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg"
@@ -91,7 +91,7 @@ export default function RequestsSidebar() {
   }
 
   return (
-    <div className="w-80 bg-gray-800 border-r border-gray-700 flex flex-col transition-all duration-300 h-full relative group">
+    <div className="w-80 bg-gray-800 border-r border-gray-700 flex flex-col transition-all duration-300 h-full relative group shrink-0">
       <div className="p-4 border-b border-gray-700">
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold text-white">Requests</h2>

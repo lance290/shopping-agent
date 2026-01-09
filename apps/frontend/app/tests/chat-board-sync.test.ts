@@ -22,6 +22,20 @@ describe('Chat-Board Synchronization', () => {
     expect(state.activeRowId).toBe(31);
   });
 
+  test('Card click sets cardClickQuery to trigger chat append (Step 3c)', () => {
+    // Simulate card click flow from Board.tsx
+    useShoppingStore.getState().setCurrentQuery('Montana State shirts under $50');
+    useShoppingStore.getState().setActiveRowId(31);
+    useShoppingStore.getState().setCardClickQuery('Montana State shirts under $50');
+
+    const state = useShoppingStore.getState();
+    expect(state.cardClickQuery).toBe('Montana State shirts under $50');
+    
+    // After Chat.tsx processes it, it should be cleared
+    useShoppingStore.getState().setCardClickQuery(null);
+    expect(useShoppingStore.getState().cardClickQuery).toBeNull();
+  });
+
   test('selectOrCreateRow identifies existing row for extended query (Step 2)', () => {
     const store = useShoppingStore.getState();
     const rows = store.rows;
