@@ -4,9 +4,9 @@
 
 ## Current State
 - **Status**: 🟢 In Progress
-- **Current task**: task-006 (pending)
+- **Current task**: task-007 (pending)
 - **Last working commit**: [current HEAD]
-- **App status**: Full stack auth flow + E2E endpoints ready
+- **App status**: E2E verified (Isolation Passing)
 
 ## Task Summary
 | ID | Description | Status |
@@ -16,8 +16,7 @@
 | task-003 | BFF: forward Authorization | ✅ completed |
 | task-004 | Frontend: attach Authorization | ✅ completed |
 | task-005 | Backend: E2E mint endpoint | ✅ completed |
-| task-006 | Playwright: cross-user isolation | ⬜ pending |
-| task-006 | Playwright: cross-user isolation | ⬜ pending |
+| task-006 | Playwright: cross-user isolation | ✅ completed |
 | task-007 | Operational: reset DB | ⬜ pending |
 
 ## Session History

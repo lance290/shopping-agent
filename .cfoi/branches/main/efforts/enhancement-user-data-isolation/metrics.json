@@ -5,10 +5,10 @@
   "confidenceThreshold": 80,
   "tasks": {
     "total": 7,
-    "completed": 5,
+    "completed": 6,
     "inProgress": 0
   },
-  "currentTask": "task-006",
+  "currentTask": "task-007",
   "errorBudget": {
     "perTask": 3,
     "currentTaskErrors": 0
