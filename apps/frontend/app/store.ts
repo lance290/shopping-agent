@@ -72,20 +72,33 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   // Find a row that matches the query, or return null if we need to create one
   selectOrCreateRow: (query, existingRows) => {
     const lowerQuery = query.toLowerCase().trim();
+    const activeRowId = get().activeRowId;
     
-    // 1. Try exact match first
+    // 1. If there's an active row, check if it's a good match for the new query
+    // This allows continuing a conversation within the same card.
+    if (activeRowId) {
+      const activeRow = existingRows.find(r => r.id === activeRowId);
+      if (activeRow) {
+        const rowTitle = activeRow.title.toLowerCase().trim();
+        // If they share significant words, or one contains the other, prefer the active row
+        if (lowerQuery.includes(rowTitle) || rowTitle.includes(lowerQuery)) {
+          return activeRow;
+        }
+      }
+    }
+
+    // 2. Try exact match across all rows
     let match = existingRows.find(r => r.title.toLowerCase().trim() === lowerQuery);
     if (match) return match;
 
-    // 2. Try partial match (is the existing row title contained in the new query?)
-    // This handles "Montana State shirts" -> "Montana State shirts under $50"
+    // 3. Try partial match (is an existing row title contained in the new query?)
     match = existingRows.find(r => {
       const rowTitle = r.title.toLowerCase().trim();
-      return lowerQuery.startsWith(rowTitle) || lowerQuery.includes(rowTitle);
+      return lowerQuery.includes(rowTitle);
     });
     if (match) return match;
 
-    // 3. Try fuzzy/contained match (is the new query contained in the existing row title?)
+    // 4. Try reverse partial match (is the new query contained in an existing row title?)
     match = existingRows.find(r => {
       const rowTitle = r.title.toLowerCase().trim();
       return rowTitle.includes(lowerQuery);
