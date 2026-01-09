@@ -62,7 +62,8 @@ RUN addgroup -g 1001 -S nodejs && \
 # Set production environment
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
-    HOSTNAME="0.0.0.0"
+    HOSTNAME="0.0.0.0" \
+    PORT=8080
 
 # Copy necessary files from builder
 COPY --from=builder /app/public ./public
@@ -76,14 +77,10 @@ RUN chown -R nextjs:nodejs /app
 USER nextjs
 
 # Expose port
-EXPOSE 3000
-
-# Health check - use PORT env var
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 3000) + '/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); })"
+EXPOSE 8080
 
 # Use dumb-init for proper signal handling
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start Next.js server with explicit port
-CMD ["sh", "-c", "PORT=${PORT:-3000} node server.js"]
+# Start Next.js server
+CMD ["node", "server.js"]
