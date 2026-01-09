@@ -66,12 +66,14 @@ fastify.post('/api/chat', async (request, reply) => {
         reply.raw.write(part.textDelta);
       } else if (part.type === 'tool-call') {
         // Provide feedback when a tool is called
+        // AI SDK uses 'input' not 'args' for tool call parameters
         const toolPart = part as any;
+        const input = toolPart.input;
         if (toolPart.toolName === 'createRow') {
-          const itemName = toolPart.args?.item || 'item';
+          const itemName = input?.item || 'item';
           reply.raw.write(`\n✅ Adding "${itemName}" to your procurement board...`);
         } else if (toolPart.toolName === 'searchListings') {
-          const query = toolPart.args?.query || 'items';
+          const query = input?.query || 'items';
           reply.raw.write(`\n🔍 Searching for "${query}"...`);
         }
       } else if (part.type === 'tool-result') {
