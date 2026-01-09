@@ -66,11 +66,16 @@ export async function PATCH(request: NextRequest) {
     const id = url.searchParams.get('id');
     const body = await request.json();
     
+    console.log(`[API] PATCH /api/rows?id=${id}`, body);
+
     if (!id) {
       return NextResponse.json({ error: 'Missing row ID' }, { status: 400 });
     }
     
-    const response = await fetch(`${BFF_URL}/api/rows/${id}`, {
+    const bffUrl = `${BFF_URL}/api/rows/${id}`;
+    console.log(`[API] Forwarding to BFF: ${bffUrl}`);
+
+    const response = await fetch(bffUrl, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -78,7 +83,15 @@ export async function PATCH(request: NextRequest) {
       body: JSON.stringify(body),
     });
     
+    if (!response.ok) {
+      console.error(`[API] BFF returned ${response.status} ${response.statusText}`);
+      const text = await response.text();
+      console.error(`[API] BFF response body: ${text}`);
+      return NextResponse.json({ error: 'BFF failed' }, { status: response.status });
+    }
+
     const data = await response.json();
+    console.log(`[API] BFF success:`, data);
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error updating row:', error);

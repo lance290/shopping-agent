@@ -184,6 +184,7 @@ fastify.delete('/api/rows/:id', async (request, reply) => {
 fastify.patch('/api/rows/:id', async (request, reply) => {
   try {
     const { id } = request.params as { id: string };
+    fastify.log.info({ id, body: request.body }, 'Proxying PATCH row request');
     const response = await fetch(`${BACKEND_URL}/rows/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

@@ -125,8 +125,10 @@ class RowUpdate(BaseModel):
 
 @app.patch("/rows/{row_id}")
 async def update_row(row_id: int, row_update: RowUpdate, session: AsyncSession = Depends(get_session)):
+    print(f"Received PATCH request for row {row_id} with data: {row_update}")
     row = await session.get(Row, row_id)
     if not row:
+        print(f"Row {row_id} not found")
         raise HTTPException(status_code=404, detail="Row not found")
     
     row_data = row_update.dict(exclude_unset=True)
@@ -137,6 +139,7 @@ async def update_row(row_id: int, row_update: RowUpdate, session: AsyncSession =
     session.add(row)
     await session.commit()
     await session.refresh(row)
+    print(f"Row {row_id} updated successfully: {row}")
     return row
 
 # Search endpoint
