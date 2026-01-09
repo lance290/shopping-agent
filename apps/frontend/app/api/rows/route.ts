@@ -38,3 +38,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create row' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const url = new URL(request.url);
+    const id = url.searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json({ error: 'Missing row ID' }, { status: 400 });
+    }
+    
+    const response = await fetch(`${BFF_URL}/api/rows/${id}`, {
+      method: 'DELETE',
+    });
+    
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    console.error('Error deleting row:', error);
+    return NextResponse.json({ error: 'Failed to delete row' }, { status: 500 });
+  }
+}

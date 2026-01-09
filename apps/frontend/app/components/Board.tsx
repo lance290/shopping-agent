@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Package, Truck, DollarSign, Calendar, ExternalLink } from 'lucide-react';
+import { Package, DollarSign, Trash2, Search, Star, Truck, X } from 'lucide-react';
 
 interface Row {
   id: number;
@@ -11,9 +11,25 @@ interface Row {
   currency: string;
 }
 
+interface Product {
+  title: string;
+  price: number;
+  currency: string;
+  merchant: string;
+  url: string;
+  image_url: string | null;
+  rating: number | null;
+  reviews_count: number | null;
+  shipping_info: string | null;
+  source: string;
+}
+
 export default function ProcurementBoard() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedRow, setSelectedRow] = useState<Row | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [searchingProducts, setSearchingProducts] = useState(false);
 
   const fetchRows = async () => {
     try {
@@ -29,68 +45,191 @@ export default function ProcurementBoard() {
     }
   };
 
+  const deleteRow = async (id: number) => {
+    try {
+      const res = await fetch(`/api/rows?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setRows(rows.filter(r => r.id !== id));
+        if (selectedRow?.id === id) {
+          setSelectedRow(null);
+          setProducts([]);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to delete row", e);
+    }
+  };
+
+  const searchProducts = async (query: string) => {
+    setSearchingProducts(true);
+    try {
+      const res = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProducts(data.results || []);
+      }
+    } catch (e) {
+      console.error("Failed to search products", e);
+    } finally {
+      setSearchingProducts(false);
+    }
+  };
+
+  const selectRow = (row: Row) => {
+    setSelectedRow(row);
+    searchProducts(row.title);
+  };
+
   useEffect(() => {
     fetchRows();
-    // Poll for updates every 30 seconds (reduced from 5s to avoid excessive API calls)
     const interval = setInterval(fetchRows, 30000);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="flex-1 bg-gray-100 p-6 overflow-x-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Procurement Board</h1>
-        <button onClick={fetchRows} className="text-sm text-blue-600 hover:underline">
-            Refresh
-        </button>
-      </div>
+    <div className="flex-1 flex bg-gray-900 overflow-hidden">
+      {/* Left: Row List */}
+      <div className="w-80 bg-gray-800 border-r border-gray-700 flex flex-col">
+        <div className="p-4 border-b border-gray-700">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-white">Requests</h2>
+            <button onClick={fetchRows} className="text-sm text-blue-400 hover:text-blue-300">
+              Refresh
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-2 space-y-2">
+          {loading && rows.length === 0 && (
+            <div className="text-center text-gray-500 py-10">Loading...</div>
+          )}
 
-      <div className="space-y-6">
-        {loading && rows.length === 0 && (
-            <div className="text-center text-gray-500 py-10">Loading rows...</div>
-        )}
-
-        {!loading && rows.length === 0 && (
-            <div className="text-center text-gray-500 py-10 bg-white rounded-lg border border-dashed border-gray-300">
-                <Package className="mx-auto h-10 w-10 text-gray-400 mb-2" />
-                <p>No requests yet. Use the chat to start one!</p>
+          {!loading && rows.length === 0 && (
+            <div className="text-center text-gray-500 py-10">
+              <Package className="mx-auto h-8 w-8 text-gray-600 mb-2" />
+              <p className="text-sm">No requests yet</p>
             </div>
-        )}
+          )}
 
-        {rows.map((row) => (
-          <div key={row.id} className="flex gap-4 items-start min-w-max">
-            {/* Request Tile (Leftmost) */}
-            <div className="w-80 bg-white rounded-lg shadow-sm border border-gray-200 p-4 shrink-0 border-l-4 border-l-blue-500">
-              <div className="flex justify-between items-start mb-2">
-                <h3 className="font-semibold text-gray-900 line-clamp-2">{row.title}</h3>
-                <span className={`text-xs px-2 py-1 rounded-full capitalize ${
-                    row.status === 'sourcing' ? 'bg-yellow-100 text-yellow-800' : 
-                    row.status === 'closed' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+          {rows.map((row) => (
+            <div
+              key={row.id}
+              onClick={() => selectRow(row)}
+              className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                selectedRow?.id === row.id 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
+              }`}
+            >
+              <div className="flex justify-between items-start">
+                <h3 className="font-medium text-sm line-clamp-1">{row.title}</h3>
+                <button
+                  onClick={(e) => { e.stopPropagation(); deleteRow(row.id); }}
+                  className="p-1 hover:bg-red-500/20 rounded"
+                >
+                  <Trash2 size={14} className="text-red-400" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  row.status === 'sourcing' ? 'bg-yellow-500/20 text-yellow-400' : 
+                  row.status === 'closed' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
                 }`}>
                   {row.status}
                 </span>
-              </div>
-              <div className="text-sm text-gray-500 space-y-1">
-                {row.budget_max && (
-                    <div className="flex items-center gap-2">
-                        <DollarSign size={14} />
-                        <span>Max: {row.currency} {row.budget_max}</span>
-                    </div>
-                )}
-                <div className="text-xs text-gray-400 mt-2">
-                    ID: #{row.id}
-                </div>
+                <span className="text-xs text-gray-400">#{row.id}</span>
               </div>
             </div>
+          ))}
+        </div>
+      </div>
 
-            {/* Bid Tiles (Placeholder for MVP) */}
-            <div className="flex gap-4 overflow-x-auto py-1">
-                <div className="w-64 bg-white/50 rounded-lg border border-dashed border-gray-300 p-4 flex items-center justify-center text-gray-400 text-sm shrink-0">
-                    Waiting for bids...
-                </div>
+      {/* Right: Product Grid */}
+      <div className="flex-1 overflow-y-auto">
+        {!selectedRow ? (
+          <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="text-center">
+              <Search className="mx-auto h-12 w-12 text-gray-600 mb-3" />
+              <p>Select a request to see products</p>
             </div>
           </div>
-        ))}
+        ) : (
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-2xl font-bold text-white">{selectedRow.title}</h1>
+                <p className="text-gray-400 text-sm mt-1">
+                  {products.length} products found
+                </p>
+              </div>
+              <button
+                onClick={() => { setSelectedRow(null); setProducts([]); }}
+                className="p-2 hover:bg-gray-700 rounded-lg"
+              >
+                <X size={20} className="text-gray-400" />
+              </button>
+            </div>
+
+            {searchingProducts ? (
+              <div className="text-center py-20 text-gray-500">
+                <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+                <p>Searching products...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {products.map((product, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all cursor-pointer group"
+                  >
+                    <div className="aspect-square bg-gray-700 relative overflow-hidden">
+                      {product.image_url ? (
+                        <img
+                          src={product.image_url}
+                          alt={product.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className="h-12 w-12 text-gray-600" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <h3 className="text-sm text-white font-medium line-clamp-2 mb-1">
+                        {product.title}
+                      </h3>
+                      <p className="text-lg font-bold text-green-400">
+                        ${product.price.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {product.merchant !== 'Unknown' ? product.merchant : 'Various sellers'}
+                      </p>
+                      {product.rating && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <Star size={12} className="text-yellow-400 fill-yellow-400" />
+                          <span className="text-xs text-gray-400">
+                            {product.rating} ({product.reviews_count?.toLocaleString()})
+                          </span>
+                        </div>
+                      )}
+                      {product.shipping_info && (
+                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                          <Truck size={12} />
+                          <span className="line-clamp-1">{product.shipping_info}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

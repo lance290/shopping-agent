@@ -97,6 +97,15 @@ async def read_row(row_id: int, session: AsyncSession = Depends(get_session)):
         raise HTTPException(status_code=404, detail="Row not found")
     return row
 
+@app.delete("/rows/{row_id}")
+async def delete_row(row_id: int, session: AsyncSession = Depends(get_session)):
+    row = await session.get(Row, row_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+    await session.delete(row)
+    await session.commit()
+    return {"status": "deleted", "id": row_id}
+
 # Search endpoint
 @app.post("/v1/sourcing/search", response_model=SearchResponse)
 async def search_listings(request: SearchRequest):

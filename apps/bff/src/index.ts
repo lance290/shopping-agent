@@ -163,6 +163,24 @@ fastify.get('/api/rows/:id', async (request, reply) => {
   }
 });
 
+fastify.delete('/api/rows/:id', async (request, reply) => {
+  try {
+    const { id } = request.params as { id: string };
+    const response = await fetch(`${BACKEND_URL}/rows/${id}`, {
+      method: 'DELETE',
+    });
+    if (response.status === 404) {
+      reply.status(404).send({ error: 'Row not found' });
+      return;
+    }
+    const data = await response.json();
+    return data;
+  } catch (err) {
+    fastify.log.error(err);
+    reply.status(500).send({ error: 'Failed to delete row' });
+  }
+});
+
 // Start server
 const start = async () => {
   try {
