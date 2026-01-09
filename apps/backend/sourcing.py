@@ -152,51 +152,75 @@ class ValueSerpProvider(SourcingProvider):
             return results
 
 
-class DuckDuckGoShoppingProvider(SourcingProvider):
-    """DuckDuckGo Shopping - FREE, no API key required"""
-    def __init__(self):
-        self.base_url = "https://duckduckgo.com/"
+class RainforestAPIProvider(SourcingProvider):
+    """Rainforest API - Amazon product search with free tier"""
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://api.rainforestapi.com/request"
 
     async def search(self, query: str, **kwargs) -> List[SearchResult]:
-        # Use DuckDuckGo's instant answer API for shopping
         params = {
-            "q": f"{query} site:amazon.com OR site:ebay.com OR site:walmart.com",
-            "format": "json",
-            "no_html": "1",
-            "skip_disambig": "1",
+            "api_key": self.api_key,
+            "type": "search",
+            "amazon_domain": "amazon.com",
+            "search_term": query,
         }
         
         async with httpx.AsyncClient() as client:
-            # DDG doesn't have a direct shopping API, so we use their web search
-            # and filter for shopping sites
-            response = await client.get(
-                "https://api.duckduckgo.com/",
-                params=params,
-                headers={"User-Agent": "ShoppingAgent/1.0"}
-            )
+            response = await client.get(self.base_url, params=params)
+            response.raise_for_status()
             data = response.json()
             
             results = []
-            # Parse related topics which often contain product info
-            for item in data.get("RelatedTopics", [])[:10]:
-                if isinstance(item, dict) and "Text" in item:
-                    text = item.get("Text", "")
-                    url = item.get("FirstURL", "")
-                    
-                    # Try to extract price from text
-                    import re
-                    price_match = re.search(r'\$(\d+(?:\.\d{2})?)', text)
-                    price = float(price_match.group(1)) if price_match else 0.0
-                    
-                    results.append(SearchResult(
-                        title=text[:100] if text else "Unknown",
-                        price=price,
-                        merchant="Various",
-                        url=url,
-                        image_url=item.get("Icon", {}).get("URL"),
-                        source="duckduckgo"
-                    ))
+            for item in data.get("search_results", [])[:20]:
+                price_info = item.get("price", {})
+                price = price_info.get("value", 0) if isinstance(price_info, dict) else 0
+                
+                results.append(SearchResult(
+                    title=item.get("title", "Unknown"),
+                    price=float(price) if price else 0.0,
+                    merchant="Amazon",
+                    url=item.get("link", ""),
+                    image_url=item.get("image"),
+                    rating=item.get("rating"),
+                    reviews_count=item.get("ratings_total"),
+                    shipping_info=item.get("delivery", {}).get("tagline"),
+                    source="rainforest_amazon"
+                ))
             return results
+
+
+class MockShoppingProvider(SourcingProvider):
+    """Mock provider for testing - returns sample data based on query"""
+    def __init__(self):
+        pass
+
+    async def search(self, query: str, **kwargs) -> List[SearchResult]:
+        import random
+        import hashlib
+        
+        # Generate deterministic but varied results based on query
+        query_hash = int(hashlib.md5(query.encode()).hexdigest()[:8], 16)
+        random.seed(query_hash)
+        
+        merchants = ["Amazon", "Walmart", "Target", "eBay", "Best Buy", "Costco", "Kohl's", "Macy's"]
+        
+        results = []
+        for i in range(random.randint(8, 15)):
+            base_price = random.uniform(15, 150)
+            results.append(SearchResult(
+                title=f"{query} - Style {chr(65 + i)} {'Premium' if i % 3 == 0 else 'Standard'} Edition",
+                price=round(base_price, 2),
+                currency="USD",
+                merchant=random.choice(merchants),
+                url=f"https://example.com/product/{query_hash + i}",
+                image_url=f"https://picsum.photos/seed/{query_hash + i}/300/300",
+                rating=round(random.uniform(3.5, 5.0), 1),
+                reviews_count=random.randint(10, 5000),
+                shipping_info="Free shipping" if random.random() > 0.3 else "Ships in 2-3 days",
+                source="mock_provider"
+            ))
+        return results
 
 
 class GoogleCustomSearchProvider(SourcingProvider):
@@ -243,6 +267,11 @@ class SourcingRepository:
         if serpapi_key and serpapi_key != "demo":
             self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
         
+        # Rainforest API - Amazon search
+        rainforest_key = os.getenv("RAINFOREST_API_KEY")
+        if rainforest_key:
+            self.providers["rainforest"] = RainforestAPIProvider(rainforest_key)
+        
         # ValueSerp - cheap alternative
         valueserp_key = os.getenv("VALUESERP_API_KEY")
         if valueserp_key:
@@ -259,8 +288,10 @@ class SourcingRepository:
         if searchapi_key:
             self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
         
-        # DuckDuckGo - FREE fallback, always available
-        self.providers["duckduckgo"] = DuckDuckGoShoppingProvider()
+        # Mock provider - FREE fallback for testing, always available
+        use_mock = os.getenv("USE_MOCK_SEARCH", "true").lower() == "true"
+        if use_mock:
+            self.providers["mock"] = MockShoppingProvider()
 
     async def search_all(self, query: str, **kwargs) -> List[SearchResult]:
         all_results = []
