@@ -45,6 +45,7 @@ export default function RequestsSidebar() {
     // 3b. Set query in Zustand as source of truth
     store.setCurrentQuery(row.title);
     store.setActiveRowId(row.id);
+    store.setCardClickQuery(row.title);
     console.log('[Sidebar] 3b. Zustand updated - query:', row.title, 'activeRowId:', row.id);
 
     // 3c. The chat will react to the store update
