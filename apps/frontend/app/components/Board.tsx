@@ -31,8 +31,8 @@ export default function ProcurementBoard() {
 
   useEffect(() => {
     fetchRows();
-    // Poll for updates every 5 seconds (MVP realtime)
-    const interval = setInterval(fetchRows, 5000);
+    // Poll for updates every 30 seconds (reduced from 5s to avoid excessive API calls)
+    const interval = setInterval(fetchRows, 30000);
     return () => clearInterval(interval);
   }, []);
 
