@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
+import { useShoppingStore } from '../store';
 
 interface Message {
   id: string;
@@ -9,35 +10,14 @@ interface Message {
   content: string;
 }
 
-interface Product {
-  title: string;
-  price: number;
-  currency: string;
-  merchant: string;
-  url: string;
-  image_url: string | null;
-  rating: number | null;
-  reviews_count: number | null;
-  shipping_info: string | null;
-  source: string;
-}
-
-interface SearchContext {
-  query: string;
-  rowId: number | null;
-}
-
-interface ChatProps {
-  onSearchResults: (results: Product[], context: SearchContext) => void;
-  onSearchStart: (context: SearchContext) => void;
-}
-
-export default function Chat({ onSearchResults, onSearchStart }: ChatProps) {
+export default function Chat() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeRowId, setActiveRowId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  const { setSearchResults, setSearchStart } = useShoppingStore();
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -94,19 +74,22 @@ export default function Chat({ onSearchResults, onSearchStart }: ChatProps) {
           const searchMatch = assistantContent.match(/🔍 Searching for "([^"]+)"/);
           if (searchMatch && searchMatch[1] !== currentQuery) {
             currentQuery = searchMatch[1];
-            onSearchStart({ query: currentQuery, rowId: currentRowId });
+            const queryToSearch = currentQuery;
+            console.log('[Chat] Starting search for:', queryToSearch);
+            setSearchStart({ query: queryToSearch, rowId: currentRowId });
             
             // Fetch search results
             fetch('/api/search', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ query: currentQuery }),
+              body: JSON.stringify({ query: queryToSearch }),
             })
               .then(res => res.json())
               .then(data => {
-                onSearchResults(data.results || [], { query: currentQuery, rowId: currentRowId });
+                console.log('[Chat] Search results:', data.results?.length || 0, 'products');
+                setSearchResults(data.results || [], { query: queryToSearch, rowId: currentRowId });
               })
-              .catch(console.error);
+              .catch(err => console.error('[Chat] Search error:', err));
           }
           
           // Parse row creation from stream

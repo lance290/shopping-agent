@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Package, DollarSign, Trash2, Search, Star, Truck, X } from 'lucide-react';
+import { useShoppingStore } from '../store';
 
 interface Row {
   id: number;
@@ -24,23 +25,14 @@ interface Product {
   source: string;
 }
 
-interface SearchContext {
-  query: string;
-  rowId: number | null;
-}
-
-interface BoardProps {
-  searchResults: Product[];
-  searchContext: SearchContext | null;
-  isSearching: boolean;
-}
-
-export default function ProcurementBoard({ searchResults, searchContext, isSearching }: BoardProps) {
+export default function ProcurementBoard() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const [localProducts, setLocalProducts] = useState<Product[]>([]);
   const [localSearching, setLocalSearching] = useState(false);
+
+  const { searchResults, searchContext, isSearching } = useShoppingStore();
 
   // Use search results from chat if available, otherwise use local products
   const displayProducts = searchResults.length > 0 ? searchResults : localProducts;
