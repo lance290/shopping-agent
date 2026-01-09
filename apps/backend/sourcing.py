@@ -152,14 +152,95 @@ class ValueSerpProvider(SourcingProvider):
             return results
 
 
+class DuckDuckGoShoppingProvider(SourcingProvider):
+    """DuckDuckGo Shopping - FREE, no API key required"""
+    def __init__(self):
+        self.base_url = "https://duckduckgo.com/"
+
+    async def search(self, query: str, **kwargs) -> List[SearchResult]:
+        # Use DuckDuckGo's instant answer API for shopping
+        params = {
+            "q": f"{query} site:amazon.com OR site:ebay.com OR site:walmart.com",
+            "format": "json",
+            "no_html": "1",
+            "skip_disambig": "1",
+        }
+        
+        async with httpx.AsyncClient() as client:
+            # DDG doesn't have a direct shopping API, so we use their web search
+            # and filter for shopping sites
+            response = await client.get(
+                "https://api.duckduckgo.com/",
+                params=params,
+                headers={"User-Agent": "ShoppingAgent/1.0"}
+            )
+            data = response.json()
+            
+            results = []
+            # Parse related topics which often contain product info
+            for item in data.get("RelatedTopics", [])[:10]:
+                if isinstance(item, dict) and "Text" in item:
+                    text = item.get("Text", "")
+                    url = item.get("FirstURL", "")
+                    
+                    # Try to extract price from text
+                    import re
+                    price_match = re.search(r'\$(\d+(?:\.\d{2})?)', text)
+                    price = float(price_match.group(1)) if price_match else 0.0
+                    
+                    results.append(SearchResult(
+                        title=text[:100] if text else "Unknown",
+                        price=price,
+                        merchant="Various",
+                        url=url,
+                        image_url=item.get("Icon", {}).get("URL"),
+                        source="duckduckgo"
+                    ))
+            return results
+
+
+class GoogleCustomSearchProvider(SourcingProvider):
+    """Google Custom Search - 100 free queries/day"""
+    def __init__(self, api_key: str, cx: str):
+        self.api_key = api_key
+        self.cx = cx
+        self.base_url = "https://www.googleapis.com/customsearch/v1"
+
+    async def search(self, query: str, **kwargs) -> List[SearchResult]:
+        params = {
+            "key": self.api_key,
+            "cx": self.cx,
+            "q": query,
+            "searchType": "image",  # For product images
+            "num": 10,
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(self.base_url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            results = []
+            for item in data.get("items", []):
+                results.append(SearchResult(
+                    title=item.get("title", "Unknown"),
+                    price=0.0,  # Google CSE doesn't return prices
+                    merchant="Google Search",
+                    url=item.get("link", ""),
+                    image_url=item.get("link"),
+                    source="google_cse"
+                ))
+            return results
+
+
 class SourcingRepository:
     def __init__(self):
         self.providers: Dict[str, SourcingProvider] = {}
         
-        # Initialize providers in priority order (first working one wins)
+        # Initialize providers in priority order
         # SerpAPI - 100 free searches/month
         serpapi_key = os.getenv("SERPAPI_API_KEY")
-        if serpapi_key:
+        if serpapi_key and serpapi_key != "demo":
             self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
         
         # ValueSerp - cheap alternative
@@ -167,10 +248,19 @@ class SourcingRepository:
         if valueserp_key:
             self.providers["valueserp"] = ValueSerpProvider(valueserp_key)
         
-        # SearchAPI (original) - as fallback
+        # Google Custom Search - 100 free/day
+        google_key = os.getenv("GOOGLE_CSE_API_KEY")
+        google_cx = os.getenv("GOOGLE_CSE_CX")
+        if google_key and google_cx:
+            self.providers["google_cse"] = GoogleCustomSearchProvider(google_key, google_cx)
+        
+        # SearchAPI (original)
         searchapi_key = os.getenv("SEARCHAPI_API_KEY")
         if searchapi_key:
             self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
+        
+        # DuckDuckGo - FREE fallback, always available
+        self.providers["duckduckgo"] = DuckDuckGoShoppingProvider()
 
     async def search_all(self, query: str, **kwargs) -> List[SearchResult]:
         all_results = []
