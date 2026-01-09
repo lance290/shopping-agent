@@ -48,9 +48,21 @@ fastify.post('/api/chat', async (request, reply) => {
   try {
     const { messages } = request.body as { messages: any[] };
     const result = await chatHandler(messages);
-    return result.toDataStreamResponse();
-  } catch (err) {
-    fastify.log.error(err);
+    
+    // Set headers for streaming
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Transfer-Encoding': 'chunked',
+      'Cache-Control': 'no-cache',
+    });
+    
+    // Stream the text response
+    for await (const chunk of result.textStream) {
+      reply.raw.write(chunk);
+    }
+    reply.raw.end();
+  } catch (err: any) {
+    fastify.log.error('result.toDataStreamResponse is not a function', err);
     reply.status(500).send({ error: 'Chat processing failed' });
   }
 });
