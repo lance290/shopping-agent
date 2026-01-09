@@ -17,10 +17,10 @@ export default function ProcurementBoard() {
 
   const fetchRows = async () => {
     try {
-        const res = await fetch('/api/rows');
+        const res = await fetch('/api/rows', { cache: 'no-store' });
         if (res.ok) {
             const data = await res.json();
-            setRows(data);
+            setRows(Array.isArray(data) ? data : []);
         }
     } catch (e) {
         console.error("Failed to fetch rows", e);
