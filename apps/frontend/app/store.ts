@@ -29,6 +29,7 @@ interface ShoppingState {
   rows: Row[];                    // All rows from database
   searchResults: Product[];       // Current search results
   isSearching: boolean;           // Loading state for search
+  cardClickQuery: string | null;  // Query from card click (triggers chat append)
   
   // Actions
   setCurrentQuery: (query: string) => void;
@@ -40,6 +41,7 @@ interface ShoppingState {
   setSearchResults: (results: Product[]) => void;
   setIsSearching: (searching: boolean) => void;
   clearSearch: () => void;
+  setCardClickQuery: (query: string | null) => void;  // For card click -> chat append
   
   // Combined actions for the flow
   selectOrCreateRow: (query: string, existingRows: Row[]) => Row | null;
@@ -52,6 +54,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   rows: [],
   searchResults: [],
   isSearching: false,
+  cardClickQuery: null,
   
   // Basic setters
   setCurrentQuery: (query) => set({ currentQuery: query }),
@@ -67,7 +70,8 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   })),
   setSearchResults: (results) => set({ searchResults: results, isSearching: false }),
   setIsSearching: (searching) => set({ isSearching: searching }),
-  clearSearch: () => set({ searchResults: [], currentQuery: '', isSearching: false, activeRowId: null }),
+  clearSearch: () => set({ searchResults: [], currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
+  setCardClickQuery: (query) => set({ cardClickQuery: query }),
   
   // Find a row that matches the query, or return null if we need to create one
   selectOrCreateRow: (query, existingRows) => {

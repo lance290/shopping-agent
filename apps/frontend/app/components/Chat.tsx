@@ -244,23 +244,20 @@ export default function Chat() {
   // Handle when a card is clicked (called from Board via store)
   // This appends the card's query to the chat
   useEffect(() => {
-    const query = store.currentQuery;
-    const rowId = store.activeRowId;
+    const cardClickQuery = store.cardClickQuery;
     
-    if (query && rowId) {
-      // Check if this query is already the last message to avoid loops
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage?.role === 'user' && lastMessage.content === query) return;
-
-      console.log('[Chat] Card clicked - Appending to chat:', query);
+    if (cardClickQuery) {
+      console.log('[Chat] Card clicked - Appending to chat:', cardClickQuery);
       const cardMessage: Message = {
         id: Date.now().toString(),
         role: 'user',
-        content: query,
+        content: cardClickQuery,
       };
       setMessages(prev => [...prev, cardMessage]);
+      // Clear the trigger so it doesn't fire again
+      store.setCardClickQuery(null);
     }
-  }, [store.currentQuery, store.activeRowId]);
+  }, [store.cardClickQuery]);
 
   return (
     <div className="flex flex-col h-full border-r border-gray-200 bg-gray-50 w-1/3 min-w-[300px]">

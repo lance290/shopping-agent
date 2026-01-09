@@ -56,11 +56,9 @@ export default function ProcurementBoard() {
     // 3b. Set query in Zustand as source of truth
     store.setCurrentQuery(row.title);
     store.setActiveRowId(row.id);
-    console.log('[Board] 3b. Zustand updated - query:', row.title, 'activeRowId:', row.id);
-
-    // 3c. The chat will react to the store update (via useEffect)
-    // The chat component watches store.currentQuery and store.activeRowId
-    console.log('[Board] 3c. Chat will be notified via store');
+    // 3c. Trigger chat append via cardClickQuery
+    store.setCardClickQuery(row.title);
+    console.log('[Board] 3b-3c. Zustand updated - query:', row.title, 'activeRowId:', row.id, 'cardClickQuery set');
 
     // 3d. Run the search
     console.log('[Board] 3d. Running search for:', row.title);
