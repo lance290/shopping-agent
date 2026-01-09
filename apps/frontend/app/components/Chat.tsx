@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
-import { useShoppingStore } from '../store';
+import { useShoppingStore, Row } from '../store';
 
 interface Message {
   id: string;
@@ -16,11 +16,143 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const { rows, setRows, searchResults, setSearchResults, setSearchStart, activeRowId, setActiveRowId, updateRow, searchContext } = useShoppingStore();
+  const store = useShoppingStore();
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Helper: Persist row to database
+  const persistRowToDb = async (rowId: number, title: string) => {
+    console.log('[Chat] Persisting to DB:', rowId, title);
+    try {
+      const res = await fetch(`/api/rows?id=${rowId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      });
+      if (res.ok) {
+        console.log('[Chat] DB persist success');
+        return true;
+      } else {
+        console.error('[Chat] DB persist failed:', res.status);
+        return false;
+      }
+    } catch (err) {
+      console.error('[Chat] DB persist error:', err);
+      return false;
+    }
+  };
+
+  // Helper: Run search and update store
+  const runSearch = async (query: string) => {
+    console.log('[Chat] Running search:', query);
+    store.setIsSearching(true);
+    try {
+      const res = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      const data = await res.json();
+      console.log('[Chat] Search returned:', data.results?.length || 0, 'products');
+      store.setSearchResults(data.results || []);
+    } catch (err) {
+      console.error('[Chat] Search error:', err);
+      store.setSearchResults([]);
+    }
+  };
+
+  // Helper: Create a new row in database
+  const createRowInDb = async (title: string): Promise<Row | null> => {
+    console.log('[Chat] Creating row in DB:', title);
+    try {
+      const res = await fetch('/api/rows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, status: 'sourcing' }),
+      });
+      if (res.ok) {
+        const newRow = await res.json();
+        console.log('[Chat] Row created:', newRow);
+        return newRow;
+      }
+    } catch (err) {
+      console.error('[Chat] Create row error:', err);
+    }
+    return null;
+  };
+
+  // Helper: Fetch all rows from DB
+  const fetchRowsFromDb = async (): Promise<Row[]> => {
+    try {
+      const res = await fetch('/api/rows');
+      if (res.ok) {
+        const rows = await res.json();
+        return Array.isArray(rows) ? rows : [];
+      }
+    } catch (err) {
+      console.error('[Chat] Fetch rows error:', err);
+    }
+    return [];
+  };
+
+  /**
+   * MAIN FLOW:
+   * 1a. User types in search
+   * 1b. A search query is created and saved to Zustand
+   * 1c. A card is either selected if possible or created
+   * 1d. Zustand is updated as source of truth
+   * 1e. We update the database with the query
+   * 1f. We run the search
+   * 1g. We save the source of truth to the database
+   */
+  const handleSearchFlow = async (query: string) => {
+    console.log('[Chat] === SEARCH FLOW START ===');
+    console.log('[Chat] 1a. Query:', query);
+
+    // 1b. Save query to Zustand
+    store.setCurrentQuery(query);
+    console.log('[Chat] 1b. Query saved to Zustand');
+
+    // 1c. Select or create card
+    const currentRows = store.rows;
+    let targetRow = store.selectOrCreateRow(query, currentRows);
+    
+    if (targetRow) {
+      // Select existing row
+      console.log('[Chat] 1c. Selecting existing row:', targetRow.id, targetRow.title);
+      store.setActiveRowId(targetRow.id);
+      // Update the row title to match the new query
+      store.updateRow(targetRow.id, { title: query });
+    } else {
+      // Create new row
+      console.log('[Chat] 1c. Creating new row for:', query);
+      const newRow = await createRowInDb(query);
+      if (newRow) {
+        store.addRow(newRow);
+        store.setActiveRowId(newRow.id);
+        targetRow = newRow;
+      }
+    }
+
+    // 1d. Zustand is now the source of truth (already updated above)
+    console.log('[Chat] 1d. Zustand updated - activeRowId:', store.activeRowId);
+
+    // 1e. Update database with the query
+    if (targetRow) {
+      await persistRowToDb(targetRow.id, query);
+      console.log('[Chat] 1e. Database updated');
+    }
+
+    // 1f. Run the search
+    await runSearch(query);
+    console.log('[Chat] 1f. Search complete');
+
+    // 1g. Source of truth is already in sync
+    console.log('[Chat] 1g. Flow complete');
+    console.log('[Chat] === SEARCH FLOW END ===');
+  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +174,7 @@ export default function Chat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           messages: [...messages, userMessage],
-          activeRowId,
+          activeRowId: store.activeRowId,
         }),
       });
       
@@ -51,8 +183,7 @@ export default function Chat() {
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let assistantContent = '';
-      let currentQuery = '';
-      let currentRowId = activeRowId;
+      let lastProcessedQuery = '';
       let rowCreationHandled = false;
       
       const assistantMessage: Message = {
@@ -70,77 +201,26 @@ export default function Chat() {
           const chunk = decoder.decode(value, { stream: true });
           assistantContent += chunk;
           
-          // Parse search events from the stream
+          // Parse search events from the stream - this is a NEW search
           const searchMatch = assistantContent.match(/🔍 Searching for "([^"]+)"/);
-          if (searchMatch && searchMatch[1] !== currentQuery) {
-            currentQuery = searchMatch[1];
-            const queryToSearch = currentQuery;
-            console.log('[Chat] Starting search for:', queryToSearch, 'activeRowId:', currentRowId);
-            setSearchStart({ query: queryToSearch, rowId: currentRowId });
-            
-            // Fetch search results and update store
-            try {
-              const searchRes = await fetch('/api/search', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query: queryToSearch }),
-              });
-              const searchData = await searchRes.json();
-              console.log('[Chat] Search results:', searchData.results?.length || 0, 'products');
-              setSearchResults(searchData.results || [], { query: queryToSearch, rowId: currentRowId });
-            } catch (err) {
-              console.error('[Chat] Search error:', err);
-            }
-              
-            // Update row title if we have an active row - MUST PERSIST
-            if (currentRowId) {
-              console.log('[Chat] Updating row title:', currentRowId, '->', queryToSearch);
-              
-              // Optimistic update in store
-              const { updateRow } = useShoppingStore.getState();
-              updateRow(currentRowId, { title: queryToSearch });
-              
-              // Persist to database - await this!
-              try {
-                const patchRes = await fetch(`/api/rows?id=${currentRowId}`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ title: queryToSearch }),
-                });
-                if (patchRes.ok) {
-                  const updatedRow = await patchRes.json();
-                  console.log('[Chat] PATCH success:', updatedRow);
-                } else {
-                  const errorText = await patchRes.text();
-                  console.error('[Chat] PATCH failed:', patchRes.status, errorText);
-                }
-              } catch (err) {
-                console.error('[Chat] PATCH error:', err);
-              }
-            } else {
-              console.warn('[Chat] No active row to update title');
-            }
+          if (searchMatch && searchMatch[1] !== lastProcessedQuery) {
+            lastProcessedQuery = searchMatch[1];
+            // Execute the full search flow
+            await handleSearchFlow(lastProcessedQuery);
           }
           
           // Parse row creation from stream (only handle once)
           const rowMatch = assistantContent.match(/✅ Adding "([^"]+)" to your procurement board/);
           if (rowMatch && !rowCreationHandled) {
             rowCreationHandled = true;
-            // Refresh rows to get the new row ID
-            fetch('/api/rows')
-              .then(res => res.json())
-              .then(rows => {
-                if (Array.isArray(rows) && rows.length > 0) {
-                  const newRow = rows[rows.length - 1];
-                  setActiveRowId(newRow.id);
-                  currentRowId = newRow.id;
-                  
-                  // Also update store rows
-                  const { setRows } = useShoppingStore.getState();
-                  setRows(rows);
-                }
-              })
-              .catch(console.error);
+            // Refresh rows from DB to ensure we have the latest
+            const freshRows = await fetchRowsFromDb();
+            store.setRows(freshRows);
+            // Select the newest row
+            if (freshRows.length > 0) {
+              const newestRow = freshRows[freshRows.length - 1];
+              store.setActiveRowId(newestRow.id);
+            }
           }
           
           setMessages(prev => 
@@ -163,6 +243,19 @@ export default function Chat() {
       setIsLoading(false);
     }
   };
+  
+  // Handle when a card is clicked (called from Board via store)
+  // This appends the card's query to the chat
+  useEffect(() => {
+    const query = store.currentQuery;
+    const rowId = store.activeRowId;
+    
+    // If there's a query set from clicking a card (not from typing)
+    // We could add a flag to distinguish, but for now we just log
+    if (query && rowId) {
+      console.log('[Chat] Current context - Query:', query, 'RowId:', rowId);
+    }
+  }, [store.currentQuery, store.activeRowId]);
 
   return (
     <div className="flex flex-col h-full border-r border-gray-200 bg-gray-50 w-1/3 min-w-[300px]">

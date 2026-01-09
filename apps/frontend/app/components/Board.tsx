@@ -2,54 +2,29 @@
 
 import { useState, useEffect } from 'react';
 import { Package, DollarSign, Trash2, Search, Star, Truck, X } from 'lucide-react';
-import { useShoppingStore } from '../store';
-
-interface Row {
-  id: number;
-  title: string;
-  status: string;
-  budget_max: number | null;
-  currency: string;
-}
-
-interface Product {
-  title: string;
-  price: number;
-  currency: string;
-  merchant: string;
-  url: string;
-  image_url: string | null;
-  rating: number | null;
-  reviews_count: number | null;
-  shipping_info: string | null;
-  source: string;
-}
+import { useShoppingStore, Row, Product } from '../store';
 
 export default function ProcurementBoard() {
   const [loading, setLoading] = useState(true);
-  const { rows, setRows, searchResults, setSearchResults, searchContext, setSearchStart, isSearching, activeRowId, setActiveRowId, clearSearch } = useShoppingStore();
+  const store = useShoppingStore();
 
-  const selectedRow = rows.find(r => r.id === activeRowId) || null;
+  const selectedRow = store.rows.find(r => r.id === store.activeRowId) || null;
 
   // Use search results from store
-  const displayProducts = searchResults;
-  const displayQuery = searchContext?.query || selectedRow?.title || '';
-  
-  // Local loading state for row selection search
-  const [rowSearching, setRowSearching] = useState(false);
-  const showSearching = isSearching || rowSearching;
+  const displayProducts = store.searchResults;
+  const displayQuery = store.currentQuery || selectedRow?.title || '';
 
   const fetchRows = async () => {
     try {
-        const res = await fetch('/api/rows', { cache: 'no-store' });
-        if (res.ok) {
-            const data = await res.json();
-            setRows(Array.isArray(data) ? data : []);
-        }
+      const res = await fetch('/api/rows', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        store.setRows(Array.isArray(data) ? data : []);
+      }
     } catch (e) {
-        console.error("Failed to fetch rows", e);
+      console.error("Failed to fetch rows", e);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -57,22 +32,39 @@ export default function ProcurementBoard() {
     try {
       const res = await fetch(`/api/rows?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
-        setRows(rows.filter(r => r.id !== id));
-        if (activeRowId === id) {
-          setActiveRowId(null);
-          clearSearch();
-        }
+        store.removeRow(id);
       }
     } catch (e) {
       console.error("Failed to delete row", e);
     }
   };
 
-  const searchRowProducts = async (row: Row) => {
-    setRowSearching(true);
-    // Update store to reflect we are searching for this row
-    setSearchStart({ query: row.title, rowId: row.id });
+  /**
+   * CARD CLICK FLOW (Step 3):
+   * 3a. User clicks a card
+   * 3b. The query is set in Zustand as the source of truth
+   * 3c. The text from the card is appended to the chat (via store update)
+   * 3d. We run the search
+   * 3e. Goto step 2 (continued chat flow)
+   */
+  const handleCardClick = async (row: Row) => {
+    if (store.activeRowId === row.id) return;
     
+    console.log('[Board] === CARD CLICK FLOW START ===');
+    console.log('[Board] 3a. User clicked card:', row.id, row.title);
+
+    // 3b. Set query in Zustand as source of truth
+    store.setCurrentQuery(row.title);
+    store.setActiveRowId(row.id);
+    console.log('[Board] 3b. Zustand updated - query:', row.title, 'activeRowId:', row.id);
+
+    // 3c. The chat will react to the store update (via useEffect)
+    // The chat component watches store.currentQuery and store.activeRowId
+    console.log('[Board] 3c. Chat will be notified via store');
+
+    // 3d. Run the search
+    console.log('[Board] 3d. Running search for:', row.title);
+    store.setIsSearching(true);
     try {
       const res = await fetch('/api/search', {
         method: 'POST',
@@ -81,30 +73,20 @@ export default function ProcurementBoard() {
       });
       if (res.ok) {
         const data = await res.json();
-        // Update store with results
-        setSearchResults(data.results || [], { query: row.title, rowId: row.id });
+        console.log('[Board] Search returned:', data.results?.length || 0, 'products');
+        store.setSearchResults(data.results || []);
       }
     } catch (e) {
-      console.error("Failed to search products", e);
-    } finally {
-      setRowSearching(false);
+      console.error('[Board] Search failed:', e);
+      store.setSearchResults([]);
     }
-  };
 
-  const selectRow = (row: Row) => {
-    if (activeRowId === row.id) return;
-    console.log('[Board] Selecting row:', row.id, row.title);
-    setActiveRowId(row.id);
-    // Set search context to this row's title - this is now the source of truth
-    setSearchStart({ query: row.title, rowId: row.id });
-    searchRowProducts(row);
+    console.log('[Board] === CARD CLICK FLOW END ===');
+    // 3e. Now the user can continue typing in chat (goto step 2)
   };
 
   useEffect(() => {
     fetchRows();
-    // Disable polling for now to prevent overwriting optimistic updates
-    // const interval = setInterval(fetchRows, 30000);
-    // return () => clearInterval(interval);
   }, []);
 
   return (
@@ -121,21 +103,21 @@ export default function ProcurementBoard() {
         </div>
         
         <div className="flex-1 overflow-y-auto p-2 space-y-2">
-          {loading && rows.length === 0 && (
+          {loading && store.rows.length === 0 && (
             <div className="text-center text-gray-500 py-10">Loading...</div>
           )}
 
-          {!loading && rows.length === 0 && (
+          {!loading && store.rows.length === 0 && (
             <div className="text-center text-gray-500 py-10">
               <Package className="mx-auto h-8 w-8 text-gray-600 mb-2" />
               <p className="text-sm">No requests yet</p>
             </div>
           )}
 
-          {rows.map((row) => (
+          {store.rows.map((row: Row) => (
             <div
               key={row.id}
-              onClick={() => selectRow(row)}
+              onClick={() => handleCardClick(row)}
               className={`p-3 rounded-lg cursor-pointer transition-colors ${
                 selectedRow?.id === row.id 
                   ? 'bg-blue-600 text-white' 
@@ -167,7 +149,7 @@ export default function ProcurementBoard() {
 
       {/* Right: Product Grid */}
       <div className="flex-1 overflow-y-auto">
-        {!searchContext && !selectedRow && displayProducts.length === 0 && !isSearching ? (
+        {!store.currentQuery && !selectedRow && displayProducts.length === 0 && !store.isSearching ? (
           <div className="flex items-center justify-center h-full text-gray-500">
             <div className="text-center">
               <Search className="mx-auto h-12 w-12 text-gray-600 mb-3" />
@@ -184,14 +166,14 @@ export default function ProcurementBoard() {
                 </p>
               </div>
               <button
-                onClick={() => { setActiveRowId(null); clearSearch(); }}
+                onClick={() => store.clearSearch()}
                 className="p-2 hover:bg-gray-700 rounded-lg"
               >
                 <X size={20} className="text-gray-400" />
               </button>
             </div>
 
-            {showSearching ? (
+            {store.isSearching ? (
               <div className="text-center py-20 text-gray-500">
                 <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
                 <p>Searching products...</p>
