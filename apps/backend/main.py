@@ -16,7 +16,7 @@ from sourcing import SourcingRepository, SearchResult
 from database import init_db, get_session
 from models import (
     Row, RowBase, RowCreate, RequestSpec,
-    AuthLoginCode, AuthSession,
+    AuthLoginCode, AuthSession, Bid, Seller, User,
     hash_token, generate_verification_code, generate_session_token
 )
 
@@ -301,6 +301,13 @@ async def auth_verify(request: AuthVerifyRequest, session: AsyncSession = Depend
     # Code is valid - deactivate it
     login_code.is_active = False
     session.add(login_code)
+    
+    # Create user if not exists (registration on first login)
+    result = await session.exec(select(User).where(User.email == email))
+    user = result.first()
+    if not user:
+        user = User(email=email)
+        session.add(user)
     
     # Create session
     token = generate_session_token()

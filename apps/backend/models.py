@@ -84,6 +84,15 @@ class Bid(SQLModel, table=True):
     seller: Optional[Seller] = Relationship(back_populates="bids")
 
 
+class User(SQLModel, table=True):
+    """Registered users."""
+    __tablename__ = "user"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(index=True, unique=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class AuthLoginCode(SQLModel, table=True):
     """Stores verification codes for email login. Only one active code per email."""
     __tablename__ = "auth_login_code"
