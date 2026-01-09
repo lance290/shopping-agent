@@ -1,15 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Package, Trash2, ChevronLeft, Menu } from 'lucide-react';
+import { Package, Trash2, ChevronLeft, Menu, LogOut } from 'lucide-react';
 import { useShoppingStore, Row } from '../store';
+import { useRouter } from 'next/navigation';
 
 export default function RequestsSidebar() {
   const [loading, setLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(true);
   const store = useShoppingStore();
+  const router = useRouter();
 
   const selectedRow = store.rows.find(r => r.id === store.activeRowId) || null;
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/login');
+    } catch (e) {
+      console.error('Logout failed:', e);
+    }
+  };
 
   const fetchRows = async () => {
     try {
@@ -42,16 +53,13 @@ export default function RequestsSidebar() {
     console.log('[Sidebar] === CARD CLICK FLOW START ===');
     console.log('[Sidebar] 3a. User clicked card:', row.id, row.title);
 
-    // 3b. Set query in Zustand as source of truth
     store.setCurrentQuery(row.title);
     store.setActiveRowId(row.id);
     store.setCardClickQuery(row.title);
     console.log('[Sidebar] 3b. Zustand updated - query:', row.title, 'activeRowId:', row.id);
 
-    // 3c. The chat will react to the store update
     console.log('[Sidebar] 3c. Chat will be notified via store');
 
-    // 3d. Run the search
     console.log('[Sidebar] 3d. Running search for:', row.title);
     store.setIsSearching(true);
     try {
@@ -153,6 +161,15 @@ export default function RequestsSidebar() {
             </div>
           </div>
         ))}
+      </div>
+      <div className="p-4 border-t border-gray-700">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors w-full p-2 rounded hover:bg-gray-700"
+        >
+          <LogOut size={16} />
+          Sign Out
+        </button>
       </div>
     </div>
   );

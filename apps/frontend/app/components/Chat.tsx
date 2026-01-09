@@ -70,12 +70,21 @@ export default function Chat() {
       const res = await fetch('/api/rows', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, status: 'sourcing' }),
+        body: JSON.stringify({ 
+          title, 
+          status: 'sourcing',
+          request_spec: {
+            item_name: title,
+            constraints: '{}'
+          }
+        }),
       });
       if (res.ok) {
         const newRow = await res.json();
         console.log('[Chat] Row created:', newRow);
         return newRow;
+      } else {
+        console.error('[Chat] Create row failed:', res.status, await res.text());
       }
     } catch (err) {
       console.error('[Chat] Create row error:', err);
