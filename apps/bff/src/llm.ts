@@ -28,10 +28,17 @@ Only create a new row when the user asks for a completely different item.`,
         description: 'Create a new procurement row for an item',
         inputSchema: z.object({
           item: z.string().describe('The name of the item to buy'),
-          constraints: z.record(z.string(), z.string()).optional().describe('Key-value constraints like size, color, budget'),
+          constraints: z.record(z.string(), z.union([z.string(), z.number()])).optional().describe('Key-value constraints like size, color, budget'),
         }),
-        execute: async (input: { item: string; constraints?: Record<string, string> }) => {
+        execute: async (input: { item: string; constraints?: Record<string, string | number> }) => {
           try {
+            // Convert all constraint values to strings
+            const normalizedConstraints: Record<string, string> = {};
+            if (input.constraints) {
+              for (const [key, value] of Object.entries(input.constraints)) {
+                normalizedConstraints[key] = String(value);
+              }
+            }
             const response = await fetch(`${BACKEND_URL}/rows`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -40,7 +47,7 @@ Only create a new row when the user asks for a completely different item.`,
                 status: 'sourcing',
                 request_spec: {
                   item_name: input.item,
-                  constraints: JSON.stringify(input.constraints || {})
+                  constraints: JSON.stringify(normalizedConstraints)
                 }
               })
             });
