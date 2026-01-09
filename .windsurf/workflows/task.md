@@ -27,7 +27,8 @@ allowed-tools: "*"
 
 ## Step 1: Load Plan Context
 // turbo
-1. Read the approved plan from effort-specific path (determined in Step 0)
+1. Read the approved plan from:
+   - Path: `.cfoi/branches/[branch-name]/efforts/[effort-name]/plan.md`
 2. If **plan.md does not exist**: Display error and HALT:
    ```
    ❌ NO PLAN FOUND!
@@ -37,7 +38,8 @@ allowed-tools: "*"
    
    Cannot break down tasks without a plan to work from.
    ```
-3. Confirm plan was human-approved (check for approval marker)
+3. Confirm plan was human-approved by checking for the approval marker in `plan.md`:
+   - Required: `<!-- PLAN_APPROVAL: approved by <Name> at <ISO-8601 timestamp> -->`
 4. If not approved: Display warning and request approval before proceeding
 
 ## Step 2: Generate Task Breakdown
@@ -52,11 +54,12 @@ allowed-tools: "*"
      * Dependencies on other tasks
      * Error budget allocation (max 3 errors)
      * **Evidence requirements**:
-       - Manual artifact to capture (screenshot/log/demo URL) with target path `proof/[task-id]/manual.md`
+       - Manual artifact to capture (screenshot/log/demo URL) with target path `.cfoi/branches/[branch-name]/proof/[task-id]/manual.md`
        - Automated proof (test suite name, coverage target delta)
        - Human owner responsible for sign-off
 
 2. **Save tasks in BOTH formats** (effort-specific path):
+   - Base path: `.cfoi/branches/[branch-name]/efforts/[effort-name]/`
 
    **a) `tasks.md`** - Human-readable format for review
    
@@ -83,7 +86,7 @@ allowed-tools: "*"
          "estimated_minutes": 30,
          "error_budget": 3,
          "status": "pending",
-         "proof_path": "proof/task-001/"
+         "proof_path": ".cfoi/branches/[branch-name]/proof/task-001/"
        }
      ]
    }
@@ -142,7 +145,8 @@ allowed-tools: "*"
    }
    ```
 
-2. **Update `PROGRESS.md`** with task summary and session entry:
+2. **Update `PROGRESS.md`** (in the effort directory) with task summary and session entry:
+   - Path: `.cfoi/branches/[branch-name]/efforts/[effort-name]/PROGRESS.md`
    ```markdown
    ## Current State
    - **Status**: 🟢 Ready for Implementation
@@ -166,13 +170,14 @@ allowed-tools: "*"-|-------------|--------|
    ```
 
 3. Update effort status in `effort.json` to "in-progress"
-4. For each task, create stub checklist at effort-specific `proof/[task-id]/acceptance.md`:
+4. For each task, create stub checklist at:
+   - Path: `.cfoi/branches/[branch-name]/proof/[task-id]/acceptance.md`
    ```markdown
    # Task [task-id] Acceptance Proof
 
    ## Manual Evidence
    - [ ] Click-test performed by: ______
-   - [ ] Artifact stored at: proof/[task-id]/manual.md
+   - [ ] Artifact stored at: .cfoi/branches/[branch-name]/proof/[task-id]/manual.md
 
    ## Automated Evidence
    - [ ] Tests run (command): ______

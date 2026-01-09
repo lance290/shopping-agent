@@ -120,10 +120,13 @@ allowed-tools: "*"
    - Identify risks and dependencies
    - Generate a detailed plan with success criteria
    - **Document all assumptions** made during planning
-   - Save to effort-specific path (determined in Step 0)
+   - Save to effort-specific path (determined in Step 0): `.cfoi/branches/[branch-name]/efforts/[effort-name]/plan.md`
+   - Include an approval marker stub at the top of the file:
+     `<!-- PLAN_APPROVAL: pending -->`
 
 ## Step 4: ⚠️ HUMAN CHECKPOINT - Plan Approval (REQUIRED)
 1. Review the generated plan at effort-specific path
+   - Path: `.cfoi/branches/[branch-name]/efforts/[effort-name]/plan.md`
 2. Verify:
    - **All clarifying questions were answered** (not skipped)
    - **Assumptions are documented** and acceptable
@@ -134,6 +137,8 @@ allowed-tools: "*"
    - No major risks or blockers
 3. **DECISION**: Approve, revise, or cancel
    - If approved → Proceed to step 5
+   - If approved: update the marker in `plan.md` to:
+     `<!-- PLAN_APPROVAL: approved by <Name> at <ISO-8601 timestamp> -->`
    - If revisions needed → Return to step 1 with feedback
    - If cancelled → Document why and pivot
 
@@ -146,6 +151,7 @@ allowed-tools: "*"
    - `DECISIONS.md` - Why we chose X over Y
    - `ASSUMPTIONS.md` - **NEW**: Document all assumptions made during planning
    - `metrics.json` - Error budget, time tracking
+   - All files live at: `.cfoi/branches/[branch-name]/efforts/[effort-name]/`
 3. Update effort status in `effort.json` to "planned"
 4. Confirm initialization: "✅ Tracking initialized for effort: [effort-name]"
 

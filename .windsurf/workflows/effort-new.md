@@ -2,8 +2,6 @@
 allowed-tools: "*"
 description: Create a new effort (feature/bug/enhancement) within current branch
 ---
-allowed-tools: "*"
-
 # New Effort Workflow
 
 Use this when you need to work on multiple things in the same branch (e.g., original feature is done, now need to fix a bug and add an enhancement).
@@ -98,9 +96,6 @@ Use this when you need to work on multiple things in the same branch (e.g., orig
    - Type: [type]
    - Description: [description]
    - Next: Run /plan to create implementation plan
-   
-   ---
-allowed-tools: "*"
    
    ## How to Use This File
    

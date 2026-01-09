@@ -1,0 +1,52 @@
+{
+  "type": "refactor",
+  "name": "chat-board-sync",
+  "description": "Robust bidirectional sync between chat and procurement requests board (Zustand as source of truth)",
+  "created": "2026-01-09T06:28:00Z",
+  "status": "in-progress",
+  "priority": 1,
+  "parent": null,
+  "definition_of_done": {
+    "version": 1,
+    "status": "active",
+    "thresholds": [
+      {
+        "description": "Playwright E2E: Step 1 creates a card from chat search",
+        "metric": "e2e_chat_board_step1",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "Playwright E2E: Step 2 extends search without creating a new card",
+        "metric": "e2e_chat_board_step2_no_duplicate_card",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "Playwright E2E: Step 3 clicking a request appends to chat",
+        "metric": "e2e_chat_board_step3_append",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      }
+    ],
+    "signals": [
+      {
+        "description": "Vitest unit tests cover row selection / card click trigger logic",
+        "metric": "unit_tests_vitest_chat_board_sync",
+        "target": 1,
+        "weight": 1,
+        "evidence_required": "measured",
+        "type": "signal"
+      }
+    ],
+    "approval": {
+      "by": "USER",
+      "timestamp": "2026-01-09T06:28:00Z",
+      "change_reason": "reverse engineered from completed effort",
+      "change_type": "clarify"
+    }
+  }
+}
