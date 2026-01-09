@@ -99,8 +99,9 @@ export default function ProcurementBoard() {
 
   useEffect(() => {
     fetchRows();
-    const interval = setInterval(fetchRows, 30000);
-    return () => clearInterval(interval);
+    // Disable polling for now to prevent overwriting optimistic updates
+    // const interval = setInterval(fetchRows, 30000);
+    // return () => clearInterval(interval);
   }, []);
 
   return (

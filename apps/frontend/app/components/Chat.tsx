@@ -92,6 +92,8 @@ export default function Chat() {
               
             // Update row title if we have an active row
             if (currentRowId) {
+              console.log('[Chat] Updating row title:', currentRowId, queryToSearch);
+              const { updateRow } = useShoppingStore.getState();
               // Optimistic update
               updateRow(currentRowId, { title: queryToSearch });
               
@@ -99,7 +101,14 @@ export default function Chat() {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title: queryToSearch }),
-              }).catch(console.error);
+              })
+              .then(res => {
+                if (res.ok) console.log('[Chat] PATCH success');
+                else console.error('[Chat] PATCH failed', res.status);
+              })
+              .catch(console.error);
+            } else {
+              console.warn('[Chat] No active row to update title');
             }
           }
           
