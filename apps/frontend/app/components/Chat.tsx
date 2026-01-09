@@ -90,6 +90,15 @@ export default function Chat() {
                 setSearchResults(data.results || [], { query: queryToSearch, rowId: currentRowId });
               })
               .catch(err => console.error('[Chat] Search error:', err));
+              
+            // Update row title if we have an active row
+            if (currentRowId) {
+              fetch(`/api/rows?id=${currentRowId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: queryToSearch }),
+              }).catch(console.error);
+            }
           }
           
           // Parse row creation from stream

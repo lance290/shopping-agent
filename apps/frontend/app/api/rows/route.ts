@@ -59,3 +59,29 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to delete row' }, { status: 500 });
   }
 }
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const url = new URL(request.url);
+    const id = url.searchParams.get('id');
+    const body = await request.json();
+    
+    if (!id) {
+      return NextResponse.json({ error: 'Missing row ID' }, { status: 400 });
+    }
+    
+    const response = await fetch(`${BFF_URL}/api/rows/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    console.error('Error updating row:', error);
+    return NextResponse.json({ error: 'Failed to update row' }, { status: 500 });
+  }
+}

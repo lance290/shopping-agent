@@ -21,7 +21,7 @@ Create `.env` files in each app directory (or set globally):
 
 **apps/bff/.env**
 ```env
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-3.0-flash-preview
 GOOGLE_API_KEY=your_key_here
 BACKEND_URL=http://localhost:8000
 PORT=8080

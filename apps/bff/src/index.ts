@@ -181,6 +181,26 @@ fastify.delete('/api/rows/:id', async (request, reply) => {
   }
 });
 
+fastify.patch('/api/rows/:id', async (request, reply) => {
+  try {
+    const { id } = request.params as { id: string };
+    const response = await fetch(`${BACKEND_URL}/rows/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request.body),
+    });
+    if (response.status === 404) {
+      reply.status(404).send({ error: 'Row not found' });
+      return;
+    }
+    const data = await response.json();
+    return data;
+  } catch (err) {
+    fastify.log.error(err);
+    reply.status(500).send({ error: 'Failed to update row' });
+  }
+});
+
 // Start server
 const start = async () => {
   try {

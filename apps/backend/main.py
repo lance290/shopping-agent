@@ -118,6 +118,27 @@ async def delete_row(row_id: int, session: AsyncSession = Depends(get_session)):
     await session.commit()
     return {"status": "deleted", "id": row_id}
 
+class RowUpdate(BaseModel):
+    title: Optional[str] = None
+    status: Optional[str] = None
+    budget_max: Optional[float] = None
+
+@app.patch("/rows/{row_id}")
+async def update_row(row_id: int, row_update: RowUpdate, session: AsyncSession = Depends(get_session)):
+    row = await session.get(Row, row_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+    
+    row_data = row_update.dict(exclude_unset=True)
+    for key, value in row_data.items():
+        setattr(row, key, value)
+        
+    row.updated_at = datetime.utcnow()
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return row
+
 # Search endpoint
 @app.post("/v1/sourcing/search", response_model=SearchResponse)
 async def search_listings(request: SearchRequest):
