@@ -4,15 +4,15 @@
 
 ## Current State
 - **Status**: 🟢 In Progress
-- **Current task**: task-002 (pending)
+- **Current task**: task-003 (pending)
 - **Last working commit**: [current HEAD]
-- **App status**: Backend/BFF running, DB issues (Docker)
+- **App status**: Backend verified (Tests passing)
 
 ## Task Summary
 | ID | Description | Status |
 |---|---|---|
 | task-001 | Backend: add user_id to AuthSession | ✅ completed |
-| task-002 | Backend: enforce ownership on /rows | ⬜ pending |
+| task-002 | Backend: enforce ownership on /rows | ✅ completed |
 | task-003 | BFF: forward Authorization | ⬜ pending |
 | task-004 | Frontend: attach Authorization | ⬜ pending |
 | task-005 | Backend: E2E mint endpoint | ⬜ pending |

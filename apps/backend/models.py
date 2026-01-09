@@ -39,6 +39,7 @@ class RowCreate(RowBase):
 
 class Row(RowBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
     
     # Relationships
     bids: List["Bid"] = Relationship(back_populates="row")

@@ -100,7 +100,16 @@ async def health_check():
 
 # DB endpoints
 @app.post("/rows", response_model=Row)
-async def create_row(row: RowCreate, session: AsyncSession = Depends(get_session)):
+async def create_row(
+    row: RowCreate,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
     # Extract request_spec data
     request_spec_data = row.request_spec
     
@@ -109,7 +118,8 @@ async def create_row(row: RowCreate, session: AsyncSession = Depends(get_session
         title=row.title,
         status=row.status,
         budget_max=row.budget_max,
-        currency=row.currency
+        currency=row.currency,
+        user_id=auth_session.user_id
     )
     session.add(db_row)
     await session.commit()
@@ -130,20 +140,56 @@ async def create_row(row: RowCreate, session: AsyncSession = Depends(get_session
     return db_row
 
 @app.get("/rows", response_model=List[Row])
-async def read_rows(session: AsyncSession = Depends(get_session)):
-    result = await session.exec(select(Row))
+async def read_rows(
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    result = await session.exec(select(Row).where(Row.user_id == auth_session.user_id))
     return result.all()
 
 @app.get("/rows/{row_id}", response_model=Row)
-async def read_row(row_id: int, session: AsyncSession = Depends(get_session)):
-    row = await session.get(Row, row_id)
+async def read_row(
+    row_id: int,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Fetch row scoped to user
+    result = await session.exec(
+        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+    )
+    row = result.first()
+    
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
     return row
 
 @app.delete("/rows/{row_id}")
-async def delete_row(row_id: int, session: AsyncSession = Depends(get_session)):
-    row = await session.get(Row, row_id)
+async def delete_row(
+    row_id: int,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Fetch row scoped to user
+    result = await session.exec(
+        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+    )
+    row = result.first()
+
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
     
@@ -168,9 +214,25 @@ class RowUpdate(BaseModel):
     budget_max: Optional[float] = None
 
 @app.patch("/rows/{row_id}")
-async def update_row(row_id: int, row_update: RowUpdate, session: AsyncSession = Depends(get_session)):
+async def update_row(
+    row_id: int,
+    row_update: RowUpdate,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
     print(f"Received PATCH request for row {row_id} with data: {row_update}")
-    row = await session.get(Row, row_id)
+    
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Fetch row scoped to user
+    result = await session.exec(
+        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+    )
+    row = result.first()
+
     if not row:
         print(f"Row {row_id} not found")
         raise HTTPException(status_code=404, detail="Row not found")
