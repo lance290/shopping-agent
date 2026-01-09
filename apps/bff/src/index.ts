@@ -56,13 +56,40 @@ fastify.post('/api/chat', async (request, reply) => {
       'Cache-Control': 'no-cache',
     });
     
+    // Collect text and tool results
+    let hasText = false;
+    const toolResults: string[] = [];
+    
     // Stream the text response
     for await (const chunk of result.textStream) {
-      reply.raw.write(chunk);
+      if (chunk) {
+        hasText = true;
+        reply.raw.write(chunk);
+      }
     }
+    
+    // Check for tool calls and their results
+    const finalResult = await result;
+    if (finalResult.toolCalls && finalResult.toolCalls.length > 0) {
+      for (const toolCall of finalResult.toolCalls) {
+        if (toolCall.toolName === 'createRow') {
+          toolResults.push(`✅ I've added "${toolCall.args.item}" to your procurement board.`);
+        } else if (toolCall.toolName === 'searchListings') {
+          toolResults.push(`🔍 Searching for "${toolCall.args.query}"...`);
+        }
+      }
+    }
+    
+    // If no text was streamed but we have tool results, send them
+    if (!hasText && toolResults.length > 0) {
+      reply.raw.write(toolResults.join('\n'));
+    } else if (toolResults.length > 0) {
+      reply.raw.write('\n\n' + toolResults.join('\n'));
+    }
+    
     reply.raw.end();
   } catch (err: any) {
-    fastify.log.error('result.toDataStreamResponse is not a function', err);
+    fastify.log.error('Chat error', err);
     reply.status(500).send({ error: 'Chat processing failed' });
   }
 });
