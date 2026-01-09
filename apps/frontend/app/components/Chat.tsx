@@ -250,10 +250,18 @@ export default function Chat() {
     const query = store.currentQuery;
     const rowId = store.activeRowId;
     
-    // If there's a query set from clicking a card (not from typing)
-    // We could add a flag to distinguish, but for now we just log
     if (query && rowId) {
-      console.log('[Chat] Current context - Query:', query, 'RowId:', rowId);
+      // Check if this query is already the last message to avoid loops
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage?.role === 'user' && lastMessage.content === query) return;
+
+      console.log('[Chat] Card clicked - Appending to chat:', query);
+      const cardMessage: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: query,
+      };
+      setMessages(prev => [...prev, cardMessage]);
     }
   }, [store.currentQuery, store.activeRowId]);
 
