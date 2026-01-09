@@ -1,0 +1,39 @@
+{
+  "type": "enhancement",
+  "name": "user-data-isolation",
+  "description": "Scope all chats/searches/rows to the authenticated user so users can’t see each other’s data.",
+  "created": "2026-01-09T16:26:00Z",
+  "status": "planned",
+  "priority": 3,
+  "parent": null,
+  "definition_of_done": {
+    "version": 1,
+    "status": "active",
+    "thresholds": [
+      {
+        "description": "Authenticated users can only read and modify their own chats/searches/rows",
+        "metric": "user_data_isolated",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      }
+    ],
+    "signals": [
+      {
+        "description": "E2E coverage: attempts to access other users’ data are prevented",
+        "metric": "e2e_user_data_isolation",
+        "target": 1,
+        "weight": 1,
+        "evidence_required": "measured",
+        "type": "signal"
+      }
+    ],
+    "confidence": "measured",
+    "approval": {
+      "by": "Lance",
+      "timestamp": "2026-01-09T16:37:00Z",
+      "change_reason": "initial definition",
+      "change_type": "clarify"
+    }
+  }
+}

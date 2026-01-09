@@ -308,11 +308,14 @@ async def auth_verify(request: AuthVerifyRequest, session: AsyncSession = Depend
     if not user:
         user = User(email=email)
         session.add(user)
+        await session.commit()
+        await session.refresh(user)
     
     # Create session
     token = generate_session_token()
     new_session = AuthSession(
         email=email,
+        user_id=user.id,
         session_token_hash=hash_token(token),
     )
     session.add(new_session)

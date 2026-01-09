@@ -1,23 +1,22 @@
-# Task-001 Build Log
+# Build Log - task-001
 
-## Files Modified
-- `apps/backend/models.py`
+## Changes Applied
+- **Schema**: Added `user_id` foreign key to `AuthSession` in `apps/backend/models.py`.
+- **Logic**: Updated `auth_verify` in `apps/backend/main.py` to:
+  - Commit/refresh `User` creation to ensure an ID exists.
+  - Populate `user_id` when creating `AuthSession`.
+- **Tests**: Added `apps/backend/tests/test_auth_session_user_id.py` to verify the link.
 
-## Changes Made
-1. Added helper functions:
-   - `hash_token(token: str) -> str` - SHA-256 hashing for codes/tokens
-   - `generate_verification_code() -> str` - 6-digit code generator
-   - `generate_session_token() -> str` - Secure session token generator
+## Verification Instructions
+**Prerequisite**: Database must be running (Docker).
 
-2. Added SQLModel tables:
-   - `AuthLoginCode` - Stores verification codes with email, code_hash, is_active, attempt_count, locked_until
-   - `AuthSession` - Stores sessions with email, session_token_hash, created_at, revoked_at
+1. **Start Backend**: `docker compose up -d` (or `uvicorn main:app --reload` with local DB).
+2. **Login Flow**:
+   - `POST /auth/start` with email.
+   - `POST /auth/verify` with code.
+   - Inspect DB `auth_session` table to confirm `user_id` column is populated.
+3. **Automated Test**:
+   - Run `pytest apps/backend/tests/test_auth_session_user_id.py`
 
-## North Star Alignment
-Supports "Time to first request (<15 seconds)" by keeping auth fast and simple with minimal DB overhead.
-
-## Manual Test Instructions
-1. Start Postgres: `docker compose -f docker-compose.dev.yml up -d`
-2. Start backend: `cd apps/backend && uv run uvicorn main:app --reload`
-3. Verify `/health` returns healthy
-4. Verify `/rows` still works
+## Alignment check
+- Moves us closer to North Star by establishing the `User` <-> `Session` link required for isolation.
