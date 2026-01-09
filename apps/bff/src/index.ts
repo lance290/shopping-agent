@@ -56,35 +56,23 @@ fastify.post('/api/chat', async (request, reply) => {
       'Cache-Control': 'no-cache',
     });
     
-    // Collect text and tool results
-    let hasText = false;
-    const toolResults: string[] = [];
-    
-    // Stream the text response
-    for await (const chunk of result.textStream) {
-      if (chunk) {
-        hasText = true;
-        reply.raw.write(chunk);
-      }
-    }
-    
-    // Check for tool calls and their results
-    const finalResult = await result;
-    if (finalResult.toolCalls && finalResult.toolCalls.length > 0) {
-      for (const toolCall of finalResult.toolCalls) {
-        if (toolCall.toolName === 'createRow') {
-          toolResults.push(`✅ I've added "${toolCall.args.item}" to your procurement board.`);
-        } else if (toolCall.toolName === 'searchListings') {
-          toolResults.push(`🔍 Searching for "${toolCall.args.query}"...`);
+    // Use fullStream to capture both text and tool events
+    for await (const part of result.fullStream) {
+      if (part.type === 'text-delta') {
+        reply.raw.write(part.textDelta);
+      } else if (part.type === 'tool-call') {
+        // Provide feedback when a tool is called
+        if (part.toolName === 'createRow') {
+          reply.raw.write(`\n✅ Adding "${part.args.item}" to your procurement board...`);
+        } else if (part.toolName === 'searchListings') {
+          reply.raw.write(`\n🔍 Searching for "${part.args.query}"...`);
+        }
+      } else if (part.type === 'tool-result') {
+        // Provide feedback when tool completes
+        if (part.toolName === 'createRow' && part.result?.status === 'row_created') {
+          reply.raw.write(` Done!`);
         }
       }
-    }
-    
-    // If no text was streamed but we have tool results, send them
-    if (!hasText && toolResults.length > 0) {
-      reply.raw.write(toolResults.join('\n'));
-    } else if (toolResults.length > 0) {
-      reply.raw.write('\n\n' + toolResults.join('\n'));
     }
     
     reply.raw.end();
