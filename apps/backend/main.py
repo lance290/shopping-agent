@@ -102,6 +102,18 @@ async def delete_row(row_id: int, session: AsyncSession = Depends(get_session)):
     row = await session.get(Row, row_id)
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
+    
+    # Delete related RequestSpec first (foreign key constraint)
+    result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
+    for spec in result.all():
+        await session.delete(spec)
+    
+    # Delete related Bids
+    from models import Bid
+    result = await session.exec(select(Bid).where(Bid.row_id == row_id))
+    for bid in result.all():
+        await session.delete(bid)
+    
     await session.delete(row)
     await session.commit()
     return {"status": "deleted", "id": row_id}
