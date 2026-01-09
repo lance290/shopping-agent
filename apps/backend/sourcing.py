@@ -54,8 +54,8 @@ class SearchAPIProvider(SourcingProvider):
                 results.append(SearchResult(
                     title=item.get("title", "Unknown"),
                     price=price,
-                    merchant=item.get("source", "Unknown"),
-                    url=item.get("link", ""),
+                    merchant=item.get("seller") or item.get("source", "Unknown"),
+                    url=item.get("product_link") or item.get("offers_link") or item.get("link", ""),
                     image_url=item.get("thumbnail"),
                     rating=item.get("rating"),
                     reviews_count=item.get("reviews"),

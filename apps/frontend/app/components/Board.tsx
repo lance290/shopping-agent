@@ -182,9 +182,12 @@ export default function ProcurementBoard() {
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {products.map((product, idx) => (
-                  <div
+                  <a
                     key={idx}
-                    className="bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all cursor-pointer group"
+                    href={product.url || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all group block ${product.url ? 'cursor-pointer' : 'cursor-default'}`}
                   >
                     <div className="aspect-square bg-gray-700 relative overflow-hidden">
                       {product.image_url ? (
@@ -224,7 +227,7 @@ export default function ProcurementBoard() {
                         </div>
                       )}
                     </div>
-                  </div>
+                  </a>
                 ))}
               </div>
             )}
