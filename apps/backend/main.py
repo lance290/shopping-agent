@@ -485,6 +485,7 @@ async def startup_event():
     """Run on application startup"""
     print("FastAPI application starting...")
     print(f"Environment: {os.getenv('ENVIRONMENT', 'development')}")
+    print(f"E2E_TEST_MODE: {os.getenv('E2E_TEST_MODE')}")
     await init_db()
 
 

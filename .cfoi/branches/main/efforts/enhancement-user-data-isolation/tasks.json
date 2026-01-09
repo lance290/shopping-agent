@@ -163,7 +163,7 @@
       ],
       "estimated_minutes": 30,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/task-007/"
     }
   ]

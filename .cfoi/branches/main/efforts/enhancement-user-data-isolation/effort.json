@@ -3,7 +3,7 @@
   "name": "user-data-isolation",
   "description": "Scope all chats/searches/rows to the authenticated user so users can’t see each other’s data.",
   "created": "2026-01-09T16:26:00Z",
-  "status": "planned",
+  "status": "completed",
   "priority": 3,
   "parent": null,
   "definition_of_done": {

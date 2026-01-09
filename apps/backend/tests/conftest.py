@@ -5,6 +5,8 @@ import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.orm import sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.pool import NullPool
+from sqlalchemy.ext.asyncio import create_async_engine
 
 # Add parent directory to path to allow importing models and main
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -12,14 +14,30 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database import engine, init_db
 from main import app, get_session
 
-@pytest_asyncio.fixture(name="session")
+@pytest_asyncio.fixture(name="session", scope="function")
 async def session_fixture():
-    await init_db()
+    # Use NullPool for tests to avoid asyncpg InterfaceError: cannot perform operation: another operation is in progress
+    # This ensures each test gets a fresh connection that is closed at the end
+    db_url = str(engine.url)
+    
+    test_engine = create_async_engine(
+        db_url, 
+        echo=False, 
+        future=True, 
+        poolclass=NullPool
+    )
+    
+    # Re-init DB on the test engine to ensure schema
+    async with test_engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+
     async_session = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
+        test_engine, class_=AsyncSession, expire_on_commit=False
     )
     async with async_session() as session:
         yield session
+    
+    await test_engine.dispose()
 
 @pytest_asyncio.fixture(name="client")
 async def client_fixture(session: AsyncSession):
