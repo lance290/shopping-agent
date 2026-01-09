@@ -140,13 +140,23 @@ export default function Chat() {
         await persistRowToDb(targetRow.id, query);
       }
     } else {
-      // Create new row - Step 1c/1d
-      console.log('[Chat] 1c. Creating new row for:', query);
-      const newRow = await createRowInDb(query);
-      if (newRow) {
-        store.addRow(newRow);
-        store.setActiveRowId(newRow.id);
-        targetRow = newRow;
+      // No matching row in store - refresh from DB first (LLM may have created it)
+      console.log('[Chat] 1c. No matching row in store, refreshing from DB...');
+      const freshRows = await fetchRowsFromDb();
+      console.log('[Chat] Fetched rows from DB:', freshRows.length);
+      store.setRows(freshRows);
+      
+      // Check again after refresh
+      targetRow = freshRows.find(r => r.title === query) || null;
+      if (targetRow) {
+        console.log('[Chat] Found row after refresh:', targetRow.id, targetRow.title);
+        store.setActiveRowId(targetRow.id);
+      } else if (freshRows.length > 0) {
+        // Select the newest row (likely the one just created by LLM)
+        const newestRow = freshRows[freshRows.length - 1];
+        console.log('[Chat] Selecting newest row:', newestRow.id, newestRow.title);
+        store.setActiveRowId(newestRow.id);
+        targetRow = newestRow;
       }
     }
 
@@ -219,13 +229,18 @@ export default function Chat() {
           const rowMatch = assistantContent.match(/✅ Adding "([^"]+)" to your procurement board/);
           if (rowMatch && !rowCreationHandled) {
             rowCreationHandled = true;
+            console.log('[Chat] Row creation detected in stream:', rowMatch[1]);
+            // Wait a moment for the backend to commit the row
+            await new Promise(resolve => setTimeout(resolve, 500));
             // Refresh rows from DB to ensure we have the latest
             const freshRows = await fetchRowsFromDb();
+            console.log('[Chat] Fetched fresh rows:', freshRows.length, freshRows);
             store.setRows(freshRows);
             // Select the newest row
             if (freshRows.length > 0) {
               const newestRow = freshRows[freshRows.length - 1];
               store.setActiveRowId(newestRow.id);
+              console.log('[Chat] Set active row:', newestRow.id, newestRow.title);
             }
           }
           
