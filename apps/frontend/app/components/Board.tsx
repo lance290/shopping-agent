@@ -166,7 +166,7 @@ export default function ProcurementBoard({ searchResults, searchContext, isSearc
 
       {/* Right: Product Grid */}
       <div className="flex-1 overflow-y-auto">
-        {!searchContext && !selectedRow ? (
+        {!searchContext && !selectedRow && displayProducts.length === 0 && !isSearching ? (
           <div className="flex items-center justify-center h-full text-gray-500">
             <div className="text-center">
               <Search className="mx-auto h-12 w-12 text-gray-600 mb-3" />
