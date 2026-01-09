@@ -85,5 +85,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # Use dumb-init for proper signal handling
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start Next.js server
-CMD ["node", "server.js"]
+# Start Next.js server with explicit port
+CMD ["sh", "-c", "PORT=${PORT:-3000} node server.js"]
