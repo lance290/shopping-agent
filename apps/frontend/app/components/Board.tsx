@@ -24,12 +24,28 @@ interface Product {
   source: string;
 }
 
-export default function ProcurementBoard() {
+interface SearchContext {
+  query: string;
+  rowId: number | null;
+}
+
+interface BoardProps {
+  searchResults: Product[];
+  searchContext: SearchContext | null;
+  isSearching: boolean;
+}
+
+export default function ProcurementBoard({ searchResults, searchContext, isSearching }: BoardProps) {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [searchingProducts, setSearchingProducts] = useState(false);
+  const [localProducts, setLocalProducts] = useState<Product[]>([]);
+  const [localSearching, setLocalSearching] = useState(false);
+
+  // Use search results from chat if available, otherwise use local products
+  const displayProducts = searchResults.length > 0 ? searchResults : localProducts;
+  const displaySearching = isSearching || localSearching;
+  const displayQuery = searchContext?.query || selectedRow?.title || '';
 
   const fetchRows = async () => {
     try {
@@ -52,7 +68,7 @@ export default function ProcurementBoard() {
         setRows(rows.filter(r => r.id !== id));
         if (selectedRow?.id === id) {
           setSelectedRow(null);
-          setProducts([]);
+          setLocalProducts([]);
         }
       }
     } catch (e) {
@@ -60,8 +76,8 @@ export default function ProcurementBoard() {
     }
   };
 
-  const searchProducts = async (query: string) => {
-    setSearchingProducts(true);
+  const searchLocalProducts = async (query: string) => {
+    setLocalSearching(true);
     try {
       const res = await fetch('/api/search', {
         method: 'POST',
@@ -70,18 +86,18 @@ export default function ProcurementBoard() {
       });
       if (res.ok) {
         const data = await res.json();
-        setProducts(data.results || []);
+        setLocalProducts(data.results || []);
       }
     } catch (e) {
       console.error("Failed to search products", e);
     } finally {
-      setSearchingProducts(false);
+      setLocalSearching(false);
     }
   };
 
   const selectRow = (row: Row) => {
     setSelectedRow(row);
-    searchProducts(row.title);
+    searchLocalProducts(row.title);
   };
 
   useEffect(() => {
@@ -150,38 +166,38 @@ export default function ProcurementBoard() {
 
       {/* Right: Product Grid */}
       <div className="flex-1 overflow-y-auto">
-        {!selectedRow ? (
+        {!searchContext && !selectedRow ? (
           <div className="flex items-center justify-center h-full text-gray-500">
             <div className="text-center">
               <Search className="mx-auto h-12 w-12 text-gray-600 mb-3" />
-              <p>Select a request to see products</p>
+              <p>Ask for something in the chat or select a request</p>
             </div>
           </div>
         ) : (
           <div className="p-6">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-2xl font-bold text-white">{selectedRow.title}</h1>
+                <h1 className="text-2xl font-bold text-white">{displayQuery}</h1>
                 <p className="text-gray-400 text-sm mt-1">
-                  {products.length} products found
+                  {displayProducts.length} products found
                 </p>
               </div>
               <button
-                onClick={() => { setSelectedRow(null); setProducts([]); }}
+                onClick={() => { setSelectedRow(null); setLocalProducts([]); }}
                 className="p-2 hover:bg-gray-700 rounded-lg"
               >
                 <X size={20} className="text-gray-400" />
               </button>
             </div>
 
-            {searchingProducts ? (
+            {displaySearching ? (
               <div className="text-center py-20 text-gray-500">
                 <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
                 <p>Searching products...</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {products.map((product, idx) => (
+                {displayProducts.map((product: Product, idx: number) => (
                   <a
                     key={idx}
                     href={product.url || '#'}

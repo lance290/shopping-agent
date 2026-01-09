@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
 
 interface Message {
@@ -9,10 +9,39 @@ interface Message {
   content: string;
 }
 
-export default function Chat() {
+interface Product {
+  title: string;
+  price: number;
+  currency: string;
+  merchant: string;
+  url: string;
+  image_url: string | null;
+  rating: number | null;
+  reviews_count: number | null;
+  shipping_info: string | null;
+  source: string;
+}
+
+interface SearchContext {
+  query: string;
+  rowId: number | null;
+}
+
+interface ChatProps {
+  onSearchResults: (results: Product[], context: SearchContext) => void;
+  onSearchStart: (context: SearchContext) => void;
+}
+
+export default function Chat({ onSearchResults, onSearchStart }: ChatProps) {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeRowId, setActiveRowId] = useState<number | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +61,10 @@ export default function Chat() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [...messages, userMessage] }),
+        body: JSON.stringify({ 
+          messages: [...messages, userMessage],
+          activeRowId,
+        }),
       });
       
       if (!response.ok) throw new Error('Failed to send message');
@@ -40,6 +72,8 @@ export default function Chat() {
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let assistantContent = '';
+      let currentQuery = '';
+      let currentRowId = activeRowId;
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -55,6 +89,41 @@ export default function Chat() {
           
           const chunk = decoder.decode(value, { stream: true });
           assistantContent += chunk;
+          
+          // Parse search events from the stream
+          const searchMatch = assistantContent.match(/🔍 Searching for "([^"]+)"/);
+          if (searchMatch && searchMatch[1] !== currentQuery) {
+            currentQuery = searchMatch[1];
+            onSearchStart({ query: currentQuery, rowId: currentRowId });
+            
+            // Fetch search results
+            fetch('/api/search', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query: currentQuery }),
+            })
+              .then(res => res.json())
+              .then(data => {
+                onSearchResults(data.results || [], { query: currentQuery, rowId: currentRowId });
+              })
+              .catch(console.error);
+          }
+          
+          // Parse row creation from stream
+          const rowMatch = assistantContent.match(/✅ Adding "([^"]+)" to your procurement board/);
+          if (rowMatch) {
+            // Refresh rows to get the new row ID
+            fetch('/api/rows')
+              .then(res => res.json())
+              .then(rows => {
+                if (Array.isArray(rows) && rows.length > 0) {
+                  const newRow = rows[rows.length - 1];
+                  setActiveRowId(newRow.id);
+                  currentRowId = newRow.id;
+                }
+              })
+              .catch(console.error);
+          }
           
           setMessages(prev => 
             prev.map(m => 
@@ -120,7 +189,7 @@ export default function Chat() {
             </div>
           </div>
         ))}
-        {isLoading && (
+        {isLoading && messages[messages.length - 1]?.role === 'user' && (
             <div className="flex gap-3">
                 <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0">
                     <Bot size={16} />
@@ -130,6 +199,7 @@ export default function Chat() {
                 </div>
             </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       <div className="p-4 bg-white border-t border-gray-200">

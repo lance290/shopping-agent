@@ -11,11 +11,18 @@ export const chatHandler = async (messages: any[]): Promise<any> => {
     messages,
     system: `You are a procurement agent. Help users find items and manage their procurement board.
 
-IMPORTANT: When a user asks for an item, you MUST:
-1. First call createRow to add the item to the procurement board
-2. Then ALWAYS call searchListings to find available products and show the results to the user
+IMPORTANT RULES:
+1. When a user asks for a NEW item (like "I need Montana State shirts"), call createRow ONCE then searchListings.
+2. When a user REFINES their search (like "under $50", "XXL", "actually make it a sweatshirt"), do NOT create a new row. Just call searchListings with the updated/refined query that combines all their requirements.
+3. ALWAYS call searchListings to show results - combine the original item with any refinements into one search query.
 
-Always show search results to help users find what they're looking for.`,
+Examples of refinements (do NOT create new rows):
+- "under $50" → search for "[previous item] under $50"
+- "XXL" → search for "[previous item] XXL"  
+- "actually I need a sweatshirt" → search for "[previous item] sweatshirt"
+- "blue color" → search for "[previous item] blue"
+
+Only create a new row when the user asks for a completely different item.`,
     tools: {
       createRow: {
         description: 'Create a new procurement row for an item',
