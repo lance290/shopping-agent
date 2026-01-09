@@ -60,24 +60,42 @@ fastify.post('/api/chat', async (request, reply) => {
     
     // Use fullStream to capture both text and tool events
     for await (const part of result.fullStream) {
+      fastify.log.info({ partType: part.type, part }, 'Stream part received');
+      
       if (part.type === 'text-delta') {
         reply.raw.write(part.textDelta);
       } else if (part.type === 'tool-call') {
         // Provide feedback when a tool is called
         const toolPart = part as any;
-        fastify.log.info({ toolCall: toolPart }, 'Tool call received');
         if (toolPart.toolName === 'createRow') {
-          const itemName = toolPart.args?.item || toolPart.input?.item || 'item';
+          const itemName = toolPart.args?.item || 'item';
           reply.raw.write(`\n✅ Adding "${itemName}" to your procurement board...`);
         } else if (toolPart.toolName === 'searchListings') {
-          const query = toolPart.args?.query || toolPart.input?.query || 'items';
+          const query = toolPart.args?.query || 'items';
           reply.raw.write(`\n🔍 Searching for "${query}"...`);
         }
       } else if (part.type === 'tool-result') {
         // Provide feedback when tool completes
         const toolResult = part as any;
-        if (toolResult.toolName === 'createRow' && toolResult.result?.status === 'row_created') {
-          reply.raw.write(` Done!`);
+        fastify.log.info({ toolResult }, 'Tool result received');
+        
+        if (toolResult.toolName === 'createRow') {
+          const result = toolResult.result;
+          if (result?.status === 'row_created') {
+            reply.raw.write(` Done!`);
+          }
+        } else if (toolResult.toolName === 'searchListings') {
+          const result = toolResult.result;
+          const count = result?.count || 0;
+          reply.raw.write(` Found ${count} results!`);
+          
+          // Show preview of top results
+          if (result?.preview && result.preview.length > 0) {
+            reply.raw.write('\n\nTop matches:');
+            for (const item of result.preview) {
+              reply.raw.write(`\n• ${item.title} - $${item.price} from ${item.merchant}`);
+            }
+          }
         }
       }
     }
