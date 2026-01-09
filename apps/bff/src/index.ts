@@ -64,10 +64,14 @@ fastify.post('/api/chat', async (request, reply) => {
         reply.raw.write(part.textDelta);
       } else if (part.type === 'tool-call') {
         // Provide feedback when a tool is called
-        if (part.toolName === 'createRow') {
-          reply.raw.write(`\n✅ Adding "${(part as any).args?.item || 'item'}" to your procurement board...`);
-        } else if (part.toolName === 'searchListings') {
-          reply.raw.write(`\n🔍 Searching for "${(part as any).args?.query || 'items'}"...`);
+        const toolPart = part as any;
+        fastify.log.info({ toolCall: toolPart }, 'Tool call received');
+        if (toolPart.toolName === 'createRow') {
+          const itemName = toolPart.args?.item || toolPart.input?.item || 'item';
+          reply.raw.write(`\n✅ Adding "${itemName}" to your procurement board...`);
+        } else if (toolPart.toolName === 'searchListings') {
+          const query = toolPart.args?.query || toolPart.input?.query || 'items';
+          reply.raw.write(`\n🔍 Searching for "${query}"...`);
         }
       } else if (part.type === 'tool-result') {
         // Provide feedback when tool completes
