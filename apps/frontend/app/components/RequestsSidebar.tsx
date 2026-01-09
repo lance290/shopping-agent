@@ -8,10 +8,20 @@ import { useRouter } from 'next/navigation';
 export default function RequestsSidebar() {
   const [loading, setLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(true);
-  const store = useShoppingStore();
   const router = useRouter();
 
-  const selectedRow = store.rows.find(r => r.id === store.activeRowId) || null;
+  // Use selectors for proper Zustand reactivity
+  const rows = useShoppingStore(state => state.rows);
+  const activeRowId = useShoppingStore(state => state.activeRowId);
+  const setRows = useShoppingStore(state => state.setRows);
+  const removeRow = useShoppingStore(state => state.removeRow);
+  const setCurrentQuery = useShoppingStore(state => state.setCurrentQuery);
+  const setActiveRowId = useShoppingStore(state => state.setActiveRowId);
+  const setCardClickQuery = useShoppingStore(state => state.setCardClickQuery);
+  const setIsSearching = useShoppingStore(state => state.setIsSearching);
+  const setSearchResults = useShoppingStore(state => state.setSearchResults);
+
+  const selectedRow = rows.find(r => r.id === activeRowId) || null;
 
   const handleLogout = async () => {
     try {
@@ -27,7 +37,7 @@ export default function RequestsSidebar() {
       const res = await fetch('/api/rows', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        store.setRows(Array.isArray(data) ? data : []);
+        setRows(Array.isArray(data) ? data : []);
       }
     } catch (e) {
       console.error("Failed to fetch rows", e);
@@ -40,7 +50,7 @@ export default function RequestsSidebar() {
     try {
       const res = await fetch(`/api/rows?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
-        store.removeRow(id);
+        removeRow(id);
       }
     } catch (e) {
       console.error("Failed to delete row", e);
@@ -48,20 +58,20 @@ export default function RequestsSidebar() {
   };
 
   const handleCardClick = async (row: Row) => {
-    if (store.activeRowId === row.id) return;
+    if (activeRowId === row.id) return;
     
     console.log('[Sidebar] === CARD CLICK FLOW START ===');
     console.log('[Sidebar] 3a. User clicked card:', row.id, row.title);
 
-    store.setCurrentQuery(row.title);
-    store.setActiveRowId(row.id);
-    store.setCardClickQuery(row.title);
+    setCurrentQuery(row.title);
+    setActiveRowId(row.id);
+    setCardClickQuery(row.title);
     console.log('[Sidebar] 3b. Zustand updated - query:', row.title, 'activeRowId:', row.id);
 
     console.log('[Sidebar] 3c. Chat will be notified via store');
 
     console.log('[Sidebar] 3d. Running search for:', row.title);
-    store.setIsSearching(true);
+    setIsSearching(true);
     try {
       const res = await fetch('/api/search', {
         method: 'POST',
@@ -71,11 +81,11 @@ export default function RequestsSidebar() {
       if (res.ok) {
         const data = await res.json();
         console.log('[Sidebar] Search returned:', data.results?.length || 0, 'products');
-        store.setSearchResults(data.results || []);
+        setSearchResults(data.results || []);
       }
     } catch (e) {
       console.error('[Sidebar] Search failed:', e);
-      store.setSearchResults([]);
+      setSearchResults([]);
     }
 
     console.log('[Sidebar] === CARD CLICK FLOW END ===');
@@ -120,18 +130,18 @@ export default function RequestsSidebar() {
       </div>
       
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
-        {loading && store.rows.length === 0 && (
+        {loading && rows.length === 0 && (
           <div className="text-center text-gray-500 py-10">Loading...</div>
         )}
 
-        {!loading && store.rows.length === 0 && (
+        {!loading && rows.length === 0 && (
           <div className="text-center text-gray-500 py-10">
             <Package className="mx-auto h-8 w-8 text-gray-600 mb-2" />
             <p className="text-sm">No requests yet</p>
           </div>
         )}
 
-        {store.rows.map((row: Row) => (
+        {rows.map((row: Row) => (
           <div
             key={row.id}
             onClick={() => handleCardClick(row)}

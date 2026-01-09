@@ -1,3 +1,43 @@
+Task: Fix Search Row Persistence Bug
+Problem
+Rows created via LLM chat don't appear in the sidebar. The frontend doesn't refresh after the backend creates rows, and user isolation may be incomplete.
+
+Tasks
+1. Backend: Verify User Isolation on Row Endpoints
+POST /rows - Ensure user_id is set from AuthSession.user_id (not from request body)
+GET /rows - Ensure query filters by WHERE user_id = :current_user_id
+GET /rows/{id} - Ensure ownership check before returning
+DELETE /rows/{id} - Ensure ownership check before deleting
+Verify RequestSpec is created with correct row_id linkage
+2. BFF: Verify Auth Header Forwarding
+createRow tool - Confirm Authorization header is forwarded to backend
+/api/rows proxy - Confirm auth header passthrough
+Verify tool returns { status: 'row_created', row_id, data } on success
+3. Frontend: Fix Sidebar Refresh After Row Creation
+Chat.tsx - After receiving row_created event, call fetchRows() to refresh from DB
+RequestsSidebar.tsx - Subscribe to store.rows and re-render on change
+RequestsSidebar.tsx - Fetch rows from DB on mount (useEffect)
+Zustand store - Ensure setRows() action exists and triggers re-render
+Auth - Verify sa_session cookie is sent with /api/rows requests
+4. E2E Tests
+Row persistence test - Create row via API, verify visible in UI, reload page, verify still visible
+User isolation test - Two users create rows, each only sees their own
+5. Verification
+Row appears in sidebar immediately after LLM creates it
+Row persists after page reload
+Row persists after logout/login (same user)
+Different users see only their own rows
+No duplicate rows created
+Debugging Reference
+If rows don't appear:
+
+Check browser console for [Chat] logs
+Check network tab: /api/rows → status 200? response has rows?
+Check backend logs for row creation
+Query DB: SELECT * FROM row ORDER BY id DESC LIMIT 5;
+Verify auth: sa_session cookie → BFF → Backend
+
+
 # Search Tracking & Persistence Specification
 
 ## Problem Statement
@@ -253,3 +293,6 @@ When rows don't appear:
 - [ ] Different users see only their own rows
 - [ ] E2E tests pass for persistence and isolation
 - [ ] No duplicate rows created
+
+
+Keep repeating until source of truth is clear and synchronized, is persistent across sessions, is displayed properly in the UI, and is accessible to all components that need it, and all tests pass, and is isolated per user, and code is clean and maintainable.
