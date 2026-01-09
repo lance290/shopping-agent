@@ -14,10 +14,9 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeRowId, setActiveRowId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const { setSearchResults, setSearchStart } = useShoppingStore();
+  const { setSearchResults, setSearchStart, activeRowId, setActiveRowId, updateRow } = useShoppingStore();
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -93,7 +92,6 @@ export default function Chat() {
               
             // Update row title if we have an active row
             if (currentRowId) {
-              const { updateRow } = useShoppingStore.getState();
               // Optimistic update
               updateRow(currentRowId, { title: queryToSearch });
               
@@ -116,6 +114,10 @@ export default function Chat() {
                   const newRow = rows[rows.length - 1];
                   setActiveRowId(newRow.id);
                   currentRowId = newRow.id;
+                  
+                  // Also update store rows
+                  const { setRows } = useShoppingStore.getState();
+                  setRows(rows);
                 }
               })
               .catch(console.error);

@@ -27,16 +27,17 @@ interface Product {
 
 export default function ProcurementBoard() {
   const [loading, setLoading] = useState(true);
-  const [selectedRow, setSelectedRow] = useState<Row | null>(null);
-  const [localProducts, setLocalProducts] = useState<Product[]>([]);
-  const [localSearching, setLocalSearching] = useState(false);
+  const { rows, setRows, searchResults, setSearchResults, searchContext, setSearchStart, isSearching, activeRowId, setActiveRowId, clearSearch } = useShoppingStore();
 
-  const { rows, setRows, searchResults, searchContext, isSearching } = useShoppingStore();
+  const selectedRow = rows.find(r => r.id === activeRowId) || null;
 
-  // Use search results from chat if available, otherwise use local products
-  const displayProducts = searchResults.length > 0 ? searchResults : localProducts;
-  const displaySearching = isSearching || localSearching;
+  // Use search results from store
+  const displayProducts = searchResults;
   const displayQuery = searchContext?.query || selectedRow?.title || '';
+  
+  // Local loading state for row selection search
+  const [rowSearching, setRowSearching] = useState(false);
+  const showSearching = isSearching || rowSearching;
 
   const fetchRows = async () => {
     try {
@@ -57,9 +58,9 @@ export default function ProcurementBoard() {
       const res = await fetch(`/api/rows?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
         setRows(rows.filter(r => r.id !== id));
-        if (selectedRow?.id === id) {
-          setSelectedRow(null);
-          setLocalProducts([]);
+        if (activeRowId === id) {
+          setActiveRowId(null);
+          clearSearch();
         }
       }
     } catch (e) {
@@ -67,29 +68,33 @@ export default function ProcurementBoard() {
     }
   };
 
-  const searchLocalProducts = async (query: string) => {
-    setLocalSearching(true);
-    setLocalProducts([]); // Clear previous results
+  const searchRowProducts = async (row: Row) => {
+    setRowSearching(true);
+    // Update store to reflect we are searching for this row
+    setSearchStart({ query: row.title, rowId: row.id });
+    
     try {
       const res = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query: row.title }),
       });
       if (res.ok) {
         const data = await res.json();
-        setLocalProducts(data.results || []);
+        // Update store with results
+        setSearchResults(data.results || [], { query: row.title, rowId: row.id });
       }
     } catch (e) {
       console.error("Failed to search products", e);
     } finally {
-      setLocalSearching(false);
+      setRowSearching(false);
     }
   };
 
   const selectRow = (row: Row) => {
-    setSelectedRow(row);
-    searchLocalProducts(row.title);
+    if (activeRowId === row.id) return;
+    setActiveRowId(row.id);
+    searchRowProducts(row);
   };
 
   useEffect(() => {
@@ -175,14 +180,14 @@ export default function ProcurementBoard() {
                 </p>
               </div>
               <button
-                onClick={() => { setSelectedRow(null); setLocalProducts([]); }}
+                onClick={() => { setActiveRowId(null); clearSearch(); }}
                 className="p-2 hover:bg-gray-700 rounded-lg"
               >
                 <X size={20} className="text-gray-400" />
               </button>
             </div>
 
-            {displaySearching ? (
+            {showSearching ? (
               <div className="text-center py-20 text-gray-500">
                 <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
                 <p>Searching products...</p>

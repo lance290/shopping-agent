@@ -31,11 +31,13 @@ interface ShoppingState {
   searchResults: Product[];
   searchContext: SearchContext | null;
   isSearching: boolean;
+  activeRowId: number | null;
   setRows: (rows: Row[]) => void;
   updateRow: (id: number, updates: Partial<Row>) => void;
   setSearchResults: (results: Product[], context: SearchContext) => void;
   setSearchStart: (context: SearchContext) => void;
   clearSearch: () => void;
+  setActiveRowId: (id: number | null) => void;
 }
 
 export const useShoppingStore = create<ShoppingState>((set) => ({
@@ -43,6 +45,7 @@ export const useShoppingStore = create<ShoppingState>((set) => ({
   searchResults: [],
   searchContext: null,
   isSearching: false,
+  activeRowId: null,
   setRows: (rows) => set({ rows }),
   updateRow: (id, updates) => set((state) => ({
     rows: state.rows.map((row) => (row.id === id ? { ...row, ...updates } : row)),
@@ -50,4 +53,5 @@ export const useShoppingStore = create<ShoppingState>((set) => ({
   setSearchResults: (results, context) => set({ searchResults: results, searchContext: context, isSearching: false }),
   setSearchStart: (context) => set({ searchContext: context, isSearching: true }),
   clearSearch: () => set({ searchResults: [], searchContext: null, isSearching: false }),
+  setActiveRowId: (id) => set({ activeRowId: id }),
 }));
