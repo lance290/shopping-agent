@@ -9,7 +9,13 @@ export const chatHandler = async (messages: any[]): Promise<any> => {
   return streamText({
     model,
     messages,
-    system: 'You are a procurement agent. Help users find items and manage their procurement board.',
+    system: `You are a procurement agent. Help users find items and manage their procurement board.
+
+IMPORTANT: When a user asks for an item, you MUST:
+1. First call createRow to add the item to the procurement board
+2. Then ALWAYS call searchListings to find available products and show the results to the user
+
+Always show search results to help users find what they're looking for.`,
     tools: {
       createRow: {
         description: 'Create a new procurement row for an item',

@@ -81,6 +81,7 @@ fastify.post('/api/chat', async (request, reply) => {
         const toolResult = part as any;
         // AI SDK uses 'output' not 'result' for tool results
         const output = toolResult.output;
+        fastify.log.info({ toolName: toolResult.toolName, output }, 'Processing tool-result');
         
         if (toolResult.toolName === 'createRow') {
           if (output?.status === 'row_created') {
@@ -88,6 +89,7 @@ fastify.post('/api/chat', async (request, reply) => {
           }
         } else if (toolResult.toolName === 'searchListings') {
           const count = output?.count || 0;
+          fastify.log.info({ count, hasPreview: !!output?.preview }, 'Search results');
           reply.raw.write(` Found ${count} results!`);
           
           // Show preview of top results
@@ -98,6 +100,11 @@ fastify.post('/api/chat', async (request, reply) => {
             }
           }
         }
+      } else if (part.type === 'tool-error') {
+        // Handle tool errors
+        const toolError = part as any;
+        fastify.log.error({ toolError }, 'Tool error');
+        reply.raw.write(`\n⚠️ Error: ${toolError.error || 'Tool failed'}`);
       }
     }
     
