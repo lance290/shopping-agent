@@ -62,7 +62,7 @@ RUN addgroup -g 1001 -S nodejs && \
 # Set production environment
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
-    PORT=3000
+    HOSTNAME="0.0.0.0"
 
 # Copy necessary files from builder
 COPY --from=builder /app/public ./public
@@ -78,9 +78,9 @@ USER nextjs
 # Expose port
 EXPOSE 3000
 
-# Health check
+# Health check - use PORT env var
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); })"
+    CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 3000) + '/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); })"
 
 # Use dumb-init for proper signal handling
 ENTRYPOINT ["dumb-init", "--"]
