@@ -120,13 +120,18 @@ export default function Chat() {
     let targetRow = store.selectOrCreateRow(query, currentRows);
     
     if (targetRow) {
-      // Select existing row
-      console.log('[Chat] 1c. Selecting existing row:', targetRow.id, targetRow.title);
+      // Select existing row - This is Step 2: extending the search
+      console.log('[Chat] Step 2. Identifying existing row for extension:', targetRow.id, targetRow.title);
       store.setActiveRowId(targetRow.id);
-      // Update the row title to match the new query
-      store.updateRow(targetRow.id, { title: query });
+      
+      // Update the row title in Zustand and DB to reflect the extended query
+      if (targetRow.title !== query) {
+        console.log('[Chat] 1e. Updating existing row title:', query);
+        store.updateRow(targetRow.id, { title: query });
+        await persistRowToDb(targetRow.id, query);
+      }
     } else {
-      // Create new row
+      // Create new row - Step 1c/1d
       console.log('[Chat] 1c. Creating new row for:', query);
       const newRow = await createRowInDb(query);
       if (newRow) {
@@ -136,21 +141,13 @@ export default function Chat() {
       }
     }
 
-    // 1d. Zustand is now the source of truth (already updated above)
+    // 1d. Zustand is already the source of truth
     console.log('[Chat] 1d. Zustand updated - activeRowId:', store.activeRowId);
-
-    // 1e. Update database with the query
-    if (targetRow) {
-      await persistRowToDb(targetRow.id, query);
-      console.log('[Chat] 1e. Database updated');
-    }
 
     // 1f. Run the search
     await runSearch(query);
     console.log('[Chat] 1f. Search complete');
 
-    // 1g. Source of truth is already in sync
-    console.log('[Chat] 1g. Flow complete');
     console.log('[Chat] === SEARCH FLOW END ===');
   };
   

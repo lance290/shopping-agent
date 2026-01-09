@@ -72,12 +72,25 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   // Find a row that matches the query, or return null if we need to create one
   selectOrCreateRow: (query, existingRows) => {
     const lowerQuery = query.toLowerCase().trim();
-    // Find exact or close match
-    const match = existingRows.find(r => 
-      r.title.toLowerCase().trim() === lowerQuery ||
-      r.title.toLowerCase().includes(lowerQuery) ||
-      lowerQuery.includes(r.title.toLowerCase())
-    );
+    
+    // 1. Try exact match first
+    let match = existingRows.find(r => r.title.toLowerCase().trim() === lowerQuery);
+    if (match) return match;
+
+    // 2. Try partial match (is the existing row title contained in the new query?)
+    // This handles "Montana State shirts" -> "Montana State shirts under $50"
+    match = existingRows.find(r => {
+      const rowTitle = r.title.toLowerCase().trim();
+      return lowerQuery.startsWith(rowTitle) || lowerQuery.includes(rowTitle);
+    });
+    if (match) return match;
+
+    // 3. Try fuzzy/contained match (is the new query contained in the existing row title?)
+    match = existingRows.find(r => {
+      const rowTitle = r.title.toLowerCase().trim();
+      return rowTitle.includes(lowerQuery);
+    });
+
     return match || null;
   },
 }));
