@@ -96,9 +96,14 @@ export default function Chat() {
   const fetchRowsFromDb = async (): Promise<Row[]> => {
     try {
       const res = await fetch('/api/rows');
+      console.log('[Chat] fetchRowsFromDb response status:', res.status);
       if (res.ok) {
         const rows = await res.json();
+        console.log('[Chat] fetchRowsFromDb got rows:', rows);
         return Array.isArray(rows) ? rows : [];
+      } else {
+        const text = await res.text();
+        console.error('[Chat] fetchRowsFromDb failed:', res.status, text);
       }
     } catch (err) {
       console.error('[Chat] Fetch rows error:', err);
@@ -217,21 +222,13 @@ export default function Chat() {
           const chunk = decoder.decode(value, { stream: true });
           assistantContent += chunk;
           
-          // Parse search events from the stream - this is a NEW search
-          const searchMatch = assistantContent.match(/🔍 Searching for "([^"]+)"/);
-          if (searchMatch && searchMatch[1] !== lastProcessedQuery) {
-            lastProcessedQuery = searchMatch[1];
-            // Execute the full search flow
-            await handleSearchFlow(lastProcessedQuery);
-          }
-          
-          // Parse row creation from stream (only handle once)
+          // Parse row creation from stream FIRST (it comes before search in the stream)
           const rowMatch = assistantContent.match(/✅ Adding "([^"]+)" to your procurement board/);
           if (rowMatch && !rowCreationHandled) {
             rowCreationHandled = true;
             console.log('[Chat] Row creation detected in stream:', rowMatch[1]);
-            // Wait a moment for the backend to commit the row
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Wait for the backend to commit the row
+            await new Promise(resolve => setTimeout(resolve, 800));
             // Refresh rows from DB to ensure we have the latest
             const freshRows = await fetchRowsFromDb();
             console.log('[Chat] Fetched fresh rows:', freshRows.length, freshRows);
@@ -242,6 +239,14 @@ export default function Chat() {
               store.setActiveRowId(newestRow.id);
               console.log('[Chat] Set active row:', newestRow.id, newestRow.title);
             }
+          }
+          
+          // Parse search events from the stream
+          const searchMatch = assistantContent.match(/🔍 Searching for "([^"]+)"/);
+          if (searchMatch && searchMatch[1] !== lastProcessedQuery) {
+            lastProcessedQuery = searchMatch[1];
+            // Execute the search flow (rows should already be loaded from row creation handler)
+            await handleSearchFlow(lastProcessedQuery);
           }
           
           setMessages(prev => 
