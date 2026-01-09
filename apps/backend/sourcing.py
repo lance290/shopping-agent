@@ -64,14 +64,113 @@ class SearchAPIProvider(SourcingProvider):
                 ))
             return results
 
+class SerpAPIProvider(SourcingProvider):
+    """SerpAPI - alternative Google Shopping search provider"""
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://serpapi.com/search"
+
+    async def search(self, query: str, **kwargs) -> List[SearchResult]:
+        params = {
+            "engine": "google_shopping",
+            "q": query,
+            "api_key": self.api_key,
+            "gl": kwargs.get("gl", "us"),
+            "hl": kwargs.get("hl", "en"),
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(self.base_url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            results = []
+            shopping_results = data.get("shopping_results", [])
+            
+            for item in shopping_results:
+                price_str = str(item.get("price", "0")).replace("$", "").replace(",", "")
+                try:
+                    price = float(price_str)
+                except ValueError:
+                    price = 0.0
+                
+                results.append(SearchResult(
+                    title=item.get("title", "Unknown"),
+                    price=price,
+                    merchant=item.get("source", "Unknown"),
+                    url=item.get("link", ""),
+                    image_url=item.get("thumbnail"),
+                    rating=item.get("rating"),
+                    reviews_count=item.get("reviews"),
+                    shipping_info=item.get("delivery"),
+                    source="serpapi_google_shopping"
+                ))
+            return results
+
+
+class ValueSerpProvider(SourcingProvider):
+    """ValueSerp - cheap alternative at $50/5000 searches"""
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://api.valueserp.com/search"
+
+    async def search(self, query: str, **kwargs) -> List[SearchResult]:
+        params = {
+            "search_type": "shopping",
+            "q": query,
+            "api_key": self.api_key,
+            "gl": kwargs.get("gl", "us"),
+            "hl": kwargs.get("hl", "en"),
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(self.base_url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            results = []
+            shopping_results = data.get("shopping_results", [])
+            
+            for item in shopping_results:
+                price_str = str(item.get("price", "0")).replace("$", "").replace(",", "")
+                try:
+                    price = float(price_str)
+                except ValueError:
+                    price = 0.0
+                
+                results.append(SearchResult(
+                    title=item.get("title", "Unknown"),
+                    price=price,
+                    merchant=item.get("source", "Unknown"),
+                    url=item.get("link", ""),
+                    image_url=item.get("thumbnail"),
+                    rating=item.get("rating"),
+                    reviews_count=item.get("reviews"),
+                    shipping_info=item.get("delivery"),
+                    source="valueserp_shopping"
+                ))
+            return results
+
+
 class SourcingRepository:
     def __init__(self):
         self.providers: Dict[str, SourcingProvider] = {}
         
-        # Initialize SearchAPI if key exists
-        api_key = os.getenv("SEARCHAPI_API_KEY")
-        if api_key:
-            self.providers["searchapi"] = SearchAPIProvider(api_key)
+        # Initialize providers in priority order (first working one wins)
+        # SerpAPI - 100 free searches/month
+        serpapi_key = os.getenv("SERPAPI_API_KEY")
+        if serpapi_key:
+            self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
+        
+        # ValueSerp - cheap alternative
+        valueserp_key = os.getenv("VALUESERP_API_KEY")
+        if valueserp_key:
+            self.providers["valueserp"] = ValueSerpProvider(valueserp_key)
+        
+        # SearchAPI (original) - as fallback
+        searchapi_key = os.getenv("SEARCHAPI_API_KEY")
+        if searchapi_key:
+            self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
 
     async def search_all(self, query: str, **kwargs) -> List[SearchResult]:
         all_results = []
