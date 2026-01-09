@@ -77,22 +77,21 @@ fastify.post('/api/chat', async (request, reply) => {
       } else if (part.type === 'tool-result') {
         // Provide feedback when tool completes
         const toolResult = part as any;
-        fastify.log.info({ toolResult }, 'Tool result received');
+        // AI SDK uses 'output' not 'result' for tool results
+        const output = toolResult.output;
         
         if (toolResult.toolName === 'createRow') {
-          const result = toolResult.result;
-          if (result?.status === 'row_created') {
+          if (output?.status === 'row_created') {
             reply.raw.write(` Done!`);
           }
         } else if (toolResult.toolName === 'searchListings') {
-          const result = toolResult.result;
-          const count = result?.count || 0;
+          const count = output?.count || 0;
           reply.raw.write(` Found ${count} results!`);
           
           // Show preview of top results
-          if (result?.preview && result.preview.length > 0) {
+          if (output?.preview && output.preview.length > 0) {
             reply.raw.write('\n\nTop matches:');
-            for (const item of result.preview) {
+            for (const item of output.preview) {
               reply.raw.write(`\n• ${item.title} - $${item.price} from ${item.merchant}`);
             }
           }
