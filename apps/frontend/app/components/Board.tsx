@@ -26,13 +26,12 @@ interface Product {
 }
 
 export default function ProcurementBoard() {
-  const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRow, setSelectedRow] = useState<Row | null>(null);
   const [localProducts, setLocalProducts] = useState<Product[]>([]);
   const [localSearching, setLocalSearching] = useState(false);
 
-  const { searchResults, searchContext, isSearching } = useShoppingStore();
+  const { rows, setRows, searchResults, searchContext, isSearching } = useShoppingStore();
 
   // Use search results from chat if available, otherwise use local products
   const displayProducts = searchResults.length > 0 ? searchResults : localProducts;
@@ -70,6 +69,7 @@ export default function ProcurementBoard() {
 
   const searchLocalProducts = async (query: string) => {
     setLocalSearching(true);
+    setLocalProducts([]); // Clear previous results
     try {
       const res = await fetch('/api/search', {
         method: 'POST',

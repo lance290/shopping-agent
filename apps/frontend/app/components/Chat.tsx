@@ -93,6 +93,10 @@ export default function Chat() {
               
             // Update row title if we have an active row
             if (currentRowId) {
+              const { updateRow } = useShoppingStore.getState();
+              // Optimistic update
+              updateRow(currentRowId, { title: queryToSearch });
+              
               fetch(`/api/rows?id=${currentRowId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
