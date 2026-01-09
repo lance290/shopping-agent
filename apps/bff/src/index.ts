@@ -48,7 +48,8 @@ fastify.post('/api/chat', async (request, reply) => {
   let headersSent = false;
   try {
     const { messages } = request.body as { messages: any[] };
-    const result = await chatHandler(messages);
+    const authorization = request.headers.authorization;
+    const result = await chatHandler(messages, authorization);
     
     // Set headers for streaming
     reply.raw.writeHead(200, {
@@ -123,7 +124,18 @@ fastify.post('/api/chat', async (request, reply) => {
 // Row Management Proxy
 fastify.get('/api/rows', async (request, reply) => {
   try {
-    const response = await fetch(`${BACKEND_URL}/rows`);
+    const headers: Record<string, string> = {};
+    if (request.headers.authorization) {
+      headers['Authorization'] = request.headers.authorization;
+    }
+    
+    const response = await fetch(`${BACKEND_URL}/rows`, { headers });
+    
+    if (response.status === 401) {
+      reply.status(401).send({ error: 'Unauthorized' });
+      return;
+    }
+    
     const data = await response.json();
     return data;
   } catch (err) {
@@ -134,11 +146,22 @@ fastify.get('/api/rows', async (request, reply) => {
 
 fastify.post('/api/rows', async (request, reply) => {
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (request.headers.authorization) {
+      headers['Authorization'] = request.headers.authorization;
+    }
+
     const response = await fetch(`${BACKEND_URL}/rows`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(request.body),
     });
+    
+    if (response.status === 401) {
+      reply.status(401).send({ error: 'Unauthorized' });
+      return;
+    }
+    
     const data = await response.json();
     return data;
   } catch (err) {
@@ -150,7 +173,17 @@ fastify.post('/api/rows', async (request, reply) => {
 fastify.get('/api/rows/:id', async (request, reply) => {
   try {
     const { id } = request.params as { id: string };
-    const response = await fetch(`${BACKEND_URL}/rows/${id}`);
+    const headers: Record<string, string> = {};
+    if (request.headers.authorization) {
+      headers['Authorization'] = request.headers.authorization;
+    }
+
+    const response = await fetch(`${BACKEND_URL}/rows/${id}`, { headers });
+    
+    if (response.status === 401) {
+      reply.status(401).send({ error: 'Unauthorized' });
+      return;
+    }
     if (response.status === 404) {
       reply.status(404).send({ error: 'Row not found' });
       return;
@@ -166,9 +199,20 @@ fastify.get('/api/rows/:id', async (request, reply) => {
 fastify.delete('/api/rows/:id', async (request, reply) => {
   try {
     const { id } = request.params as { id: string };
+    const headers: Record<string, string> = {};
+    if (request.headers.authorization) {
+      headers['Authorization'] = request.headers.authorization;
+    }
+
     const response = await fetch(`${BACKEND_URL}/rows/${id}`, {
       method: 'DELETE',
+      headers,
     });
+    
+    if (response.status === 401) {
+      reply.status(401).send({ error: 'Unauthorized' });
+      return;
+    }
     if (response.status === 404) {
       reply.status(404).send({ error: 'Row not found' });
       return;
@@ -185,11 +229,22 @@ fastify.patch('/api/rows/:id', async (request, reply) => {
   try {
     const { id } = request.params as { id: string };
     fastify.log.info({ id, body: request.body }, 'Proxying PATCH row request');
+    
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (request.headers.authorization) {
+      headers['Authorization'] = request.headers.authorization;
+    }
+
     const response = await fetch(`${BACKEND_URL}/rows/${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(request.body),
     });
+    
+    if (response.status === 401) {
+      reply.status(401).send({ error: 'Unauthorized' });
+      return;
+    }
     if (response.status === 404) {
       reply.status(404).send({ error: 'Row not found' });
       return;

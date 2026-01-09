@@ -5,7 +5,7 @@ import { z } from 'zod';
 const model = google(process.env.GEMINI_MODEL || 'gemini-1.5-flash');
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
-export const chatHandler = async (messages: any[]): Promise<any> => {
+export const chatHandler = async (messages: any[], authorization?: string): Promise<any> => {
   return streamText({
     model,
     messages,
@@ -39,9 +39,15 @@ Only create a new row when the user asks for a completely different item.`,
                 normalizedConstraints[key] = String(value);
               }
             }
+            
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (authorization) {
+              headers['Authorization'] = authorization;
+            }
+            
             const response = await fetch(`${BACKEND_URL}/rows`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers,
               body: JSON.stringify({
                 title: input.item,
                 status: 'sourcing',
