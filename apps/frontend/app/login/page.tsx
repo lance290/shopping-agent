@@ -133,7 +133,7 @@ export default function LoginPage() {
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                 required
                 disabled={loading || isLocked}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 text-center text-2xl tracking-widest"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 text-center text-2xl tracking-widest text-gray-900"
                 placeholder="000000"
               />
             </div>
