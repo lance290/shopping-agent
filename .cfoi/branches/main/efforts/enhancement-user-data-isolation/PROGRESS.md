@@ -4,9 +4,9 @@
 
 ## Current State
 - **Status**: 🟢 In Progress
-- **Current task**: task-005 (pending)
+- **Current task**: task-006 (pending)
 - **Last working commit**: [current HEAD]
-- **App status**: Full stack auth flow implemented
+- **App status**: Full stack auth flow + E2E endpoints ready
 
 ## Task Summary
 | ID | Description | Status |
@@ -15,7 +15,8 @@
 | task-002 | Backend: enforce ownership on /rows | ✅ completed |
 | task-003 | BFF: forward Authorization | ✅ completed |
 | task-004 | Frontend: attach Authorization | ✅ completed |
-| task-005 | Backend: E2E mint endpoint | ⬜ pending |
+| task-005 | Backend: E2E mint endpoint | ✅ completed |
+| task-006 | Playwright: cross-user isolation | ⬜ pending |
 | task-006 | Playwright: cross-user isolation | ⬜ pending |
 | task-007 | Operational: reset DB | ⬜ pending |
 

@@ -270,6 +270,47 @@ class AuthStartResponse(BaseModel):
     locked_until: Optional[datetime] = None
 
 
+class MintSessionRequest(BaseModel):
+    email: EmailStr
+
+
+class MintSessionResponse(BaseModel):
+    session_token: str
+
+
+@app.post("/test/mint-session", response_model=MintSessionResponse)
+async def mint_session(request: MintSessionRequest, session: AsyncSession = Depends(get_session)):
+    """
+    Test-only endpoint to mint a session without email interaction.
+    Only enabled when E2E_TEST_MODE=1 env var is set.
+    """
+    if os.getenv("E2E_TEST_MODE") != "1":
+        raise HTTPException(status_code=404, detail="Not Found")
+    
+    email = request.email.lower()
+    
+    # Create user if not exists
+    result = await session.exec(select(User).where(User.email == email))
+    user = result.first()
+    if not user:
+        user = User(email=email)
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+    
+    # Create session
+    token = generate_session_token()
+    new_session = AuthSession(
+        email=email,
+        user_id=user.id,
+        session_token_hash=hash_token(token),
+    )
+    session.add(new_session)
+    await session.commit()
+    
+    return {"session_token": token}
+
+
 @app.post("/auth/start", response_model=AuthStartResponse)
 async def auth_start(request: AuthStartRequest, session: AsyncSession = Depends(get_session)):
     """Send a verification code to the user's email."""
