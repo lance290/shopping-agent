@@ -45,6 +45,7 @@ fastify.get('/', async () => {
 import { chatHandler } from './llm';
 
 fastify.post('/api/chat', async (request, reply) => {
+  let headersSent = false;
   try {
     const { messages } = request.body as { messages: any[] };
     const result = await chatHandler(messages);
@@ -55,6 +56,7 @@ fastify.post('/api/chat', async (request, reply) => {
       'Transfer-Encoding': 'chunked',
       'Cache-Control': 'no-cache',
     });
+    headersSent = true;
     
     // Use fullStream to capture both text and tool events
     for await (const part of result.fullStream) {
@@ -63,13 +65,14 @@ fastify.post('/api/chat', async (request, reply) => {
       } else if (part.type === 'tool-call') {
         // Provide feedback when a tool is called
         if (part.toolName === 'createRow') {
-          reply.raw.write(`\n✅ Adding "${part.args.item}" to your procurement board...`);
+          reply.raw.write(`\n✅ Adding "${(part as any).args?.item || 'item'}" to your procurement board...`);
         } else if (part.toolName === 'searchListings') {
-          reply.raw.write(`\n🔍 Searching for "${part.args.query}"...`);
+          reply.raw.write(`\n🔍 Searching for "${(part as any).args?.query || 'items'}"...`);
         }
       } else if (part.type === 'tool-result') {
         // Provide feedback when tool completes
-        if (part.toolName === 'createRow' && part.result?.status === 'row_created') {
+        const toolResult = part as any;
+        if (toolResult.toolName === 'createRow' && toolResult.result?.status === 'row_created') {
           reply.raw.write(` Done!`);
         }
       }
@@ -78,7 +81,12 @@ fastify.post('/api/chat', async (request, reply) => {
     reply.raw.end();
   } catch (err: any) {
     fastify.log.error('Chat error', err);
-    reply.status(500).send({ error: 'Chat processing failed' });
+    if (!headersSent) {
+      reply.status(500).send({ error: 'Chat processing failed' });
+    } else {
+      reply.raw.write('\n\nError: ' + (err.message || 'Something went wrong'));
+      reply.raw.end();
+    }
   }
 });
 
