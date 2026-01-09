@@ -1,13 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { COOKIE_NAME } from '../auth/constants';
 
 const BFF_URL = process.env.BFF_URL || 'http://localhost:8080';
 
+async function getAuthHeader() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE_NAME)?.value;
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
 export async function GET() {
   try {
+    const authHeader = await getAuthHeader();
+    if (!authHeader['Authorization']) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const response = await fetch(`${BFF_URL}/api/rows`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        ...authHeader,
       },
     });
     
@@ -21,12 +35,18 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const authHeader = await getAuthHeader();
+    if (!authHeader['Authorization']) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     
     const response = await fetch(`${BFF_URL}/api/rows`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...authHeader,
       },
       body: JSON.stringify(body),
     });
@@ -41,6 +61,11 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const authHeader = await getAuthHeader();
+    if (!authHeader['Authorization']) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
     
@@ -50,6 +75,9 @@ export async function DELETE(request: NextRequest) {
     
     const response = await fetch(`${BFF_URL}/api/rows/${id}`, {
       method: 'DELETE',
+      headers: {
+        ...authHeader,
+      }
     });
     
     const data = await response.json();
@@ -62,6 +90,11 @@ export async function DELETE(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const authHeader = await getAuthHeader();
+    if (!authHeader['Authorization']) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
     const body = await request.json();
@@ -79,6 +112,7 @@ export async function PATCH(request: NextRequest) {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
+        ...authHeader,
       },
       body: JSON.stringify(body),
     });
