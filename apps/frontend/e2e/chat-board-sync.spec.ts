@@ -79,30 +79,33 @@ test.describe('Chat-Board Synchronization Flow', () => {
     // ===== STEP 3: Click a different card =====
     console.log('STEP 3: Testing card click flow...');
     
-    // Count user messages in chat before clicking (blue bubbles on the right)
-    const userMessagesBefore = await page.locator('div.bg-blue-600').count();
+    // Listen for console logs
+    page.on('console', msg => {
+      if (msg.text().includes('[Chat]') || msg.text().includes('[Sidebar]')) {
+        console.log(`BROWSER: ${msg.text()}`);
+      }
+    });
+    
+    // Count user messages in chat before clicking (look for user message bubbles in the chat panel)
+    // The chat panel is on the left, cards are in the sidebar
+    const chatPanel = page.locator('div.w-1\\/3');
+    const userMessagesBefore = await chatPanel.locator('div.bg-blue-600.text-white').count();
     console.log(`User messages before click: ${userMessagesBefore}`);
     
-    // Find a non-active card to click (gray background)
-    const inactiveCard = page.locator('[class*="bg-gray-700"]').first();
+    // Find a non-active card in the Requests sidebar (gray background, not blue)
+    // Cards are in RequestsSidebar with class bg-gray-700 (inactive) or bg-blue-600 (active)
+    const inactiveCard = page.locator('div.bg-gray-700.text-gray-200.cursor-pointer').first();
     const isInactiveVisible = await inactiveCard.isVisible({ timeout: 3000 }).catch(() => false);
     
     if (isInactiveVisible) {
       const cardTitleToClick = await inactiveCard.locator('h3').textContent({ timeout: 3000 }).catch(() => 'Unknown');
       console.log(`Clicking card: ${cardTitleToClick}`);
       
-      // Listen for console logs
-      page.on('console', msg => {
-        if (msg.text().includes('[Chat]') || msg.text().includes('[Board]')) {
-          console.log(`BROWSER: ${msg.text()}`);
-        }
-      });
-      
       await inactiveCard.click();
-      await page.waitForTimeout(5000); // Wait longer for state update
+      await page.waitForTimeout(5000); // Wait for state update and chat append
       
       // Verify the card's text was appended to chat
-      const userMessagesAfter = await page.locator('div.bg-blue-600').count();
+      const userMessagesAfter = await chatPanel.locator('div.bg-blue-600.text-white').count();
       console.log(`User messages after click: ${userMessagesAfter}`);
       
       if (userMessagesAfter > userMessagesBefore) {
