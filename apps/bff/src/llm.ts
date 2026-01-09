@@ -15,7 +15,7 @@ export const chatHandler = async (messages: any[]): Promise<any> => {
         description: 'Create a new procurement row for an item',
         inputSchema: z.object({
           item: z.string().describe('The name of the item to buy'),
-          constraints: z.record(z.string()).optional().describe('Key-value constraints like size, color, budget'),
+          constraints: z.record(z.string(), z.string()).optional().describe('Key-value constraints like size, color, budget'),
         }),
         execute: async (input: { item: string; constraints?: Record<string, string> }) => {
           try {
