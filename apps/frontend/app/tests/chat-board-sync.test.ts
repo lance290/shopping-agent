@@ -47,4 +47,22 @@ describe('Chat-Board Synchronization Regression Test', () => {
     expect(match).toBeDefined();
     expect(match?.id).toBe(31);
   });
+
+  test('selectOrCreateRow prioritizes active row for significant word overlap (Step 2)', () => {
+    const { result } = renderHook(() => useShoppingStore());
+    
+    act(() => {
+      // Simulate card #32 being active
+      result.current.setActiveRowId(32);
+    });
+
+    const rows = result.current.rows;
+    
+    // Case from user: User is on "Montana State shirts" (#32) and says "actually can you show the sweatshirts?"
+    // The query becomes "Montana State sweatshirt"
+    const match = result.current.selectOrCreateRow('Montana State sweatshirt', rows);
+    
+    expect(match).toBeDefined();
+    expect(match?.id).toBe(32); // Should reuse the active card instead of creating #33
+  });
 });

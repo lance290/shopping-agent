@@ -80,8 +80,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       const activeRow = existingRows.find(r => r.id === activeRowId);
       if (activeRow) {
         const rowTitle = activeRow.title.toLowerCase().trim();
-        // If they share significant words, or one contains the other, prefer the active row
-        if (lowerQuery.includes(rowTitle) || rowTitle.includes(lowerQuery)) {
+        const rowWords = rowTitle.split(/\s+/).filter(w => w.length > 3);
+        const queryWords = lowerQuery.split(/\s+/).filter(w => w.length > 3);
+        
+        // Check for significant word overlap (at least 2 matching words > 3 chars)
+        const overlap = rowWords.filter(w => queryWords.some(qw => qw.includes(w) || w.includes(qw)));
+        
+        if (lowerQuery.includes(rowTitle) || rowTitle.includes(lowerQuery) || overlap.length >= 2) {
           return activeRow;
         }
       }
