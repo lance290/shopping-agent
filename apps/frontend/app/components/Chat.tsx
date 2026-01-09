@@ -53,6 +53,7 @@ export default function Chat() {
       let assistantContent = '';
       let currentQuery = '';
       let currentRowId = activeRowId;
+      let rowCreationHandled = false;
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -121,9 +122,10 @@ export default function Chat() {
             }
           }
           
-          // Parse row creation from stream
+          // Parse row creation from stream (only handle once)
           const rowMatch = assistantContent.match(/✅ Adding "([^"]+)" to your procurement board/);
-          if (rowMatch) {
+          if (rowMatch && !rowCreationHandled) {
+            rowCreationHandled = true;
             // Refresh rows to get the new row ID
             fetch('/api/rows')
               .then(res => res.json())
