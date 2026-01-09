@@ -264,8 +264,10 @@ class SourcingRepository:
         # Initialize providers in priority order
         # SerpAPI - 100 free searches/month
         serpapi_key = os.getenv("SERPAPI_API_KEY")
+        print(f"[SourcingRepository] SERPAPI_API_KEY present: {bool(serpapi_key)}, value starts with: {serpapi_key[:8] if serpapi_key else 'N/A'}")
         if serpapi_key and serpapi_key != "demo":
             self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
+            print(f"[SourcingRepository] SerpAPI provider initialized")
         
         # Rainforest API - Amazon search
         rainforest_key = os.getenv("RAINFOREST_API_KEY")
@@ -294,11 +296,16 @@ class SourcingRepository:
             self.providers["mock"] = MockShoppingProvider()
 
     async def search_all(self, query: str, **kwargs) -> List[SearchResult]:
+        print(f"[SourcingRepository] search_all called with query: {query}")
+        print(f"[SourcingRepository] Available providers: {list(self.providers.keys())}")
         all_results = []
         for name, provider in self.providers.items():
             try:
+                print(f"[SourcingRepository] Searching with provider: {name}")
                 results = await provider.search(query, **kwargs)
+                print(f"[SourcingRepository] Provider {name} returned {len(results)} results")
                 all_results.extend(results)
             except Exception as e:
                 print(f"Provider {name} failed: {e}")
+        print(f"[SourcingRepository] Total results: {len(all_results)}")
         return all_results
