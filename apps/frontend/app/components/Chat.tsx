@@ -1,12 +1,81 @@
 'use client';
 
-import { useChat } from '@ai-sdk/react';
+import { useState } from 'react';
 import { Send, Bot, User } from 'lucide-react';
 
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export default function Chat() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: '/api/chat',
-  } as any) as any;
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input,
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [...messages, userMessage] }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to send message');
+      
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let assistantContent = '';
+      
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: '',
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+      
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          assistantContent += chunk;
+          
+          setMessages(prev => 
+            prev.map(m => 
+              m.id === assistantMessage.id 
+                ? { ...m, content: assistantContent }
+                : m
+            )
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Sorry, something went wrong. Please try again.',
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full border-r border-gray-200 bg-gray-50 w-1/3 min-w-[300px]">
@@ -25,7 +94,7 @@ export default function Chat() {
           </div>
         )}
         
-        {messages.map((m: any) => (
+        {messages.map((m) => (
           <div
             key={m.id}
             className={`flex gap-3 ${
@@ -41,35 +110,13 @@ export default function Chat() {
             </div>
             
             <div
-              className={`rounded-lg p-3 max-w-[85%] text-sm ${
+              className={`rounded-lg p-3 max-w-[85%] text-sm whitespace-pre-wrap ${
                 m.role === 'user'
                   ? 'bg-blue-600 text-white'
                   : 'bg-white border border-gray-200 text-gray-800 shadow-sm'
               }`}
             >
-              {m.content}
-              {m.toolInvocations?.map((toolInvocation: any) => {
-                const toolCallId = toolInvocation.toolCallId;
-                
-                // Render tool calls (optional visualization)
-                if (toolInvocation.state === 'result') {
-                    if (toolInvocation.toolName === 'createRow') {
-                        return (
-                            <div key={toolCallId} className="mt-2 text-xs bg-gray-50 p-2 rounded border border-gray-200 text-gray-600">
-                                ✅ Created row: {JSON.stringify(toolInvocation.result.data.title)}
-                            </div>
-                        );
-                    }
-                    if (toolInvocation.toolName === 'searchListings') {
-                        return (
-                            <div key={toolCallId} className="mt-2 text-xs bg-gray-50 p-2 rounded border border-gray-200 text-gray-600">
-                                🔍 Found {toolInvocation.result.count} listings
-                            </div>
-                        );
-                    }
-                }
-                return null;
-              })}
+              {m.content || (m.role === 'assistant' && isLoading ? '...' : '')}
             </div>
           </div>
         ))}
@@ -91,7 +138,7 @@ export default function Chat() {
             className="flex-1 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
             value={input}
             placeholder="What are you looking for?"
-            onChange={handleInputChange}
+            onChange={(e) => setInput(e.target.value)}
           />
           <button
             type="submit"
