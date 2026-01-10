@@ -12,13 +12,25 @@ fastify.register(cors, {
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
-// Proxy search to backend
+// Proxy search to backend (supports per-row search with constraints)
 fastify.post('/api/search', async (request, reply) => {
   try {
-    const response = await fetch(`${BACKEND_URL}/v1/sourcing/search`, {
+    const body = request.body as any;
+    const rowId = body?.rowId;
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (request.headers.authorization) {
+      headers['Authorization'] = request.headers.authorization as string;
+    }
+
+    const targetUrl = rowId
+      ? `${BACKEND_URL}/rows/${rowId}/search`
+      : `${BACKEND_URL}/v1/sourcing/search`;
+
+    const response = await fetch(targetUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request.body),
+      headers,
+      body: JSON.stringify(body),
     });
     const data = await response.json();
     return data;
@@ -47,9 +59,9 @@ import { chatHandler } from './llm';
 fastify.post('/api/chat', async (request, reply) => {
   let headersSent = false;
   try {
-    const { messages } = request.body as { messages: any[] };
+    const { messages, activeRowId } = request.body as { messages: any[]; activeRowId?: number };
     const authorization = request.headers.authorization;
-    const result = await chatHandler(messages, authorization);
+    const result = await chatHandler(messages, authorization, activeRowId);
     
     // Set headers for streaming
     reply.raw.writeHead(200, {

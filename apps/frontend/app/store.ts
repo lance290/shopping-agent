@@ -27,7 +27,8 @@ interface ShoppingState {
   currentQuery: string;           // The current search query
   activeRowId: number | null;     // The currently selected row ID
   rows: Row[];                    // All rows from database
-  searchResults: Product[];       // Current search results
+  searchResults: Product[];       // Current search results (legacy view)
+  rowResults: Record<number, Product[]>; // Per-row cached results
   isSearching: boolean;           // Loading state for search
   cardClickQuery: string | null;  // Query from card click (triggers chat append)
   
@@ -39,6 +40,8 @@ interface ShoppingState {
   updateRow: (id: number, updates: Partial<Row>) => void;
   removeRow: (id: number) => void;
   setSearchResults: (results: Product[]) => void;
+  setRowResults: (rowId: number, results: Product[]) => void;
+  clearRowResults: (rowId: number) => void;
   setIsSearching: (searching: boolean) => void;
   clearSearch: () => void;
   setCardClickQuery: (query: string | null) => void;  // For card click -> chat append
@@ -53,6 +56,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   activeRowId: null,
   rows: [],
   searchResults: [],
+  rowResults: {},
   isSearching: false,
   cardClickQuery: null,
   
@@ -69,8 +73,16 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     activeRowId: state.activeRowId === id ? null : state.activeRowId,
   })),
   setSearchResults: (results) => set({ searchResults: results, isSearching: false }),
+  setRowResults: (rowId, results) => set((state) => ({
+    rowResults: { ...state.rowResults, [rowId]: results },
+    isSearching: false,
+  })),
+  clearRowResults: (rowId) => set((state) => {
+    const { [rowId]: _, ...rest } = state.rowResults;
+    return { rowResults: rest };
+  }),
   setIsSearching: (searching) => set({ isSearching: searching }),
-  clearSearch: () => set({ searchResults: [], currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
+  clearSearch: () => set({ searchResults: [], rowResults: {}, currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
   setCardClickQuery: (query) => set({ cardClickQuery: query }),
   
   // Find a row that matches the query, or return null if we need to create one

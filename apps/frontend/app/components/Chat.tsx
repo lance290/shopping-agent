@@ -45,21 +45,30 @@ export default function Chat() {
   };
 
   // Helper: Run search and update store
-  const runSearch = async (query: string) => {
-    console.log('[Chat] Running search:', query);
+  const runSearch = async (query: string, rowId?: number | null) => {
+    console.log('[Chat] Running search:', query, 'for rowId:', rowId);
     store.setIsSearching(true);
     try {
       const res = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify(rowId ? { query, rowId } : { query }),
       });
       const data = await res.json();
-      console.log('[Chat] Search returned:', data.results?.length || 0, 'products');
-      store.setSearchResults(data.results || []);
+      const results = data.results || [];
+      console.log('[Chat] Search returned:', results.length, 'products');
+      if (rowId) {
+        store.setRowResults(rowId, results);
+      } else {
+        store.setSearchResults(results);
+      }
     } catch (err) {
       console.error('[Chat] Search error:', err);
-      store.setSearchResults([]);
+      if (rowId) {
+        store.setRowResults(rowId, []);
+      } else {
+        store.setSearchResults([]);
+      }
     }
   };
 
@@ -166,10 +175,11 @@ export default function Chat() {
     }
 
     // 1d. Zustand is already the source of truth
-    console.log('[Chat] 1d. Zustand updated - activeRowId:', store.activeRowId);
+    const rowIdForSearch = store.activeRowId;
+    console.log('[Chat] 1d. Zustand updated - activeRowId:', rowIdForSearch);
 
-    // 1f. Run the search
-    await runSearch(query);
+    // 1f. Run the search (store results under the active row if present)
+    await runSearch(query, rowIdForSearch || undefined);
     console.log('[Chat] 1f. Search complete');
 
     console.log('[Chat] === SEARCH FLOW END ===');

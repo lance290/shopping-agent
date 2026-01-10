@@ -208,10 +208,16 @@ async def delete_row(
     await session.commit()
     return {"status": "deleted", "id": row_id}
 
+class RequestSpecUpdate(BaseModel):
+    item_name: Optional[str] = None
+    constraints: Optional[str] = None
+    preferences: Optional[str] = None
+
 class RowUpdate(BaseModel):
     title: Optional[str] = None
     status: Optional[str] = None
     budget_max: Optional[float] = None
+    request_spec: Optional[RequestSpecUpdate] = None
 
 @app.patch("/rows/{row_id}")
 async def update_row(
@@ -238,15 +244,76 @@ async def update_row(
         raise HTTPException(status_code=404, detail="Row not found")
     
     row_data = row_update.dict(exclude_unset=True)
+
+    # Separate row fields and request_spec updates
+    request_spec_updates = row_data.pop("request_spec", None)
+
     for key, value in row_data.items():
         setattr(row, key, value)
         
+    # Update request_spec if provided
+    if request_spec_updates:
+        result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
+        spec = result.first()
+        if spec:
+            spec_data = request_spec_updates
+            for key, value in spec_data.items():
+                setattr(spec, key, value)
+            session.add(spec)
+
     row.updated_at = datetime.utcnow()
     session.add(row)
     await session.commit()
     await session.refresh(row)
     print(f"Row {row_id} updated successfully: {row}")
     return row
+
+
+class RowSearchRequest(BaseModel):
+    query: Optional[str] = None
+
+@app.post("/rows/{row_id}/search", response_model=SearchResponse)
+async def search_row_listings(
+    row_id: int,
+    body: RowSearchRequest,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Fetch row scoped to user
+    result = await session.exec(
+        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    # Load request spec
+    spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
+    spec = spec_result.first()
+
+    # Build query from stored state unless overridden
+    base_query = body.query or row.title or (spec.item_name if spec else "")
+
+    # Combine constraints (stored as JSON string) into the query for now
+    if spec and spec.constraints:
+        try:
+            import json
+            constraints_obj = json.loads(spec.constraints)
+            constraint_parts = []
+            for k, v in constraints_obj.items():
+                constraint_parts.append(f"{k}: {v}")
+            if constraint_parts:
+                base_query = base_query + " " + " ".join(constraint_parts)
+        except Exception:
+            pass
+
+    results = await sourcing_repo.search_all(base_query)
+    return {"results": results}
 
 # Search endpoint
 @app.post("/v1/sourcing/search", response_model=SearchResponse)

@@ -19,7 +19,8 @@ export default function RequestsSidebar() {
   const setActiveRowId = useShoppingStore(state => state.setActiveRowId);
   const setCardClickQuery = useShoppingStore(state => state.setCardClickQuery);
   const setIsSearching = useShoppingStore(state => state.setIsSearching);
-  const setSearchResults = useShoppingStore(state => state.setSearchResults);
+  const rowResults = useShoppingStore(state => state.rowResults);
+  const setRowResults = useShoppingStore(state => state.setRowResults);
 
   const selectedRow = rows.find(r => r.id === activeRowId) || null;
 
@@ -70,22 +71,29 @@ export default function RequestsSidebar() {
 
     console.log('[Sidebar] 3c. Chat will be notified via store');
 
-    console.log('[Sidebar] 3d. Running search for:', row.title);
+    // If we already have results cached for this row, skip re-fetch
+    if (rowResults[row.id] && rowResults[row.id].length > 0) {
+      console.log('[Sidebar] 3d. Using cached results for row:', row.id);
+      console.log('[Sidebar] === CARD CLICK FLOW END ===');
+      return;
+    }
+
+    console.log('[Sidebar] 3d. Running search for row:', row.id, row.title);
     setIsSearching(true);
     try {
       const res = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: row.title }),
+        body: JSON.stringify({ query: row.title, rowId: row.id }),
       });
       if (res.ok) {
         const data = await res.json();
         console.log('[Sidebar] Search returned:', data.results?.length || 0, 'products');
-        setSearchResults(data.results || []);
+        setRowResults(row.id, data.results || []);
       }
     } catch (e) {
       console.error('[Sidebar] Search failed:', e);
-      setSearchResults([]);
+      setRowResults(row.id, []);
     }
 
     console.log('[Sidebar] === CARD CLICK FLOW END ===');

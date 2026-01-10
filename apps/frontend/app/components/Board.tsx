@@ -5,12 +5,13 @@ import { useShoppingStore, Product } from '../store';
 
 export default function ProcurementBoard() {
   const store = useShoppingStore();
-
   const selectedRow = store.rows.find(r => r.id === store.activeRowId) || null;
 
-  // Use search results from store
-  const displayProducts = store.searchResults;
-  const displayQuery = store.currentQuery || selectedRow?.title || '';
+  // Prefer per-row results when a row is active; otherwise fall back to legacy searchResults
+  const displayProducts =
+    (store.activeRowId && store.rowResults[store.activeRowId]) ||
+    (store.activeRowId ? [] : store.searchResults);
+  const displayQuery = selectedRow?.title || store.currentQuery || '';
 
   return (
     <div className="flex-1 flex bg-gray-900 overflow-hidden">
