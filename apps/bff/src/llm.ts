@@ -7,31 +7,48 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 export const chatHandler = async (messages: any[], authorization?: string, activeRowId?: number | null): Promise<any> => {
   // Build context about active row for the LLM
-  const activeRowContext = activeRowId ? `\n\nCURRENT ACTIVE ROW ID: ${activeRowId}. When refining the current search, use updateRow with this row_id to update the title and constraints, then call searchListings with this row_id.` : '';
+  const activeRowInstruction = activeRowId 
+    ? `\n\n⚠️ CRITICAL: There is an ACTIVE ROW with ID ${activeRowId}. 
+For ANY refinement (price, color, size, style changes), you MUST:
+1. Call updateRow with rowId=${activeRowId} first
+2. Then call searchListings with rowId=${activeRowId}
+DO NOT call createRow - the row already exists!`
+    : '\n\nNo active row. For new items, call createRow first.';
 
   return streamText({
     model,
     messages,
     system: `You are a procurement agent. Help users find items and manage their procurement board.
 
-IMPORTANT RULES:
-1. When a user asks for a NEW item (like "I need Montana State shirts"), call createRow ONCE then searchListings with the new row's ID.
-2. When a user REFINES their search (like "under $50", "XXL", "blue color"), call updateRow FIRST to update the row's title and constraints, then call searchListings with the row_id.
-3. ALWAYS include the row_id when calling searchListings so results are scoped to that row.
-4. When updating a row, build a NEW title that reflects ALL accumulated constraints (e.g., "blue Montana State shirts under $50").
+⚠️ CRITICAL RULES - FOLLOW EXACTLY:
 
-Examples of refinements (use updateRow then searchListings):
-- User says "under $50" → updateRow with title="[item] under $50", constraints={"max_price":"50"}, then searchListings with row_id
-- User says "blue color" → updateRow with title="blue [item]", constraints={"color":"blue"}, then searchListings with row_id
-- User says "XXL" → updateRow with title="[item] XXL", constraints={"size":"XXL"}, then searchListings with row_id
+1. REFINEMENTS (user adds constraints to existing search):
+   - Examples: "under $50", "only red ones", "XXL", "make it blue", "cheaper", "different color"
+   - These are NOT new items - they modify the current search
+   - You MUST call updateRow FIRST, then searchListings
+   - NEVER call createRow for refinements
 
-Only create a new row when the user asks for a completely different item.${activeRowContext}`,
+2. NEW ITEMS (user asks for completely different product):
+   - Examples: "I need Montana State shirts", "find me a laptop", "search for headphones"
+   - Call createRow ONCE, then searchListings with the new row's ID
+
+3. When calling updateRow:
+   - Build a NEW title with ALL constraints: "red Montana State shirts under $50 XXL"
+   - Include constraints object: {"color":"red", "max_price":"50", "size":"XXL"}
+
+REFINEMENT DETECTION:
+- "under $X" / "less than" / "cheaper" → REFINEMENT (price)
+- "red/blue/green/only X color" → REFINEMENT (color)  
+- "size X" / "XXL/large/small" → REFINEMENT (size)
+- "actually" / "instead" / "change to" → REFINEMENT
+- Short phrases without product names → likely REFINEMENT
+${activeRowInstruction}`,
     tools: {
       createRow: {
-        description: 'Create a new procurement row for an item',
+        description: 'Create a NEW procurement row for a COMPLETELY DIFFERENT item. DO NOT use this for refinements like price/color/size changes - use updateRow instead.',
         inputSchema: z.object({
-          item: z.string().describe('The name of the item to buy'),
-          constraints: z.record(z.string(), z.union([z.string(), z.number()])).optional().describe('Key-value constraints like size, color, budget'),
+          item: z.string().describe('The name of the NEW item to buy (not a refinement of existing search)'),
+          constraints: z.record(z.string(), z.union([z.string(), z.number()])).optional().describe('Initial constraints for the new item'),
         }),
         execute: async (input: { item: string; constraints?: Record<string, string | number> }) => {
           try {
@@ -68,11 +85,11 @@ Only create a new row when the user asks for a completely different item.${activ
         },
       },
       updateRow: {
-        description: 'Update an existing row with new title and/or constraints. Call this BEFORE searchListings when refining a search.',
+        description: 'UPDATE an existing row when user refines their search (price, color, size, etc). ALWAYS use this instead of createRow for refinements. Call this BEFORE searchListings.',
         inputSchema: z.object({
-          rowId: z.number().describe('The ID of the row to update'),
-          title: z.string().describe('The new title reflecting all accumulated constraints'),
-          constraints: z.record(z.string(), z.string()).optional().describe('Updated constraints object'),
+          rowId: z.number().describe('The ID of the active row to update - use the CURRENT ACTIVE ROW ID from system context'),
+          title: z.string().describe('The NEW title with ALL accumulated constraints, e.g. "red Montana State shirts under $50"'),
+          constraints: z.record(z.string(), z.string()).optional().describe('All constraints as key-value pairs: {"color":"red", "max_price":"50"}'),
         }),
         execute: async (input: { rowId: number; title: string; constraints?: Record<string, string> }) => {
           try {
