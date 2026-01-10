@@ -85,6 +85,10 @@ fastify.post('/api/chat', async (request, reply) => {
         if (toolPart.toolName === 'createRow') {
           const itemName = input?.item || 'item';
           reply.raw.write(`\n✅ Adding "${itemName}" to your procurement board...`);
+        } else if (toolPart.toolName === 'updateRow') {
+          const newTitle = input?.title || 'item';
+          const rowId = input?.rowId;
+          reply.raw.write(`\n🔄 Updating row #${rowId} to "${newTitle}"...`);
         } else if (toolPart.toolName === 'searchListings') {
           const query = input?.query || 'items';
           reply.raw.write(`\n🔍 Searching for "${query}"...`);
@@ -98,6 +102,10 @@ fastify.post('/api/chat', async (request, reply) => {
         
         if (toolResult.toolName === 'createRow') {
           if (output?.status === 'row_created') {
+            reply.raw.write(` Done!`);
+          }
+        } else if (toolResult.toolName === 'updateRow') {
+          if (output?.status === 'row_updated') {
             reply.raw.write(` Done!`);
           }
         } else if (toolResult.toolName === 'searchListings') {

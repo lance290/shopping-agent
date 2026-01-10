@@ -216,6 +216,7 @@ export default function Chat() {
       let assistantContent = '';
       let lastProcessedQuery = '';
       let rowCreationHandled = false;
+      let rowUpdateHandled = false;
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -236,22 +237,42 @@ export default function Chat() {
           const rowMatch = assistantContent.match(/✅ Adding "([^"]+)" to your procurement board/);
           if (rowMatch && !rowCreationHandled) {
             rowCreationHandled = true;
-            console.log('[Chat] Row creation detected in stream:', rowMatch[1]);
+            const createdItemName = rowMatch[1];
+            console.log('[Chat] Row creation detected in stream:', createdItemName);
             // Wait for the backend to commit the row
             await new Promise(resolve => setTimeout(resolve, 800));
             // Refresh rows from DB to ensure we have the latest
             const freshRows = await fetchRowsFromDb();
             console.log('[Chat] Fetched fresh rows:', freshRows.length, freshRows);
             store.setRows(freshRows);
-            // Select the newest row
+            // Select the newest row and trigger search
             if (freshRows.length > 0) {
               const newestRow = freshRows[freshRows.length - 1];
               store.setActiveRowId(newestRow.id);
               console.log('[Chat] Set active row:', newestRow.id, newestRow.title);
+              // Trigger search for the new row (LLM may not always call searchListings)
+              console.log('[Chat] Triggering search for new row:', newestRow.id, newestRow.title);
+              await runSearch(newestRow.title, newestRow.id);
             }
           }
           
-          // Parse search events from the stream
+          // Parse row update from stream (refinements)
+          const updateMatch = assistantContent.match(/🔄 Updating row #(\d+) to "([^"]+)".*Done!/s);
+          if (updateMatch && !rowUpdateHandled) {
+            rowUpdateHandled = true;
+            const updatedRowId = parseInt(updateMatch[1], 10);
+            const updatedTitle = updateMatch[2];
+            console.log('[Chat] Row update detected:', updatedRowId, updatedTitle);
+            // Refresh rows from DB to get updated title
+            const freshRows = await fetchRowsFromDb();
+            store.setRows(freshRows);
+            store.setActiveRowId(updatedRowId);
+            // Trigger search for the updated row
+            console.log('[Chat] Triggering search for updated row:', updatedRowId, updatedTitle);
+            await runSearch(updatedTitle, updatedRowId);
+          }
+          
+          // Parse search events from the stream (fallback if LLM calls searchListings directly)
           const searchMatch = assistantContent.match(/🔍 Searching for "([^"]+)"/);
           if (searchMatch && searchMatch[1] !== lastProcessedQuery) {
             lastProcessedQuery = searchMatch[1];
