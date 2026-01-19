@@ -45,125 +45,146 @@ export default function ChoiceFactorPanel({ row, isOpen, onClose }: ChoiceFactor
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200" onClick={onClose}>
+    <div className="fixed inset-0 z-50 overflow-hidden" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
+      {/* Backdrop */}
       <div 
-        className="bg-white rounded-xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-xl">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Product Specifications</h2>
-            <p className="text-sm text-gray-500 mt-1">Review and edit the constraints for this request.</p>
-          </div>
-          <button 
-            onClick={onClose} 
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        
-        {/* Content */}
-        <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
-          {factors.length === 0 ? (
-            <div className="text-center py-12 px-4">
-              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Loader2 className="animate-spin" size={24} />
+        className={`absolute inset-0 bg-gray-500/30 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} 
+        onClick={onClose}
+      />
+
+      {/* Panel */}
+      <div className={`fixed inset-y-0 right-0 flex max-w-full pl-10 pointer-events-none ${isOpen ? 'translate-x-0' : 'translate-x-full'} transition-transform duration-300 ease-in-out sm:pl-16`}>
+        <div className="w-screen max-w-md pointer-events-auto">
+          <div className="flex h-full flex-col bg-white shadow-xl">
+            {/* Header */}
+            <div className="px-6 py-6 border-b border-gray-100 flex items-start justify-between bg-gray-50/50">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900" id="slide-over-title">Product Specifications</h2>
+                <p className="text-sm text-gray-500 mt-1">Review and edit the constraints for "{row.title}".</p>
               </div>
-              <p className="text-gray-900 font-medium">Extracting specifications...</p>
-              <p className="text-sm text-gray-500 mt-2 max-w-xs mx-auto">
-                The agent is identifying the key attributes for "{row.title}".
-              </p>
+              <div className="ml-3 flex h-7 items-center">
+                <button
+                  type="button"
+                  className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  onClick={onClose}
+                >
+                  <span className="sr-only">Close panel</span>
+                  <X size={24} aria-hidden="true" />
+                </button>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-6">
-              {factors.map(factor => {
-                const isSaving = savingFields[factor.name];
-                const hasAnswer = localAnswers[factor.name] !== undefined && localAnswers[factor.name] !== '';
-                
-                // Convert snake_case name to Title Case Label (e.g. "screen_size" -> "Screen Size")
-                const label = factor.name.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                
-                return (
-                  <div key={factor.name} className="group">
-                    <label className="flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
-                      <span className="flex items-center gap-2">
-                        {label}
-                        {factor.required && (
-                          <span className="text-[10px] uppercase tracking-wider font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded">
-                            Required
-                          </span>
-                        )}
-                      </span>
-                      {isSaving ? (
-                        <Loader2 className="animate-spin text-blue-500" size={14} />
-                      ) : hasAnswer ? (
-                        <Check className="text-green-500" size={14} />
-                      ) : null}
-                    </label>
-                    
-                    <div className="relative">
-                      {factor.type === 'select' && factor.options ? (
-                        <select
-                          value={localAnswers[factor.name] || ''}
-                          onChange={(e) => handleAnswerChange(factor.name, e.target.value)}
-                          className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none appearance-none hover:bg-white"
-                        >
-                          <option value="" disabled>Select an option...</option>
-                          {factor.options.map((opt: string) => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                      ) : factor.type === 'boolean' ? (
-                        <div className="flex gap-3">
-                          {['Yes', 'No'].map((opt) => {
-                            const boolVal = opt === 'Yes';
-                            const isSelected = localAnswers[factor.name] === boolVal;
-                            return (
-                              <button
-                                key={opt}
-                                onClick={() => handleAnswerChange(factor.name, boolVal)}
-                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border transition-all ${
-                                  isSelected 
-                                    ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                                }`}
-                              >
-                                {opt}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <input
-                          type={factor.type === 'number' ? 'number' : 'text'}
-                          value={localAnswers[factor.name] || ''}
-                          onChange={(e) => handleAnswerChange(factor.name, factor.type === 'number' ? Number(e.target.value) : e.target.value)}
-                          placeholder={factor.type === 'number' ? '0' : 'Type your answer...'}
-                          className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none hover:bg-white"
-                        />
-                      )}
-                    </div>
+
+            {/* Content */}
+            <div className="relative flex-1 px-6 py-6 overflow-y-auto custom-scrollbar">
+              {factors.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Loader2 className="animate-spin" size={24} />
                   </div>
-                );
-              })}
+                  <p className="text-gray-900 font-medium">Extracting specifications...</p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    The agent is identifying the key attributes for this request.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {factors.map(factor => {
+                    const isSaving = savingFields[factor.name];
+                    const hasAnswer = localAnswers[factor.name] !== undefined && localAnswers[factor.name] !== '';
+                    
+                    // Convert snake_case name to Title Case Label
+                    const label = factor.name.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                    
+                    return (
+                      <div key={factor.name} className="group">
+                        <label className="flex items-center justify-between text-sm font-medium text-gray-900 mb-2">
+                          <span className="flex items-center gap-2">
+                            {label}
+                            {factor.required && (
+                              <span className="text-[10px] uppercase tracking-wider font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">
+                                Required
+                              </span>
+                            )}
+                          </span>
+                          <div className="h-4 w-4">
+                            {isSaving ? (
+                              <Loader2 className="animate-spin text-blue-500" size={16} />
+                            ) : hasAnswer ? (
+                              <Check className="text-green-500" size={16} />
+                            ) : null}
+                          </div>
+                        </label>
+                        
+                        <div className="relative">
+                          {factor.type === 'select' && factor.options ? (
+                            <div className="relative">
+                              <select
+                                value={localAnswers[factor.name] || ''}
+                                onChange={(e) => handleAnswerChange(factor.name, e.target.value)}
+                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow outline-none appearance-none cursor-pointer hover:border-gray-300"
+                              >
+                                <option value="" disabled>Select an option...</option>
+                                {factor.options.map((opt: string) => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </div>
+                            </div>
+                          ) : factor.type === 'boolean' ? (
+                            <div className="flex gap-3">
+                              {['Yes', 'No'].map((opt) => {
+                                const boolVal = opt === 'Yes';
+                                const isSelected = localAnswers[factor.name] === boolVal;
+                                return (
+                                  <button
+                                    key={opt}
+                                    onClick={() => handleAnswerChange(factor.name, boolVal)}
+                                    className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium border transition-all duration-200 ${
+                                      isSelected 
+                                        ? 'bg-blue-600 border-blue-600 text-white shadow-sm' 
+                                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300'
+                                    }`}
+                                  >
+                                    {opt}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <input
+                              type={factor.type === 'number' ? 'number' : 'text'}
+                              value={localAnswers[factor.name] || ''}
+                              onChange={(e) => handleAnswerChange(factor.name, factor.type === 'number' ? Number(e.target.value) : e.target.value)}
+                              placeholder={`Enter ${label.toLowerCase()}...`}
+                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow outline-none hover:border-gray-300 placeholder-gray-400"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        
-        {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 rounded-b-xl border-t border-gray-100 flex justify-between items-center">
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <AlertCircle size={14} />
-            <span>Changes are saved automatically</span>
+            
+            {/* Footer */}
+            <div className="flex-shrink-0 px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <AlertCircle size={14} />
+                <span>Auto-saved</span>
+              </div>
+              <button
+                onClick={onClose}
+                className="px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 text-sm font-medium transition-all shadow-sm active:transform active:scale-95"
+              >
+                Done
+              </button>
+            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="px-5 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 text-sm font-medium transition-colors shadow-sm active:transform active:scale-95"
-          >
-            Done
-          </button>
         </div>
       </div>
     </div>
