@@ -83,3 +83,33 @@ export const fetchRowsFromDb = async (): Promise<Row[]> => {
   }
   return [];
 };
+
+// Helper: Save choice answer
+export const saveChoiceAnswerToDb = async (rowId: number, factorName: string, answer: string | number | boolean): Promise<boolean> => {
+  try {
+    // First get current row to merge answers (naive approach, but safe for MVP)
+    const rowRes = await fetch(`/api/rows/${rowId}`);
+    if (!rowRes.ok) return false;
+    const row = await rowRes.json();
+    
+    let answers: Record<string, any> = {};
+    if (row.choice_answers) {
+      try {
+        answers = JSON.parse(row.choice_answers);
+      } catch {}
+    }
+    
+    answers[factorName] = answer;
+    
+    const res = await fetch(`/api/rows/${rowId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ choice_answers: JSON.stringify(answers) }),
+    });
+    
+    return res.ok;
+  } catch (err) {
+    console.error('[API] Save answer error:', err);
+    return false;
+  }
+};
