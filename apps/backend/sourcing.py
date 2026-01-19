@@ -40,10 +40,10 @@ def redact_secrets(text: str) -> str:
     if not text:
         return text
     redactions = [
-        (r"(api_key=)[^&\s]+", r"\\1[REDACTED]"),
-        (r"(key=)[^&\s]+", r"\\1[REDACTED]"),
-        (r"(token=)[^&\s]+", r"\\1[REDACTED]"),
-        (r"(Authorization: Bearer)\s+[^\s]+", r"\\1 [REDACTED]"),
+        (r"(api_key=)[^&\s]+", r"\1[REDACTED]"),
+        (r"(key=)[^&\s]+", r"\1[REDACTED]"),
+        (r"(token=)[^&\s]+", r"\1[REDACTED]"),
+        (r"(Authorization: Bearer)\s+[^\s]+", r"\1 [REDACTED]"),
     ]
     out = text
     for pattern, repl in redactions:
