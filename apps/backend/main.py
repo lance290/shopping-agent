@@ -2,7 +2,7 @@
 FastAPI Application Example
 Production-ready template with health checks and CORS
 """
-from fastapi import FastAPI, Depends, HTTPException, Header, Request
+from fastapi import FastAPI, Depends, HTTPException, Header, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse
 from pydantic import BaseModel, EmailStr
@@ -193,6 +193,7 @@ async def create_row(
 @app.get("/rows", response_model=List[RowReadWithBids])
 async def read_rows(
     authorization: Optional[str] = Header(None),
+    include_archived: bool = Query(False),
     session: AsyncSession = Depends(get_session)
 ):
     # Authenticate
@@ -203,7 +204,10 @@ async def read_rows(
     # Fetch rows with bids and sellers eagerly loaded
     result = await session.exec(
         select(Row)
-        .where(Row.user_id == auth_session.user_id)
+        .where(
+            Row.user_id == auth_session.user_id,
+            True if include_archived else (Row.status != "archived"),
+        )
         .options(selectinload(Row.bids).joinedload(Bid.seller))
         .order_by(Row.updated_at.desc())
     )
@@ -252,20 +256,12 @@ async def delete_row(
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
     
-    # Delete related RequestSpec first (foreign key constraint)
-    result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
-    for spec in result.all():
-        await session.delete(spec)
-    
-    # Delete related Bids
-    from models import Bid
-    result = await session.exec(select(Bid).where(Bid.row_id == row_id))
-    for bid in result.all():
-        await session.delete(bid)
-    
-    await session.delete(row)
+    # Soft-delete (archive) row for auditability.
+    row.status = "archived"
+    row.updated_at = datetime.utcnow()
+    session.add(row)
     await session.commit()
-    return {"status": "deleted", "id": row_id}
+    return {"status": "archived", "id": row_id}
 
 class RequestSpecUpdate(BaseModel):
     item_name: Optional[str] = None

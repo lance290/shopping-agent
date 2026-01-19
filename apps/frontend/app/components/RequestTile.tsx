@@ -42,8 +42,8 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
                requestDeleteRow(row.id);
              }}
              className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all"
-             title="Delete row"
-             aria-label="Delete row"
+             title="Archive row"
+             aria-label="Archive row"
            >
              <Trash2 size={14} />
            </button>
