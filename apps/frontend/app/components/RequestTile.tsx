@@ -1,5 +1,5 @@
 import { parseChoiceAnswers, Row, useShoppingStore } from '../store';
-import { Edit2, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
 interface RequestTileProps {
   row: Row;
@@ -9,9 +9,16 @@ interface RequestTileProps {
 export default function RequestTile({ row, onClick }: RequestTileProps) {
   const { setActiveRowId, setSidebarOpen, requestDeleteRow } = useShoppingStore();
   const answers = parseChoiceAnswers(row);
-  
-  // Format constraints for display
-  const constraints = Object.entries(answers);
+
+  const minPrice = answers.min_price ?? answers.budget_min;
+  const maxPrice = answers.max_price ?? answers.budget_max ?? row.budget_max;
+
+  const constraints = Object.entries(answers).filter(([k]) => ![
+    'min_price',
+    'max_price',
+    'budget_min',
+    'budget_max',
+  ].includes(k));
   
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -56,10 +63,16 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
         
         {/* Key Specs / Constraints */}
         <div className="space-y-2 mb-4 flex-1">
-          {row.budget_max && (
+          {(minPrice !== undefined || maxPrice !== undefined) && (
             <div className="flex justify-between text-sm items-center">
               <span className="text-gray-500">Budget</span>
-              <span className="font-medium text-gray-900">{row.currency} {row.budget_max}</span>
+              <span className="font-medium text-gray-900">
+                {minPrice !== undefined && maxPrice !== undefined
+                  ? `${row.currency} ${minPrice}–${maxPrice}`
+                  : maxPrice !== undefined
+                    ? `≤ ${row.currency} ${maxPrice}`
+                    : `≥ ${row.currency} ${minPrice}`}
+              </span>
             </div>
           )}
           
@@ -77,11 +90,6 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
           )}
         </div>
         
-        {/* Footer / Action */}
-        <div className="mt-auto pt-3 border-t border-gray-100 flex items-center text-xs text-gray-500 group-hover:text-blue-600 transition-colors">
-          <Edit2 size={12} className="mr-1.5" />
-          Edit Requirements
-        </div>
       </div>
     </>
   );

@@ -409,7 +409,20 @@ async def search_row_listings(
             import json
             answers_obj = json.loads(row.choice_answers)
             answer_parts = []
+
+            min_price = answers_obj.get('min_price')
+            max_price = answers_obj.get('max_price')
+            if min_price is not None or max_price is not None:
+                if min_price is not None and max_price is not None:
+                    answer_parts.append(f"price between {min_price} and {max_price}")
+                elif max_price is not None:
+                    answer_parts.append(f"price under {max_price}")
+                else:
+                    answer_parts.append(f"price over {min_price}")
+
             for k, v in answers_obj.items():
+                if k in ('min_price', 'max_price'):
+                    continue
                 # specific logic to handle boolean/select/text differently if needed
                 # for now, simply append "key: value" or just "value" might be better for search?
                 # "color: blue" is good. "primary_use: gaming" is good.

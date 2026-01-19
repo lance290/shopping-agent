@@ -118,6 +118,11 @@ export default function ChoiceFactorPanel() {
     setLocalAnswers(prev => ({ ...prev, [factorName]: value }));
   };
 
+  const isPriceRangeFactor = (factor: any) => {
+    const name = String(factor?.name || '').toLowerCase();
+    return factor?.type === 'number' && (name.includes('price') || name.includes('budget'));
+  };
+
   return (
     <div 
       className={`h-full bg-white flex flex-col shrink-0 transition-all duration-300 ease-in-out overflow-hidden border-gray-200 ${
@@ -261,6 +266,25 @@ export default function ChoiceFactorPanel() {
                               </button>
                             );
                           })}
+                        </div>
+                      ) : isPriceRangeFactor(factor) ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="number"
+                            value={localAnswers.min_price ?? ''}
+                            onChange={(e) => handleTextChange('min_price', Number(e.target.value))}
+                            onBlur={(e) => handleAnswerChange('min_price', Number(e.target.value))}
+                            placeholder="Min"
+                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-md text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none hover:border-gray-300 placeholder-gray-400"
+                          />
+                          <input
+                            type="number"
+                            value={localAnswers.max_price ?? ''}
+                            onChange={(e) => handleTextChange('max_price', Number(e.target.value))}
+                            onBlur={(e) => handleAnswerChange('max_price', Number(e.target.value))}
+                            placeholder="Max"
+                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-md text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none hover:border-gray-300 placeholder-gray-400"
+                          />
                         </div>
                       ) : (
                         <input

@@ -17,9 +17,15 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   
   const store = useShoppingStore();
   const activeRow = store.rows.find(r => r.id === store.activeRowId);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    setInput('');
+  }, [store.activeRowId]);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -272,6 +278,7 @@ export default function Chat() {
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input
             className="flex-1 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black text-sm"
+            ref={inputRef}
             value={input}
             placeholder={activeRow ? `Refine "${activeRow.title}"...` : "What are you looking for?"}
             onChange={(e) => setInput(e.target.value)}
