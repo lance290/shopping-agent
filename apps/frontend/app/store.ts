@@ -112,6 +112,11 @@ interface ShoppingState {
   clearSearch: () => void;
   setCardClickQuery: (query: string | null) => void;  // For card click -> chat append
   
+  // UI State
+  isSidebarOpen: boolean;
+  setSidebarOpen: (isOpen: boolean) => void;
+  toggleSidebar: () => void;
+  
   // Combined actions for the flow
   selectOrCreateRow: (query: string, existingRows: Row[]) => Row | null;
 }
@@ -125,10 +130,14 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   rowResults: {},
   isSearching: false,
   cardClickQuery: null,
+  isSidebarOpen: false, // Default closed
   
   // Basic setters
   setCurrentQuery: (query) => set({ currentQuery: query }),
   setActiveRowId: (id) => set({ activeRowId: id }),
+  setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
+  toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+  
   setRows: (rows) => set((state) => {
     // Automatically hydrate rowResults from persisted bids
     const newRowResults = { ...state.rowResults };

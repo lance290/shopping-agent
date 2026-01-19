@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { parseChoiceFactors, parseChoiceAnswers, Row } from '../store';
-import ChoiceFactorPanel from './ChoiceFactorPanel';
+import { parseChoiceAnswers, Row, useShoppingStore } from '../store';
+import { Edit2 } from 'lucide-react';
 
 interface RequestTileProps {
   row: Row;
@@ -8,66 +7,70 @@ interface RequestTileProps {
 }
 
 export default function RequestTile({ row, onClick }: RequestTileProps) {
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const factors = parseChoiceFactors(row);
+  const { setActiveRowId, setSidebarOpen } = useShoppingStore();
   const answers = parseChoiceAnswers(row);
   
-  // Show answered factors as highlights
-  const answeredFactors = factors.filter(f => answers[f.name] !== undefined);
+  // Format constraints for display
+  const constraints = Object.entries(answers);
   
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsPanelOpen(true);
+    setActiveRowId(row.id);
+    setSidebarOpen(true);
     if (onClick) onClick();
   };
 
   return (
     <>
       <div 
-        className="min-w-[200px] bg-blue-50 border-2 border-blue-200 rounded-lg p-3 flex-shrink-0 cursor-pointer hover:border-blue-400 h-full"
+        className="min-w-[240px] max-w-[280px] bg-white border border-gray-200 rounded-xl p-4 flex-shrink-0 cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all h-full flex flex-col group relative"
         onClick={handleClick}
       >
-        <div className="text-xs text-blue-600 font-medium mb-1 uppercase tracking-wider">Looking For</div>
-        <div className="font-medium text-sm text-gray-900 mb-2 line-clamp-2">{row.title}</div>
+        {/* Status Badge */}
+        <div className="flex justify-between items-start mb-2">
+           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+             row.status === 'sourcing' ? 'bg-blue-100 text-blue-700' :
+             row.status === 'bids_arriving' ? 'bg-green-100 text-green-700' :
+             'bg-gray-100 text-gray-600'
+           }`}>
+             {row.status.replace('_', ' ')}
+           </span>
+        </div>
+
+        {/* Title */}
+        <h3 className="font-semibold text-gray-900 mb-3 line-clamp-2 leading-tight">
+          {row.title}
+        </h3>
         
-        {row.budget_max && (
-          <div className="text-xs text-gray-600 mb-2">
-            <span className="font-medium">Budget:</span> {row.currency} {row.budget_max}
-          </div>
-        )}
+        {/* Key Specs / Constraints */}
+        <div className="space-y-2 mb-4 flex-1">
+          {row.budget_max && (
+            <div className="flex justify-between text-sm items-center">
+              <span className="text-gray-500">Budget</span>
+              <span className="font-medium text-gray-900">{row.currency} {row.budget_max}</span>
+            </div>
+          )}
+          
+          {constraints.slice(0, 4).map(([key, value]) => (
+            <div key={key} className="flex justify-between text-sm items-start gap-2">
+              <span className="text-gray-500 capitalize shrink-0">{key.replace(/_/g, ' ')}</span>
+              <span className="font-medium text-gray-900 text-right truncate">{String(value)}</span>
+            </div>
+          ))}
+          
+          {constraints.length > 4 && (
+            <div className="text-xs text-gray-400 pt-1">
+              +{constraints.length - 4} more specs
+            </div>
+          )}
+        </div>
         
-        {answeredFactors.length > 0 && (
-          <div className="mt-2 space-y-1 border-t border-blue-100 pt-2">
-            {answeredFactors.slice(0, 3).map(factor => (
-              <div key={factor.name} className="text-xs text-gray-600 truncate">
-                <span className="font-medium text-gray-700">{factor.label}:</span>{' '}
-                {String(answers[factor.name])}
-              </div>
-            ))}
-            {answeredFactors.length > 3 && (
-              <div className="text-xs text-gray-400">
-                +{answeredFactors.length - 3} more
-              </div>
-            )}
-          </div>
-        )}
-        
-        {answeredFactors.length === 0 && factors.length > 0 && (
-          <div className="text-xs text-orange-600 mt-2 font-medium">
-            {factors.filter(f => f.required).length} questions pending
-          </div>
-        )}
-        
-        <div className="text-xs text-blue-400 mt-auto pt-2">
-          Click to refine
+        {/* Footer / Action */}
+        <div className="mt-auto pt-3 border-t border-gray-100 flex items-center text-xs text-gray-500 group-hover:text-blue-600 transition-colors">
+          <Edit2 size={12} className="mr-1.5" />
+          Edit Requirements
         </div>
       </div>
-      
-      <ChoiceFactorPanel 
-        row={row} 
-        isOpen={isPanelOpen} 
-        onClose={() => setIsPanelOpen(false)} 
-      />
     </>
   );
 }
