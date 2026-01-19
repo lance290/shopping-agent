@@ -407,6 +407,23 @@ async def search_row_listings(
         except Exception:
             pass
 
+    # Combine choice answers (user-defined specifications) into the query
+    if row.choice_answers:
+        try:
+            import json
+            answers_obj = json.loads(row.choice_answers)
+            answer_parts = []
+            for k, v in answers_obj.items():
+                # specific logic to handle boolean/select/text differently if needed
+                # for now, simply append "key: value" or just "value" might be better for search?
+                # "color: blue" is good. "primary_use: gaming" is good.
+                if v and str(v).lower() != "not answered":
+                     answer_parts.append(f"{k} {v}")
+            if answer_parts:
+                base_query = base_query + " " + " ".join(answer_parts)
+        except Exception:
+            pass
+
     # Execute Search
     results = await sourcing_repo.search_all(base_query)
     

@@ -6,22 +6,26 @@ const model = google(process.env.GEMINI_MODEL || 'gemini-1.5-flash');
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 // Helper to generate and save choice factors
-async function generateAndSaveChoiceFactors(category: string, rowId: number, authorization?: string) {
-  const factorPrompt = `You are determining the key decision factors for purchasing: "${category}"
+async function generateAndSaveChoiceFactors(category: string, rowId: number, authorization?: string, existingConstraints?: Record<string, any>) {
+  const constraintsText = existingConstraints ? `\nExisting constraints: ${JSON.stringify(existingConstraints)}` : '';
+  
+  const factorPrompt = `You are determining the key product specifications (attributes) for purchasing: "${category}"${constraintsText}
 
-Return a JSON array of 3-6 choice factors. Each factor should have:
-- name: lowercase_snake_case identifier
-- label: Human-readable question
+Return a JSON array of 3-6 key specifications. Each spec should have:
+- name: lowercase_snake_case identifier (MUST match keys in existing constraints if present)
+- label: Human-readable label (e.g. "Screen Size", "Budget")
 - type: "number" | "select" | "text" | "boolean"
 - options: array of strings (only for "select" type)
 - required: boolean
 
 Example for "laptop":
 [
-  {"name": "budget", "label": "What's your maximum budget?", "type": "number", "required": true},
-  {"name": "primary_use", "label": "Primary use?", "type": "select", "options": ["gaming", "work", "school", "general"], "required": true},
-  {"name": "screen_size", "label": "Preferred screen size?", "type": "select", "options": ["13 inch", "15 inch", "17 inch"], "required": false}
+  {"name": "budget", "label": "Max Budget", "type": "number", "required": true},
+  {"name": "primary_use", "label": "Primary Use", "type": "select", "options": ["gaming", "work", "school", "general"], "required": true},
+  {"name": "screen_size", "label": "Screen Size", "type": "select", "options": ["13 inch", "15 inch", "17 inch"], "required": false}
 ]
+
+IMPORTANT: If "Existing constraints" are provided, you MUST include a spec definition for each constraint key so the UI can display it.
 
 Return ONLY the JSON array, no explanation.`;
 
@@ -93,13 +97,13 @@ DO NOT call createRow - the row already exists!`
 
 WORKFLOW FOR NEW REQUESTS:
 1. When user asks for a new item, call createRow first.
-2. Choice factors will be generated automatically.
-3. If the user's request was vague (e.g. "I need a laptop"), ask about the generated choice factors (e.g. "What is your budget?", "What is the primary use?").
-4. If the user's request was specific (e.g. "I need a blue hoodie under $50"), you can proceed directly to searchListings.
+2. Specifications will be generated automatically based on your item description.
+3. If the user's request was specific (e.g. "I need a blue hoodie under $50"), the system will pre-fill these values.
+4. Proceed to searchListings.
 
 WORKFLOW FOR REFINEMENTS:
-1. If user changes requirements, call updateRow then searchListings
-2. If user answers a choice factor question, call saveChoiceAnswer
+1. If user changes requirements, call updateRow then searchListings.
+2. The UI handles specific field edits, you handle chat-based refinements.
 
 REFINEMENT DETECTION:
 - "under $X" / "less than" / "cheaper" → REFINEMENT (price)
@@ -139,13 +143,14 @@ ${activeRowInstruction}`,
                 request_spec: {
                   item_name: input.item,
                   constraints: JSON.stringify(normalizedConstraints)
-                }
+                },
+                choice_answers: JSON.stringify(normalizedConstraints) // Pre-fill answers from chat constraints
               })
             });
             const data = await response.json() as any;
             
-            // Automatically generate choice factors
-            const factors = await generateAndSaveChoiceFactors(input.item, data.id, authorization);
+            // Automatically generate choice factors, aware of the constraints
+            const factors = await generateAndSaveChoiceFactors(input.item, data.id, authorization, normalizedConstraints);
             
             return { status: 'row_created', data: { ...data, choice_factors: JSON.stringify(factors) } };
           } catch (e) {
@@ -173,6 +178,8 @@ ${activeRowInstruction}`,
                 item_name: input.title,
                 constraints: JSON.stringify(input.constraints),
               };
+              // Also sync to choice_answers
+              updateBody.choice_answers = JSON.stringify(input.constraints);
             }
 
             const response = await fetch(`${BACKEND_URL}/rows/${input.rowId}`, {
