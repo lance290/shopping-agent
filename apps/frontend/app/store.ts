@@ -139,14 +139,38 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   
   setRows: (rows) => set((state) => {
+    // Keep row order stable across refreshes/polls.
+    // Preserve existing order for known IDs; append any new rows at the end.
+    const existingOrder = new Map<number, number>();
+    state.rows.forEach((r, idx) => existingOrder.set(r.id, idx));
+
+    const incomingIndex = new Map<number, number>();
+    rows.forEach((r, idx) => incomingIndex.set(r.id, idx));
+
+    const orderedRows = [...rows].sort((a, b) => {
+      const aExisting = existingOrder.get(a.id);
+      const bExisting = existingOrder.get(b.id);
+
+      const aHas = aExisting !== undefined;
+      const bHas = bExisting !== undefined;
+
+      if (aHas && bHas) return aExisting! - bExisting!;
+      if (aHas && !bHas) return -1;
+      if (!aHas && bHas) return 1;
+
+      // Both new: preserve server/incoming order
+      return (incomingIndex.get(a.id) ?? 0) - (incomingIndex.get(b.id) ?? 0);
+    });
+
     // Automatically hydrate rowResults from persisted bids
     const newRowResults = { ...state.rowResults };
-    rows.forEach(row => {
+    orderedRows.forEach(row => {
       if (row.bids && row.bids.length > 0) {
         newRowResults[row.id] = row.bids.map(mapBidToOffer);
       }
     });
-    return { rows, rowResults: newRowResults };
+
+    return { rows: orderedRows, rowResults: newRowResults };
   }),
   addRow: (row) => set((state) => ({ rows: [...state.rows, row] })),
   updateRow: (id, updates) => set((state) => ({

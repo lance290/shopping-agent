@@ -5,8 +5,22 @@ import { z } from 'zod';
 const model = google(process.env.GEMINI_MODEL || 'gemini-1.5-flash');
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
+const constraintValueSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.array(z.union([z.string(), z.number(), z.boolean()])),
+]);
+
+function normalizeConstraintValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map(v => String(v)).join(', ');
+  }
+  return String(value);
+}
+
 // Helper to generate and save choice factors
-async function generateAndSaveChoiceFactors(category: string, rowId: number, authorization?: string, existingConstraints?: Record<string, any>) {
+export async function generateAndSaveChoiceFactors(category: string, rowId: number, authorization?: string, existingConstraints?: Record<string, any>) {
   const constraintsText = existingConstraints ? `\nExisting constraints: ${JSON.stringify(existingConstraints)}` : '';
   
   const factorPrompt = `You are determining the key product specifications (attributes) for purchasing: "${category}"${constraintsText}
@@ -117,15 +131,15 @@ ${activeRowInstruction}`,
         description: 'Create a NEW procurement row for a COMPLETELY DIFFERENT item. DO NOT use this for refinements like price/color/size changes - use updateRow instead.',
         inputSchema: z.object({
           item: z.string().describe('The name of the NEW item to buy (not a refinement of existing search)'),
-          constraints: z.record(z.string(), z.union([z.string(), z.number()])).optional().describe('Initial constraints for the new item'),
+          constraints: z.record(z.string(), constraintValueSchema).optional().describe('Initial constraints for the new item'),
         }),
-        execute: async (input: { item: string; constraints?: Record<string, string | number> }) => {
+        execute: async (input: { item: string; constraints?: Record<string, unknown> }) => {
           try {
             // Convert all constraint values to strings
             const normalizedConstraints: Record<string, string> = {};
             if (input.constraints) {
               for (const [key, value] of Object.entries(input.constraints)) {
-                normalizedConstraints[key] = String(value);
+                normalizedConstraints[key] = normalizeConstraintValue(value);
               }
             }
             
@@ -166,9 +180,9 @@ ${activeRowInstruction}`,
         inputSchema: z.object({
           rowId: z.number().describe('The ID of the active row to update - use the CURRENT ACTIVE ROW ID from system context'),
           title: z.string().describe('The NEW title with ALL accumulated constraints, e.g. "red Montana State shirts under $50"'),
-          constraints: z.record(z.string(), z.string()).optional().describe('All constraints as key-value pairs: {"color":"red", "max_price":"50"}'),
+          constraints: z.record(z.string(), constraintValueSchema).optional().describe('All constraints as key-value pairs: {"color":"red", "max_price":"50"}'),
         }),
-        execute: async (input: { rowId: number; title: string; constraints?: Record<string, string> }) => {
+        execute: async (input: { rowId: number; title: string; constraints?: Record<string, unknown> }) => {
           try {
             const headers: Record<string, string> = { 'Content-Type': 'application/json' };
             if (authorization) {
@@ -177,12 +191,17 @@ ${activeRowInstruction}`,
 
             const updateBody: any = { title: input.title };
             if (input.constraints) {
+              const normalizedConstraints: Record<string, string> = {};
+              for (const [key, value] of Object.entries(input.constraints)) {
+                normalizedConstraints[key] = normalizeConstraintValue(value);
+              }
+
               updateBody.request_spec = {
                 item_name: input.title,
-                constraints: JSON.stringify(input.constraints),
+                constraints: JSON.stringify(normalizedConstraints),
               };
               // Also sync to choice_answers
-              updateBody.choice_answers = JSON.stringify(input.constraints);
+              updateBody.choice_answers = JSON.stringify(normalizedConstraints);
             }
 
             const response = await fetch(`${BACKEND_URL}/rows/${input.rowId}`, {

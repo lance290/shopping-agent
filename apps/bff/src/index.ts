@@ -83,7 +83,7 @@ fastify.get('/', async () => {
 });
 
 // Chat API
-import { chatHandler } from './llm';
+import { chatHandler, generateAndSaveChoiceFactors } from './llm';
 
 fastify.post('/api/chat', async (request, reply) => {
   let headersSent = false;
@@ -278,6 +278,54 @@ fastify.patch('/api/rows/:id', async (request, reply) => {
   try {
     const { id } = request.params as { id: string };
     fastify.log.info({ id, body: request.body }, 'Proxying PATCH row request');
+
+    const maybeBody = (request.body || {}) as any;
+    if (maybeBody.regenerate_choice_factors === true) {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (request.headers.authorization) {
+        headers['Authorization'] = request.headers.authorization;
+      }
+
+      const rowRes = await fetch(`${BACKEND_URL}/rows/${id}`, { headers });
+      if (rowRes.status === 401) {
+        reply.status(401).send({ error: 'Unauthorized' });
+        return;
+      }
+      if (rowRes.status === 404) {
+        reply.status(404).send({ error: 'Row not found' });
+        return;
+      }
+
+      const row = await rowRes.json() as any;
+
+      let constraintsObj: Record<string, any> | undefined;
+      const rawConstraints = row?.request_spec?.constraints;
+      if (rawConstraints) {
+        try {
+          constraintsObj = JSON.parse(rawConstraints);
+        } catch {
+          constraintsObj = undefined;
+        }
+      }
+
+      let answersObj: Record<string, any> | undefined;
+      if (row?.choice_answers) {
+        try {
+          answersObj = JSON.parse(row.choice_answers);
+        } catch {
+          answersObj = undefined;
+        }
+      }
+
+      const merged = { ...(constraintsObj || {}), ...(answersObj || {}) };
+
+      await generateAndSaveChoiceFactors(row?.title || row?.request_spec?.item_name || 'product', Number(id), request.headers.authorization as string | undefined, merged);
+
+      const updatedRes = await fetch(`${BACKEND_URL}/rows/${id}`, { headers });
+      const updated = await updatedRes.json();
+      reply.status(updatedRes.status).send(updated);
+      return;
+    }
     
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (request.headers.authorization) {

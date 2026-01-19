@@ -72,6 +72,13 @@ export default function ChoiceFactorPanel() {
     setIsRefreshing(true);
     setPollCount(0); // Reset poll count to allow more auto-polls if needed
     try {
+      // Ask backend (via BFF) to regenerate specs for this row.
+      await fetch(`/api/rows/${row.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ regenerate_choice_factors: true }),
+      });
+
       const freshRows = await fetchRowsFromDb();
       setRows(freshRows);
     } finally {
