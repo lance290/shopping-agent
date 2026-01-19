@@ -12,7 +12,7 @@ export default function ProcurementBoard() {
   const undoDeleteRow = useShoppingStore(state => state.undoDeleteRow);
 
   return (
-    <div className="flex-1 bg-gray-50 h-full flex flex-col overflow-hidden w-2/3">
+    <div className="flex-1 bg-gray-50 h-full flex flex-col overflow-hidden">
       {/* Header / Disclosure */}
       <div className="p-3 bg-white border-b border-gray-200 flex justify-between items-center shadow-sm z-10 shrink-0">
         <div className="text-xs text-gray-500">

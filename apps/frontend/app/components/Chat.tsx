@@ -217,7 +217,7 @@ export default function Chat() {
   }, [store.cardClickQuery]);
 
   return (
-    <div className="flex flex-col h-full border-r border-gray-200 bg-gray-50 w-1/3 min-w-[350px] shrink-0">
+    <div className="flex flex-col h-full border-r border-gray-200 bg-gray-50 w-full">
       <div className="p-4 border-b border-gray-200 bg-white shadow-sm">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <Bot className="w-5 h-5 text-blue-600" />
