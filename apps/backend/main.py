@@ -820,7 +820,9 @@ async def startup_event():
     print("FastAPI application starting...")
     print(f"Environment: {os.getenv('ENVIRONMENT', 'development')}")
     print(f"E2E_TEST_MODE: {os.getenv('E2E_TEST_MODE')}")
-    await init_db()
+    # In production, schema management is handled by Alembic migrations (run via start command).
+    # We do NOT run init_db() here to avoid conflicts and ensure version control.
+    # await init_db()
 
 
 # Shutdown event
