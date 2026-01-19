@@ -7,7 +7,7 @@ import ChoiceFactorPanel from './components/ChoiceFactorPanel';
 
 export default function Home() {
   const CHAT_MIN_PX = 320;
-  const CHAT_MAX_PX = 480;
+  const CHAT_MAX_PX = 580;
   const CHAT_DEFAULT_PX = 420;
 
   const [chatWidthPx, setChatWidthPx] = useState<number>(CHAT_DEFAULT_PX);

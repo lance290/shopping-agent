@@ -1,6 +1,7 @@
-import { Row, Offer } from '../store';
+import { Row, Offer, useShoppingStore } from '../store';
 import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
+import { Archive } from 'lucide-react';
 
 interface RowStripProps {
   row: Row;
@@ -10,6 +11,8 @@ interface RowStripProps {
 }
 
 export default function RowStrip({ row, offers, isActive, onSelect }: RowStripProps) {
+  const requestDeleteRow = useShoppingStore(state => state.requestDeleteRow);
+
   return (
     <div 
       className={`border rounded-lg bg-white mb-4 transition-all duration-200 ${
@@ -31,8 +34,22 @@ export default function RowStrip({ row, offers, isActive, onSelect }: RowStripPr
             {row.status}
           </span>
         </div>
-        <div className="text-xs text-gray-400">
-          ID: {row.id}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              requestDeleteRow(row.id);
+            }}
+            className="text-xs font-medium text-gray-600 hover:text-red-700 border border-gray-200 hover:border-red-200 bg-white hover:bg-red-50 px-2 py-1 rounded-md transition-colors inline-flex items-center gap-1"
+            title="Archive row"
+            aria-label="Archive row"
+          >
+            <Archive size={14} />
+            Archive
+          </button>
+          <div className="text-xs text-gray-400">
+            ID: {row.id}
+          </div>
         </div>
       </div>
       
