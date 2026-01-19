@@ -149,10 +149,13 @@ ${activeRowInstruction}`,
             });
             const data = await response.json() as any;
             
-            // Automatically generate choice factors, aware of the constraints
-            const factors = await generateAndSaveChoiceFactors(input.item, data.id, authorization, normalizedConstraints);
+            // Fire-and-forget choice factor generation to avoid blocking the UI
+            // The frontend will poll for these updates
+            generateAndSaveChoiceFactors(input.item, data.id, authorization, normalizedConstraints).catch(err => {
+              console.error(`[Background] Failed to generate factors for row ${data.id}:`, err);
+            });
             
-            return { status: 'row_created', data: { ...data, choice_factors: JSON.stringify(factors) } };
+            return { status: 'row_created', data: { ...data, choice_factors: null } };
           } catch (e) {
             return { status: 'error', error: String(e) };
           }
