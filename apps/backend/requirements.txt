@@ -10,3 +10,4 @@ greenlet>=3.0.0
 # Common utilities
 python-dotenv>=1.0.0
 httpx>=0.25.0  # For async HTTP requests
+alembic>=1.13.0
