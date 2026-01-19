@@ -30,14 +30,6 @@ export default function Chat() {
     const loadRows = async () => {
       const rows = await fetchRowsFromDb();
       store.setRows(rows);
-      
-      // Hydrate rowResults from persisted bids
-      rows.forEach(row => {
-        if (row.bids && row.bids.length > 0) {
-          const offers = row.bids.map(mapBidToOffer);
-          store.setRowResults(row.id, offers);
-        }
-      });
     };
     loadRows();
   }, []);

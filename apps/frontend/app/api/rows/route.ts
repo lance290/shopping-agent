@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { COOKIE_NAME } from '../auth/constants';
 
+export const dynamic = 'force-dynamic'; // Disable caching
+
 const BFF_URL = process.env.BFF_URL || 'http://localhost:8080';
 
 async function getAuthHeader() {

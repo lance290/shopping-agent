@@ -129,7 +129,16 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   // Basic setters
   setCurrentQuery: (query) => set({ currentQuery: query }),
   setActiveRowId: (id) => set({ activeRowId: id }),
-  setRows: (rows) => set({ rows }),
+  setRows: (rows) => set((state) => {
+    // Automatically hydrate rowResults from persisted bids
+    const newRowResults = { ...state.rowResults };
+    rows.forEach(row => {
+      if (row.bids && row.bids.length > 0) {
+        newRowResults[row.id] = row.bids.map(mapBidToOffer);
+      }
+    });
+    return { rows, rowResults: newRowResults };
+  }),
   addRow: (row) => set((state) => ({ rows: [...state.rows, row] })),
   updateRow: (id, updates) => set((state) => ({
     rows: state.rows.map((row) => (row.id === id ? { ...row, ...updates } : row)),

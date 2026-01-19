@@ -110,6 +110,27 @@ class HealthResponse(BaseModel):
     status: str
     version: str
 
+# --- Response Models for Read with Relationships ---
+class SellerRead(BaseModel):
+    id: int
+    name: str
+    domain: Optional[str] = None
+
+class BidRead(BaseModel):
+    id: int
+    price: float
+    currency: str
+    item_title: str
+    item_url: Optional[str] = None
+    image_url: Optional[str] = None
+    source: str
+    seller: Optional[SellerRead] = None
+
+class RowReadWithBids(RowBase):
+    id: int
+    user_id: int
+    bids: List[BidRead] = []
+
 class SearchRequest(BaseModel):
     query: str
     gl: Optional[str] = "us"
@@ -167,7 +188,7 @@ async def create_row(
     await session.refresh(db_row)
     return db_row
 
-@app.get("/rows", response_model=List[Row])
+@app.get("/rows", response_model=List[RowReadWithBids])
 async def read_rows(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
@@ -177,10 +198,16 @@ async def read_rows(
     if not auth_session:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    result = await session.exec(select(Row).where(Row.user_id == auth_session.user_id))
+    # Fetch rows with bids and sellers eagerly loaded
+    result = await session.exec(
+        select(Row)
+        .where(Row.user_id == auth_session.user_id)
+        .options(selectinload(Row.bids).joinedload(Bid.seller))
+        .order_by(Row.updated_at.desc())
+    )
     return result.all()
 
-@app.get("/rows/{row_id}", response_model=Row)
+@app.get("/rows/{row_id}", response_model=RowReadWithBids)
 async def read_row(
     row_id: int,
     authorization: Optional[str] = Header(None),
@@ -193,7 +220,9 @@ async def read_row(
 
     # Fetch row scoped to user
     result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        select(Row)
+        .where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        .options(selectinload(Row.bids).joinedload(Bid.seller))
     )
     row = result.first()
     
