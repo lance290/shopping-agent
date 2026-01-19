@@ -37,8 +37,7 @@ export default function ProcurementBoard() {
             </p>
           </div>
         ) : (
-          /* Render rows in reverse order (newest top) */
-          [...rows].reverse().map(row => (
+          rows.map(row => (
             <RowStrip
               key={row.id}
               row={row}
@@ -55,7 +54,7 @@ export default function ProcurementBoard() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="text-sm font-medium text-gray-900 truncate">
-                Archived “{pendingRowDelete.row.title}”
+                Archiving “{pendingRowDelete.row.title}”
               </div>
               <div className="text-xs text-gray-500 mt-0.5">
                 Undo available for a few seconds.

@@ -12,6 +12,9 @@ interface RowStripProps {
 
 export default function RowStrip({ row, offers, isActive, onSelect }: RowStripProps) {
   const requestDeleteRow = useShoppingStore(state => state.requestDeleteRow);
+  const pendingRowDelete = useShoppingStore(state => state.pendingRowDelete);
+  const undoDeleteRow = useShoppingStore(state => state.undoDeleteRow);
+  const isPendingArchive = pendingRowDelete?.row.id === row.id;
 
   return (
     <div 
@@ -35,18 +38,32 @@ export default function RowStrip({ row, offers, isActive, onSelect }: RowStripPr
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              requestDeleteRow(row.id);
-            }}
-            className="text-xs font-medium text-gray-600 hover:text-red-700 border border-gray-200 hover:border-red-200 bg-white hover:bg-red-50 px-2 py-1 rounded-md transition-colors inline-flex items-center gap-1"
-            title="Archive row"
-            aria-label="Archive row"
-          >
-            <Archive size={14} />
-            Archive
-          </button>
+          {isPendingArchive ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                undoDeleteRow();
+              }}
+              className="text-xs font-semibold text-blue-700 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition-colors"
+              title="Undo archive"
+              aria-label="Undo archive"
+            >
+              Undo
+            </button>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                requestDeleteRow(row.id);
+              }}
+              className="text-xs font-medium text-gray-600 hover:text-red-700 border border-gray-200 hover:border-red-200 bg-white hover:bg-red-50 px-2 py-1 rounded-md transition-colors inline-flex items-center gap-1"
+              title="Archive row"
+              aria-label="Archive row"
+            >
+              <Archive size={14} />
+              Archive
+            </button>
+          )}
           <div className="text-xs text-gray-400">
             ID: {row.id}
           </div>

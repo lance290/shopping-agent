@@ -157,7 +157,18 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     if (existingPending) {
       clearTimeout(existingPending.timeoutId);
       fetch(`/api/rows?id=${existingPending.row.id}`, { method: 'DELETE' }).catch(() => {});
-      set({ pendingRowDelete: null });
+      set((s) => {
+        const id = existingPending.row.id;
+        const nextRows = s.rows.filter(r => r.id !== id);
+        const { [id]: _, ...restResults } = s.rowResults;
+        const nextActive = s.activeRowId === id ? null : s.activeRowId;
+        return {
+          rows: nextRows,
+          rowResults: restResults,
+          activeRowId: nextActive,
+          pendingRowDelete: null,
+        };
+      });
     }
 
     const state = get();
@@ -173,50 +184,32 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
 
       try {
         const res = await fetch(`/api/rows?id=${rowId}`, { method: 'DELETE' });
-        if (!res.ok) {
-          set((s) => {
-            const restoredRows = [...s.rows];
-            restoredRows.splice(pending.rowIndex, 0, pending.row);
-            return {
-              rows: restoredRows,
-              rowResults: { ...s.rowResults, [pending.row.id]: pending.results },
-              pendingRowDelete: null,
-            };
-          });
-          return;
-        }
+        if (!res.ok) return;
       } catch {
-        set((s) => {
-          const restoredRows = [...s.rows];
-          restoredRows.splice(pending.rowIndex, 0, pending.row);
-          return {
-            rows: restoredRows,
-            rowResults: { ...s.rowResults, [pending.row.id]: pending.results },
-            pendingRowDelete: null,
-          };
-        });
         return;
       }
 
-      set({ pendingRowDelete: null });
+      set((s) => {
+        const nextRows = s.rows.filter(r => r.id !== rowId);
+        const { [rowId]: _, ...restResults } = s.rowResults;
+        const nextActive = s.activeRowId === rowId ? null : s.activeRowId;
+        return {
+          rows: nextRows,
+          rowResults: restResults,
+          activeRowId: nextActive,
+          pendingRowDelete: null,
+        };
+      });
     }, undoWindowMs);
 
-    set((s) => {
-      const nextRows = s.rows.filter(r => r.id !== rowId);
-      const { [rowId]: _, ...restResults } = s.rowResults;
-      const nextActive = s.activeRowId === rowId ? null : s.activeRowId;
-      return {
-        rows: nextRows,
-        rowResults: restResults,
-        activeRowId: nextActive,
-        pendingRowDelete: {
-          row,
-          rowIndex,
-          results,
-          timeoutId,
-          expiresAt: Date.now() + undoWindowMs,
-        },
-      };
+    set({
+      pendingRowDelete: {
+        row,
+        rowIndex,
+        results,
+        timeoutId,
+        expiresAt: Date.now() + undoWindowMs,
+      },
     });
   },
 
@@ -225,15 +218,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     if (!pending) return;
     clearTimeout(pending.timeoutId);
 
-    set((s) => {
-      const restoredRows = [...s.rows];
-      restoredRows.splice(pending.rowIndex, 0, pending.row);
-      return {
-        rows: restoredRows,
-        rowResults: { ...s.rowResults, [pending.row.id]: pending.results },
-        pendingRowDelete: null,
-      };
-    });
+    set({ pendingRowDelete: null });
   },
   
   setRows: (rows) => set((state) => {
