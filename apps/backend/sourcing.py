@@ -520,8 +520,13 @@ class SourcingRepository:
         
         # Rainforest API - Amazon search
         rainforest_key = os.getenv("RAINFOREST_API_KEY")
-        print(f"[SourcingRepository] RAINFOREST_API_KEY present: {bool(rainforest_key)}")
-        if rainforest_key:
+        rainforest_key_len = len(rainforest_key) if rainforest_key is not None else None
+        rainforest_present = rainforest_key is not None and rainforest_key_len > 0
+        print(
+            f"[SourcingRepository] RAINFOREST_API_KEY present: {rainforest_present} "
+            f"(is_none={rainforest_key is None}, len={rainforest_key_len})"
+        )
+        if rainforest_present:
             self.providers["rainforest"] = RainforestAPIProvider(rainforest_key)
         
         # ValueSerp - cheap alternative
