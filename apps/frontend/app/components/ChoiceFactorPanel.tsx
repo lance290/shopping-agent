@@ -15,15 +15,40 @@ export default function ChoiceFactorPanel() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pollCount, setPollCount] = useState(0);
 
-  // Sync local state when active row changes
+  const prevRowIdRef = useRef<number | null>(null);
+
+  // Sync local state when active row changes (ID based)
   useEffect(() => {
-    if (row) {
-      setLocalAnswers(parseChoiceAnswers(row));
-      // Reset poll count when switching rows
+    const prevId = prevRowIdRef.current;
+    const currId = row?.id || null;
+
+    if (currId !== prevId) {
+      if (row) {
+        setLocalAnswers(parseChoiceAnswers(row));
+      } else {
+        setLocalAnswers({});
+      }
+
       setPollCount(0);
-    } else {
-      setLocalAnswers({});
+      prevRowIdRef.current = currId;
     }
+  }, [row?.id]);
+
+  useEffect(() => {
+    if (!row) return;
+
+    if (row.id !== prevRowIdRef.current) return;
+
+    const serverAnswers = parseChoiceAnswers(row);
+    setLocalAnswers(prev => {
+      const merged = { ...prev };
+      Object.entries(serverAnswers).forEach(([k, v]) => {
+        if (merged[k] === undefined || merged[k] === '') {
+          merged[k] = v;
+        }
+      });
+      return merged;
+    });
   }, [row]);
 
   // Polling effect: If row exists but no factors, try to fetch fresh data a few times
