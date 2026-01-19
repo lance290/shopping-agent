@@ -10,8 +10,16 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
   const { setActiveRowId, setSidebarOpen, requestDeleteRow } = useShoppingStore();
   const answers = parseChoiceAnswers(row);
 
-  const minPrice = answers.min_price ?? answers.budget_min;
-  const maxPrice = answers.max_price ?? answers.budget_max ?? row.budget_max;
+  const normalizePrice = (v: any): number | undefined => {
+    if (v === null || v === '' || v === undefined) return undefined;
+    if (typeof v === 'number' && Number.isNaN(v)) return undefined;
+    const n = typeof v === 'string' ? Number(v) : v;
+    if (typeof n === 'number' && !Number.isNaN(n)) return n;
+    return undefined;
+  };
+
+  const minPrice = normalizePrice(answers.min_price ?? answers.budget_min);
+  const maxPrice = normalizePrice(answers.max_price ?? answers.budget_max ?? row.budget_max);
 
   const constraints = Object.entries(answers).filter(([k]) => ![
     'min_price',

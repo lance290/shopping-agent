@@ -90,7 +90,13 @@ export default function ChoiceFactorPanel() {
     if (!row) return;
 
     // 1. Optimistic local update
-    const newAnswers = { ...localAnswers, [factorName]: value };
+    const newAnswers: Record<string, any> = { ...localAnswers };
+    const shouldClear = value === '' || (typeof value === 'number' && Number.isNaN(value));
+    if (shouldClear) {
+      delete newAnswers[factorName];
+    } else {
+      newAnswers[factorName] = value;
+    }
     setLocalAnswers(newAnswers);
     setSavingFields(prev => ({ ...prev, [factorName]: true }));
 
@@ -272,16 +278,16 @@ export default function ChoiceFactorPanel() {
                           <input
                             type="number"
                             value={localAnswers.min_price ?? ''}
-                            onChange={(e) => handleTextChange('min_price', Number(e.target.value))}
-                            onBlur={(e) => handleAnswerChange('min_price', Number(e.target.value))}
+                            onChange={(e) => handleTextChange('min_price', e.target.value === '' ? '' : Number(e.target.value))}
+                            onBlur={(e) => handleAnswerChange('min_price', e.target.value === '' ? '' : Number(e.target.value))}
                             placeholder="Min"
                             className="w-full px-3 py-2 bg-white border border-gray-200 rounded-md text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none hover:border-gray-300 placeholder-gray-400"
                           />
                           <input
                             type="number"
                             value={localAnswers.max_price ?? ''}
-                            onChange={(e) => handleTextChange('max_price', Number(e.target.value))}
-                            onBlur={(e) => handleAnswerChange('max_price', Number(e.target.value))}
+                            onChange={(e) => handleTextChange('max_price', e.target.value === '' ? '' : Number(e.target.value))}
+                            onBlur={(e) => handleAnswerChange('max_price', e.target.value === '' ? '' : Number(e.target.value))}
                             placeholder="Max"
                             className="w-full px-3 py-2 bg-white border border-gray-200 rounded-md text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none hover:border-gray-300 placeholder-gray-400"
                           />

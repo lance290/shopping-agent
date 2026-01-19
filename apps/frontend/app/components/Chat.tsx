@@ -18,6 +18,7 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastRowIdRef = useRef<number | null>(null);
   
   const store = useShoppingStore();
   const activeRow = store.rows.find(r => r.id === store.activeRowId);
@@ -25,6 +26,18 @@ export default function Chat() {
   useEffect(() => {
     inputRef.current?.focus();
     setInput('');
+    if (!activeRow || store.activeRowId === null) return;
+    if (lastRowIdRef.current === store.activeRowId) return;
+    lastRowIdRef.current = store.activeRowId;
+
+    setMessages(prev => [
+      ...prev,
+      {
+        id: `${Date.now()}-${store.activeRowId}`,
+        role: 'assistant',
+        content: `Switched to: ${activeRow.title}`,
+      },
+    ]);
   }, [store.activeRowId]);
   
   useEffect(() => {
