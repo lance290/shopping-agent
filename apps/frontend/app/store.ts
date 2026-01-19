@@ -17,6 +17,20 @@ export interface Offer {
   match_score?: number;
 }
 
+export interface Bid {
+  id: number;
+  price: number;
+  currency: string;
+  item_title: string;
+  item_url: string | null;
+  image_url: string | null;
+  source: string;
+  seller?: {
+    name: string;
+    domain: string | null;
+  };
+}
+
 export interface Row {
   id: number;
   title: string;
@@ -25,6 +39,25 @@ export interface Row {
   currency: string;
   choice_factors?: string;   // JSON string
   choice_answers?: string;   // JSON string
+  bids?: Bid[];              // Persisted bids from DB
+}
+
+// Helper to convert DB Bid to Offer
+export function mapBidToOffer(bid: Bid): Offer {
+  return {
+    title: bid.item_title,
+    price: bid.price,
+    currency: bid.currency,
+    merchant: bid.seller?.name || 'Unknown',
+    url: bid.item_url || '#',
+    image_url: bid.image_url,
+    rating: null, // Not persisted yet
+    reviews_count: null,
+    shipping_info: null,
+    source: bid.source,
+    merchant_domain: bid.seller?.domain || undefined,
+    click_url: `/api/out?url=${encodeURIComponent(bid.item_url || '')}`
+  };
 }
 
 // Helper to parse factors

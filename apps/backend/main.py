@@ -13,6 +13,7 @@ import traceback
 from datetime import datetime, timedelta
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.orm import selectinload, joinedload
 
 from sourcing import SourcingRepository, SearchResult, extract_merchant_domain
 from database import init_db, get_session
@@ -373,7 +374,53 @@ async def search_row_listings(
         except Exception:
             pass
 
+    # Execute Search
     results = await sourcing_repo.search_all(base_query)
+    
+    # --- Persistence Logic ---
+    
+    # 1. Clear old bids for this row (fresh start)
+    # Note: In a real prod app, you might want to archive them or do a diff update.
+    # For MVP, clearing is safest to avoid duplicates.
+    existing_bids = await session.exec(select(Bid).where(Bid.row_id == row_id))
+    for bid in existing_bids.all():
+        await session.delete(bid)
+    
+    # 2. Save new results
+    for res in results:
+        # Find or Create Seller
+        merchant_name = res.merchant or "Unknown"
+        seller_res = await session.exec(select(Seller).where(Seller.name == merchant_name))
+        seller = seller_res.first()
+        
+        if not seller:
+            seller = Seller(name=merchant_name, domain=res.merchant_domain)
+            session.add(seller)
+            await session.commit()
+            await session.refresh(seller)
+            
+        # Create Bid
+        bid = Bid(
+            row_id=row_id,
+            seller_id=seller.id,
+            price=res.price,
+            total_cost=res.price, # Shipping logic later
+            currency=res.currency,
+            item_title=res.title,
+            item_url=res.url,
+            image_url=res.image_url,
+            source=res.source,
+            is_selected=False
+        )
+        session.add(bid)
+    
+    # Update row status if needed
+    row.status = "bids_arriving"
+    row.updated_at = datetime.utcnow()
+    session.add(row)
+    
+    await session.commit()
+    
     return {"results": results}
 
 
