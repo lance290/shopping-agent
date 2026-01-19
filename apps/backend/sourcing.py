@@ -6,6 +6,7 @@ import os
 from urllib.parse import urlparse
 import asyncio
 import time
+import base64
 
 
 def extract_merchant_domain(url: str) -> str:
@@ -138,6 +139,134 @@ class SearchAPIProvider(SourcingProvider):
                     source="searchapi_google_shopping"
                 ))
             return results
+
+
+class EbayBrowseProvider(SourcingProvider):
+    """eBay Browse API (official)"""
+
+    def __init__(self, client_id: str, client_secret: str, marketplace_id: str = "EBAY-US"):
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.marketplace_id = marketplace_id
+        self.auth_url = "https://api.ebay.com/identity/v1/oauth2/token"
+        self.base_url = "https://api.ebay.com/buy/browse/v1/item_summary/search"
+        self._token: Optional[str] = None
+        self._token_expires_at: float = 0.0
+
+    async def _get_access_token(self) -> Optional[str]:
+        now = time.time()
+        if self._token and now < (self._token_expires_at - 60):
+            return self._token
+
+        basic = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode("utf-8")).decode("utf-8")
+
+        data = {
+            "grant_type": "client_credentials",
+            "scope": "https://api.ebay.com/oauth/api_scope",
+        }
+
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": f"Basic {basic}",
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=2.5) as client:
+                resp = await client.post(self.auth_url, data=data, headers=headers)
+                resp.raise_for_status()
+                payload = resp.json()
+        except Exception:
+            return None
+
+        token = payload.get("access_token")
+        expires_in = payload.get("expires_in")
+        if not token:
+            return None
+
+        try:
+            expires_in_s = float(expires_in) if expires_in is not None else 7200.0
+        except Exception:
+            expires_in_s = 7200.0
+
+        self._token = token
+        self._token_expires_at = time.time() + expires_in_s
+        return token
+
+    async def search(self, query: str, **kwargs) -> List[SearchResult]:
+        token = await self._get_access_token()
+        if not token:
+            return []
+
+        params: Dict[str, Any] = {
+            "q": query,
+            "limit": 20,
+        }
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "X-EBAY-C-MARKETPLACE-ID": self.marketplace_id,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=2.5) as client:
+                resp = await client.get(self.base_url, params=params, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception:
+            return []
+
+        results: List[SearchResult] = []
+        for item in data.get("itemSummaries", []) or []:
+            title = item.get("title") or "Unknown"
+
+            price_obj = item.get("price") or {}
+            try:
+                price = float(price_obj.get("value") or 0.0)
+            except Exception:
+                price = 0.0
+            currency = price_obj.get("currency") or "USD"
+
+            url = normalize_url(item.get("itemWebUrl") or "")
+
+            seller = item.get("seller") or {}
+            merchant = seller.get("username") or "eBay"
+
+            image_obj = item.get("image") or {}
+            image_url = image_obj.get("imageUrl")
+
+            shipping_info = None
+            shipping_options = item.get("shippingOptions") or []
+            if shipping_options:
+                first = shipping_options[0] or {}
+                ship_cost = first.get("shippingCost") or {}
+                ship_type = first.get("shippingCostType")
+                if ship_type and str(ship_type).lower() == "free":
+                    shipping_info = "Free shipping"
+                elif ship_cost.get("value") is not None:
+                    try:
+                        ship_val = float(ship_cost.get("value"))
+                        ship_cur = ship_cost.get("currency") or currency
+                        shipping_info = f"Shipping {ship_cur} {ship_val:.2f}"
+                    except Exception:
+                        shipping_info = None
+
+            results.append(
+                SearchResult(
+                    title=title,
+                    price=price,
+                    currency=currency,
+                    merchant=merchant,
+                    url=url,
+                    merchant_domain=extract_merchant_domain(url),
+                    image_url=image_url,
+                    rating=None,
+                    reviews_count=None,
+                    shipping_info=shipping_info,
+                    source="ebay_browse",
+                )
+            )
+
+        return results
 
 class SerpAPIProvider(SourcingProvider):
     """SerpAPI - alternative Google Shopping search provider"""
@@ -377,6 +506,17 @@ class SourcingRepository:
         searchapi_key = os.getenv("SEARCHAPI_API_KEY")
         if searchapi_key:
             self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
+
+        # eBay Browse API (official)
+        ebay_client_id = os.getenv("EBAY_CLIENT_ID")
+        ebay_client_secret = os.getenv("EBAY_CLIENT_SECRET")
+        ebay_marketplace_id = os.getenv("EBAY_MARKETPLACE_ID", "EBAY-US")
+        if ebay_client_id and ebay_client_secret:
+            self.providers["ebay"] = EbayBrowseProvider(
+                client_id=ebay_client_id,
+                client_secret=ebay_client_secret,
+                marketplace_id=ebay_marketplace_id,
+            )
         
         # Mock provider - FREE fallback for testing, always available
         use_mock = os.getenv("USE_MOCK_SEARCH", "true").lower() == "true"
