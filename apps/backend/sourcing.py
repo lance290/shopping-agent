@@ -375,12 +375,44 @@ class RainforestAPIProvider(SourcingProvider):
             "amazon_domain": "amazon.com",
             "search_term": query,
         }
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.get(self.base_url, params=params)
-            response.raise_for_status()
-            data = response.json()
-            
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            data = None
+            request_id = None
+            for attempt in range(4):
+                response = await client.get(self.base_url, params=params)
+                response.raise_for_status()
+                data = response.json()
+
+                request_info = data.get("request_info") if isinstance(data, dict) else None
+                if isinstance(request_info, dict):
+                    request_id = request_info.get("request_id") or request_info.get("id")
+                    success = request_info.get("success")
+                    status = request_info.get("status")
+                    message = request_info.get("message")
+                    if attempt == 0:
+                        print(
+                            f"[RainforestAPIProvider] request_info: success={success} status={status} "
+                            f"request_id={request_id} message={message}"
+                        )
+
+                if isinstance(data, dict) and data.get("error"):
+                    print(f"[RainforestAPIProvider] error: {data.get('error')}")
+
+                search_results = data.get("search_results") if isinstance(data, dict) else None
+                if isinstance(search_results, list) and len(search_results) > 0:
+                    break
+
+                if request_id and attempt < 3:
+                    params = {"api_key": self.api_key, "request_id": request_id}
+                    await asyncio.sleep(1.0 + attempt)
+                    continue
+
+                break
+
+            if not isinstance(data, dict):
+                return []
+
             results = []
             for item in data.get("search_results", [])[:20]:
                 price_info = item.get("price", {})
@@ -488,6 +520,7 @@ class SourcingRepository:
         
         # Rainforest API - Amazon search
         rainforest_key = os.getenv("RAINFOREST_API_KEY")
+        print(f"[SourcingRepository] RAINFOREST_API_KEY present: {bool(rainforest_key)}")
         if rainforest_key:
             self.providers["rainforest"] = RainforestAPIProvider(rainforest_key)
         
