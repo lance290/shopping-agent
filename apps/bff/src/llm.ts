@@ -5,6 +5,60 @@ import { z } from 'zod';
 const model = google(process.env.GEMINI_MODEL || 'gemini-1.5-flash');
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
+// Helper to generate and save choice factors
+async function generateAndSaveChoiceFactors(category: string, rowId: number, authorization?: string) {
+  const factorPrompt = `You are determining the key decision factors for purchasing: "${category}"
+
+Return a JSON array of 3-6 choice factors. Each factor should have:
+- name: lowercase_snake_case identifier
+- label: Human-readable question
+- type: "number" | "select" | "text" | "boolean"
+- options: array of strings (only for "select" type)
+- required: boolean
+
+Example for "laptop":
+[
+  {"name": "budget", "label": "What's your maximum budget?", "type": "number", "required": true},
+  {"name": "primary_use", "label": "Primary use?", "type": "select", "options": ["gaming", "work", "school", "general"], "required": true},
+  {"name": "screen_size", "label": "Preferred screen size?", "type": "select", "options": ["13 inch", "15 inch", "17 inch"], "required": false}
+]
+
+Return ONLY the JSON array, no explanation.`;
+
+  try {
+    const { text } = await generateText({
+      model,
+      prompt: factorPrompt,
+    });
+    
+    let factors;
+    try {
+      // Handle potential markdown code blocks in response
+      const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
+      factors = JSON.parse(cleanedText);
+    } catch (e) {
+      console.error("Failed to parse factors JSON:", text);
+      return null;
+    }
+    
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authorization) {
+      headers['Authorization'] = authorization;
+    }
+    
+    await fetch(`${BACKEND_URL}/rows/${rowId}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ choice_factors: JSON.stringify(factors) }),
+    });
+    
+    return factors;
+  } catch (e) {
+    console.error("Error generating factors:", e);
+    return null;
+  }
+}
+
 export const chatHandler = async (messages: any[], authorization?: string, activeRowId?: number | null): Promise<any> => {
   // Build context about active row for the LLM
   const activeRowInstruction = activeRowId 
@@ -30,18 +84,18 @@ DO NOT call createRow - the row already exists!`
 
 2. NEW ITEMS (user asks for completely different product):
    - Examples: "I need Montana State shirts", "find me a laptop", "search for headphones"
-   - Call createRow ONCE, then searchListings with the new row's ID
+   - Call createRow ONCE. This will automatically generate choice factors.
+   - Then call searchListings with the new row's ID immediately if the user provided enough detail.
 
 3. When calling updateRow:
    - Build a NEW title with ALL constraints: "red Montana State shirts under $50 XXL"
    - Include constraints object: {"color":"red", "max_price":"50", "size":"XXL"}
 
 WORKFLOW FOR NEW REQUESTS:
-1. When user asks for a new item, call createRow first
-2. Then call getChoiceFactors to identify relevant decision criteria
-3. Ask the user about EACH required factor, one at a time
-4. After each answer, call saveChoiceAnswer
-5. Once you have enough info (or user says "just search"), call searchListings
+1. When user asks for a new item, call createRow first.
+2. Choice factors will be generated automatically.
+3. If the user's request was vague (e.g. "I need a laptop"), ask about the generated choice factors (e.g. "What is your budget?", "What is the primary use?").
+4. If the user's request was specific (e.g. "I need a blue hoodie under $50"), you can proceed directly to searchListings.
 
 WORKFLOW FOR REFINEMENTS:
 1. If user changes requirements, call updateRow then searchListings
@@ -89,7 +143,11 @@ ${activeRowInstruction}`,
               })
             });
             const data = await response.json() as any;
-            return { status: 'row_created', data };
+            
+            // Automatically generate choice factors
+            const factors = await generateAndSaveChoiceFactors(input.item, data.id, authorization);
+            
+            return { status: 'row_created', data: { ...data, choice_factors: JSON.stringify(factors) } };
           } catch (e) {
             return { status: 'error', error: String(e) };
           }
@@ -155,56 +213,18 @@ ${activeRowInstruction}`,
         },
       },
       getChoiceFactors: {
-        description: 'Get relevant choice factors for a product category. Call this after creating a row to determine what questions to ask the user.',
+        description: 'Get relevant choice factors for a product category. Call this if you need to regenerate factors.',
         inputSchema: z.object({
           category: z.string().describe('The product category, e.g., "laptop", "wedding venue", "car"'),
           rowId: z.number().describe('The row ID to associate factors with'),
         }),
         execute: async (input: { category: string; rowId: number }) => {
-          const factorPrompt = `You are determining the key decision factors for purchasing: "${input.category}"
-
-Return a JSON array of 3-6 choice factors. Each factor should have:
-- name: lowercase_snake_case identifier
-- label: Human-readable question
-- type: "number" | "select" | "text" | "boolean"
-- options: array of strings (only for "select" type)
-- required: boolean
-
-Example for "laptop":
-[
-  {"name": "budget", "label": "What's your maximum budget?", "type": "number", "required": true},
-  {"name": "primary_use", "label": "Primary use?", "type": "select", "options": ["gaming", "work", "school", "general"], "required": true},
-  {"name": "screen_size", "label": "Preferred screen size?", "type": "select", "options": ["13 inch", "15 inch", "17 inch"], "required": false}
-]
-
-Return ONLY the JSON array, no explanation.`;
-
           try {
-            const { text } = await generateText({
-              model,
-              prompt: factorPrompt,
-            });
+            const factors = await generateAndSaveChoiceFactors(input.category, input.rowId, authorization);
             
-            let factors;
-            try {
-              // Handle potential markdown code blocks in response
-              const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
-              factors = JSON.parse(cleanedText);
-            } catch (e) {
-              console.error("Failed to parse factors JSON:", text);
-              return { status: 'error', error: 'Failed to generate valid factors' };
+            if (!factors) {
+               return { status: 'error', error: 'Failed to generate factors' };
             }
-            
-            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-            if (authorization) {
-              headers['Authorization'] = authorization;
-            }
-            
-            await fetch(`${BACKEND_URL}/rows/${input.rowId}`, {
-              method: 'PATCH',
-              headers,
-              body: JSON.stringify({ choice_factors: JSON.stringify(factors) }),
-            });
             
             return { 
               status: 'factors_generated', 

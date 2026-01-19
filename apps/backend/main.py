@@ -168,7 +168,9 @@ async def create_row(
         status=row.status,
         budget_max=row.budget_max,
         currency=row.currency,
-        user_id=auth_session.user_id
+        user_id=auth_session.user_id,
+        choice_factors=row.choice_factors,
+        choice_answers=row.choice_answers
     )
     session.add(db_row)
     await session.commit()
@@ -275,6 +277,8 @@ class RowUpdate(BaseModel):
     status: Optional[str] = None
     budget_max: Optional[float] = None
     request_spec: Optional[RequestSpecUpdate] = None
+    choice_factors: Optional[str] = None
+    choice_answers: Optional[str] = None
 
 @app.patch("/rows/{row_id}")
 async def update_row(
