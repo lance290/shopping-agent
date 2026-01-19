@@ -11,6 +11,8 @@ export default function OfferTile({ offer, index, rowId }: OfferTileProps) {
   // We use the offer fields if available, otherwise fallback
   const clickUrl = offer.click_url || `/api/out?url=${encodeURIComponent(offer.url)}&row_id=${rowId}&idx=${index}&source=${encodeURIComponent(offer.source)}`;
   const safePrice = Number.isFinite(offer.price) ? offer.price : 0;
+  const source = String(offer.source || '').toLowerCase();
+  const isBiddable = source === 'manual' || source.includes('seller');
   
   return (
     <a
@@ -19,6 +21,15 @@ export default function OfferTile({ offer, index, rowId }: OfferTileProps) {
       rel="noopener noreferrer"
       className="min-w-[220px] max-w-[220px] bg-white border border-gray-200 rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-400 transition-all flex-shrink-0 flex flex-col group h-full relative"
     >
+      <div
+        className={`absolute top-2 left-2 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10 uppercase tracking-wide ${
+          isBiddable ? 'bg-purple-600 text-white' : 'bg-gray-600 text-white'
+        }`}
+        title={isBiddable ? 'Negotiation possible' : 'Offsite listing (no negotiation)'}
+      >
+        {isBiddable ? 'Biddable' : 'Not biddable'}
+      </div>
+
       {offer.match_score && offer.match_score > 0.7 && (
         <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10 uppercase tracking-wide">
           Best Match
