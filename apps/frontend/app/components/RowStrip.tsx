@@ -1,4 +1,4 @@
-import { Row, Offer, useShoppingStore } from '../store';
+import { Row, Offer, OfferSortMode, useShoppingStore } from '../store';
 import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import { Archive } from 'lucide-react';
@@ -14,7 +14,22 @@ export default function RowStrip({ row, offers, isActive, onSelect }: RowStripPr
   const requestDeleteRow = useShoppingStore(state => state.requestDeleteRow);
   const pendingRowDelete = useShoppingStore(state => state.pendingRowDelete);
   const undoDeleteRow = useShoppingStore(state => state.undoDeleteRow);
+  const rowOfferSort = useShoppingStore(state => state.rowOfferSort);
+  const setRowOfferSort = useShoppingStore(state => state.setRowOfferSort);
   const isPendingArchive = pendingRowDelete?.row.id === row.id;
+  const sortMode: OfferSortMode = rowOfferSort[row.id] || 'original';
+
+  const sortedOffers = (() => {
+    if (!offers || offers.length === 0) return [];
+    if (sortMode === 'original') return offers;
+
+    const byPrice = [...offers].sort((a, b) => {
+      const ap = Number.isFinite(a.price) ? a.price : Number.POSITIVE_INFINITY;
+      const bp = Number.isFinite(b.price) ? b.price : Number.POSITIVE_INFINITY;
+      return ap - bp;
+    });
+    return sortMode === 'price_desc' ? byPrice.reverse() : byPrice;
+  })();
 
   return (
     <div 
@@ -38,6 +53,21 @@ export default function RowStrip({ row, offers, isActive, onSelect }: RowStripPr
           </span>
         </div>
         <div className="flex items-center gap-3">
+          <select
+            className="text-xs border border-gray-200 bg-white rounded-md px-2 py-1 text-gray-700 hover:border-gray-300"
+            value={sortMode}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              e.stopPropagation();
+              setRowOfferSort(row.id, e.target.value as OfferSortMode);
+            }}
+            aria-label="Sort offers"
+            title="Sort offers"
+          >
+            <option value="original">Original</option>
+            <option value="price_asc">Price ↑</option>
+            <option value="price_desc">Price ↓</option>
+          </select>
           {isPendingArchive ? (
             <button
               onClick={(e) => {
@@ -76,8 +106,8 @@ export default function RowStrip({ row, offers, isActive, onSelect }: RowStripPr
           <RequestTile row={row} />
           
           {/* Offer Tiles */}
-          {offers && offers.length > 0 ? (
-            offers.map((offer, idx) => (
+          {sortedOffers && sortedOffers.length > 0 ? (
+            sortedOffers.map((offer, idx) => (
               <OfferTile key={`${row.id}-${idx}`} offer={offer} index={idx} rowId={row.id} />
             ))
           ) : (

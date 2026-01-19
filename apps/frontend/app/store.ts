@@ -95,6 +95,8 @@ export interface ChoiceFactor {
   required: boolean;
 }
 
+export type OfferSortMode = 'original' | 'price_asc' | 'price_desc';
+
 // The source of truth state
 interface ShoppingState {
   // Core state - SOURCE OF TRUTH
@@ -103,6 +105,7 @@ interface ShoppingState {
   rows: Row[];                    // All rows from database
   searchResults: Offer[];         // Current search results (legacy view)
   rowResults: Record<number, Offer[]>; // Per-row cached results
+  rowOfferSort: Record<number, OfferSortMode>; // Per-row UI sort mode
   isSearching: boolean;           // Loading state for search
   cardClickQuery: string | null;  // Query from card click (triggers chat append)
   
@@ -116,6 +119,7 @@ interface ShoppingState {
   setSearchResults: (results: Offer[]) => void;
   setRowResults: (rowId: number, results: Offer[]) => void;
   clearRowResults: (rowId: number) => void;
+  setRowOfferSort: (rowId: number, sort: OfferSortMode) => void;
   setIsSearching: (searching: boolean) => void;
   clearSearch: () => void;
   setCardClickQuery: (query: string | null) => void;  // For card click -> chat append
@@ -140,6 +144,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   rows: [],
   searchResults: [],
   rowResults: {},
+  rowOfferSort: {},
   isSearching: false,
   cardClickQuery: null,
   isSidebarOpen: false, // Default closed
@@ -271,6 +276,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   clearRowResults: (rowId) => set((state) => {
     const { [rowId]: _, ...rest } = state.rowResults;
     return { rowResults: rest };
+  }),
+  setRowOfferSort: (rowId, sort) => set((state) => {
+    if (sort === 'original') {
+      const { [rowId]: _, ...rest } = state.rowOfferSort;
+      return { rowOfferSort: rest };
+    }
+    return { rowOfferSort: { ...state.rowOfferSort, [rowId]: sort } };
   }),
   setIsSearching: (searching) => set({ isSearching: searching }),
   clearSearch: () => set({ searchResults: [], rowResults: {}, currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
