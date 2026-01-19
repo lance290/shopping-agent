@@ -1,5 +1,5 @@
 import { parseChoiceAnswers, Row, useShoppingStore } from '../store';
-import { Edit2 } from 'lucide-react';
+import { Edit2, Trash2 } from 'lucide-react';
 
 interface RequestTileProps {
   row: Row;
@@ -7,7 +7,7 @@ interface RequestTileProps {
 }
 
 export default function RequestTile({ row, onClick }: RequestTileProps) {
-  const { setActiveRowId, setSidebarOpen } = useShoppingStore();
+  const { setActiveRowId, setSidebarOpen, requestDeleteRow } = useShoppingStore();
   const answers = parseChoiceAnswers(row);
   
   // Format constraints for display
@@ -35,6 +35,18 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
            }`}>
              {row.status.replace('_', ' ')}
            </span>
+
+           <button
+             onClick={(e) => {
+               e.stopPropagation();
+               requestDeleteRow(row.id);
+             }}
+             className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all"
+             title="Delete row"
+             aria-label="Delete row"
+           >
+             <Trash2 size={14} />
+           </button>
         </div>
 
         {/* Title */}

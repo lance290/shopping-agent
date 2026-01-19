@@ -42,6 +42,14 @@ export interface Row {
   bids?: Bid[];              // Persisted bids from DB
 }
 
+interface PendingRowDelete {
+  row: Row;
+  rowIndex: number;
+  results: Offer[];
+  timeoutId: ReturnType<typeof setTimeout>;
+  expiresAt: number;
+}
+
 // Helper to convert DB Bid to Offer
 export function mapBidToOffer(bid: Bid): Offer {
   return {
@@ -116,6 +124,10 @@ interface ShoppingState {
   isSidebarOpen: boolean;
   setSidebarOpen: (isOpen: boolean) => void;
   toggleSidebar: () => void;
+
+  pendingRowDelete: PendingRowDelete | null;
+  requestDeleteRow: (rowId: number, undoWindowMs?: number) => void;
+  undoDeleteRow: () => void;
   
   // Combined actions for the flow
   selectOrCreateRow: (query: string, existingRows: Row[]) => Row | null;
@@ -131,12 +143,98 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   isSearching: false,
   cardClickQuery: null,
   isSidebarOpen: false, // Default closed
+
+  pendingRowDelete: null,
   
   // Basic setters
   setCurrentQuery: (query) => set({ currentQuery: query }),
   setActiveRowId: (id) => set({ activeRowId: id }),
   setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+
+  requestDeleteRow: (rowId, undoWindowMs = 7000) => {
+    const existingPending = get().pendingRowDelete;
+    if (existingPending) {
+      clearTimeout(existingPending.timeoutId);
+      fetch(`/api/rows?id=${existingPending.row.id}`, { method: 'DELETE' }).catch(() => {});
+      set({ pendingRowDelete: null });
+    }
+
+    const state = get();
+    const rowIndex = state.rows.findIndex(r => r.id === rowId);
+    if (rowIndex === -1) return;
+
+    const row = state.rows[rowIndex];
+    const results = state.rowResults[rowId] || [];
+
+    const timeoutId = setTimeout(async () => {
+      const pending = get().pendingRowDelete;
+      if (!pending || pending.row.id !== rowId) return;
+
+      try {
+        const res = await fetch(`/api/rows?id=${rowId}`, { method: 'DELETE' });
+        if (!res.ok) {
+          set((s) => {
+            const restoredRows = [...s.rows];
+            restoredRows.splice(pending.rowIndex, 0, pending.row);
+            return {
+              rows: restoredRows,
+              rowResults: { ...s.rowResults, [pending.row.id]: pending.results },
+              pendingRowDelete: null,
+            };
+          });
+          return;
+        }
+      } catch {
+        set((s) => {
+          const restoredRows = [...s.rows];
+          restoredRows.splice(pending.rowIndex, 0, pending.row);
+          return {
+            rows: restoredRows,
+            rowResults: { ...s.rowResults, [pending.row.id]: pending.results },
+            pendingRowDelete: null,
+          };
+        });
+        return;
+      }
+
+      set({ pendingRowDelete: null });
+    }, undoWindowMs);
+
+    set((s) => {
+      const nextRows = s.rows.filter(r => r.id !== rowId);
+      const { [rowId]: _, ...restResults } = s.rowResults;
+      const nextActive = s.activeRowId === rowId ? null : s.activeRowId;
+      return {
+        rows: nextRows,
+        rowResults: restResults,
+        activeRowId: nextActive,
+        pendingRowDelete: {
+          row,
+          rowIndex,
+          results,
+          timeoutId,
+          expiresAt: Date.now() + undoWindowMs,
+        },
+      };
+    });
+  },
+
+  undoDeleteRow: () => {
+    const pending = get().pendingRowDelete;
+    if (!pending) return;
+    clearTimeout(pending.timeoutId);
+
+    set((s) => {
+      const restoredRows = [...s.rows];
+      restoredRows.splice(pending.rowIndex, 0, pending.row);
+      return {
+        rows: restoredRows,
+        rowResults: { ...s.rowResults, [pending.row.id]: pending.results },
+        pendingRowDelete: null,
+      };
+    });
+  },
   
   setRows: (rows) => set((state) => {
     // Keep row order stable across refreshes/polls.

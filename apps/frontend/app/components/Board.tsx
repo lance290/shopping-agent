@@ -8,6 +8,8 @@ export default function ProcurementBoard() {
   const activeRowId = useShoppingStore(state => state.activeRowId);
   const rowResults = useShoppingStore(state => state.rowResults);
   const setActiveRowId = useShoppingStore(state => state.setActiveRowId);
+  const pendingRowDelete = useShoppingStore(state => state.pendingRowDelete);
+  const undoDeleteRow = useShoppingStore(state => state.undoDeleteRow);
 
   return (
     <div className="flex-1 bg-gray-50 h-full flex flex-col overflow-hidden w-2/3">
@@ -47,6 +49,27 @@ export default function ProcurementBoard() {
           ))
         )}
       </div>
+
+      {pendingRowDelete && (
+        <div className="fixed bottom-4 right-4 z-50 bg-white border border-gray-200 shadow-lg rounded-lg px-4 py-3 w-[360px]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-gray-900 truncate">
+                Deleted “{pendingRowDelete.row.title}”
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                Undo available for a few seconds.
+              </div>
+            </div>
+            <button
+              onClick={undoDeleteRow}
+              className="shrink-0 text-sm font-semibold text-blue-600 hover:text-blue-700"
+            >
+              Undo
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
