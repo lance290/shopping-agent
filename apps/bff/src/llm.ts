@@ -58,6 +58,25 @@ Return ONLY the JSON array, no explanation.`;
       console.error("Failed to parse factors JSON:", text);
       return null;
     }
+
+    if (Array.isArray(factors)) {
+      factors = factors.map((f: any) => {
+        if (f?.type === 'select') {
+          const options = Array.isArray(f.options)
+            ? f.options.filter((o: any) => typeof o === 'string' && o.trim().length > 0)
+            : [];
+
+          if (options.length === 0) {
+            const { options: _options, ...rest } = f;
+            return { ...rest, type: 'text' };
+          }
+
+          return { ...f, options };
+        }
+
+        return f;
+      });
+    }
     
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authorization) {

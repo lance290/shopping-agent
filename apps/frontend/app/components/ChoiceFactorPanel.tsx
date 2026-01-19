@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { parseChoiceFactors, parseChoiceAnswers, useShoppingStore } from '../store';
-import { saveChoiceAnswerToDb, fetchRowsFromDb } from '../utils/api';
+import { saveChoiceAnswerToDb, fetchRowsFromDb, runSearchApi } from '../utils/api';
 import { Loader2, Check, AlertCircle, ChevronLeft, RefreshCw } from 'lucide-react';
 
 export default function ChoiceFactorPanel() {
-  const { rows, activeRowId, updateRow, setRows, isSidebarOpen, setSidebarOpen } = useShoppingStore();
+  const { rows, activeRowId, updateRow, setRows, setRowResults, setIsSearching, isSidebarOpen, setSidebarOpen } = useShoppingStore();
   
   const row = rows.find(r => r.id === activeRowId);
   const factors = row ? parseChoiceFactors(row) : [];
@@ -73,7 +73,7 @@ export default function ChoiceFactorPanel() {
     setPollCount(0); // Reset poll count to allow more auto-polls if needed
     try {
       // Ask backend (via BFF) to regenerate specs for this row.
-      await fetch(`/api/rows/${row.id}`, {
+      await fetch(`/api/rows?id=${row.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ regenerate_choice_factors: true }),
@@ -95,17 +95,27 @@ export default function ChoiceFactorPanel() {
     setSavingFields(prev => ({ ...prev, [factorName]: true }));
 
     // 2. Persist to DB
-    const success = await saveChoiceAnswerToDb(row.id, factorName, value);
+    const success = await saveChoiceAnswerToDb(row.id, factorName, value, newAnswers);
     
     // 3. Update global store if successful
     if (success) {
       updateRow(row.id, { choice_answers: JSON.stringify(newAnswers) });
+
+      // 4. Refresh results for this row
+      setIsSearching(true);
+      const results = await runSearchApi(row.title, row.id);
+      setRowResults(row.id, results);
     }
     
-    // 4. Clear saving state
+    // 5. Clear saving state
     setTimeout(() => {
       setSavingFields(prev => ({ ...prev, [factorName]: false }));
     }, 500);
+  };
+
+  const handleTextChange = (factorName: string, value: string | number) => {
+    // Local-only update; commit onBlur
+    setLocalAnswers(prev => ({ ...prev, [factorName]: value }));
   };
 
   return (
@@ -256,7 +266,8 @@ export default function ChoiceFactorPanel() {
                         <input
                           type={factor.type === 'number' ? 'number' : 'text'}
                           value={localAnswers[factor.name] || ''}
-                          onChange={(e) => handleAnswerChange(factor.name, factor.type === 'number' ? Number(e.target.value) : e.target.value)}
+                          onChange={(e) => handleTextChange(factor.name, factor.type === 'number' ? Number(e.target.value) : e.target.value)}
+                          onBlur={(e) => handleAnswerChange(factor.name, factor.type === 'number' ? Number(e.target.value) : e.target.value)}
                           placeholder={`...`}
                           className="w-full px-3 py-2 bg-white border border-gray-200 rounded-md text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none hover:border-gray-300 placeholder-gray-400"
                         />
