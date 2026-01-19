@@ -12,6 +12,9 @@ export default function Home() {
 
   const [chatWidthPx, setChatWidthPx] = useState<number>(CHAT_DEFAULT_PX);
   const isDraggingRef = useRef(false);
+  const dragStartXRef = useRef<number>(0);
+  const dragStartWidthRef = useRef<number>(CHAT_DEFAULT_PX);
+  const latestWidthRef = useRef<number>(CHAT_DEFAULT_PX);
 
   useEffect(() => {
     try {
@@ -28,7 +31,9 @@ export default function Home() {
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!isDraggingRef.current) return;
-      const next = Math.min(CHAT_MAX_PX, Math.max(CHAT_MIN_PX, e.clientX));
+      const delta = e.clientX - dragStartXRef.current;
+      const next = Math.min(CHAT_MAX_PX, Math.max(CHAT_MIN_PX, dragStartWidthRef.current + delta));
+      latestWidthRef.current = next;
       setChatWidthPx(next);
     };
 
@@ -38,7 +43,7 @@ export default function Home() {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       try {
-        localStorage.setItem('chatWidthPx', String(chatWidthPx));
+        localStorage.setItem('chatWidthPx', String(latestWidthRef.current));
       } catch {
         // ignore
       }
@@ -50,7 +55,7 @@ export default function Home() {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, [chatWidthPx]);
+  }, []);
 
   return (
     <main className="flex h-screen w-full bg-white overflow-hidden">
@@ -63,9 +68,13 @@ export default function Home() {
       </div>
 
       <div
-        className="w-1 bg-gray-200 hover:bg-blue-400 transition-colors cursor-col-resize"
-        onMouseDown={() => {
+        className="w-3 bg-gray-200 hover:bg-blue-400 transition-colors cursor-col-resize"
+        onMouseDown={(e) => {
+          e.preventDefault();
           isDraggingRef.current = true;
+          dragStartXRef.current = e.clientX;
+          dragStartWidthRef.current = chatWidthPx;
+          latestWidthRef.current = chatWidthPx;
           document.body.style.cursor = 'col-resize';
           document.body.style.userSelect = 'none';
         }}
