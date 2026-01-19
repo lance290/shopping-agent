@@ -528,7 +528,10 @@ class SourcingRepository:
         print(f"[SourcingRepository] Available providers: {list(self.providers.keys())}")
         
         start_time = time.time()
-        PROVIDER_TIMEOUT_SECONDS = 3.0
+        try:
+            PROVIDER_TIMEOUT_SECONDS = float(os.getenv("SOURCING_PROVIDER_TIMEOUT_SECONDS", "8.0"))
+        except Exception:
+            PROVIDER_TIMEOUT_SECONDS = 8.0
 
         async def search_with_timeout(name: str, provider: SourcingProvider) -> List[SearchResult]:
             try:
