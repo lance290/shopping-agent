@@ -135,6 +135,7 @@ class SearchRequest(BaseModel):
     query: str
     gl: Optional[str] = "us"
     hl: Optional[str] = "en"
+    providers: Optional[List[str]] = None
 
 class SearchResponse(BaseModel):
     results: List[SearchResult]
@@ -328,6 +329,7 @@ async def update_row(
 
 class RowSearchRequest(BaseModel):
     query: Optional[str] = None
+    providers: Optional[List[str]] = None
 
 from collections import defaultdict
 
@@ -442,7 +444,7 @@ async def search_row_listings(
             pass
 
     # Execute Search
-    results = await sourcing_repo.search_all(base_query)
+    results = await sourcing_repo.search_all(base_query, providers=body.providers)
     
     # --- Persistence Logic ---
     
@@ -581,7 +583,12 @@ async def clickout_redirect(
 # Search endpoint
 @app.post("/v1/sourcing/search", response_model=SearchResponse)
 async def search_listings(request: SearchRequest):
-    results = await sourcing_repo.search_all(request.query, gl=request.gl, hl=request.hl)
+    results = await sourcing_repo.search_all(
+        request.query,
+        gl=request.gl,
+        hl=request.hl,
+        providers=request.providers,
+    )
     return {"results": results}
 
 

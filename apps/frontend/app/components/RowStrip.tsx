@@ -1,7 +1,9 @@
+import { useEffect, useRef, useState } from 'react';
 import { Row, Offer, OfferSortMode, useShoppingStore } from '../store';
 import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
-import { Archive } from 'lucide-react';
+import { Archive, RefreshCw, FlaskConical } from 'lucide-react';
+import { runSearchApi } from '../utils/api';
 
 interface RowStripProps {
   row: Row;
@@ -16,8 +18,45 @@ export default function RowStrip({ row, offers, isActive, onSelect }: RowStripPr
   const undoDeleteRow = useShoppingStore(state => state.undoDeleteRow);
   const rowOfferSort = useShoppingStore(state => state.rowOfferSort);
   const setRowOfferSort = useShoppingStore(state => state.setRowOfferSort);
+  const setIsSearching = useShoppingStore(state => state.setIsSearching);
+  const setRowResults = useShoppingStore(state => state.setRowResults);
   const isPendingArchive = pendingRowDelete?.row.id === row.id;
   const sortMode: OfferSortMode = rowOfferSort[row.id] || 'original';
+
+  const [cooldownUntil, setCooldownUntil] = useState<number>(0);
+  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+        cooldownTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const canRefresh = () => Date.now() > cooldownUntil;
+
+  const refresh = async (mode: 'all' | 'rainforest') => {
+    if (!canRefresh()) return;
+
+    const until = Date.now() + 5000;
+    setCooldownUntil(until);
+    if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+    cooldownTimerRef.current = setTimeout(() => setCooldownUntil(0), 5000);
+
+    setIsSearching(true);
+    try {
+      const results = await runSearchApi(
+        row.title,
+        row.id,
+        mode === 'rainforest' ? { providers: ['rainforest'] } : undefined
+      );
+      setRowResults(row.id, results);
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const sortedOffers = (() => {
     if (!offers || offers.length === 0) return [];
@@ -68,6 +107,32 @@ export default function RowStrip({ row, offers, isActive, onSelect }: RowStripPr
             <option value="price_asc">Price ↑</option>
             <option value="price_desc">Price ↓</option>
           </select>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              refresh('all');
+            }}
+            disabled={!canRefresh()}
+            className="text-xs font-medium text-gray-600 hover:text-blue-700 border border-gray-200 hover:border-blue-200 bg-white hover:bg-blue-50 px-2 py-1 rounded-md transition-colors inline-flex items-center gap-1 disabled:opacity-40 disabled:hover:bg-white"
+            title="Refresh offers"
+            aria-label="Refresh offers"
+          >
+            <RefreshCw size={14} />
+            Refresh
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              refresh('rainforest');
+            }}
+            disabled={!canRefresh()}
+            className="text-xs font-medium text-gray-600 hover:text-purple-700 border border-gray-200 hover:border-purple-200 bg-white hover:bg-purple-50 px-2 py-1 rounded-md transition-colors inline-flex items-center gap-1 disabled:opacity-40 disabled:hover:bg-white"
+            title="Refresh offers (Rainforest only)"
+            aria-label="Refresh offers (Rainforest only)"
+          >
+            <FlaskConical size={14} />
+            Rainforest
+          </button>
           {isPendingArchive ? (
             <button
               onClick={(e) => {

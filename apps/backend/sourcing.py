@@ -526,6 +526,14 @@ class SourcingRepository:
     async def search_all(self, query: str, **kwargs) -> List[SearchResult]:
         print(f"[SourcingRepository] search_all called with query: {query}")
         print(f"[SourcingRepository] Available providers: {list(self.providers.keys())}")
+
+        providers_filter = kwargs.pop("providers", None)
+        selected_providers: Dict[str, SourcingProvider] = self.providers
+        if providers_filter:
+            allow = {str(p).strip() for p in providers_filter if str(p).strip()}
+            selected_providers = {k: v for k, v in self.providers.items() if k in allow}
+            print(f"[SourcingRepository] Provider filter requested: {sorted(list(allow))}")
+            print(f"[SourcingRepository] Providers selected: {list(selected_providers.keys())}")
         
         start_time = time.time()
         try:
@@ -552,7 +560,7 @@ class SourcingRepository:
         # Run all providers in parallel
         tasks = [
             search_with_timeout(name, provider)
-            for name, provider in self.providers.items()
+            for name, provider in selected_providers.items()
         ]
         
         results_lists = await asyncio.gather(*tasks)

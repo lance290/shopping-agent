@@ -23,13 +23,22 @@ export const persistRowToDb = async (rowId: number, title: string) => {
 };
 
 // Helper: Run search
-export const runSearchApi = async (query: string, rowId?: number | null): Promise<Offer[]> => {
+export const runSearchApi = async (
+  query: string,
+  rowId?: number | null,
+  options?: { providers?: string[] }
+): Promise<Offer[]> => {
   console.log('[API] Running search:', query, 'for rowId:', rowId);
   try {
+    const body: any = rowId ? { query, rowId } : { query };
+    if (options?.providers && options.providers.length > 0) {
+      body.providers = options.providers;
+    }
+
     const res = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(rowId ? { query, rowId } : { query }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     const rawResults = Array.isArray(data?.results) ? data.results : [];
