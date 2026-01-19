@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from abc import ABC, abstractmethod
 import httpx
 import os
+import re
 from urllib.parse import urlparse
 import asyncio
 import time
@@ -33,6 +34,21 @@ def normalize_url(url: str) -> str:
     if url.startswith("www."):
         return f"https://{url}"
     return url
+
+
+def redact_secrets(text: str) -> str:
+    if not text:
+        return text
+    redactions = [
+        (r"(api_key=)[^&\s]+", r"\\1[REDACTED]"),
+        (r"(key=)[^&\s]+", r"\\1[REDACTED]"),
+        (r"(token=)[^&\s]+", r"\\1[REDACTED]"),
+        (r"(Authorization: Bearer)\s+[^\s]+", r"\\1 [REDACTED]"),
+    ]
+    out = text
+    for pattern, repl in redactions:
+        out = re.sub(pattern, repl, out, flags=re.IGNORECASE)
+    return out
 
 class SearchResult(BaseModel):
     title: str
@@ -380,8 +396,18 @@ class RainforestAPIProvider(SourcingProvider):
             data = None
             request_id = None
             for attempt in range(4):
-                response = await client.get(self.base_url, params=params)
-                response.raise_for_status()
+                try:
+                    response = await client.get(self.base_url, params=params)
+                    response.raise_for_status()
+                except httpx.HTTPStatusError as e:
+                    status = None
+                    try:
+                        status = e.response.status_code
+                    except Exception:
+                        status = None
+                    safe_msg = redact_secrets(str(e))
+                    print(f"[RainforestAPIProvider] HTTP error status={status}: {safe_msg}")
+                    return []
                 data = response.json()
 
                 request_info = data.get("request_info") if isinstance(data, dict) else None
@@ -513,7 +539,7 @@ class SourcingRepository:
         # Initialize providers in priority order
         # SerpAPI - 100 free searches/month
         serpapi_key = os.getenv("SERPAPI_API_KEY")
-        print(f"[SourcingRepository] SERPAPI_API_KEY present: {bool(serpapi_key)}, value starts with: {serpapi_key[:8] if serpapi_key else 'N/A'}")
+        print(f"[SourcingRepository] SERPAPI_API_KEY present: {bool(serpapi_key)}")
         if serpapi_key and serpapi_key != "demo":
             self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
             print(f"[SourcingRepository] SerpAPI provider initialized")
@@ -592,7 +618,7 @@ class SourcingRepository:
                 print(f"[SourcingRepository] Provider {name} timed out after {PROVIDER_TIMEOUT_SECONDS}s")
                 return []
             except Exception as e:
-                print(f"Provider {name} failed: {e}")
+                print(f"[SourcingRepository] Provider {name} failed: {redact_secrets(str(e))}")
                 return []
 
         # Run all providers in parallel
