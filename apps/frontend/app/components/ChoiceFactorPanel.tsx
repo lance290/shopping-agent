@@ -1,26 +1,58 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { parseChoiceFactors, parseChoiceAnswers, useShoppingStore } from '../store';
-import { saveChoiceAnswerToDb } from '../utils/api';
-import { Loader2, Check, X, AlertCircle, ChevronLeft } from 'lucide-react';
+import { saveChoiceAnswerToDb, fetchRowsFromDb } from '../utils/api';
+import { Loader2, Check, AlertCircle, ChevronLeft, RefreshCw } from 'lucide-react';
 
 export default function ChoiceFactorPanel() {
-  const { rows, activeRowId, updateRow, isSidebarOpen, setSidebarOpen } = useShoppingStore();
+  const { rows, activeRowId, updateRow, setRows, isSidebarOpen, setSidebarOpen } = useShoppingStore();
   
   const row = rows.find(r => r.id === activeRowId);
   const factors = row ? parseChoiceFactors(row) : [];
   
-  // Local state for optimistic updates
+  // Local state
   const [localAnswers, setLocalAnswers] = useState<Record<string, any>>({});
   const [savingFields, setSavingFields] = useState<Record<string, boolean>>({});
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pollCount, setPollCount] = useState(0);
 
   // Sync local state when active row changes
   useEffect(() => {
     if (row) {
       setLocalAnswers(parseChoiceAnswers(row));
+      // Reset poll count when switching rows
+      setPollCount(0);
     } else {
       setLocalAnswers({});
     }
   }, [row]);
+
+  // Polling effect: If row exists but no factors, try to fetch fresh data a few times
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    if (isSidebarOpen && row && factors.length === 0 && pollCount < 5) {
+      timeoutId = setTimeout(async () => {
+        console.log(`[ChoiceFactorPanel] Polling for specs... attempt ${pollCount + 1}`);
+        const freshRows = await fetchRowsFromDb();
+        setRows(freshRows);
+        setPollCount(prev => prev + 1);
+      }, 2000); // Poll every 2s
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [isSidebarOpen, row, factors.length, pollCount, setRows]);
+
+  const handleManualRefresh = async () => {
+    if (!row) return;
+    setIsRefreshing(true);
+    setPollCount(0); // Reset poll count to allow more auto-polls if needed
+    try {
+      const freshRows = await fetchRowsFromDb();
+      setRows(freshRows);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleAnswerChange = async (factorName: string, value: string | number | boolean) => {
     if (!row) return;
@@ -59,13 +91,24 @@ export default function ChoiceFactorPanel() {
               {row ? 'Edit requirements' : 'No request selected'}
             </p>
           </div>
-          <button 
-            onClick={() => setSidebarOpen(false)}
-            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Collapse sidebar"
-          >
-            <ChevronLeft size={20} />
-          </button>
+          <div className="flex items-center gap-1">
+            {row && (
+              <button
+                onClick={handleManualRefresh}
+                className={`p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors ${isRefreshing ? 'animate-spin' : ''}`}
+                title="Refresh specs"
+              >
+                <RefreshCw size={16} />
+              </button>
+            )}
+            <button 
+              onClick={() => setSidebarOpen(false)}
+              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Collapse sidebar"
+            >
+              <ChevronLeft size={20} />
+            </button>
+          </div>
         </div>
         
         {/* Content */}
@@ -79,13 +122,35 @@ export default function ChoiceFactorPanel() {
             </div>
           ) : factors.length === 0 ? (
             <div className="text-center py-12">
-              <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Loader2 className="animate-spin" size={20} />
-              </div>
-              <p className="text-gray-900 font-medium text-sm">Extracting specs...</p>
-              <p className="text-xs text-gray-500 mt-2">
-                Identifying key attributes...
-              </p>
+              {pollCount < 5 ? (
+                <>
+                  <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Loader2 className="animate-spin" size={20} />
+                  </div>
+                  <p className="text-gray-900 font-medium text-sm">Extracting specs...</p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Identifying key attributes...
+                  </p>
+                </>
+              ) : (
+                <div className="space-y-4">
+                   <div className="w-10 h-10 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <AlertCircle size={20} />
+                  </div>
+                  <div>
+                    <p className="text-gray-900 font-medium text-sm">No specifications found</p>
+                    <p className="text-xs text-gray-500 mt-1 px-4">
+                      The agent didn't identify specific attributes for this item yet.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={handleManualRefresh}
+                    className="text-xs text-blue-600 font-medium hover:underline"
+                  >
+                    Try Refreshing
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-6">
