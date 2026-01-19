@@ -10,6 +10,7 @@ export default function OfferTile({ offer, index, rowId }: OfferTileProps) {
   // Build clickout URL (will be handled by Task 02)
   // We use the offer fields if available, otherwise fallback
   const clickUrl = offer.click_url || `/api/out?url=${encodeURIComponent(offer.url)}&row_id=${rowId}&idx=${index}&source=${encodeURIComponent(offer.source)}`;
+  const safePrice = Number.isFinite(offer.price) ? offer.price : 0;
   
   return (
     <a
@@ -50,7 +51,7 @@ export default function OfferTile({ offer, index, rowId }: OfferTileProps) {
         <div className="mt-auto pt-2 border-t border-gray-100 flex justify-between items-end">
           <div className="text-lg font-bold text-gray-900">
             {offer.currency === 'USD' ? '$' : offer.currency}
-            {offer.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {safePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           
           {offer.rating && (

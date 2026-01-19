@@ -32,7 +32,28 @@ export const runSearchApi = async (query: string, rowId?: number | null): Promis
       body: JSON.stringify(rowId ? { query, rowId } : { query }),
     });
     const data = await res.json();
-    return data.results || [];
+    const rawResults = Array.isArray(data?.results) ? data.results : [];
+    return rawResults.map((r: any) => {
+      const price = Number(r?.price);
+      const rating = r?.rating === null || r?.rating === undefined ? null : Number(r?.rating);
+      const reviewsCount = r?.reviews_count === null || r?.reviews_count === undefined ? null : Number(r?.reviews_count);
+
+      return {
+        title: String(r?.title ?? ''),
+        price: Number.isFinite(price) ? price : 0,
+        currency: String(r?.currency ?? 'USD'),
+        merchant: String(r?.merchant ?? 'Unknown'),
+        url: String(r?.url ?? '#'),
+        image_url: r?.image_url ?? null,
+        rating: Number.isFinite(rating as any) ? (rating as number) : null,
+        reviews_count: Number.isFinite(reviewsCount as any) ? (reviewsCount as number) : null,
+        shipping_info: r?.shipping_info ?? null,
+        source: String(r?.source ?? 'unknown'),
+        merchant_domain: r?.merchant_domain ?? undefined,
+        click_url: r?.click_url ?? undefined,
+        match_score: typeof r?.match_score === 'number' ? r.match_score : undefined,
+      } satisfies Offer;
+    });
   } catch (err) {
     console.error('[API] Search error:', err);
     return [];
