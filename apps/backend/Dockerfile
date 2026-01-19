@@ -45,6 +45,9 @@ COPY --from=builder /opt/venv /opt/venv
 # Copy application code
 COPY --chown=fastapi:fastapi . .
 
+# Make start script executable
+RUN chmod +x start.sh
+
 # Set environment variables
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
