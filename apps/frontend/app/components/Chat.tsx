@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
-import { useShoppingStore, Row } from '../store';
+import { useShoppingStore } from '../store';
+import { persistRowToDb, runSearchApi, createRowInDb, fetchRowsFromDb } from '../utils/api';
 
 interface Message {
   id: string;
@@ -17,108 +18,20 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const store = useShoppingStore();
+  const activeRow = store.rows.find(r => r.id === store.activeRowId);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Helper: Persist row to database
-  const persistRowToDb = async (rowId: number, title: string) => {
-    console.log('[Chat] Persisting to DB:', rowId, title);
-    try {
-      const res = await fetch(`/api/rows?id=${rowId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title }),
-      });
-      if (res.ok) {
-        console.log('[Chat] DB persist success');
-        return true;
-      } else {
-        console.error('[Chat] DB persist failed:', res.status);
-        return false;
-      }
-    } catch (err) {
-      console.error('[Chat] DB persist error:', err);
-      return false;
-    }
-  };
-
-  // Helper: Run search and update store
-  const runSearch = async (query: string, rowId?: number | null) => {
-    console.log('[Chat] Running search:', query, 'for rowId:', rowId);
-    store.setIsSearching(true);
-    try {
-      const res = await fetch('/api/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(rowId ? { query, rowId } : { query }),
-      });
-      const data = await res.json();
-      const results = data.results || [];
-      console.log('[Chat] Search returned:', results.length, 'products');
-      if (rowId) {
-        store.setRowResults(rowId, results);
-      } else {
-        store.setSearchResults(results);
-      }
-    } catch (err) {
-      console.error('[Chat] Search error:', err);
-      if (rowId) {
-        store.setRowResults(rowId, []);
-      } else {
-        store.setSearchResults([]);
-      }
-    }
-  };
-
-  // Helper: Create a new row in database
-  const createRowInDb = async (title: string): Promise<Row | null> => {
-    console.log('[Chat] Creating row in DB:', title);
-    try {
-      const res = await fetch('/api/rows', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          title, 
-          status: 'sourcing',
-          request_spec: {
-            item_name: title,
-            constraints: '{}'
-          }
-        }),
-      });
-      if (res.ok) {
-        const newRow = await res.json();
-        console.log('[Chat] Row created:', newRow);
-        return newRow;
-      } else {
-        console.error('[Chat] Create row failed:', res.status, await res.text());
-      }
-    } catch (err) {
-      console.error('[Chat] Create row error:', err);
-    }
-    return null;
-  };
-
-  // Helper: Fetch all rows from DB
-  const fetchRowsFromDb = async (): Promise<Row[]> => {
-    try {
-      const res = await fetch('/api/rows');
-      console.log('[Chat] fetchRowsFromDb response status:', res.status);
-      if (res.ok) {
-        const rows = await res.json();
-        console.log('[Chat] fetchRowsFromDb got rows:', rows);
-        return Array.isArray(rows) ? rows : [];
-      } else {
-        const text = await res.text();
-        console.error('[Chat] fetchRowsFromDb failed:', res.status, text);
-      }
-    } catch (err) {
-      console.error('[Chat] Fetch rows error:', err);
-    }
-    return [];
-  };
+  // Load rows on mount
+  useEffect(() => {
+    const loadRows = async () => {
+      const rows = await fetchRowsFromDb();
+      store.setRows(rows);
+    };
+    loadRows();
+  }, []);
 
   /**
    * MAIN FLOW:
@@ -128,59 +41,50 @@ export default function Chat() {
    * 1d. Zustand is updated as source of truth
    * 1e. We update the database with the query
    * 1f. We run the search
-   * 1g. We save the source of truth to the database
    */
   const handleSearchFlow = async (query: string) => {
     console.log('[Chat] === SEARCH FLOW START ===');
     console.log('[Chat] 1a. Query:', query);
 
-    // 1b. Save query to Zustand
     store.setCurrentQuery(query);
-    console.log('[Chat] 1b. Query saved to Zustand');
 
     // 1c. Select or create card
     const currentRows = store.rows;
     let targetRow = store.selectOrCreateRow(query, currentRows);
     
     if (targetRow) {
-      // Select existing row - This is Step 2: extending the search
-      console.log('[Chat] Step 2. Identifying existing row for extension:', targetRow.id, targetRow.title);
+      // Select existing row
+      console.log('[Chat] Step 2. Identifying existing row:', targetRow.id, targetRow.title);
       store.setActiveRowId(targetRow.id);
       
-      // Update the row title in Zustand and DB to reflect the extended query
+      // Update title if needed
       if (targetRow.title !== query) {
-        console.log('[Chat] 1e. Updating existing row title:', query);
         store.updateRow(targetRow.id, { title: query });
         await persistRowToDb(targetRow.id, query);
       }
     } else {
-      // No matching row in store - refresh from DB first (LLM may have created it)
+      // Refresh from DB (LLM might have created it)
       console.log('[Chat] 1c. No matching row in store, refreshing from DB...');
       const freshRows = await fetchRowsFromDb();
-      console.log('[Chat] Fetched rows from DB:', freshRows.length);
       store.setRows(freshRows);
       
-      // Check again after refresh
       targetRow = freshRows.find(r => r.title === query) || null;
+      if (!targetRow && freshRows.length > 0) {
+        // Fallback to newest
+        targetRow = freshRows[freshRows.length - 1];
+      }
+      
       if (targetRow) {
-        console.log('[Chat] Found row after refresh:', targetRow.id, targetRow.title);
         store.setActiveRowId(targetRow.id);
-      } else if (freshRows.length > 0) {
-        // Select the newest row (likely the one just created by LLM)
-        const newestRow = freshRows[freshRows.length - 1];
-        console.log('[Chat] Selecting newest row:', newestRow.id, newestRow.title);
-        store.setActiveRowId(newestRow.id);
-        targetRow = newestRow;
       }
     }
 
-    // 1d. Zustand is already the source of truth
-    const rowIdForSearch = store.activeRowId;
-    console.log('[Chat] 1d. Zustand updated - activeRowId:', rowIdForSearch);
-
-    // 1f. Run the search (store results under the active row if present)
-    await runSearch(query, rowIdForSearch || undefined);
-    console.log('[Chat] 1f. Search complete');
+    // 1f. Run the search
+    if (targetRow) {
+      store.setIsSearching(true);
+      const results = await runSearchApi(query, targetRow.id);
+      store.setRowResults(targetRow.id, results);
+    }
 
     console.log('[Chat] === SEARCH FLOW END ===');
   };
@@ -233,50 +137,46 @@ export default function Chat() {
           const chunk = decoder.decode(value, { stream: true });
           assistantContent += chunk;
           
-          // Parse row creation from stream FIRST (it comes before search in the stream)
+          // --- Stream Parsing (Phase 1 Refactor: Cleaned up but logic preserved) ---
+          
+          // 1. Row Creation
           const rowMatch = assistantContent.match(/✅ Adding "([^"]+)" to your procurement board/);
           if (rowMatch && !rowCreationHandled) {
             rowCreationHandled = true;
             const createdItemName = rowMatch[1];
-            console.log('[Chat] Row creation detected in stream:', createdItemName);
-            // Wait for the backend to commit the row
+            // Wait for DB commit
             await new Promise(resolve => setTimeout(resolve, 800));
-            // Refresh rows from DB to ensure we have the latest
             const freshRows = await fetchRowsFromDb();
-            console.log('[Chat] Fetched fresh rows:', freshRows.length, freshRows);
             store.setRows(freshRows);
-            // Select the newest row and trigger search
+            
             if (freshRows.length > 0) {
               const newestRow = freshRows[freshRows.length - 1];
               store.setActiveRowId(newestRow.id);
-              console.log('[Chat] Set active row:', newestRow.id, newestRow.title);
-              // Trigger search for the new row (LLM may not always call searchListings)
-              console.log('[Chat] Triggering search for new row:', newestRow.id, newestRow.title);
-              await runSearch(newestRow.title, newestRow.id);
+              // Trigger search
+              const results = await runSearchApi(newestRow.title, newestRow.id);
+              store.setRowResults(newestRow.id, results);
             }
           }
           
-          // Parse row update from stream (refinements)
+          // 2. Row Update
           const updateMatch = assistantContent.match(/🔄 Updating row #(\d+) to "([^"]+)".*Done!/s);
           if (updateMatch && !rowUpdateHandled) {
             rowUpdateHandled = true;
             const updatedRowId = parseInt(updateMatch[1], 10);
             const updatedTitle = updateMatch[2];
-            console.log('[Chat] Row update detected:', updatedRowId, updatedTitle);
-            // Refresh rows from DB to get updated title
+            
             const freshRows = await fetchRowsFromDb();
             store.setRows(freshRows);
             store.setActiveRowId(updatedRowId);
-            // Trigger search for the updated row
-            console.log('[Chat] Triggering search for updated row:', updatedRowId, updatedTitle);
-            await runSearch(updatedTitle, updatedRowId);
+            
+            const results = await runSearchApi(updatedTitle, updatedRowId);
+            store.setRowResults(updatedRowId, results);
           }
           
-          // Parse search events from the stream (fallback if LLM calls searchListings directly)
+          // 3. Explicit Search
           const searchMatch = assistantContent.match(/🔍 Searching for "([^"]+)"/);
           if (searchMatch && searchMatch[1] !== lastProcessedQuery) {
             lastProcessedQuery = searchMatch[1];
-            // Execute the search flow (rows should already be loaded from row creation handler)
             await handleSearchFlow(lastProcessedQuery);
           }
           
@@ -302,37 +202,39 @@ export default function Chat() {
   };
   
   // Handle when a card is clicked (called from Board via store)
-  // This appends the card's query to the chat
   useEffect(() => {
     const cardClickQuery = store.cardClickQuery;
-    
     if (cardClickQuery) {
-      console.log('[Chat] Card clicked - Appending to chat:', cardClickQuery);
       const cardMessage: Message = {
         id: Date.now().toString(),
         role: 'user',
         content: cardClickQuery,
       };
       setMessages(prev => [...prev, cardMessage]);
-      // Clear the trigger so it doesn't fire again
       store.setCardClickQuery(null);
     }
   }, [store.cardClickQuery]);
 
   return (
-    <div className="flex flex-col h-full border-r border-gray-200 bg-gray-50 w-1/3 min-w-[300px]">
+    <div className="flex flex-col h-full border-r border-gray-200 bg-gray-50 w-1/3 min-w-[350px] shrink-0">
       <div className="p-4 border-b border-gray-200 bg-white shadow-sm">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <Bot className="w-5 h-5 text-blue-600" />
           Shopping Agent
         </h2>
+        {activeRow && (
+          <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-green-500"></span>
+            Active: <span className="font-medium text-gray-700 truncate max-w-[200px]">{activeRow.title}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="text-center text-gray-500 mt-10">
             <p>Hello! I can help you find items and manage your procurement list.</p>
-            <p className="text-sm mt-2">Try "I need a blue hoodie under $50"</p>
+            <p className="text-sm mt-2 text-gray-400">Try "I need a blue hoodie under $50"</p>
           </div>
         )}
         
@@ -345,7 +247,7 @@ export default function Chat() {
           >
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                m.role === 'user' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
+                m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-green-100 text-green-600'
               }`}
             >
               {m.role === 'user' ? <User size={16} /> : <Bot size={16} />}
@@ -362,25 +264,15 @@ export default function Chat() {
             </div>
           </div>
         ))}
-        {isLoading && messages[messages.length - 1]?.role === 'user' && (
-            <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0">
-                    <Bot size={16} />
-                </div>
-                <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
-                    <span className="animate-pulse">Thinking...</span>
-                </div>
-            </div>
-        )}
         <div ref={messagesEndRef} />
       </div>
 
       <div className="p-4 bg-white border-t border-gray-200">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input
-            className="flex-1 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+            className="flex-1 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black text-sm"
             value={input}
-            placeholder="What are you looking for?"
+            placeholder={activeRow ? `Refine "${activeRow.title}"...` : "What are you looking for?"}
             onChange={(e) => setInput(e.target.value)}
           />
           <button
@@ -388,7 +280,7 @@ export default function Chat() {
             disabled={isLoading || !input?.trim()}
             className="bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            <Send size={20} />
+            <Send size={18} />
           </button>
         </form>
       </div>

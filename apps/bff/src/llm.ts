@@ -1,5 +1,5 @@
 import { google } from '@ai-sdk/google';
-import { streamText } from 'ai';
+import { streamText, generateText } from 'ai';
 import { z } from 'zod';
 
 const model = google(process.env.GEMINI_MODEL || 'gemini-1.5-flash');
@@ -35,6 +35,17 @@ DO NOT call createRow - the row already exists!`
 3. When calling updateRow:
    - Build a NEW title with ALL constraints: "red Montana State shirts under $50 XXL"
    - Include constraints object: {"color":"red", "max_price":"50", "size":"XXL"}
+
+WORKFLOW FOR NEW REQUESTS:
+1. When user asks for a new item, call createRow first
+2. Then call getChoiceFactors to identify relevant decision criteria
+3. Ask the user about EACH required factor, one at a time
+4. After each answer, call saveChoiceAnswer
+5. Once you have enough info (or user says "just search"), call searchListings
+
+WORKFLOW FOR REFINEMENTS:
+1. If user changes requirements, call updateRow then searchListings
+2. If user answers a choice factor question, call saveChoiceAnswer
 
 REFINEMENT DETECTION:
 - "under $X" / "less than" / "cheaper" → REFINEMENT (price)
@@ -138,6 +149,112 @@ ${activeRowInstruction}`,
             });
             const data = await response.json() as any;
             return { status: 'results_found', row_id: input.rowId, count: data.results?.length || 0, preview: data.results?.slice(0, 3) };
+          } catch (e) {
+            return { status: 'error', error: String(e) };
+          }
+        },
+      },
+      getChoiceFactors: {
+        description: 'Get relevant choice factors for a product category. Call this after creating a row to determine what questions to ask the user.',
+        inputSchema: z.object({
+          category: z.string().describe('The product category, e.g., "laptop", "wedding venue", "car"'),
+          rowId: z.number().describe('The row ID to associate factors with'),
+        }),
+        execute: async (input: { category: string; rowId: number }) => {
+          const factorPrompt = `You are determining the key decision factors for purchasing: "${input.category}"
+
+Return a JSON array of 3-6 choice factors. Each factor should have:
+- name: lowercase_snake_case identifier
+- label: Human-readable question
+- type: "number" | "select" | "text" | "boolean"
+- options: array of strings (only for "select" type)
+- required: boolean
+
+Example for "laptop":
+[
+  {"name": "budget", "label": "What's your maximum budget?", "type": "number", "required": true},
+  {"name": "primary_use", "label": "Primary use?", "type": "select", "options": ["gaming", "work", "school", "general"], "required": true},
+  {"name": "screen_size", "label": "Preferred screen size?", "type": "select", "options": ["13 inch", "15 inch", "17 inch"], "required": false}
+]
+
+Return ONLY the JSON array, no explanation.`;
+
+          try {
+            const { text } = await generateText({
+              model,
+              prompt: factorPrompt,
+            });
+            
+            let factors;
+            try {
+              // Handle potential markdown code blocks in response
+              const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
+              factors = JSON.parse(cleanedText);
+            } catch (e) {
+              console.error("Failed to parse factors JSON:", text);
+              return { status: 'error', error: 'Failed to generate valid factors' };
+            }
+            
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (authorization) {
+              headers['Authorization'] = authorization;
+            }
+            
+            await fetch(`${BACKEND_URL}/rows/${input.rowId}`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({ choice_factors: JSON.stringify(factors) }),
+            });
+            
+            return { 
+              status: 'factors_generated', 
+              row_id: input.rowId, 
+              factors,
+              next_action: 'Ask the user about these factors one at a time'
+            };
+          } catch (e) {
+            return { status: 'error', error: String(e) };
+          }
+        },
+      },
+      saveChoiceAnswer: {
+        description: 'Save a user\'s answer to a choice factor question. Call this when the user answers a question about their requirements.',
+        inputSchema: z.object({
+          rowId: z.number().describe('The row ID'),
+          factorName: z.string().describe('The factor name (e.g., "budget", "primary_use")'),
+          answer: z.union([z.string(), z.number(), z.boolean()]).describe('The user\'s answer'),
+        }),
+        execute: async (input: { rowId: number; factorName: string; answer: string | number | boolean }) => {
+          try {
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (authorization) {
+              headers['Authorization'] = authorization;
+            }
+            
+            const rowRes = await fetch(`${BACKEND_URL}/rows/${input.rowId}`, { headers });
+            const row = await rowRes.json() as any;
+            
+            let answers: Record<string, any> = {};
+            if (row.choice_answers) {
+              try {
+                answers = JSON.parse(row.choice_answers);
+              } catch {}
+            }
+            
+            answers[input.factorName] = input.answer;
+            
+            await fetch(`${BACKEND_URL}/rows/${input.rowId}`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({ choice_answers: JSON.stringify(answers) }),
+            });
+            
+            return { 
+              status: 'answer_saved', 
+              row_id: input.rowId, 
+              factor: input.factorName,
+              answers 
+            };
           } catch (e) {
             return { status: 'error', error: String(e) };
           }

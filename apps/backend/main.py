@@ -2,26 +2,53 @@
 FastAPI Application Example
 Production-ready template with health checks and CORS
 """
-from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi import FastAPI, Depends, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse, JSONResponse
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 import os
 import httpx
+import traceback
 from datetime import datetime, timedelta
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from sourcing import SourcingRepository, SearchResult
+from sourcing import SourcingRepository, SearchResult, extract_merchant_domain
 from database import init_db, get_session
 from models import (
     Row, RowBase, RowCreate, RequestSpec,
-    AuthLoginCode, AuthSession, Bid, Seller, User,
+    AuthLoginCode, AuthSession, Bid, Seller, User, ClickoutEvent,
     hash_token, generate_verification_code, generate_session_token
 )
+from affiliate import link_resolver, ClickContext
+from audit import audit_log
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 FROM_EMAIL = os.getenv("FROM_EMAIL", "Agent Shopper <shopper@info.xcor-cto.com>")
+
+
+async def require_admin(
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+) -> User:
+    """Dependency that requires admin role."""
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    user = await session.get(User, auth_session.user_id)
+    if not user or not user.is_admin:
+        # Log unauthorized admin access attempt
+        await audit_log(
+            session=session,
+            action="admin.access_denied",
+            user_id=auth_session.user_id,
+            details={"reason": "Not an admin"},
+        )
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    return user
 
 
 async def send_verification_email(to_email: str, code: str) -> bool:
@@ -272,6 +299,35 @@ async def update_row(
 class RowSearchRequest(BaseModel):
     query: Optional[str] = None
 
+from collections import defaultdict
+
+# Simple in-memory rate limiter (use Redis in production)
+rate_limit_store: dict[str, List[datetime]] = defaultdict(list)
+RATE_LIMIT_WINDOW = 60  # seconds
+RATE_LIMIT_MAX = {
+    "search": 30,      # 30 searches per minute
+    "clickout": 60,    # 60 clicks per minute
+    "auth_start": 5,   # 5 login attempts per minute
+}
+
+def check_rate_limit(key: str, limit_type: str) -> bool:
+    """Returns True if request is allowed, False if rate limited."""
+    now = datetime.utcnow()
+    window_start = now - timedelta(seconds=RATE_LIMIT_WINDOW)
+    
+    # Clean old entries
+    rate_limit_store[key] = [
+        t for t in rate_limit_store[key] if t > window_start
+    ]
+    
+    max_requests = RATE_LIMIT_MAX.get(limit_type, 100)
+    if len(rate_limit_store[key]) >= max_requests:
+        return False
+    
+    rate_limit_store[key].append(now)
+    return True
+
+
 @app.post("/rows/{row_id}/search", response_model=SearchResponse)
 async def search_row_listings(
     row_id: int,
@@ -283,6 +339,11 @@ async def search_row_listings(
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
         raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Rate limiting
+    rate_key = f"search:{auth_session.user_id}"
+    if not check_rate_limit(rate_key, "search"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
     # Fetch row scoped to user
     result = await session.exec(
@@ -314,6 +375,94 @@ async def search_row_listings(
 
     results = await sourcing_repo.search_all(base_query)
     return {"results": results}
+
+
+@app.get("/api/out")
+async def clickout_redirect(
+    url: str,
+    request: Request,
+    row_id: Optional[int] = None,
+    idx: int = 0,
+    source: str = "unknown",
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Log a clickout event and redirect to the merchant.
+    
+    Query params:
+        url: The canonical merchant URL
+        row_id: The procurement row this offer belongs to
+        idx: The offer's position in search results
+        source: The sourcing provider (e.g., serpapi_google_shopping)
+    """
+    # Validate URL
+    if not url or not url.startswith(('http://', 'https://')):
+        raise HTTPException(status_code=400, detail="Invalid URL")
+    
+    # Extract user if authenticated
+    user_id = None
+    session_id = None
+    if authorization:
+        auth_session = await get_current_session(authorization, session)
+        if auth_session:
+            user_id = auth_session.user_id
+            session_id = auth_session.id
+
+    # Rate limiting (per user or IP)
+    rate_key = f"clickout:{user_id or request.client.host}"
+    if not check_rate_limit(rate_key, "clickout"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    
+    # Extract merchant domain
+    merchant_domain = extract_merchant_domain(url)
+    
+    # Build context for resolver
+    context = ClickContext(
+        user_id=user_id,
+        row_id=row_id,
+        offer_index=idx,
+        source=source,
+        merchant_domain=merchant_domain,
+    )
+    
+    # Resolve affiliate link
+    resolved = link_resolver.resolve(url, context)
+    
+    # Log the clickout event (DB)
+    event = ClickoutEvent(
+        user_id=user_id,
+        session_id=session_id,
+        row_id=row_id,
+        offer_index=idx,
+        canonical_url=url,
+        final_url=resolved.final_url,
+        merchant_domain=merchant_domain,
+        handler_name=resolved.handler_name,
+        affiliate_tag=resolved.affiliate_tag,
+        source=source,
+    )
+    session.add(event)
+    await session.commit()
+
+    # Audit log (immutable log)
+    await audit_log(
+        session=session,
+        action="clickout.redirect",
+        user_id=user_id,
+        resource_type="clickout",
+        resource_id=str(event.id),
+        details={
+            "canonical_url": url,
+            "merchant_domain": merchant_domain,
+            "handler_name": resolved.handler_name,
+        },
+        request=request,
+    )
+    
+    # Redirect to transformed URL
+    return RedirectResponse(url=resolved.final_url, status_code=302)
+
 
 # Search endpoint
 @app.post("/v1/sourcing/search", response_model=SearchResponse)
@@ -354,6 +503,10 @@ async def mint_session(request: MintSessionRequest, session: AsyncSession = Depe
     if os.getenv("E2E_TEST_MODE") != "1":
         raise HTTPException(status_code=404, detail="Not Found")
     
+    # Rate limiting (strict for minting)
+    if not check_rate_limit(f"mint:{request.email}", "auth_start"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    
     email = request.email.lower()
     
     # Create user if not exists
@@ -379,9 +532,22 @@ async def mint_session(request: MintSessionRequest, session: AsyncSession = Depe
 
 
 @app.post("/auth/start", response_model=AuthStartResponse)
-async def auth_start(request: AuthStartRequest, session: AsyncSession = Depends(get_session)):
+async def auth_start(
+    auth_request: AuthStartRequest,
+    req: Request,
+    session: AsyncSession = Depends(get_session)
+):
     """Send a verification code to the user's email."""
-    email = request.email.lower()
+    email = auth_request.email.lower()
+    
+    # Audit log start
+    await audit_log(
+        session=session,
+        action="auth.login_start",
+        details={"email": email},
+        request=req,
+    )
+    
     now = datetime.utcnow()
     
     # Check for existing active codes and lockout, then invalidate them
@@ -544,6 +710,107 @@ async def auth_logout(
     await session.commit()
     
     return {"status": "ok"}
+
+
+@app.get("/admin/audit")
+async def list_audit_logs(
+    limit: int = 100,
+    action: Optional[str] = None,
+    user_id: Optional[int] = None,
+    since: Optional[datetime] = None,
+    admin: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """List audit logs (admin only)."""
+    # Verify admin access log (already logged in require_admin)
+    
+    query = select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(limit)
+    
+    if action:
+        query = query.where(AuditLog.action == action)
+    if user_id:
+        query = query.where(AuditLog.user_id == user_id)
+    if since:
+        query = query.where(AuditLog.timestamp >= since)
+    
+    result = await session.exec(query)
+    return result.all()
+
+
+@app.get("/health/ready")
+async def readiness_check(session: AsyncSession = Depends(get_session)):
+    """
+    Readiness check - verifies all dependencies are available.
+    
+    Returns 503 if any dependency is unavailable.
+    """
+    checks = {}
+    
+    # Database check
+    try:
+        await session.exec(select(1))
+        checks["database"] = "ok"
+    except Exception as e:
+        checks["database"] = f"error: {str(e)[:100]}"
+    
+    # Check if any critical dependency failed
+    all_ok = all(v == "ok" for v in checks.values())
+    
+    return JSONResponse(
+        status_code=200 if all_ok else 503,
+        content={
+            "status": "ready" if all_ok else "degraded",
+            "checks": checks,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Global exception handler for unhandled errors.
+    
+    - Logs full traceback
+    - Returns safe error message to client
+    - Creates audit log entry
+    """
+    error_id = f"ERR-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{id(exc)}"
+    
+    # Log full error (server-side)
+    print(f"[ERROR {error_id}] Unhandled exception:")
+    traceback.print_exc()
+    
+    # Audit log (best effort)
+    try:
+        # We need a new session here because the request session might be rolled back
+        async with get_session() as session:
+            # Note: auth info might be missing if auth failed
+            await audit_log(
+                session=session,
+                action="error.unhandled",
+                details={
+                    "error_id": error_id,
+                    "error_type": type(exc).__name__,
+                    "path": str(request.url.path),
+                    "method": request.method,
+                },
+                success=False,
+                error_message=str(exc)[:500],
+                request=request,
+            )
+    except:
+        pass  # Don't let audit logging fail the error handler
+    
+    # Safe response to client
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal server error",
+            "error_id": error_id,
+            "message": "An unexpected error occurred. Please try again.",
+        }
+    )
 
 
 # Startup event

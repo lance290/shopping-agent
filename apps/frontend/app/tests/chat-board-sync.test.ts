@@ -64,9 +64,13 @@ describe('Chat-Board Synchronization', () => {
     expect(match?.id).toBe(32); // Should reuse the active card
   });
 
-  test('Product tile links to sales page when clicking image (regression)', () => {
+  test('Product tile links to sales page via clickout when clicking image', () => {
     const store = useShoppingStore.getState();
-    store.setSearchResults([
+    // In new board, results are in rowResults, not searchResults
+    store.setRows([
+      { id: 99, title: 'Test Row', status: 'sourcing', budget_max: null, currency: 'USD' }
+    ]);
+    store.setRowResults(99, [
       {
         title: 'Test Product 1',
         price: 19.99,
@@ -86,6 +90,8 @@ describe('Chat-Board Synchronization', () => {
     const img = screen.getByAltText('Test Product 1');
     const link = img.closest('a');
     expect(link).not.toBeNull();
-    expect(link?.getAttribute('href')).toBe('https://example.com/product/123');
+    // Check for clickout URL
+    expect(link?.getAttribute('href')).toContain('/api/out');
+    expect(link?.getAttribute('href')).toContain(encodeURIComponent('https://example.com/product/123'));
   });
 });

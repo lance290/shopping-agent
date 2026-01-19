@@ -12,6 +12,35 @@ fastify.register(cors, {
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
+// Proxy clickout to backend (preserves auth header for user tracking)
+fastify.get('/api/out', async (request, reply) => {
+  try {
+    const query = request.query as Record<string, string>;
+    const params = new URLSearchParams(query).toString();
+    
+    const headers: Record<string, string> = {};
+    if (request.headers.authorization) {
+      headers['Authorization'] = request.headers.authorization;
+    }
+    
+    const response = await fetch(`${BACKEND_URL}/api/out?${params}`, {
+      headers,
+      redirect: 'manual', // Don't follow redirect, pass it through
+    });
+    
+    // Pass through the redirect
+    const location = response.headers.get('location');
+    if (location) {
+      reply.redirect(302, location);
+    } else {
+      reply.status(response.status).send(await response.text());
+    }
+  } catch (err) {
+    fastify.log.error(err);
+    reply.status(500).send({ error: 'Clickout failed' });
+  }
+});
+
 // Proxy search to backend (supports per-row search with constraints)
 fastify.post('/api/search', async (request, reply) => {
   try {

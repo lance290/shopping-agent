@@ -8,7 +8,7 @@ import ssl
 # Default to a local postgres if not set
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/shopping_agent"
+    DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5435/shopping_agent"
 
 # Ensure asyncpg driver is used in the connection string
 if DATABASE_URL.startswith("postgres://"):

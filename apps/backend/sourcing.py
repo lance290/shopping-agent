@@ -3,6 +3,22 @@ from pydantic import BaseModel, Field
 from abc import ABC, abstractmethod
 import httpx
 import os
+from urllib.parse import urlparse
+import asyncio
+import time
+
+
+def extract_merchant_domain(url: str) -> str:
+    """Extract the merchant domain from a URL."""
+    try:
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+        # Remove www. prefix
+        if domain.startswith('www.'):
+            domain = domain[4:]
+        return domain
+    except Exception:
+        return "unknown"
 
 
 def normalize_url(url: str) -> str:
@@ -23,11 +39,54 @@ class SearchResult(BaseModel):
     currency: str = "USD"
     merchant: str
     url: str
+    merchant_domain: str = ""
+    match_score: float = 0.0
     image_url: Optional[str] = None
     rating: Optional[float] = None
     reviews_count: Optional[int] = None
     shipping_info: Optional[str] = None
     source: str
+
+def compute_match_score(result: SearchResult, query: str) -> float:
+    """
+    Compute a basic relevance score for a search result.
+    
+    Factors:
+        - Title contains query words
+        - Has image
+        - Has rating
+        - Has reviews
+        - Price is present
+    
+    Returns: 0.0 - 1.0
+    """
+    score = 0.0
+    query_words = set(query.lower().split())
+    title_words = set(result.title.lower().split())
+    
+    # Title relevance (0-0.4)
+    if query_words:
+        overlap = len(query_words & title_words)
+        score += 0.4 * (overlap / len(query_words))
+    
+    # Has image (0.15)
+    if result.image_url:
+        score += 0.15
+    
+    # Has rating (0.15)
+    if result.rating and result.rating > 0:
+        score += 0.15
+    
+    # Has reviews (0.15)
+    if result.reviews_count and result.reviews_count > 0:
+        score += 0.15
+    
+    # Has price (0.15)
+    if result.price and result.price > 0:
+        score += 0.15
+    
+    return min(score, 1.0)
+
 
 class SourcingProvider(ABC):
     @abstractmethod
@@ -71,6 +130,7 @@ class SearchAPIProvider(SourcingProvider):
                     price=price,
                     merchant=item.get("seller") or item.get("source", "Unknown"),
                     url=url,
+                    merchant_domain=extract_merchant_domain(url),
                     image_url=item.get("thumbnail"),
                     rating=item.get("rating"),
                     reviews_count=item.get("reviews"),
@@ -116,6 +176,7 @@ class SerpAPIProvider(SourcingProvider):
                     price=price,
                     merchant=item.get("source", "Unknown"),
                     url=url,
+                    merchant_domain=extract_merchant_domain(url),
                     image_url=item.get("thumbnail"),
                     rating=item.get("rating"),
                     reviews_count=item.get("reviews"),
@@ -162,6 +223,7 @@ class ValueSerpProvider(SourcingProvider):
                     price=price,
                     merchant=item.get("source", "Unknown"),
                     url=url,
+                    merchant_domain=extract_merchant_domain(url),
                     image_url=item.get("thumbnail"),
                     rating=item.get("rating"),
                     reviews_count=item.get("reviews"),
@@ -195,11 +257,14 @@ class RainforestAPIProvider(SourcingProvider):
                 price_info = item.get("price", {})
                 price = price_info.get("value", 0) if isinstance(price_info, dict) else 0
                 
+                url = normalize_url(item.get("link", ""))
+                
                 results.append(SearchResult(
                     title=item.get("title", "Unknown"),
                     price=float(price) if price else 0.0,
                     merchant="Amazon",
-                    url=normalize_url(item.get("link", "")),
+                    url=url,
+                    merchant_domain=extract_merchant_domain(url),
                     image_url=item.get("image"),
                     rating=item.get("rating"),
                     reviews_count=item.get("ratings_total"),
@@ -227,12 +292,14 @@ class MockShoppingProvider(SourcingProvider):
         results = []
         for i in range(random.randint(8, 15)):
             base_price = random.uniform(15, 150)
+            url = f"https://example.com/product/{query_hash + i}"
             results.append(SearchResult(
                 title=f"{query} - Style {chr(65 + i)} {'Premium' if i % 3 == 0 else 'Standard'} Edition",
                 price=round(base_price, 2),
                 currency="USD",
                 merchant=random.choice(merchants),
-                url=f"https://example.com/product/{query_hash + i}",
+                url=url,
+                merchant_domain=extract_merchant_domain(url),
                 image_url=f"https://picsum.photos/seed/{query_hash + i}/300/300",
                 rating=round(random.uniform(3.5, 5.0), 1),
                 reviews_count=random.randint(10, 5000),
@@ -265,11 +332,13 @@ class GoogleCustomSearchProvider(SourcingProvider):
             
             results = []
             for item in data.get("items", []):
+                url = normalize_url(item.get("link", ""))
                 results.append(SearchResult(
                     title=item.get("title", "Unknown"),
                     price=0.0,  # Google CSE doesn't return prices
                     merchant="Google Search",
-                    url=normalize_url(item.get("link", "")),
+                    url=url,
+                    merchant_domain=extract_merchant_domain(url),
                     image_url=item.get("link"),
                     source="google_cse"
                 ))
@@ -317,16 +386,59 @@ class SourcingRepository:
     async def search_all(self, query: str, **kwargs) -> List[SearchResult]:
         print(f"[SourcingRepository] search_all called with query: {query}")
         print(f"[SourcingRepository] Available providers: {list(self.providers.keys())}")
-        all_results = []
-        for name, provider in self.providers.items():
+        
+        start_time = time.time()
+        PROVIDER_TIMEOUT_SECONDS = 3.0
+
+        async def search_with_timeout(name: str, provider: SourcingProvider) -> List[SearchResult]:
             try:
-                print(f"[SourcingRepository] Searching with provider: {name}")
-                results = await provider.search(query, **kwargs)
+                print(f"[SourcingRepository] Starting search with provider: {name}")
+                results = await asyncio.wait_for(
+                    provider.search(query, **kwargs),
+                    timeout=PROVIDER_TIMEOUT_SECONDS
+                )
                 print(f"[SourcingRepository] Provider {name} returned {len(results)} results")
-                all_results.extend(results)
+                return results
+            except asyncio.TimeoutError:
+                print(f"[SourcingRepository] Provider {name} timed out after {PROVIDER_TIMEOUT_SECONDS}s")
+                return []
             except Exception as e:
                 print(f"Provider {name} failed: {e}")
+                return []
+
+        # Run all providers in parallel
+        tasks = [
+            search_with_timeout(name, provider)
+            for name, provider in self.providers.items()
+        ]
+        
+        results_lists = await asyncio.gather(*tasks)
+        
+        all_results = []
+        for results in results_lists:
+            all_results.extend(results)
+            
         filtered_results = [r for r in all_results if normalize_url(getattr(r, 'url', ''))[:4] == 'http']
+        
+        # Deduplication
+        seen_urls = set()
+        unique_results = []
+        for r in filtered_results:
+            url_key = r.url.lower().rstrip('/')
+            if url_key not in seen_urls:
+                seen_urls.add(url_key)
+                unique_results.append(r)
+        
+        # Scoring
+        for result in unique_results:
+            result.match_score = compute_match_score(result, query)
+            
+        # Sort by match score
+        unique_results.sort(key=lambda r: r.match_score, reverse=True)
+        
+        elapsed = time.time() - start_time
+        print(f"[SourcingRepository] Search completed in {elapsed:.2f}s")
         print(f"[SourcingRepository] Total results: {len(all_results)}")
-        print(f"[SourcingRepository] Results with http(s) url: {len(filtered_results)}")
-        return filtered_results
+        print(f"[SourcingRepository] Unique results with http(s) url: {len(unique_results)}")
+        
+        return unique_results

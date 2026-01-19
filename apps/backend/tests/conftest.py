@@ -4,6 +4,7 @@ import os
 import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.orm import sessionmaker
+from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.pool import NullPool
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -18,10 +19,10 @@ from main import app, get_session
 async def session_fixture():
     # Use NullPool for tests to avoid asyncpg InterfaceError: cannot perform operation: another operation is in progress
     # This ensures each test gets a fresh connection that is closed at the end
-    db_url = str(engine.url)
+    # Pass the URL object directly to avoid password masking in string representation
     
     test_engine = create_async_engine(
-        db_url, 
+        engine.url, 
         echo=False, 
         future=True, 
         poolclass=NullPool

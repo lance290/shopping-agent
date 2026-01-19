@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export interface Product {
+export interface Offer {
   title: string;
   price: number;
   currency: string;
@@ -11,6 +11,10 @@ export interface Product {
   reviews_count: number | null;
   shipping_info: string | null;
   source: string;
+  // New fields
+  merchant_domain?: string;
+  click_url?: string;
+  match_score?: number;
 }
 
 export interface Row {
@@ -19,6 +23,35 @@ export interface Row {
   status: string;
   budget_max: number | null;
   currency: string;
+  choice_factors?: string;   // JSON string
+  choice_answers?: string;   // JSON string
+}
+
+// Helper to parse factors
+export function parseChoiceFactors(row: Row): any[] {
+  if (!row.choice_factors) return [];
+  try {
+    return JSON.parse(row.choice_factors);
+  } catch {
+    return [];
+  }
+}
+
+export function parseChoiceAnswers(row: Row): Record<string, any> {
+  if (!row.choice_answers) return {};
+  try {
+    return JSON.parse(row.choice_answers);
+  } catch {
+    return {};
+  }
+}
+
+export interface ChoiceFactor {
+  name: string;
+  label: string;
+  type: 'number' | 'select' | 'text' | 'boolean';
+  options?: string[];
+  required: boolean;
 }
 
 // The source of truth state
@@ -27,8 +60,8 @@ interface ShoppingState {
   currentQuery: string;           // The current search query
   activeRowId: number | null;     // The currently selected row ID
   rows: Row[];                    // All rows from database
-  searchResults: Product[];       // Current search results (legacy view)
-  rowResults: Record<number, Product[]>; // Per-row cached results
+  searchResults: Offer[];         // Current search results (legacy view)
+  rowResults: Record<number, Offer[]>; // Per-row cached results
   isSearching: boolean;           // Loading state for search
   cardClickQuery: string | null;  // Query from card click (triggers chat append)
   
@@ -39,8 +72,8 @@ interface ShoppingState {
   addRow: (row: Row) => void;
   updateRow: (id: number, updates: Partial<Row>) => void;
   removeRow: (id: number) => void;
-  setSearchResults: (results: Product[]) => void;
-  setRowResults: (rowId: number, results: Product[]) => void;
+  setSearchResults: (results: Offer[]) => void;
+  setRowResults: (rowId: number, results: Offer[]) => void;
   clearRowResults: (rowId: number) => void;
   setIsSearching: (searching: boolean) => void;
   clearSearch: () => void;

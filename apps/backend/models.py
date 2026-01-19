@@ -28,6 +28,10 @@ class RowBase(SQLModel):
     currency: str = "USD"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Choice factors as JSON strings for MVP simplicity
+    choice_factors: Optional[str] = None  # JSON array of ChoiceFactor objects
+    choice_answers: Optional[str] = None  # JSON object of factor_name -> answer
 
 class RequestSpecBase(SQLModel):
     item_name: str
@@ -92,6 +96,39 @@ class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str = Field(index=True, unique=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    is_admin: bool = Field(default=False)
+
+
+class AuditLog(SQLModel, table=True):
+    """
+    Immutable audit log for all significant system events.
+    
+    This is append-only. No UPDATE or DELETE operations allowed.
+    """
+    __tablename__ = "audit_log"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # When
+    timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
+    
+    # Who
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    session_id: Optional[int] = Field(default=None)
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    
+    # What
+    action: str = Field(index=True)  # e.g., "row.create", "clickout", "auth.login"
+    resource_type: Optional[str] = None  # e.g., "row", "user", "clickout"
+    resource_id: Optional[str] = None  # e.g., "123"
+    
+    # Details
+    details: Optional[str] = None  # JSON string with action-specific data
+    
+    # Outcome
+    success: bool = True
+    error_message: Optional[str] = None
 
 
 class AuthLoginCode(SQLModel, table=True):
@@ -117,3 +154,33 @@ class AuthSession(SQLModel, table=True):
     session_token_hash: str = Field(index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     revoked_at: Optional[datetime] = None
+
+
+class ClickoutEvent(SQLModel, table=True):
+    """Logs every outbound click for affiliate tracking and auditing."""
+    __tablename__ = "clickout_event"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # Who clicked
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    session_id: Optional[int] = Field(default=None)  # For anonymous tracking
+    
+    # What they clicked
+    row_id: Optional[int] = Field(default=None, index=True)
+    offer_index: int = 0  # Position in results (for ranking analysis)
+    
+    # URL info
+    canonical_url: str  # Original URL from provider
+    final_url: str  # URL after affiliate transformation (may be same)
+    merchant_domain: str = Field(index=True)  # e.g., "amazon.com"
+    
+    # Affiliate info
+    handler_name: str = "none"  # Which handler processed this
+    affiliate_tag: Optional[str] = None  # e.g., "buyanything-20"
+    
+    # Provenance
+    source: str = "unknown"  # e.g., "serpapi_google_shopping"
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
