@@ -53,8 +53,8 @@ export default function ChoiceFactorPanel({ row, isOpen, onClose }: ChoiceFactor
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-xl">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Refine Your Request</h2>
-            <p className="text-sm text-gray-500 mt-1">Help the agent find exactly what you need.</p>
+            <h2 className="text-lg font-semibold text-gray-900">Product Specifications</h2>
+            <p className="text-sm text-gray-500 mt-1">Review and edit the constraints for this request.</p>
           </div>
           <button 
             onClick={onClose} 
@@ -71,9 +71,9 @@ export default function ChoiceFactorPanel({ row, isOpen, onClose }: ChoiceFactor
               <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Loader2 className="animate-spin" size={24} />
               </div>
-              <p className="text-gray-900 font-medium">Analyzing your request...</p>
+              <p className="text-gray-900 font-medium">Extracting specifications...</p>
               <p className="text-sm text-gray-500 mt-2 max-w-xs mx-auto">
-                The agent is identifying key decision factors for "{row.title}". This usually takes a few seconds.
+                The agent is identifying the key attributes for "{row.title}".
               </p>
             </div>
           ) : (
@@ -82,11 +82,14 @@ export default function ChoiceFactorPanel({ row, isOpen, onClose }: ChoiceFactor
                 const isSaving = savingFields[factor.name];
                 const hasAnswer = localAnswers[factor.name] !== undefined && localAnswers[factor.name] !== '';
                 
+                // Convert snake_case name to Title Case Label (e.g. "screen_size" -> "Screen Size")
+                const label = factor.name.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                
                 return (
                   <div key={factor.name} className="group">
                     <label className="flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
                       <span className="flex items-center gap-2">
-                        {factor.label}
+                        {label}
                         {factor.required && (
                           <span className="text-[10px] uppercase tracking-wider font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded">
                             Required
