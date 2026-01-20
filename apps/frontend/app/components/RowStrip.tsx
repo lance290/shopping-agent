@@ -3,7 +3,7 @@ import { Row, Offer, OfferSortMode, useShoppingStore } from '../store';
 import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import { Archive, RefreshCw, FlaskConical } from 'lucide-react';
-import { runSearchApi } from '../utils/api';
+import { runSearchApi, selectOfferForRow } from '../utils/api';
 
 interface RowStripProps {
   row: Row;
@@ -20,6 +20,7 @@ export default function RowStrip({ row, offers, isActive, onSelect }: RowStripPr
   const setRowOfferSort = useShoppingStore(state => state.setRowOfferSort);
   const setIsSearching = useShoppingStore(state => state.setIsSearching);
   const setRowResults = useShoppingStore(state => state.setRowResults);
+  const updateRow = useShoppingStore(state => state.updateRow);
   const isPendingArchive = pendingRowDelete?.row.id === row.id;
   const sortMode: OfferSortMode = rowOfferSort[row.id] || 'original';
 
@@ -69,6 +70,23 @@ export default function RowStrip({ row, offers, isActive, onSelect }: RowStripPr
     });
     return sortMode === 'price_desc' ? byPrice.reverse() : byPrice;
   })();
+
+  const handleSelectOffer = async (offer: Offer) => {
+    if (!offer.bid_id) return;
+
+    const updatedOffers = offers.map((item) => ({
+      ...item,
+      is_selected: item.bid_id === offer.bid_id,
+    }));
+
+    setRowResults(row.id, updatedOffers);
+    updateRow(row.id, { status: 'closed' });
+
+    const success = await selectOfferForRow(row.id, offer.bid_id);
+    if (!success) {
+      console.error('[RowStrip] Failed to persist selection');
+    }
+  };
 
   return (
     <div 
@@ -173,7 +191,13 @@ export default function RowStrip({ row, offers, isActive, onSelect }: RowStripPr
           {/* Offer Tiles */}
           {sortedOffers && sortedOffers.length > 0 ? (
             sortedOffers.map((offer, idx) => (
-              <OfferTile key={`${row.id}-${idx}`} offer={offer} index={idx} rowId={row.id} />
+              <OfferTile
+                key={`${row.id}-${idx}`}
+                offer={offer}
+                index={idx}
+                rowId={row.id}
+                onSelect={handleSelectOffer}
+              />
             ))
           ) : (
             <div className="flex items-center justify-center w-64 text-sm text-gray-400 italic border-2 border-dashed border-gray-100 rounded-lg">

@@ -125,6 +125,7 @@ class BidRead(BaseModel):
     item_url: Optional[str] = None
     image_url: Optional[str] = None
     source: str
+    is_selected: bool = False
     seller: Optional[SellerRead] = None
 
 class RowReadWithBids(RowBase):
@@ -277,6 +278,7 @@ class RowUpdate(BaseModel):
     request_spec: Optional[RequestSpecUpdate] = None
     choice_factors: Optional[str] = None
     choice_answers: Optional[str] = None
+    selected_bid_id: Optional[int] = None
 
 @app.patch("/rows/{row_id}")
 async def update_row(
@@ -303,9 +305,25 @@ async def update_row(
         raise HTTPException(status_code=404, detail="Row not found")
     
     row_data = row_update.dict(exclude_unset=True)
+    selected_bid_id = row_data.pop("selected_bid_id", None)
 
     # Separate row fields and request_spec updates
     request_spec_updates = row_data.pop("request_spec", None)
+
+    if selected_bid_id is not None:
+        bids_result = await session.exec(select(Bid).where(Bid.row_id == row_id))
+        bids = bids_result.all()
+        found = False
+        for row_bid in bids:
+            if row_bid.id == selected_bid_id:
+                found = True
+            row_bid.is_selected = row_bid.id == selected_bid_id
+            session.add(row_bid)
+
+        if not found:
+            raise HTTPException(status_code=404, detail="Option not found")
+
+        row.status = "closed"
 
     for key, value in row_data.items():
         setattr(row, key, value)
@@ -326,6 +344,53 @@ async def update_row(
     await session.refresh(row)
     print(f"Row {row_id} updated successfully: {row}")
     return row
+
+
+@app.post("/rows/{row_id}/options/{option_id}/select")
+async def select_row_option(
+    row_id: int,
+    option_id: int,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Fetch row scoped to user
+    result = await session.exec(
+        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+    )
+    row = result.first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    bid_result = await session.exec(
+        select(Bid).where(Bid.id == option_id, Bid.row_id == row_id)
+    )
+    bid = bid_result.first()
+    if not bid:
+        raise HTTPException(status_code=404, detail="Option not found")
+
+    all_bids_result = await session.exec(select(Bid).where(Bid.row_id == row_id))
+    for row_bid in all_bids_result.all():
+        row_bid.is_selected = row_bid.id == option_id
+        session.add(row_bid)
+
+    row.status = "closed"
+    row.updated_at = datetime.utcnow()
+    session.add(row)
+
+    await session.commit()
+
+    return {
+        "status": "selected",
+        "row_id": row_id,
+        "option_id": option_id,
+        "row_status": row.status,
+    }
 
 
 class RowSearchRequest(BaseModel):
@@ -483,6 +548,9 @@ async def search_row_listings(
             is_selected=False
         )
         session.add(bid)
+        await session.flush()
+        res.bid_id = bid.id
+        res.is_selected = bid.is_selected
     
     # Update row status if needed
     row.status = "bids_arriving"

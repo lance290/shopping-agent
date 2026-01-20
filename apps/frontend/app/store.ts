@@ -15,6 +15,8 @@ export interface Offer {
   merchant_domain?: string;
   click_url?: string;
   match_score?: number;
+  bid_id?: number;
+  is_selected?: boolean;
 }
 
 export interface Bid {
@@ -25,6 +27,7 @@ export interface Bid {
   item_url: string | null;
   image_url: string | null;
   source: string;
+  is_selected: boolean;
   seller?: {
     name: string;
     domain: string | null;
@@ -64,7 +67,9 @@ export function mapBidToOffer(bid: Bid): Offer {
     shipping_info: null,
     source: bid.source,
     merchant_domain: bid.seller?.domain || undefined,
-    click_url: `/api/clickout?url=${encodeURIComponent(bid.item_url || '')}`
+    click_url: `/api/clickout?url=${encodeURIComponent(bid.item_url || '')}`,
+    bid_id: bid.id,
+    is_selected: bid.is_selected,
   };
 }
 

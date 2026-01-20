@@ -22,6 +22,26 @@ export const persistRowToDb = async (rowId: number, title: string) => {
   }
 };
 
+// Helper: Select an offer for a row
+export const selectOfferForRow = async (rowId: number, bidId: number): Promise<boolean> => {
+  try {
+    const res = await fetch(`/api/rows?id=${rowId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selected_bid_id: bidId }),
+    });
+
+    if (!res.ok) {
+      console.error('[API] Select offer failed:', res.status);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[API] Select offer error:', err);
+    return false;
+  }
+};
+
 // Helper: Run search
 export const runSearchApi = async (
   query: string,
@@ -61,6 +81,8 @@ export const runSearchApi = async (
         merchant_domain: r?.merchant_domain ?? undefined,
         click_url: r?.click_url ?? undefined,
         match_score: typeof r?.match_score === 'number' ? r.match_score : undefined,
+        bid_id: typeof r?.bid_id === 'number' ? r.bid_id : undefined,
+        is_selected: typeof r?.is_selected === 'boolean' ? r.is_selected : undefined,
       } satisfies Offer;
     });
   } catch (err) {

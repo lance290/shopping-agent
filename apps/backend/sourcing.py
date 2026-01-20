@@ -63,6 +63,8 @@ class SearchResult(BaseModel):
     reviews_count: Optional[int] = None
     shipping_info: Optional[str] = None
     source: str
+    bid_id: Optional[int] = None
+    is_selected: bool = False
 
 def compute_match_score(result: SearchResult, query: str) -> float:
     """
