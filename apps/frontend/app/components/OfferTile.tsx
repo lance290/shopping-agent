@@ -79,6 +79,12 @@ export default function OfferTile({ offer, index, rowId }: OfferTileProps) {
             {offer.shipping_info}
           </div>
         )}
+        
+        <div className="mt-3 pt-2">
+          <span className="block w-full text-center bg-blue-600 text-white text-sm font-medium py-2 rounded-lg group-hover:bg-blue-700 transition-colors">
+            View Deal →
+          </span>
+        </div>
       </div>
     </a>
   );

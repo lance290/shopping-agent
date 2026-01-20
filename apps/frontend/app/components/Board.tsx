@@ -1,5 +1,6 @@
 'use client';
 
+import { Plus } from 'lucide-react';
 import { useShoppingStore } from '../store';
 import RowStrip from './RowStrip';
 
@@ -19,8 +20,22 @@ export default function ProcurementBoard() {
           <strong>Disclosure:</strong> We may earn a commission from qualifying purchases. 
           <a href="/disclosure" className="ml-1 text-blue-500 hover:underline" target="_blank">Learn more</a>
         </div>
-        <div className="text-xs font-medium text-gray-600">
-          {rows.length} active request{rows.length !== 1 ? 's' : ''}
+        <div className="flex items-center gap-3">
+          <div className="text-xs font-medium text-gray-600">
+            {rows.length} active request{rows.length !== 1 ? 's' : ''}
+          </div>
+          <button
+            onClick={() => {
+              setActiveRowId(null);
+              // Focus the chat input
+              const chatInput = document.querySelector('input[placeholder*="looking for"]') as HTMLInputElement;
+              chatInput?.focus();
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            <Plus size={16} />
+            New Request
+          </button>
         </div>
       </div>
       
