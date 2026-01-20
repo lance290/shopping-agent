@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Next.js App',
-  description: 'Production-ready Next.js application',
+  title: 'Shopping Agent',
+  description: 'AI-powered procurement assistant',
 };
 
 export default function RootLayout({
@@ -13,7 +14,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* Skimlinks affiliate link conversion */}
+        <Script
+          src="https://s.skimresources.com/js/297674X1785170.skimlinks.js"
+          strategy="afterInteractive"
+        />
+      </body>
     </html>
   );
 }
