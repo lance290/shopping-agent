@@ -188,6 +188,55 @@ class EbayPartnerHandler(AffiliateHandler):
             )
 
 
+class SkimlinksHandler(AffiliateHandler):
+    """
+    Skimlinks universal affiliate handler.
+    Works with 48,000+ merchants automatically.
+    
+    Skimlinks uses a redirect through their domain:
+    https://go.skimresources.com?id=PUBLISHER_ID&url=ENCODED_URL
+    """
+    
+    def __init__(self, publisher_id: Optional[str] = None):
+        self.publisher_id = publisher_id or os.getenv("SKIMLINKS_PUBLISHER_ID", "")
+    
+    @property
+    def name(self) -> str:
+        return "skimlinks"
+    
+    @property
+    def domains(self) -> List[str]:
+        return []  # Universal fallback - doesn't match specific domains
+    
+    def transform(self, url: str, context: ClickContext) -> ResolvedLink:
+        if not self.publisher_id:
+            return ResolvedLink(
+                final_url=url,
+                handler_name=self.name,
+                rewrite_applied=False,
+                metadata={"error": "No Skimlinks publisher ID configured"},
+            )
+        
+        try:
+            from urllib.parse import quote
+            # Skimlinks redirect format
+            skimlinks_url = f"https://go.skimresources.com?id={self.publisher_id}&url={quote(url, safe='')}"
+            
+            return ResolvedLink(
+                final_url=skimlinks_url,
+                handler_name=self.name,
+                affiliate_tag=self.publisher_id,
+                rewrite_applied=True,
+            )
+        except Exception as e:
+            return ResolvedLink(
+                final_url=url,
+                handler_name=self.name,
+                rewrite_applied=False,
+                metadata={"error": f"Transformation failed: {str(e)}"},
+            )
+
+
 class LinkResolver:
     """
     Routes URLs to appropriate affiliate handlers.
@@ -201,6 +250,7 @@ class LinkResolver:
         self.handlers: Dict[str, AffiliateHandler] = {}
         self.domain_map: Dict[str, str] = {}  # domain -> handler_name
         self.default_handler = NoAffiliateHandler()
+        self.skimlinks_handler = SkimlinksHandler()  # Universal fallback
         
         # Register built-in handlers
         self._register_builtin_handlers()
@@ -241,12 +291,16 @@ class LinkResolver:
             handler = self.handlers[handler_name]
             return handler.transform(url, context)
         
-        # No matching handler, use default
+        # No domain-specific handler - try Skimlinks universal fallback
+        if self.skimlinks_handler.publisher_id:
+            return self.skimlinks_handler.transform(url, context)
+        
+        # No Skimlinks configured, use default (no affiliate)
         return self.default_handler.transform(url, context)
     
     def list_handlers(self) -> List[Dict]:
         """List all registered handlers (for admin UI)."""
-        return [
+        handlers = [
             {
                 "name": h.name,
                 "domains": h.domains,
@@ -254,6 +308,13 @@ class LinkResolver:
             }
             for h in self.handlers.values()
         ]
+        # Add Skimlinks universal handler
+        handlers.append({
+            "name": self.skimlinks_handler.name,
+            "domains": ["(universal fallback)"],
+            "configured": bool(self.skimlinks_handler.publisher_id),
+        })
+        return handlers
     
     def _is_configured(self, handler: AffiliateHandler) -> bool:
         """Check if handler has required config (e.g., API keys)."""
@@ -261,6 +322,8 @@ class LinkResolver:
             return bool(handler.tag)
         if isinstance(handler, EbayPartnerHandler):
             return bool(handler.campaign_id)
+        if isinstance(handler, SkimlinksHandler):
+            return bool(handler.publisher_id)
         return True
 
 

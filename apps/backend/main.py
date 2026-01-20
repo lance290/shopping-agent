@@ -10,6 +10,7 @@ from typing import List, Optional
 import os
 import httpx
 import traceback
+import asyncio
 from datetime import datetime, timedelta
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -545,38 +546,49 @@ async def clickout_redirect(
     # Resolve affiliate link
     resolved = link_resolver.resolve(url, context)
     
-    # Log the clickout event (DB)
-    event = ClickoutEvent(
-        user_id=user_id,
-        session_id=session_id,
-        row_id=row_id,
-        offer_index=idx,
-        canonical_url=url,
-        final_url=resolved.final_url,
-        merchant_domain=merchant_domain,
-        handler_name=resolved.handler_name,
-        affiliate_tag=resolved.affiliate_tag,
-        source=source,
-    )
-    session.add(event)
-    await session.commit()
-
-    # Audit log (immutable log)
-    await audit_log(
-        session=session,
-        action="clickout.redirect",
-        user_id=user_id,
-        resource_type="clickout",
-        resource_id=str(event.id),
-        details={
-            "canonical_url": url,
-            "merchant_domain": merchant_domain,
-            "handler_name": resolved.handler_name,
-        },
-        request=request,
-    )
+    # Fire-and-forget logging (don't block the redirect)
+    async def log_clickout():
+        try:
+            from database import async_engine
+            from sqlmodel.ext.asyncio.session import AsyncSession as AS
+            async with AS(async_engine) as log_session:
+                event = ClickoutEvent(
+                    user_id=user_id,
+                    session_id=session_id,
+                    row_id=row_id,
+                    offer_index=idx,
+                    canonical_url=url,
+                    final_url=resolved.final_url,
+                    merchant_domain=merchant_domain,
+                    handler_name=resolved.handler_name,
+                    affiliate_tag=resolved.affiliate_tag,
+                    source=source,
+                )
+                log_session.add(event)
+                await log_session.commit()
+                await log_session.refresh(event)
+                
+                # Audit log
+                await audit_log(
+                    session=log_session,
+                    action="clickout.redirect",
+                    user_id=user_id,
+                    resource_type="clickout",
+                    resource_id=str(event.id),
+                    details={
+                        "canonical_url": url,
+                        "merchant_domain": merchant_domain,
+                        "handler_name": resolved.handler_name,
+                    },
+                    request=request,
+                )
+        except Exception as e:
+            print(f"[CLICKOUT] Failed to log: {e}")
     
-    # Redirect to transformed URL
+    # Start logging in background, redirect immediately
+    asyncio.create_task(log_clickout())
+    
+    # Redirect to transformed URL immediately
     return RedirectResponse(url=resolved.final_url, status_code=302)
 
 
