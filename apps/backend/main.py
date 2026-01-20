@@ -549,9 +549,11 @@ async def clickout_redirect(
     # Fire-and-forget logging (don't block the redirect)
     async def log_clickout():
         try:
-            from database import async_engine
+            from database import engine
+            from sqlalchemy.orm import sessionmaker
             from sqlmodel.ext.asyncio.session import AsyncSession as AS
-            async with AS(async_engine) as log_session:
+            async_session = sessionmaker(engine, class_=AS, expire_on_commit=False)
+            async with async_session() as log_session:
                 event = ClickoutEvent(
                     user_id=user_id,
                     session_id=session_id,
