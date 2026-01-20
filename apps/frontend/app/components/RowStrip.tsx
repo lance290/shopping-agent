@@ -10,9 +10,10 @@ interface RowStripProps {
   offers: Offer[];
   isActive: boolean;
   onSelect: () => void;
+  onToast?: (message: string, tone?: 'success' | 'error') => void;
 }
 
-export default function RowStrip({ row, offers, isActive, onSelect }: RowStripProps) {
+export default function RowStrip({ row, offers, isActive, onSelect, onToast }: RowStripProps) {
   const requestDeleteRow = useShoppingStore(state => state.requestDeleteRow);
   const pendingRowDelete = useShoppingStore(state => state.pendingRowDelete);
   const undoDeleteRow = useShoppingStore(state => state.undoDeleteRow);
@@ -74,6 +75,8 @@ export default function RowStrip({ row, offers, isActive, onSelect }: RowStripPr
   const handleSelectOffer = async (offer: Offer) => {
     if (!offer.bid_id) return;
 
+    const previousOffers = offers.map((item) => ({ ...item }));
+    const previousStatus = row.status;
     const updatedOffers = offers.map((item) => ({
       ...item,
       is_selected: item.bid_id === offer.bid_id,
@@ -85,7 +88,13 @@ export default function RowStrip({ row, offers, isActive, onSelect }: RowStripPr
     const success = await selectOfferForRow(row.id, offer.bid_id);
     if (!success) {
       console.error('[RowStrip] Failed to persist selection');
+      setRowResults(row.id, previousOffers);
+      updateRow(row.id, { status: previousStatus });
+      onToast?.('Could not select that deal. Try again.', 'error');
+      return;
     }
+
+    onToast?.(`Selected “${offer.title}”`, 'success');
   };
 
   return (

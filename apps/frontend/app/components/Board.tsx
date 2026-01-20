@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useShoppingStore } from '../store';
 import RowStrip from './RowStrip';
@@ -11,6 +12,24 @@ export default function ProcurementBoard() {
   const setActiveRowId = useShoppingStore(state => state.setActiveRowId);
   const pendingRowDelete = useShoppingStore(state => state.pendingRowDelete);
   const undoDeleteRow = useShoppingStore(state => state.undoDeleteRow);
+  const [toast, setToast] = useState<{ message: string; tone?: 'success' | 'error' } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (message: string, tone: 'success' | 'error' = 'success') => {
+    setToast({ message, tone });
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = setTimeout(() => setToast(null), 2400);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="flex-1 bg-gray-50 h-full flex flex-col overflow-hidden">
@@ -59,10 +78,23 @@ export default function ProcurementBoard() {
               offers={rowResults[row.id] || []}
               isActive={row.id === activeRowId}
               onSelect={() => setActiveRowId(row.id)}
+              onToast={showToast}
             />
           ))
         )}
       </div>
+
+      {toast && (
+        <div className="fixed top-4 right-4 z-50">
+          <div className={`px-4 py-3 rounded-lg shadow-lg border text-sm font-medium flex items-center gap-2 ${
+            toast.tone === 'error'
+              ? 'bg-red-50 border-red-200 text-red-700'
+              : 'bg-green-50 border-green-200 text-green-700'
+          }`}>
+            <span>{toast.message}</span>
+          </div>
+        </div>
+      )}
 
       {pendingRowDelete && (
         <div className="fixed bottom-4 right-4 z-50 bg-white border border-gray-200 shadow-lg rounded-lg px-4 py-3 w-[360px]">
