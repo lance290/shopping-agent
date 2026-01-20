@@ -23,21 +23,11 @@ const nextConfig = {
   
   // Environment variables exposed to browser
   env: {
-    // This is used for client-side calls if needed, though mostly we use rewrites
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL, 
   },
-
-  async rewrites() {
-    // In production (Railway), BFF_URL should be set to the private service URL
-    // e.g. http://bff.railway.internal:8080
-    const bffUrl = process.env.BFF_URL || 'http://localhost:8080';
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${bffUrl}/api/:path*`, // Proxy to BFF
-      },
-    ];
-  },
+  // NOTE: We use Next.js API routes (/app/api/*/route.ts) instead of rewrites.
+  // This allows BFF_URL to be read at RUNTIME, not build-time.
+  // See: /app/api/out/route.ts, /app/api/rows/route.ts, etc.
 };
 
 module.exports = nextConfig;

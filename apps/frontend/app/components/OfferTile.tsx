@@ -9,7 +9,7 @@ interface OfferTileProps {
 export default function OfferTile({ offer, index, rowId }: OfferTileProps) {
   // Build clickout URL (will be handled by Task 02)
   // We use the offer fields if available, otherwise fallback
-  const clickUrl = offer.click_url || `/api/out?url=${encodeURIComponent(offer.url)}&row_id=${rowId}&idx=${index}&source=${encodeURIComponent(offer.source)}`;
+  const clickUrl = offer.click_url || `/api/clickout?url=${encodeURIComponent(offer.url)}&row_id=${rowId}&idx=${index}&source=${encodeURIComponent(offer.source)}`;
   const safePrice = Number.isFinite(offer.price) ? offer.price : 0;
   const source = String(offer.source || '').toLowerCase();
   const isBiddable = source === 'manual' || source.includes('seller');

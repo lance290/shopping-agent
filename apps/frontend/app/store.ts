@@ -64,7 +64,7 @@ export function mapBidToOffer(bid: Bid): Offer {
     shipping_info: null,
     source: bid.source,
     merchant_domain: bid.seller?.domain || undefined,
-    click_url: `/api/out?url=${encodeURIComponent(bid.item_url || '')}`
+    click_url: `/api/clickout?url=${encodeURIComponent(bid.item_url || '')}`
   };
 }
 
