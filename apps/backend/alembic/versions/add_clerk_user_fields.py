@@ -16,15 +16,25 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade():
-    # Add clerk_user_id column
-    op.add_column('user', sa.Column('clerk_user_id', sa.String(), nullable=True))
-    op.create_index('ix_user_clerk_user_id', 'user', ['clerk_user_id'], unique=True)
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    columns = [c['name'] for c in inspector.get_columns('user')]
     
-    # Add phone_number column
-    op.add_column('user', sa.Column('phone_number', sa.String(), nullable=True))
+    # Add clerk_user_id column if not exists
+    if 'clerk_user_id' not in columns:
+        op.add_column('user', sa.Column('clerk_user_id', sa.String(), nullable=True))
+        op.create_index('ix_user_clerk_user_id', 'user', ['clerk_user_id'], unique=True)
     
-    # Make email nullable (it was required before)
-    op.alter_column('user', 'email', existing_type=sa.String(), nullable=True)
+    # Add phone_number column if not exists
+    if 'phone_number' not in columns:
+        op.add_column('user', sa.Column('phone_number', sa.String(), nullable=True))
+    
+    # Make email nullable - skip if already nullable or if it would fail
+    # This is a no-op if already nullable
+    try:
+        op.alter_column('user', 'email', existing_type=sa.String(), nullable=True)
+    except Exception:
+        pass  # Column might already be nullable
 
 
 def downgrade():
