@@ -61,7 +61,7 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
         </div>
 
         {/* Image Area */}
-        <div className="w-full h-[40%] bg-white relative overflow-hidden flex items-center justify-center p-3">
+        <div className="w-full h-[40%] bg-white relative overflow-hidden flex items-center justify-center p-0.5">
           {offer.image_url ? (
             <img 
               src={offer.image_url} 
