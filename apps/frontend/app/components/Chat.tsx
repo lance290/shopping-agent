@@ -98,8 +98,13 @@ export default function Chat() {
     };
     
     setMessages(prev => [...prev, userMessage]);
+    const queryText = input.trim();
     setInput('');
     setIsLoading(true);
+    
+    // Always trigger search flow directly for user queries
+    // This ensures search works even if LLM/BFF has issues
+    handleSearchFlow(queryText);
     
     try {
       const response = await fetch('/api/chat', {
