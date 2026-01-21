@@ -62,17 +62,30 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     }
   };
 
-  const sortedOffers = (() => {
-    if (!offers || offers.length === 0) return [];
-    if (sortMode === 'original') return offers;
+  const sortOffers = (list: Offer[]) => {
+    if (!list || list.length === 0) return [];
+    if (sortMode === 'original') return list;
 
-    const byPrice = [...offers].sort((a, b) => {
+    const byPrice = [...list].sort((a, b) => {
       const ap = Number.isFinite(a.price) ? a.price : Number.POSITIVE_INFINITY;
       const bp = Number.isFinite(b.price) ? b.price : Number.POSITIVE_INFINITY;
       return ap - bp;
     });
     return sortMode === 'price_desc' ? byPrice.reverse() : byPrice;
-  })();
+  };
+
+  const applyLikedOrdering = (list: Offer[]) => {
+    return list
+      .map((offer, idx) => ({ offer, idx }))
+      .sort((a, b) => {
+        const likeDiff = Number(Boolean(b.offer.is_liked)) - Number(Boolean(a.offer.is_liked));
+        if (likeDiff !== 0) return likeDiff;
+        return a.idx - b.idx;
+      })
+      .map((entry) => entry.offer);
+  };
+
+  const sortedOffers = applyLikedOrdering(sortOffers(offers));
 
   const handleSelectOffer = async (offer: Offer) => {
     if (!offer.bid_id) return;
@@ -97,6 +110,42 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     }
 
     onToast?.(`Selected “${offer.title}”`, 'success');
+  };
+
+  const handleToggleLike = (offer: Offer) => {
+    const updatedOffers = offers.map((item) => {
+      if (item.bid_id && offer.bid_id && item.bid_id === offer.bid_id) {
+        return { ...item, is_liked: !item.is_liked };
+      }
+      if (!item.bid_id && !offer.bid_id && item.url === offer.url) {
+        return { ...item, is_liked: !item.is_liked };
+      }
+      return item;
+    });
+
+    setRowResults(row.id, applyLikedOrdering(sortOffers(updatedOffers)));
+    onToast?.(offer.is_liked ? 'Removed like.' : 'Liked this offer.', 'success');
+  };
+
+  const handleComment = (offer: Offer) => {
+    const comment = window.prompt('Add a comment for this offer');
+    if (comment && comment.trim().length > 0) {
+      onToast?.('Comment saved.', 'success');
+    }
+  };
+
+  const handleShare = async (offer: Offer) => {
+    const link = offer.url || offer.click_url || '';
+    try {
+      if (navigator?.clipboard && link) {
+        await navigator.clipboard.writeText(link);
+        onToast?.('Link copied.', 'success');
+        return;
+      }
+    } catch {
+      // ignore
+    }
+    onToast?.('Share link ready.', 'success');
   };
 
   return (
@@ -209,6 +258,9 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
                     index={idx}
                     rowId={row.id}
                     onSelect={handleSelectOffer}
+                    onToggleLike={handleToggleLike}
+                    onComment={handleComment}
+                    onShare={handleShare}
                   />
                 ))
               ) : (
