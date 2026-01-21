@@ -191,37 +191,43 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         </div>
       </div>
       
-      <div className="p-5 overflow-x-auto scrollbar-hide bg-transparent">
+      <div className="p-5 bg-transparent">
         <div className="flex gap-6 min-h-[320px]">
-          {/* Request Tile (Leftmost) */}
-          <RequestTile row={row} />
-          
-          {/* Offer Tiles */}
-          {sortedOffers && sortedOffers.length > 0 ? (
-            sortedOffers.map((offer, idx) => (
-              <OfferTile
-                key={`${row.id}-${idx}`}
-                offer={offer}
-                index={idx}
-                rowId={row.id}
-                onSelect={handleSelectOffer}
-              />
-            ))
-          ) : (
-            <div className="flex flex-col items-center justify-center w-64 rounded-2xl border border-dashed border-warm-grey bg-warm-light/60 text-onyx-muted">
-              {row.status === 'sourcing' ? (
-                <>
-                  <RefreshCw className="w-6 h-6 animate-spin mb-3 opacity-50" />
-                  <span className="text-sm font-medium">Sourcing offers...</span>
-                </>
+          {/* Request/Options Tile (Pinned Left) */}
+          <div className="shrink-0">
+            <RequestTile row={row} />
+          </div>
+
+          {/* Offer Tiles (Scrollable) */}
+          <div className="flex-1 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-6 min-h-[320px] pr-2">
+              {sortedOffers && sortedOffers.length > 0 ? (
+                sortedOffers.map((offer, idx) => (
+                  <OfferTile
+                    key={`${row.id}-${idx}`}
+                    offer={offer}
+                    index={idx}
+                    rowId={row.id}
+                    onSelect={handleSelectOffer}
+                  />
+                ))
               ) : (
-                <>
-                  <FlaskConical className="w-6 h-6 mb-3 opacity-50" />
-                  <span className="text-sm font-medium">No offers found</span>
-                </>
+                <div className="flex flex-col items-center justify-center w-64 rounded-2xl border border-dashed border-warm-grey bg-warm-light/60 text-onyx-muted">
+                  {row.status === 'sourcing' ? (
+                    <>
+                      <RefreshCw className="w-6 h-6 animate-spin mb-3 opacity-50" />
+                      <span className="text-sm font-medium">Sourcing offers...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FlaskConical className="w-6 h-6 mb-3 opacity-50" />
+                      <span className="text-sm font-medium">No offers found</span>
+                    </>
+                  )}
+                </div>
               )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

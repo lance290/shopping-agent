@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Chat from './components/Chat';
 import ProcurementBoard from './components/Board';
-import ChoiceFactorPanel from './components/ChoiceFactorPanel';
 import { cn } from '../utils/cn';
 
 export default function Home() {
@@ -60,14 +59,6 @@ export default function Home() {
 
   return (
     <main className="flex h-screen w-full bg-transparent text-onyx overflow-hidden font-sans selection:bg-agent-blurple/15 selection:text-agent-blurple">
-      {/* Specifications Sidebar (Leftmost, collapsible, absolute on mobile, relative on desktop if we wanted) 
-          Actually, current design puts it leftmost in the flex container.
-          Let's keep it there but make sure it has z-index to slide properly.
-      */}
-      <div className="z-20 border-r border-warm-grey/70">
-        <ChoiceFactorPanel />
-      </div>
-
       {/* Chat Pane (Center Left) */}
       <div 
         style={{ width: `${chatWidthPx}px` }} 
