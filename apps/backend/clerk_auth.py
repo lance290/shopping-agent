@@ -26,6 +26,8 @@ def get_clerk_instance() -> str:
         if "$" in key_part:
             key_part = key_part.split("$")[0]
         decoded = base64.b64decode(key_part + "==").decode("utf-8")
+        # Remove any trailing $ or whitespace
+        decoded = decoded.rstrip("$").strip()
         return decoded
     except Exception:
         return ""
