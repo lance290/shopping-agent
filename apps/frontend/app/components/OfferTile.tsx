@@ -65,7 +65,7 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
             <img 
               src={offer.image_url} 
               alt={offer.title}
-              className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+              className="max-w-full max-h-full object-contain"
             />
           ) : (
             <div className="text-warm-grey">

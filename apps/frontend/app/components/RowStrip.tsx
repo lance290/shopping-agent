@@ -102,7 +102,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   return (
     <div 
       className={cn(
-        "rounded-2xl transition-all duration-200 overflow-hidden bg-transparent"
+        "rounded-md transition-all duration-200 overflow-hidden bg-transparent"
       )}
       onClick={onSelect}
     >
