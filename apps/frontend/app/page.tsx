@@ -59,7 +59,7 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="flex h-screen w-full bg-canvas text-onyx overflow-hidden font-sans selection:bg-agent-blurple/15 selection:text-agent-blurple">
+    <main className="flex h-screen w-full bg-transparent text-onyx overflow-hidden font-sans selection:bg-agent-blurple/15 selection:text-agent-blurple">
       {/* Specifications Sidebar (Leftmost, collapsible, absolute on mobile, relative on desktop if we wanted) 
           Actually, current design puts it leftmost in the flex container.
           Let's keep it there but make sure it has z-index to slide properly.
@@ -99,7 +99,7 @@ export default function Home() {
       </div>
       
       {/* Board Pane (Right) */}
-      <div className="flex-1 min-w-0 bg-canvas h-full relative z-0">
+      <div className="flex-1 min-w-0 bg-transparent h-full relative z-0">
         <ProcurementBoard />
       </div>
     </main>

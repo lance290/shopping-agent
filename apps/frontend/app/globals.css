@@ -10,22 +10,23 @@
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-start-rgb));
+  background: radial-gradient(1200px circle at top left, #2a2d34 0%, #1b1e24 45%, #111318 100%);
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-agent-blurple text-white px-6 py-3 rounded-xl hover:bg-[#0066CC] transition-colors duration-200 font-semibold shadow-[0_6px_16px_rgba(0,113,227,0.2)];
+    @apply bg-gradient-to-r from-[#E6EFFD] to-[#CFE1FA] text-onyx border border-[#C6D8F5] px-6 py-3 rounded-full hover:from-[#DEE9FB] hover:to-[#C4DAF7] transition-all duration-200 font-semibold shadow-[0_8px_18px_rgba(18,99,209,0.14)];
   }
   
   .btn-secondary {
-    @apply bg-white border border-warm-grey text-onyx px-6 py-3 rounded-xl hover:border-onyx-muted hover:bg-warm-light transition-colors duration-200 font-medium;
+    @apply bg-[#F6F7FA]/90 border border-warm-grey text-onyx px-6 py-3 rounded-full hover:border-onyx-muted hover:bg-[#F1F3F7] transition-colors duration-200 font-medium;
   }
   
   .btn-ai {
-    @apply bg-onyx text-white px-6 py-3 rounded-xl hover:bg-canvas-dark transition-colors duration-200 font-semibold shadow-[0_8px_20px_rgba(29,29,31,0.2)];
+    @apply bg-[#E9EEF6] text-onyx border border-[#D7E0EE] px-6 py-3 rounded-full hover:bg-[#E0E7F2] transition-colors duration-200 font-semibold shadow-[0_6px_16px_rgba(29,29,31,0.12)];
   }
 
   .card-hover {

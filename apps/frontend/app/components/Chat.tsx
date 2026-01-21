@@ -205,10 +205,10 @@ export default function Chat() {
   }, [store.cardClickQuery]);
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-white via-white to-warm-light/40 border-r border-warm-grey/70">
-      <div className="px-6 py-5 border-b border-warm-grey bg-white">
-        <div className="text-[11px] uppercase tracking-[0.2em] text-onyx-muted font-semibold">Assistant</div>
-        <h2 className="text-xl font-semibold flex items-center gap-2 text-onyx mt-2">
+    <div className="flex flex-col h-full bg-white/80 backdrop-blur-xl border-r border-white/20">
+      <div className="px-6 py-5 border-b border-white/30 bg-white/85">
+        <div className="text-[10px] uppercase tracking-[0.16em] text-onyx-muted/80 font-medium">Assistant</div>
+        <h2 className="text-lg font-medium flex items-center gap-2 text-onyx mt-2">
           <Bot className="w-5 h-5 text-agent-blurple" />
           Shopping Agent
         </h2>
@@ -227,8 +227,8 @@ export default function Chat() {
             <div className="w-14 h-14 rounded-full bg-white border border-warm-grey flex items-center justify-center mb-5">
               <Bot className="w-6 h-6 text-agent-blurple" />
             </div>
-            <div className="text-[11px] uppercase tracking-[0.2em] text-onyx-muted font-semibold">Welcome</div>
-            <h3 className="text-lg font-semibold text-onyx mt-2 mb-2">How can I help you today?</h3>
+            <div className="text-[10px] uppercase tracking-[0.16em] text-onyx-muted/80 font-medium">Welcome</div>
+            <h3 className="text-lg font-medium text-onyx mt-2 mb-2">How can I help you today?</h3>
             <p className="text-sm max-w-xs">
               I can help you find products, compare prices, and manage your procurement list.
             </p>
@@ -245,8 +245,8 @@ export default function Chat() {
           >
             <div
               className={cn(
-                "w-9 h-9 rounded-full flex items-center justify-center shrink-0 border border-warm-grey bg-white",
-                m.role === 'user' ? "bg-agent-blurple text-white border-transparent" : "text-agent-blurple"
+                "w-9 h-9 rounded-full flex items-center justify-center shrink-0 border border-warm-grey/70 bg-white/90",
+                m.role === 'user' ? "bg-[#E7F0FF] text-onyx border-[#C7D9F6]" : "text-agent-blurple"
               )}
             >
               {m.role === 'user' ? <User size={18} /> : <Bot size={18} />}
@@ -256,8 +256,8 @@ export default function Chat() {
               className={cn(
                 "rounded-2xl px-4 py-3 text-sm leading-relaxed",
                 m.role === 'user'
-                  ? "bg-gradient-to-br from-agent-blurple to-[#5AA7FF] text-white rounded-tr-sm shadow-[0_8px_16px_rgba(0,113,227,0.2)]"
-                  : "bg-white border border-warm-grey/80 text-onyx rounded-tl-sm"
+                  ? "bg-gradient-to-br from-[#E7F0FF] to-[#D3E2FB] text-onyx rounded-tr-sm border border-[#C7D9F6] shadow-[0_6px_14px_rgba(13,82,168,0.12)]"
+                  : "bg-white/95 border border-warm-grey/70 text-onyx rounded-tl-sm"
               )}
             >
               <div className="whitespace-pre-wrap font-sans">
