@@ -24,7 +24,7 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
     <Card
       variant="hover"
       className={cn(
-        "min-w-[240px] max-w-[240px] h-full flex flex-col relative group",
+        "min-w-[260px] max-w-[260px] h-full flex flex-col relative group",
         isSelected ? "border-status-success" : "border-warm-grey/70"
       )}
     >
@@ -60,7 +60,7 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
         </div>
 
         {/* Image Area */}
-        <div className="w-full h-40 bg-white p-4 relative overflow-hidden flex items-center justify-center">
+        <div className="w-full h-44 bg-gradient-to-b from-white to-warm-light/30 p-5 relative overflow-hidden flex items-center justify-center">
           {offer.image_url ? (
             <img 
               src={offer.image_url} 
@@ -81,13 +81,13 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
             {offer.merchant_domain || offer.merchant}
           </div>
           
-          <div className="text-sm font-semibold text-onyx line-clamp-2 mb-3 h-10 leading-snug group-hover:text-onyx-muted transition-colors" title={offer.title}>
+          <div className="text-sm font-semibold text-onyx line-clamp-2 mb-4 h-10 leading-snug group-hover:text-onyx-muted transition-colors" title={offer.title}>
             {offer.title}
           </div>
           
           <div className="mt-auto">
             <div className="flex justify-between items-end mb-3">
-              <div className="text-lg font-semibold text-onyx">
+              <div className="text-xl font-semibold text-onyx">
                 {offer.currency === 'USD' ? '$' : offer.currency}
                 {safePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>

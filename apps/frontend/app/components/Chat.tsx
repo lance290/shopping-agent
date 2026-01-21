@@ -205,9 +205,10 @@ export default function Chat() {
   }, [store.cardClickQuery]);
 
   return (
-    <div className="flex flex-col h-full bg-canvas border-r border-warm-grey/70">
+    <div className="flex flex-col h-full bg-gradient-to-b from-white via-white to-warm-light/40 border-r border-warm-grey/70">
       <div className="px-6 py-5 border-b border-warm-grey bg-white">
-        <h2 className="text-lg font-semibold flex items-center gap-2 text-onyx">
+        <div className="text-[11px] uppercase tracking-[0.2em] text-onyx-muted font-semibold">Assistant</div>
+        <h2 className="text-xl font-semibold flex items-center gap-2 text-onyx mt-2">
           <Bot className="w-5 h-5 text-agent-blurple" />
           Shopping Agent
         </h2>
@@ -220,13 +221,14 @@ export default function Chat() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-5">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center px-6 text-onyx-muted">
             <div className="w-14 h-14 rounded-full bg-white border border-warm-grey flex items-center justify-center mb-5">
               <Bot className="w-6 h-6 text-agent-blurple" />
             </div>
-            <h3 className="text-lg font-semibold text-onyx mb-2">How can I help you today?</h3>
+            <div className="text-[11px] uppercase tracking-[0.2em] text-onyx-muted font-semibold">Welcome</div>
+            <h3 className="text-lg font-semibold text-onyx mt-2 mb-2">How can I help you today?</h3>
             <p className="text-sm max-w-xs">
               I can help you find products, compare prices, and manage your procurement list.
             </p>
@@ -254,8 +256,8 @@ export default function Chat() {
               className={cn(
                 "rounded-2xl px-4 py-3 text-sm leading-relaxed",
                 m.role === 'user'
-                  ? "bg-agent-blurple text-white rounded-tr-sm"
-                  : "bg-white border border-warm-grey text-onyx rounded-tl-sm"
+                  ? "bg-gradient-to-br from-agent-blurple to-[#5AA7FF] text-white rounded-tr-sm shadow-[0_8px_16px_rgba(0,113,227,0.2)]"
+                  : "bg-white border border-warm-grey/80 text-onyx rounded-tl-sm"
               )}
             >
               <div className="whitespace-pre-wrap font-sans">

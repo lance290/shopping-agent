@@ -102,18 +102,20 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   return (
     <div 
       className={cn(
-        "rounded-2xl transition-all duration-200 overflow-hidden border border-warm-grey/70 bg-white",
-        isActive ? "shadow-[0_12px_28px_rgba(0,0,0,0.08)]" : "hover:shadow-md"
+        "rounded-2xl transition-all duration-200 overflow-hidden border bg-white",
+        isActive
+          ? "shadow-[0_16px_32px_rgba(0,0,0,0.08)] ring-1 ring-agent-blurple/10 border-agent-blurple/30"
+          : "border-warm-grey/70 hover:shadow-md"
       )}
       onClick={onSelect}
     >
-      <div className="flex items-center justify-between px-5 py-4 border-b border-warm-grey bg-white">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-warm-grey bg-gradient-to-r from-white via-white to-warm-light/60">
         <div className="flex items-center gap-4">
           <div className={cn(
             "w-2.5 h-2.5 rounded-full",
             isActive ? "bg-agent-blurple" : "bg-warm-grey"
           )} />
-          <h3 className="text-base font-semibold text-onyx">{row.title}</h3>
+          <h3 className="text-lg font-semibold text-onyx">{row.title}</h3>
           <span className={cn(
             "text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider font-semibold",
             row.status === 'sourcing' ? "bg-warm-light text-onyx-muted" : 
@@ -194,8 +196,8 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         </div>
       </div>
       
-      <div className="p-5 overflow-x-auto scrollbar-hide">
-        <div className="flex gap-5 min-h-[320px]">
+      <div className="p-5 overflow-x-auto scrollbar-hide bg-white">
+        <div className="flex gap-6 min-h-[320px]">
           {/* Request Tile (Leftmost) */}
           <RequestTile row={row} />
           
@@ -211,7 +213,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
               />
             ))
           ) : (
-            <div className="flex flex-col items-center justify-center w-64 rounded-xl border border-dashed border-warm-grey bg-warm-light/40 text-onyx-muted">
+            <div className="flex flex-col items-center justify-center w-64 rounded-2xl border border-dashed border-warm-grey bg-warm-light/60 text-onyx-muted">
               {row.status === 'sourcing' ? (
                 <>
                   <RefreshCw className="w-6 h-6 animate-spin mb-3 opacity-50" />

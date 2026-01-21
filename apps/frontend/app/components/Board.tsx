@@ -34,14 +34,22 @@ export default function ProcurementBoard() {
   }, []);
 
   return (
-    <div className="flex-1 bg-canvas h-full flex flex-col overflow-hidden relative">
+    <div className="flex-1 bg-gradient-to-b from-canvas to-warm-light/50 h-full flex flex-col overflow-hidden relative">
       {/* Header / Disclosure */}
       <div className="px-6 py-4 bg-white border-b border-warm-grey flex justify-between items-center z-10 shrink-0">
-        <div className="text-xs text-onyx-muted">
-          The agent may earn a commission from purchases.
+        <div className="flex items-center gap-6">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-onyx-muted">
+              Board
+            </div>
+            <div className="text-lg font-semibold text-onyx">Requests</div>
+          </div>
+          <div className="text-xs text-onyx-muted max-w-[220px]">
+            The agent may earn a commission from purchases.
+          </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-xs font-semibold text-onyx uppercase tracking-wider">
+          <div className="text-[11px] font-semibold text-onyx uppercase tracking-[0.2em]">
             {rows.length} active request{rows.length !== 1 ? 's' : ''}
           </div>
           <Button
@@ -60,7 +68,7 @@ export default function ProcurementBoard() {
       </div>
       
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-5">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {rows.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-onyx-muted">
             <div className="w-16 h-16 mb-5 rounded-full bg-white border border-warm-grey flex items-center justify-center">
