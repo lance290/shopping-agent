@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { COOKIE_NAME } from '../auth/constants';
+import { auth } from '@clerk/nextjs/server';
 
 export const dynamic = 'force-dynamic'; // Disable caching
 
 const BFF_URL = process.env.BFF_URL || 'http://localhost:8080';
 
-async function getAuthHeader() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
+async function getAuthHeader(): Promise<{ Authorization?: string }> {
+  const { getToken } = await auth();
+  const token = await getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export async function GET() {

@@ -17,6 +17,7 @@ export interface Offer {
   match_score?: number;
   bid_id?: number;
   is_selected?: boolean;
+  is_liked?: boolean;
 }
 
 export interface Bid {

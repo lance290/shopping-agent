@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { COOKIE_NAME } from '../auth/constants';
+import { auth } from '@clerk/nextjs/server';
 
 const BFF_URL = process.env.BFF_URL || 'http://localhost:8080';
 
-async function getAuthHeader() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
+async function getAuthHeader(): Promise<{ Authorization?: string }> {
+  const { getToken } = await auth();
+  const token = await getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 

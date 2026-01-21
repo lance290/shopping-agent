@@ -1,12 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { COOKIE_NAME } from '../auth/constants';
+import { NextRequest } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 
 const BFF_URL = process.env.BFF_URL || 'http://localhost:8080';
 
 export async function POST(request: NextRequest) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
+  const { getToken } = await auth();
+  const token = await getToken();
   
   if (!token) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {

@@ -1,29 +1,16 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { COOKIE_NAME } from './app/api/auth/constants';
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const sessionToken = request.cookies.get(COOKIE_NAME)?.value;
-  const isAuthenticated = !!sessionToken;
+const isPublicRoute = createRouteMatcher(['/login(.*)', '/sign-in(.*)', '/sign-up(.*)']);
 
-  // Protect home page - redirect to login if not authenticated
-  if (pathname === '/') {
-    if (!isAuthenticated) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
+export default clerkMiddleware(async (auth, request) => {
+  if (!isPublicRoute(request)) {
+    await auth.protect();
   }
-
-  // Redirect authenticated users away from login page
-  if (pathname === '/login') {
-    if (isAuthenticated) {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
-  }
-
-  return NextResponse.next();
-}
+});
 
 export const config = {
-  matcher: ['/', '/login'],
+  matcher: [
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    '/(api|trpc)(.*)',
+  ],
 };

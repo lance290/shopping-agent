@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { COOKIE_NAME } from '../auth/constants';
+import { auth } from '@clerk/nextjs/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,8 +8,8 @@ const BFF_URL = process.env.BFF_URL || 'http://localhost:8080';
 export async function GET(request: NextRequest) {
   try {
     // Get auth token if available (for tracking, not required)
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE_NAME)?.value;
+    const { getToken } = await auth();
+    const token = await getToken();
     
     // Forward all query params to BFF
     const { searchParams } = new URL(request.url);

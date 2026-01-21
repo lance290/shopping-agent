@@ -127,7 +127,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     onToast?.(offer.is_liked ? 'Removed like.' : 'Liked this offer.', 'success');
   };
 
-  const handleComment = (offer: Offer) => {
+  const handleComment = (_offer: Offer) => {
     const comment = window.prompt('Add a comment for this offer');
     if (comment && comment.trim().length > 0) {
       onToast?.('Comment saved.', 'success');
