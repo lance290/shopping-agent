@@ -4,7 +4,7 @@
 
 ## Current State
 - **Status**: 🟢 Ready for Implementation
-- **Current task**: abf-ux-003 (in_progress)
+- **Current task**: abf-ux-004 (in_progress)
 - **Last working commit**: N/A
 - **App status**: Unknown
 
@@ -13,7 +13,7 @@
 |---|-------------|--------|
 | abf-ux-001 | Add header/help Report Bug entry point | ✅ completed |
 | abf-ux-002 | Build Report Bug modal UI (screenshots + notes + optional fields) | ✅ completed |
-| abf-ux-003 | Client API + Next route handler POST /api/bugs forwarding to BFF | ⬜ pending |
+| abf-ux-003 | Client API + Next route handler POST /api/bugs forwarding to BFF | ✅ completed |
 | abf-ux-004 | Wire upload selection + submission to backend and render receipt | ⬜ pending |
 | abf-ux-005 | Playwright E2E: submit report → receipt | ⬜ pending |
 | abf-ux-006 | Submission observability (success/failure + latency) | ⬜ pending |

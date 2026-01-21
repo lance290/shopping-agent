@@ -159,3 +159,39 @@ export const saveChoiceAnswerToDb = async (
     return false;
   }
 };
+
+export interface BugReportResponse {
+  id: string;
+  status: string;
+  previewUrl?: string;
+}
+
+export const submitBugReport = async (formData: FormData): Promise<BugReportResponse | null> => {
+  console.log('[API] Submitting bug report');
+  try {
+    const res = await fetch('/api/bugs', {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    } else {
+      console.error('[API] Submit bug report failed:', res.status);
+      // TODO: Remove this mock once backend is ready (Effort 2)
+      // This allows verifying the UI flow (Task abf-ux-004) even if backend returns 404/500
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[API] Returning MOCK bug report response for dev UI testing');
+        return {
+          id: `MOCK-${Date.now().toString().slice(-4)}`,
+          status: 'captured'
+        };
+      }
+      return null;
+    }
+  } catch (err) {
+    console.error('[API] Submit bug report error:', err);
+    return null;
+  }
+};
