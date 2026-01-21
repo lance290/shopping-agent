@@ -11,7 +11,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={cn(
-          'bg-white/90 backdrop-blur-xl rounded-2xl border border-white/35 shadow-[0_10px_28px_rgba(0,0,0,0.08)] overflow-hidden',
+          'bg-white/90 backdrop-blur-xl rounded-2xl border border-warm-grey/60 overflow-hidden',
           variant === 'hover' && 'card-hover',
           className
         )}

@@ -29,6 +29,6 @@ body {
   }
 
   .card-hover {
-    @apply transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md;
+    @apply transition-colors duration-200 hover:border-onyx-muted/40;
   }
 }
