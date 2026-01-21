@@ -260,8 +260,8 @@ export default function Chat() {
               className={cn(
                 "rounded-2xl px-4 py-3 text-sm leading-relaxed",
                 m.role === 'user'
-                  ? "bg-gradient-to-br from-[#E7F0FF] to-[#D3E2FB] text-onyx rounded-tr-sm border border-[#C7D9F6] shadow-[0_6px_14px_rgba(13,82,168,0.12)]"
-                  : "bg-white/95 border border-warm-grey/70 text-onyx rounded-tl-sm"
+                  ? "bg-gradient-to-br from-[#E7F0FF] to-[#D3E2FB] text-ink rounded-tr-sm border border-[#C7D9F6] shadow-[0_6px_14px_rgba(13,82,168,0.12)]"
+                  : "bg-white/95 border border-warm-grey/70 text-ink rounded-tl-sm"
               )}
             >
               <div className="whitespace-pre-wrap font-sans">
