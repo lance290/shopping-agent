@@ -9,20 +9,20 @@ const config: Config = {
     extend: {
       colors: {
         canvas: {
-          DEFAULT: "#E1DDD6",
-          dark: "#1F1B16",
+          DEFAULT: "#DADDE0",
+          dark: "#1C1E22",
         },
         onyx: {
-          DEFAULT: "#211E1A",
-          muted: "#6D625A",
+          DEFAULT: "#1C1E22",
+          muted: "#5F6670",
         },
         warm: {
-          grey: "#D0C4B7",
-          light: "#F3ECE3",
+          grey: "#C4C9CE",
+          light: "#F0F2F4",
         },
         agent: {
-          blurple: "#B0744D",
-          camel: "#D6B39A",
+          blurple: "#4E6D85",
+          camel: "#88A1B4",
         },
         status: {
           success: "#34C759",
@@ -54,7 +54,7 @@ const config: Config = {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "gradient-conic":
           "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
-        "ai-glow": "linear-gradient(135deg, #B0744D 0%, #D6B39A 100%)",
+        "ai-glow": "linear-gradient(135deg, #4E6D85 0%, #88A1B4 100%)",
       },
     },
   },
