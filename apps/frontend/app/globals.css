@@ -10,8 +10,7 @@
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: radial-gradient(1200px circle at top left, #2a2d34 0%, #1b1e24 45%, #111318 100%);
-  background-attachment: fixed;
+  background: #E5E5EA;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }

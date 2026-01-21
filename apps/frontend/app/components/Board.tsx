@@ -36,7 +36,7 @@ export default function ProcurementBoard() {
   return (
     <div className="flex-1 bg-transparent h-full flex flex-col overflow-hidden relative">
       {/* Header / Disclosure */}
-      <div className="px-8 py-5 bg-white/80 backdrop-blur-xl border-b border-white/20 flex justify-between items-center z-10 shrink-0">
+      <div className="h-20 px-8 bg-[#E5E5EA] border-b border-warm-grey/70 flex justify-between items-center z-10 shrink-0">
         <div className="flex items-center gap-6">
           <div>
             <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-onyx-muted/80">

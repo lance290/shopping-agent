@@ -135,17 +135,17 @@ export default function ChoiceFactorPanel() {
   return (
     <div 
       className={cn(
-        "h-full bg-white/85 backdrop-blur-xl flex flex-col shrink-0 transition-all duration-300 ease-in-out overflow-hidden border-white/25 z-20",
+        "h-full bg-[#E5E5EA] flex flex-col shrink-0 transition-all duration-300 ease-in-out overflow-hidden border-warm-grey/70 z-20",
         isSidebarOpen ? "w-80 border-r opacity-100" : "w-0 border-none opacity-0"
       )}
     >
       <div className="w-80 h-full flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-white/25 flex justify-between items-center bg-white/80">
+        <div className="h-20 px-6 border-b border-warm-grey/70 flex justify-between items-center bg-[#E5E5EA]">
           <div>
             <div className="text-[10px] uppercase tracking-[0.16em] text-onyx-muted/80 font-medium">Specifications</div>
             <h2 className="font-medium text-lg text-onyx flex items-center gap-2 mt-2">
-              <span className="p-2 bg-white/90 border border-white/30 rounded-lg text-onyx-muted">
+              <span className="p-2 bg-white border border-warm-grey/70 rounded-lg text-onyx-muted">
                 <SlidersHorizontal size={16} />
               </span>
               Requirements

@@ -102,14 +102,14 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   return (
     <div 
       className={cn(
-        "rounded-2xl transition-all duration-200 overflow-hidden border bg-white",
+        "rounded-2xl transition-all duration-200 overflow-hidden border bg-white/90",
         isActive
-          ? "shadow-[0_16px_32px_rgba(0,0,0,0.08)] ring-1 ring-agent-blurple/10 border-agent-blurple/30"
+          ? "shadow-[0_12px_28px_rgba(0,0,0,0.08)] ring-1 ring-agent-blurple/10 border-agent-blurple/30"
           : "border-warm-grey/70 hover:shadow-md"
       )}
       onClick={onSelect}
     >
-      <div className="flex items-center justify-between px-5 py-4 border-b border-warm-grey bg-gradient-to-r from-white via-white to-warm-light/60">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-warm-grey bg-[#E5E5EA]">
         <div className="flex items-center gap-4">
           <div className={cn(
             "w-2.5 h-2.5 rounded-full",
@@ -196,7 +196,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         </div>
       </div>
       
-      <div className="p-5 overflow-x-auto scrollbar-hide bg-white">
+      <div className="p-5 overflow-x-auto scrollbar-hide bg-white/95">
         <div className="flex gap-6 min-h-[320px]">
           {/* Request Tile (Leftmost) */}
           <RequestTile row={row} />

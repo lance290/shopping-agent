@@ -205,20 +205,24 @@ export default function Chat() {
   }, [store.cardClickQuery]);
 
   return (
-    <div className="flex flex-col h-full bg-white/80 backdrop-blur-xl border-r border-white/20">
-      <div className="px-6 py-5 border-b border-white/30 bg-white/85">
-        <div className="text-[10px] uppercase tracking-[0.16em] text-onyx-muted/80 font-medium">Assistant</div>
-        <h2 className="text-lg font-medium flex items-center gap-2 text-onyx mt-2">
-          <Bot className="w-5 h-5 text-agent-blurple" />
-          Shopping Agent
-        </h2>
-        {activeRow && (
-          <div className="flex items-center gap-2 mt-2 text-xs text-onyx-muted">
-            <span className="w-1.5 h-1.5 rounded-full bg-status-success"></span>
-            <span className="uppercase tracking-wider">Active</span>
-            <span className="text-sm font-medium text-onyx truncate max-w-[220px]">{activeRow.title}</span>
+    <div className="flex flex-col h-full bg-[#E5E5EA] border-r border-warm-grey/70">
+      <div className="h-20 px-6 border-b border-warm-grey/70 bg-[#E5E5EA] flex items-center">
+        <div className="flex flex-col justify-center min-w-0">
+          <div className="text-[10px] uppercase tracking-[0.16em] text-onyx-muted/80 font-medium">Assistant</div>
+          <div className="flex items-center gap-3 min-w-0 mt-1">
+            <h2 className="text-lg font-medium flex items-center gap-2 text-onyx shrink-0">
+              <Bot className="w-5 h-5 text-agent-blurple" />
+              Shopping Agent
+            </h2>
+            {activeRow && (
+              <div className="flex items-center gap-2 text-[11px] text-onyx-muted min-w-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-status-success"></span>
+                <span className="uppercase tracking-wider">Active</span>
+                <span className="truncate max-w-[180px] text-onyx">{activeRow.title}</span>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
