@@ -56,7 +56,7 @@ export default function OfferTile({
         {/* Badges */}
         <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5">
           {isBiddable && (
-            <div className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-black/5 text-ink-muted border border-black/10">
+            <div className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-black/5 text-onyx-muted border border-black/10">
               Negotiable
             </div>
           )}
