@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Plus, ShoppingBag } from 'lucide-react';
 import { useShoppingStore } from '../store';
+import { createRowInDb } from '../utils/api';
 import RowStrip from './RowStrip';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
@@ -12,6 +13,7 @@ export default function ProcurementBoard() {
   const activeRowId = useShoppingStore(state => state.activeRowId);
   const rowResults = useShoppingStore(state => state.rowResults);
   const setActiveRowId = useShoppingStore(state => state.setActiveRowId);
+  const addRow = useShoppingStore(state => state.addRow);
   const pendingRowDelete = useShoppingStore(state => state.pendingRowDelete);
   const undoDeleteRow = useShoppingStore(state => state.undoDeleteRow);
   const [toast, setToast] = useState<{ message: string; tone?: 'success' | 'error' } | null>(null);
@@ -55,9 +57,20 @@ export default function ProcurementBoard() {
           <Button
             size="sm"
             onClick={() => {
-              setActiveRowId(null);
-              const chatInput = document.querySelector('input[placeholder*="looking for"]') as HTMLInputElement;
+              const draftId = -Date.now();
+              addRow({
+                id: draftId,
+                title: 'New request',
+                status: 'draft',
+                budget_max: null,
+                currency: 'USD',
+                choice_factors: undefined,
+                choice_answers: undefined,
+              });
+              setActiveRowId(draftId);
+              const chatInput = document.querySelector('input[placeholder*="looking for"], input[placeholder*="Refine"]') as HTMLInputElement | null;
               chatInput?.focus();
+              setToast({ message: 'Tell us what you are buying to start a new request.' });
             }}
             className="flex items-center gap-2"
           >
