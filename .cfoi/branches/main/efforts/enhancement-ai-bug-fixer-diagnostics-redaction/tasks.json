@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "effort": "enhancement-ai-bug-fixer-diagnostics-redaction",
+  "created": "2026-01-21T22:56:00Z",
+  "tasks": [
+    {
+      "id": "abf-diag-001",
+      "description": "Add client-side ring buffers (console + network failures)",
+      "e2e_flow": "Diagnostics payload includes console buffer + failed network metadata",
+      "manual_verification": [
+        "Trigger console error and failed request",
+        "Submit bug report",
+        "Verify diagnostics included"
+      ],
+      "files": [
+        "apps/frontend/app/..."
+      ],
+      "tests_to_write": [],
+      "dependencies": [],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-diag-001/"
+    },
+    {
+      "id": "abf-diag-002",
+      "description": "Add breadcrumbs capture (route + key UI actions)",
+      "e2e_flow": "Diagnostics payload includes breadcrumbs ring buffer",
+      "manual_verification": [
+        "Navigate and click key action",
+        "Submit bug report",
+        "Verify breadcrumbs included"
+      ],
+      "files": [
+        "apps/frontend/app/..."
+      ],
+      "tests_to_write": [],
+      "dependencies": [
+        "abf-diag-001"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-diag-002/"
+    },
+    {
+      "id": "abf-diag-003",
+      "description": "Implement client-side redaction (defense-in-depth)",
+      "e2e_flow": "Client redacts auth/cookies/tokens and truncates long values before submission",
+      "manual_verification": [
+        "Submit bug report",
+        "Verify payload does not include secrets"
+      ],
+      "files": [
+        "apps/frontend/app/..."
+      ],
+      "tests_to_write": [
+        "unit test: redaction rules"
+      ],
+      "dependencies": [
+        "abf-diag-001"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-diag-003/"
+    },
+    {
+      "id": "abf-diag-004",
+      "description": "Implement server-side validation + redaction + truncation",
+      "e2e_flow": "Server re-redacts diagnostics, validates schema, truncates long fields, stores metadata only",
+      "manual_verification": [
+        "Submit report with diagnostics",
+        "Verify stored diagnostics are redacted"
+      ],
+      "files": [
+        "apps/backend/main.py",
+        "apps/backend/..."
+      ],
+      "tests_to_write": [
+        "unit test: server redaction/truncation"
+      ],
+      "dependencies": [
+        "abf-diag-003"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-diag-004/"
+    },
+    {
+      "id": "abf-diag-005",
+      "description": "Ensure diagnostics are best-effort (failures don’t block submission)",
+      "e2e_flow": "If diagnostics fails, bug report still submits",
+      "manual_verification": [
+        "Simulate diagnostics failure",
+        "Submit bug report",
+        "Verify receipt shown"
+      ],
+      "files": [
+        "apps/frontend/app/..."
+      ],
+      "tests_to_write": [],
+      "dependencies": [
+        "abf-diag-001"
+      ],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-diag-005/"
+    },
+    {
+      "id": "abf-diag-006",
+      "description": "Include diagnostic summary in GitHub issue (top errors + last failed endpoint)",
+      "e2e_flow": "GitHub issue created from bug report includes a safe diagnostics summary section",
+      "manual_verification": [
+        "Submit bug report with diagnostics enabled",
+        "Check GitHub issue contains summary of top errors + last failed endpoint",
+        "Verify no secrets in issue summary"
+      ],
+      "files": [
+        "apps/backend/..."
+      ],
+      "tests_to_write": [
+        "unit test: diagnostics summary formatting + safety"
+      ],
+      "dependencies": [
+        "abf-diag-004"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-diag-006/"
+    }
+  ]
+}

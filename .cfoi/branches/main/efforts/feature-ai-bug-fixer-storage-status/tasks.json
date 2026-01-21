@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "effort": "feature-ai-bug-fixer-storage-status",
+  "created": "2026-01-21T22:56:00Z",
+  "tasks": [
+    {
+      "id": "abf-store-001",
+      "description": "Add backend BugReport model (+ attachment ref fields)",
+      "e2e_flow": "Backend can persist bug report records with status + metadata",
+      "manual_verification": [
+        "Start backend",
+        "Confirm tables create successfully"
+      ],
+      "files": [
+        "apps/backend/models.py"
+      ],
+      "tests_to_write": [],
+      "dependencies": [],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-store-001/"
+    },
+    {
+      "id": "abf-store-002",
+      "description": "Implement POST /api/bugs to persist report + attachment refs",
+      "e2e_flow": "Creating a report returns id + captured status",
+      "manual_verification": [
+        "POST sample payload",
+        "Verify response includes id + status"
+      ],
+      "files": [
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": [
+        "api test: create bug report"
+      ],
+      "dependencies": [
+        "abf-store-001"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-store-002/"
+    },
+    {
+      "id": "abf-store-003",
+      "description": "Implement GET /api/bugs/{id} for reporter status",
+      "e2e_flow": "Reporter can fetch stored report and see status",
+      "manual_verification": [
+        "Create report",
+        "GET by id",
+        "Verify status/timestamps"
+      ],
+      "files": [
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": [
+        "api test: create then fetch"
+      ],
+      "dependencies": [
+        "abf-store-002"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-store-003/"
+    },
+    {
+      "id": "abf-store-004",
+      "description": "Implement GET /api/bugs list for internal triage",
+      "e2e_flow": "Internal team can list bug reports for triage",
+      "manual_verification": [
+        "Create 2 reports",
+        "GET list",
+        "Verify ordering"
+      ],
+      "files": [
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": [
+        "api test: list reports"
+      ],
+      "dependencies": [
+        "abf-store-002"
+      ],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-store-004/"
+    },
+    {
+      "id": "abf-store-005",
+      "description": "Frontend reporter status view for a bug ID",
+      "e2e_flow": "User can view status progression and preview link",
+      "manual_verification": [
+        "Navigate to status view",
+        "Verify Captured displayed for new report"
+      ],
+      "files": [
+        "apps/frontend/app/..."
+      ],
+      "tests_to_write": [],
+      "dependencies": [
+        "abf-store-003"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-store-005/"
+    },
+    {
+      "id": "abf-store-006",
+      "description": "Define retention policy mechanism (config + cleanup plan)",
+      "e2e_flow": "Retention policy is defined and cleanup approach is documented/implementable",
+      "manual_verification": [
+        "Verify retention config exists",
+        "Verify cleanup approach is documented"
+      ],
+      "files": [
+        "apps/backend/..."
+      ],
+      "tests_to_write": [],
+      "dependencies": [
+        "abf-store-001"
+      ],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-store-006/"
+    }
+  ]
+}

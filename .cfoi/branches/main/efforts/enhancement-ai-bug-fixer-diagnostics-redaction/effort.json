@@ -1,0 +1,54 @@
+{
+  "type": "enhancement",
+  "name": "ai-bug-fixer-diagnostics-redaction",
+  "description": "Capture minimal diagnostics and enforce mandatory redaction",
+  "created": "2026-01-21T22:29:17Z",
+  "status": "in-progress",
+  "priority": 7,
+  "parent": null,
+  "definition_of_done": {
+    "version": 1,
+    "status": "active",
+    "thresholds": [
+      {
+        "description": "When enabled, bug reports include route/build/env, console ring buffer, network failure metadata, breadcrumbs",
+        "metric": "bug_report_diagnostics_attached",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "Redaction removes auth headers/cookies/tokens reliably",
+        "metric": "bug_report_redaction_safe",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      }
+    ],
+    "signals": [
+      {
+        "description": "Diagnostics capture does not block report submission on failure",
+        "metric": "diagnostics_best_effort",
+        "target": 1,
+        "weight": 0.6,
+        "evidence_required": "measured",
+        "type": "signal"
+      },
+      {
+        "description": "Diagnostics summarized in GitHub issue without leaking sensitive data",
+        "metric": "diagnostics_summary_safe_for_github",
+        "target": 1,
+        "weight": 0.4,
+        "evidence_required": "measured",
+        "type": "signal"
+      }
+    ],
+    "confidence": "self-reported",
+    "approval": {
+      "by": "Lance",
+      "timestamp": "2026-01-21T22:36:35Z",
+      "change_reason": "Activated DoD from PRD slice acceptance criteria",
+      "change_type": "clarify"
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "type": "enhancement",
+  "name": "ai-bug-fixer-polish-routing-notifications",
+  "description": "Polish: routing policies, notifications, error boundary entry point",
+  "created": "2026-01-21T22:29:17Z",
+  "status": "in-progress",
+  "priority": 9,
+  "parent": null,
+  "definition_of_done": {
+    "version": 1,
+    "status": "active",
+    "thresholds": [
+      {
+        "description": "Error boundary provides a Report Bug entry point on crash",
+        "metric": "error_boundary_report_bug_entrypoint",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "High/Blocking reports can trigger internal notification",
+        "metric": "bug_report_notifications_high_sev",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      }
+    ],
+    "signals": [
+      {
+        "description": "Routing policy can restrict AI trigger by severity/category",
+        "metric": "ai_trigger_routing_policy_configurable",
+        "target": 1,
+        "weight": 0.6,
+        "evidence_required": "measured",
+        "type": "signal"
+      },
+      {
+        "description": "Notification spam controls in place (rate limit/aggregation)",
+        "metric": "notifications_rate_limited",
+        "target": 1,
+        "weight": 0.4,
+        "evidence_required": "measured",
+        "type": "signal"
+      }
+    ],
+    "confidence": "self-reported",
+    "approval": {
+      "by": "Lance",
+      "timestamp": "2026-01-21T22:36:35Z",
+      "change_reason": "Activated DoD from PRD slice acceptance criteria",
+      "change_type": "clarify"
+    }
+  }
+}

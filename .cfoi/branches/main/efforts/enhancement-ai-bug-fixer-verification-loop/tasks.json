@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "effort": "enhancement-ai-bug-fixer-verification-loop",
+  "created": "2026-01-21T22:56:00Z",
+  "tasks": [
+    {
+      "id": "abf-verify-001",
+      "description": "Define webhook authentication + payload contract (GitHub + Railway)",
+      "e2e_flow": "Webhook endpoints reject unsigned/invalid requests",
+      "manual_verification": [
+        "POST invalid signature -> 401/403",
+        "POST valid signature -> 200"
+      ],
+      "files": [
+        "apps/backend/main.py",
+        "apps/backend/..."
+      ],
+      "tests_to_write": [
+        "unit test: signature verification"
+      ],
+      "dependencies": [],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-verify-001/"
+    },
+    {
+      "id": "abf-verify-002",
+      "description": "Implement GitHub webhook endpoint: PR opened -> pr_created",
+      "e2e_flow": "PR opened webhook updates bug report status to pr_created",
+      "manual_verification": [
+        "POST sample PR opened payload",
+        "Fetch bug report -> pr_created"
+      ],
+      "files": [
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": [
+        "unit test: github PR opened mapping"
+      ],
+      "dependencies": [
+        "abf-verify-001"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-verify-002/"
+    },
+    {
+      "id": "abf-verify-003",
+      "description": "Implement preview URL update: Railway webhook (or fallback) -> preview_ready",
+      "e2e_flow": "Preview URL event stores URL and sets preview_ready",
+      "manual_verification": [
+        "POST sample preview payload",
+        "Fetch bug report -> preview_url present and preview_ready"
+      ],
+      "files": [
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": [
+        "unit test: preview URL update"
+      ],
+      "dependencies": [
+        "abf-verify-001"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-verify-003/"
+    },
+    {
+      "id": "abf-verify-004",
+      "description": "Implement GitHub webhook endpoint: PR merged -> shipped",
+      "e2e_flow": "PR merged webhook updates bug report status to shipped",
+      "manual_verification": [
+        "POST sample PR merged payload",
+        "Fetch bug report -> shipped"
+      ],
+      "files": [
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": [
+        "unit test: github PR merged mapping"
+      ],
+      "dependencies": [
+        "abf-verify-002"
+      ],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-verify-004/"
+    },
+    {
+      "id": "abf-verify-005",
+      "description": "Update reporter status UI to show PR/preview/shipped",
+      "e2e_flow": "Reporter status view displays PR created, preview link, and shipped",
+      "manual_verification": [
+        "View report in each state",
+        "Confirm UI matches state"
+      ],
+      "files": [
+        "apps/frontend/app/..."
+      ],
+      "tests_to_write": [
+        "playwright: status progression"
+      ],
+      "dependencies": [
+        "abf-verify-003"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-verify-005/"
+    }
+  ]
+}

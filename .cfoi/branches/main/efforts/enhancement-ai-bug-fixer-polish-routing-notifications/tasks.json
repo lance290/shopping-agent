@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "effort": "enhancement-ai-bug-fixer-polish-routing-notifications",
+  "created": "2026-01-21T22:56:00Z",
+  "tasks": [
+    {
+      "id": "abf-polish-001",
+      "description": "Add error boundary Report Bug entry point",
+      "e2e_flow": "Crash page offers Report Bug entry point that opens bug report flow",
+      "manual_verification": [
+        "Force crash",
+        "Verify Report Bug button exists",
+        "Click -> bug report modal opens"
+      ],
+      "files": [
+        "apps/frontend/app/..."
+      ],
+      "tests_to_write": [
+        "playwright: error boundary report bug entry"
+      ],
+      "dependencies": [],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-polish-001/"
+    },
+    {
+      "id": "abf-polish-002",
+      "description": "Add severity/category routing config (policy)",
+      "e2e_flow": "Routing policy exists to drive notification priority/triage",
+      "manual_verification": [
+        "Submit High severity report",
+        "Verify routing decision recorded"
+      ],
+      "files": [
+        "apps/backend/..."
+      ],
+      "tests_to_write": [
+        "unit test: routing policy"
+      ],
+      "dependencies": [
+        "abf-polish-001"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-polish-002/"
+    },
+    {
+      "id": "abf-polish-003",
+      "description": "Add high-severity notification sender (link-only)",
+      "e2e_flow": "High/Blocking reports trigger internal notification with Bug ID + link",
+      "manual_verification": [
+        "Configure notification destination",
+        "Submit Blocking report",
+        "Verify notification received/logged"
+      ],
+      "files": [
+        "apps/backend/..."
+      ],
+      "tests_to_write": [
+        "unit test: notification payload link-only"
+      ],
+      "dependencies": [
+        "abf-polish-002"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-polish-003/"
+    },
+    {
+      "id": "abf-polish-004",
+      "description": "Add rate limiting/aggregation for notifications",
+      "e2e_flow": "Notification spam is prevented via rate limiting/aggregation",
+      "manual_verification": [
+        "Submit multiple high severity reports quickly",
+        "Verify notifications limited/aggregated"
+      ],
+      "files": [
+        "apps/backend/..."
+      ],
+      "tests_to_write": [
+        "unit test: rate limiter"
+      ],
+      "dependencies": [
+        "abf-polish-003"
+      ],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/abf-polish-004/"
+    }
+  ]
+}
