@@ -1,17 +1,18 @@
 """Add Clerk user fields to User table
 
 Revision ID: add_clerk_fields
-Revises: 
+Revises: bfa9d8fedf7a
 Create Date: 2026-01-21
 """
+from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-# revision identifiers
-revision = 'add_clerk_fields'
-down_revision = None
-branch_labels = None
-depends_on = None
+# revision identifiers, used by Alembic.
+revision: str = 'add_clerk_fields'
+down_revision: Union[str, Sequence[str], None] = 'bfa9d8fedf7a'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade():
