@@ -1,7 +1,7 @@
 import { Offer } from '../store';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Star, Truck, ShieldCheck, ShoppingCart as ShoppingCartIcon } from 'lucide-react';
+import { Star, Truck, ShieldCheck } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 interface OfferTileProps {
@@ -24,8 +24,8 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
     <Card
       variant="hover"
       className={cn(
-        "min-w-[240px] max-w-[240px] h-full flex flex-col relative group border-2",
-        isSelected ? "border-status-success ring-4 ring-status-success/10" : "border-transparent"
+        "min-w-[240px] max-w-[240px] h-full flex flex-col relative group",
+        isSelected ? "border-status-success" : "border-warm-grey/70"
       )}
     >
       <a
@@ -37,7 +37,7 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
         {/* Badges */}
         <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5">
           {isBiddable && (
-            <div className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide bg-agent-blurple text-white shadow-sm">
+            <div className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-warm-light text-onyx-muted border border-warm-grey/70">
               Negotiable
             </div>
           )}
@@ -45,13 +45,13 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
 
         <div className="absolute top-3 right-3 z-10 flex flex-col gap-1.5">
           {isSelected ? (
-            <div className="flex items-center gap-1 bg-status-success text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm">
+            <div className="flex items-center gap-1 bg-status-success/10 text-status-success text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide border border-status-success/20">
               <ShieldCheck size={10} />
               Selected
             </div>
           ) : (
             offer.match_score && offer.match_score > 0.7 && (
-              <div className="flex items-center gap-1 bg-agent-camel text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm">
+              <div className="flex items-center gap-1 bg-agent-blurple/10 text-agent-blurple text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide border border-agent-blurple/20">
                 <Star size={10} className="fill-current" />
                 Best Match
               </div>
@@ -65,7 +65,7 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
             <img 
               src={offer.image_url} 
               alt={offer.title}
-              className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105"
+              className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-105"
             />
           ) : (
             <div className="text-warm-grey">
@@ -75,26 +75,26 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
         </div>
         
         {/* Content */}
-        <div className="p-4 flex flex-col flex-1 bg-canvas border-t border-warm-grey/20">
+        <div className="p-4 flex flex-col flex-1 bg-canvas border-t border-warm-grey/60">
           <div className="text-xs font-medium text-onyx-muted mb-1 truncate flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-agent-camel"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-onyx-muted/60"></span>
             {offer.merchant_domain || offer.merchant}
           </div>
           
-          <div className="text-sm font-medium text-onyx line-clamp-2 mb-3 h-10 leading-snug group-hover:text-agent-blurple transition-colors" title={offer.title}>
+          <div className="text-sm font-semibold text-onyx line-clamp-2 mb-3 h-10 leading-snug group-hover:text-onyx-muted transition-colors" title={offer.title}>
             {offer.title}
           </div>
           
           <div className="mt-auto">
             <div className="flex justify-between items-end mb-3">
-              <div className="text-xl font-serif font-bold text-onyx">
+              <div className="text-lg font-semibold text-onyx">
                 {offer.currency === 'USD' ? '$' : offer.currency}
                 {safePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               
               {offer.rating && (
-                <div className="flex items-center gap-1 text-xs text-onyx-muted font-medium bg-warm-grey/30 px-1.5 py-0.5 rounded">
-                  <Star size={10} className="fill-agent-camel text-agent-camel" />
+                <div className="flex items-center gap-1 text-[11px] text-onyx-muted font-medium bg-warm-light px-2 py-0.5 rounded-full border border-warm-grey/60">
+                  <Star size={10} className="fill-agent-blurple text-agent-blurple" />
                   <span>{offer.rating}</span>
                   {offer.reviews_count && <span className="text-onyx-muted/70">({offer.reviews_count})</span>}
                 </div>
@@ -102,7 +102,7 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
             </div>
             
             {offer.shipping_info && (
-              <div className="flex items-center gap-1.5 text-[10px] text-status-success font-medium mb-3">
+              <div className="flex items-center gap-1.5 text-[10px] text-onyx-muted font-medium mb-3">
                 <Truck size={12} />
                 <span className="truncate">{offer.shipping_info}</span>
               </div>
@@ -118,19 +118,19 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
                     e.stopPropagation();
                     onSelect?.(offer);
                   }}
-                  className="w-full h-9 border-status-success text-status-success hover:bg-status-success hover:text-white"
+                  className="w-full h-9"
                 >
                   Select Deal
                 </Button>
               )}
               {isSelected && (
-                <div className="w-full py-2 text-center text-xs font-bold text-status-success bg-status-success/10 rounded-full border border-status-success/20">
+                <div className="w-full py-2 text-center text-xs font-semibold text-status-success bg-status-success/10 rounded-full border border-status-success/20">
                   Deal Selected
                 </div>
               )}
               
-              <div className="w-full text-center py-2 text-xs font-medium text-agent-blurple group-hover:underline flex items-center justify-center gap-1">
-                View Details
+              <div className="w-full text-center py-2 text-xs font-semibold text-agent-blurple group-hover:underline flex items-center justify-center gap-1">
+                View details
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>

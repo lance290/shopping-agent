@@ -102,25 +102,23 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   return (
     <div 
       className={cn(
-        "rounded-2xl transition-all duration-300 overflow-hidden",
-        isActive 
-          ? "bg-white shadow-lg ring-1 ring-agent-blurple/20" 
-          : "bg-white/60 hover:bg-white border border-warm-grey/50 hover:shadow-md"
+        "rounded-2xl transition-all duration-200 overflow-hidden border border-warm-grey/70 bg-white",
+        isActive ? "shadow-[0_12px_28px_rgba(0,0,0,0.08)]" : "hover:shadow-md"
       )}
       onClick={onSelect}
     >
-      <div className="flex items-center justify-between px-5 py-4 border-b border-warm-grey/30 bg-warm-light/30">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-warm-grey bg-white">
         <div className="flex items-center gap-4">
           <div className={cn(
-            "w-2.5 h-2.5 rounded-full transition-colors duration-300",
-            isActive ? "bg-agent-blurple shadow-[0_0_8px_rgba(99,102,241,0.5)]" : "bg-warm-grey"
+            "w-2.5 h-2.5 rounded-full",
+            isActive ? "bg-agent-blurple" : "bg-warm-grey"
           )} />
-          <h3 className="font-serif text-lg font-medium text-onyx">{row.title}</h3>
+          <h3 className="text-base font-semibold text-onyx">{row.title}</h3>
           <span className={cn(
             "text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider font-semibold",
-            row.status === 'sourcing' ? "bg-agent-camel/10 text-agent-camel" : 
+            row.status === 'sourcing' ? "bg-warm-light text-onyx-muted" : 
             row.status === 'closed' ? "bg-status-success/10 text-status-success" : 
-            "bg-onyx/5 text-onyx-muted"
+            "bg-warm-light text-onyx-muted"
           )}>
             {row.status}
           </span>
@@ -128,7 +126,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         <div className="flex items-center gap-2">
           <div className="relative group">
             <select
-              className="appearance-none pl-3 pr-8 py-1.5 text-xs font-medium border border-warm-grey rounded-lg bg-white text-onyx hover:border-agent-blurple/50 focus:outline-none focus:ring-1 focus:ring-agent-blurple/50 transition-colors cursor-pointer"
+              className="appearance-none pl-3 pr-8 py-1.5 text-xs font-medium border border-warm-grey rounded-lg bg-white text-onyx hover:border-onyx-muted focus:outline-none focus:ring-1 focus:ring-onyx/10 transition-colors cursor-pointer"
               value={sortMode}
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => {
@@ -156,7 +154,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
               refresh('all');
             }}
             disabled={!canRefresh()}
-            className="h-8 w-8 p-0 rounded-lg border border-warm-grey hover:border-agent-blurple/50 text-onyx-muted hover:text-agent-blurple"
+            className="h-8 w-8 p-0 rounded-lg border border-warm-grey text-onyx-muted hover:text-onyx"
             title="Refresh offers"
           >
             <RefreshCw size={14} className={!canRefresh() ? "opacity-50" : ""} />
@@ -170,7 +168,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
                 e.stopPropagation();
                 undoDeleteRow();
               }}
-              className="h-8 px-3 text-xs gap-1.5 border-agent-blurple text-agent-blurple hover:bg-agent-blurple/5"
+              className="h-8 px-3 text-xs gap-1.5"
             >
               <Undo2 size={14} />
               Undo
@@ -183,7 +181,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
                 e.stopPropagation();
                 requestDeleteRow(row.id);
               }}
-              className="h-8 w-8 p-0 rounded-lg border border-warm-grey hover:border-status-error/50 text-onyx-muted hover:text-status-error hover:bg-status-error/5"
+              className="h-8 w-8 p-0 rounded-lg border border-warm-grey text-onyx-muted hover:text-status-error"
               title="Archive row"
             >
               <Archive size={14} />
@@ -213,7 +211,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
               />
             ))
           ) : (
-            <div className="flex flex-col items-center justify-center w-64 rounded-xl border-2 border-dashed border-warm-grey/50 bg-warm-light/20 text-onyx-muted">
+            <div className="flex flex-col items-center justify-center w-64 rounded-xl border border-dashed border-warm-grey bg-warm-light/40 text-onyx-muted">
               {row.status === 'sourcing' ? (
                 <>
                   <RefreshCw className="w-6 h-6 animate-spin mb-3 opacity-50" />

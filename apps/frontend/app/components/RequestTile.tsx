@@ -40,12 +40,12 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
   return (
     <Card 
       variant="hover"
-      className="min-w-[260px] max-w-[280px] h-full flex flex-col p-5 bg-gradient-to-br from-white to-warm-light/50 border-warm-grey cursor-pointer group"
+      className="min-w-[260px] max-w-[280px] h-full flex flex-col p-5 bg-white border border-warm-grey/70 cursor-pointer group"
       onClick={handleClick}
     >
       {/* Header */}
       <div className="flex justify-between items-start mb-4">
-         <div className="p-2 bg-agent-blurple/10 rounded-lg text-agent-blurple">
+         <div className="p-2 bg-warm-light rounded-lg text-onyx-muted">
            <SlidersHorizontal size={18} />
          </div>
 
@@ -64,16 +64,16 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
       </div>
 
       {/* Title */}
-      <h3 className="font-serif text-lg font-medium text-onyx mb-4 line-clamp-2 leading-tight">
+      <h3 className="text-base font-semibold text-onyx mb-4 line-clamp-2 leading-tight">
         {row.title}
       </h3>
       
       {/* Key Specs / Constraints */}
       <div className="space-y-3 flex-1">
         {(minPrice !== undefined || maxPrice !== undefined) && (
-          <div className="flex justify-between text-sm items-center pb-2 border-b border-warm-grey/50">
-            <span className="text-onyx-muted font-medium">Budget</span>
-            <span className="font-bold text-onyx font-mono">
+          <div className="flex justify-between text-sm items-center pb-2 border-b border-warm-grey/70">
+            <span className="text-xs font-semibold text-onyx-muted uppercase tracking-wider">Budget</span>
+            <span className="text-sm font-semibold text-onyx">
               {minPrice !== undefined && maxPrice !== undefined
                 ? `${row.currency} ${minPrice}–${maxPrice}`
                 : maxPrice !== undefined
@@ -86,14 +86,14 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
         {constraints.slice(0, 4).map(([key, value]) => (
           <div key={key} className="flex justify-between text-sm items-start gap-3">
             <span className="text-onyx-muted capitalize shrink-0 text-xs">{key.replace(/_/g, ' ')}</span>
-            <span className="font-medium text-onyx text-right truncate text-xs bg-warm-light px-2 py-0.5 rounded-md border border-warm-grey/50">
+            <span className="font-medium text-onyx text-right truncate text-xs bg-warm-light px-2 py-0.5 rounded-md border border-warm-grey/70">
               {String(value)}
             </span>
           </div>
         ))}
         
         {constraints.length > 4 && (
-          <div className="text-xs text-agent-blurple font-medium pt-2 text-center">
+          <div className="text-xs text-onyx-muted font-medium pt-2 text-center">
             +{constraints.length - 4} more specs
           </div>
         )}
@@ -105,9 +105,9 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
         )}
       </div>
       
-      <div className="mt-4 pt-4 border-t border-warm-grey/50 text-center">
-        <span className="text-xs font-medium text-agent-blurple group-hover:underline">
-          Edit Requirements →
+      <div className="mt-4 pt-4 border-t border-warm-grey/70 text-center">
+        <span className="text-xs font-semibold text-agent-blurple group-hover:underline">
+          Edit requirements →
         </span>
       </div>
     </Card>

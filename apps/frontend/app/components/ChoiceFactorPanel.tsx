@@ -135,16 +135,16 @@ export default function ChoiceFactorPanel() {
   return (
     <div 
       className={cn(
-        "h-full bg-white/80 backdrop-blur-xl flex flex-col shrink-0 transition-all duration-300 ease-in-out overflow-hidden border-warm-grey/50 z-20",
+        "h-full bg-white flex flex-col shrink-0 transition-all duration-300 ease-in-out overflow-hidden border-warm-grey/70 z-20",
         isSidebarOpen ? "w-80 border-r opacity-100" : "w-0 border-none opacity-0"
       )}
     >
       <div className="w-80 h-full flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-warm-grey/50 flex justify-between items-center bg-white/50">
+        <div className="p-6 border-b border-warm-grey flex justify-between items-center bg-white">
           <div>
-            <h2 className="font-serif font-semibold text-lg text-onyx flex items-center gap-2">
-              <SlidersHorizontal size={18} className="text-agent-blurple" />
+            <h2 className="font-semibold text-base text-onyx flex items-center gap-2">
+              <SlidersHorizontal size={18} className="text-onyx-muted" />
               Specifications
             </h2>
             <p className="text-xs text-onyx-muted mt-0.5">
@@ -157,7 +157,7 @@ export default function ChoiceFactorPanel() {
                 variant="ghost"
                 size="sm"
                 onClick={handleManualRefresh}
-                className={cn("h-8 w-8 p-0 text-onyx-muted hover:text-agent-blurple", isRefreshing && "animate-spin")}
+                className={cn("h-8 w-8 p-0 text-onyx-muted hover:text-onyx", isRefreshing && "animate-spin")}
                 title="Refresh specs"
               >
                 <RefreshCw size={16} />
@@ -188,12 +188,12 @@ export default function ChoiceFactorPanel() {
             <div className="text-center py-12">
               {pollCount < 5 ? (
                 <>
-                  <div className="w-12 h-12 bg-agent-blurple/10 text-agent-blurple rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className="w-12 h-12 bg-warm-light text-onyx-muted rounded-full flex items-center justify-center mx-auto mb-4">
                     <Loader2 className="animate-spin" size={24} />
                   </div>
-                  <p className="text-onyx font-medium text-sm">Analyzing Request...</p>
+                  <p className="text-onyx font-medium text-sm">Analyzing request...</p>
                   <p className="text-xs text-onyx-muted mt-2">
-                    Extracting key buying criteria...
+                    Extracting key buying criteria.
                   </p>
                 </>
               ) : (
@@ -229,11 +229,11 @@ export default function ChoiceFactorPanel() {
                 
                 return (
                   <div key={factor.name} className="group">
-                    <label className="flex items-center justify-between text-xs font-semibold text-onyx-muted mb-2 uppercase tracking-wide">
+                    <label className="flex items-center justify-between text-xs font-semibold text-onyx-muted mb-2 uppercase tracking-wider">
                       <span className="flex items-center gap-2">
                         {label}
                         {factor.required && (
-                          <span className="text-[9px] font-bold text-agent-camel bg-agent-camel/10 px-1.5 py-0.5 rounded">
+                          <span className="text-[9px] font-bold text-onyx-muted bg-warm-light px-1.5 py-0.5 rounded">
                             REQ
                           </span>
                         )}
@@ -253,7 +253,7 @@ export default function ChoiceFactorPanel() {
                           <select
                             value={localAnswers[factor.name] || ''}
                             onChange={(e) => handleAnswerChange(factor.name, e.target.value)}
-                            className="w-full px-4 py-3 bg-warm-light border-b-2 border-transparent rounded-t-md text-sm text-onyx focus:border-onyx transition-colors outline-none appearance-none cursor-pointer hover:bg-warm-grey/20"
+                            className="w-full px-4 py-3 bg-white border border-warm-grey/70 rounded-xl text-sm text-onyx focus:border-agent-blurple transition-colors outline-none appearance-none cursor-pointer hover:border-onyx-muted"
                           >
                             <option value="" disabled>Select...</option>
                             {factor.options.map((opt: string) => (
@@ -276,10 +276,10 @@ export default function ChoiceFactorPanel() {
                                 key={opt}
                                 onClick={() => handleAnswerChange(factor.name, boolVal)}
                                 className={cn(
-                                  "flex-1 py-2 px-4 rounded-lg text-xs font-medium border transition-all duration-200",
+                                  "flex-1 py-2 px-4 rounded-lg text-xs font-semibold border transition-all duration-200",
                                   isSelected 
-                                    ? "bg-onyx text-white border-onyx shadow-md" 
-                                    : "bg-white border-warm-grey text-onyx hover:bg-warm-light"
+                                    ? "bg-onyx text-white border-onyx" 
+                                    : "bg-white border-warm-grey text-onyx hover:border-onyx-muted"
                                 )}
                               >
                                 {opt}
@@ -326,7 +326,7 @@ export default function ChoiceFactorPanel() {
         
         {/* Footer */}
         {row && factors.length > 0 && (
-          <div className="p-4 bg-warm-light/30 border-t border-warm-grey/30">
+          <div className="p-4 bg-warm-light/50 border-t border-warm-grey/70">
             <div className="flex items-center justify-center gap-1.5 text-[10px] text-onyx-muted uppercase tracking-wider font-medium">
               <Check size={12} className="text-status-success" />
               <span>Auto-saved</span>

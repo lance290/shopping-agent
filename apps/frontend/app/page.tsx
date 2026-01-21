@@ -59,19 +59,19 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="flex h-screen w-full bg-canvas text-onyx overflow-hidden font-sans selection:bg-agent-blurple/20 selection:text-agent-blurple">
+    <main className="flex h-screen w-full bg-canvas text-onyx overflow-hidden font-sans selection:bg-agent-blurple/15 selection:text-agent-blurple">
       {/* Specifications Sidebar (Leftmost, collapsible, absolute on mobile, relative on desktop if we wanted) 
           Actually, current design puts it leftmost in the flex container.
           Let's keep it there but make sure it has z-index to slide properly.
       */}
-      <div className="z-20 shadow-xl shadow-onyx/5">
+      <div className="z-20 border-r border-warm-grey/70">
         <ChoiceFactorPanel />
       </div>
 
       {/* Chat Pane (Center Left) */}
       <div 
         style={{ width: `${chatWidthPx}px` }} 
-        className="h-full shrink-0 z-10 relative shadow-[5px_0_30px_-10px_rgba(0,0,0,0.05)]"
+        className="h-full shrink-0 z-10 relative"
       >
         <Chat />
       </div>
@@ -79,8 +79,8 @@ export default function Home() {
       {/* Draggable Handle */}
       <div
         className={cn(
-          "w-1 h-full cursor-col-resize z-30 transition-colors duration-200 relative group -ml-0.5 hover:w-2",
-          isDraggingRef.current ? "bg-agent-blurple w-1.5" : "hover:bg-agent-blurple/50"
+          "w-px h-full cursor-col-resize z-30 transition-colors duration-200 relative group bg-warm-grey/70 hover:bg-onyx/40",
+          isDraggingRef.current ? "bg-agent-blurple" : ""
         )}
         onMouseDown={(e) => {
           e.preventDefault();
@@ -95,11 +95,11 @@ export default function Home() {
         aria-orientation="vertical"
         aria-label="Resize chat"
       >
-        <div className="absolute inset-y-0 -left-2 -right-2 z-30" /> {/* Hit area */}
+        <div className="absolute inset-y-0 -left-2 -right-2 z-30" />
       </div>
       
       {/* Board Pane (Right) */}
-      <div className="flex-1 min-w-0 bg-warm-light/30 h-full relative z-0">
+      <div className="flex-1 min-w-0 bg-canvas h-full relative z-0">
         <ProcurementBoard />
       </div>
     </main>

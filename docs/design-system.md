@@ -1,62 +1,60 @@
 # Shopping Agent Design System (2026)
 
 ## 1. Brand Philosophy
-**"Invisible Intelligence, Tangible Style."**
-The Shopping Agent interface should feel like a high-end personal concierge—unobtrusive, elegant, and magically efficient. The aesthetic combines the warmth of luxury retail with the precision of modern AI.
+**"Calm Precision."**
+The Shopping Agent should feel as effortless and refined as Apple and Torriden: clean, confident, and frictionless. The interface is quiet and minimal so the content and outcomes feel trustworthy.
 
-## 2. Visual Language: "Ethereal Minimalism"
+## 2. Visual Language: "Clean Minimalism"
 
 ### Core Principles
-- **Macro Typography:** Content is the interface. Large, confident headings guide the user.
-- **Ample Whitespace:** A breath of fresh air. High padding/margins to reduce cognitive load.
-- **Glass & Depth:** Subtle glassmorphism and soft shadows to layer information without clutter.
-- **Micro-Interactions:** Every click, hover, and focus state should feel alive and responsive.
+- **Clarity First:** Reduce visual noise; use clear hierarchy and tight copy.
+- **Quiet Depth:** Subtle shadows and borders create structure without heaviness.
+- **Soft Neutrals:** Warm whites and greys keep the UI calm and bright.
+- **Accent Discipline:** One primary blue for focus and action; no heavy gradients.
 
 ## 3. Color Palette
 
-### Primary (The "Canvas")
-- **Canvas White:** `#FAFAFA` (Background - slightly warmer than pure white)
-- **Onyx Black:** `#1A1A1A` (Primary Text, UI Elements)
-- **Warm Grey:** `#E5E5E5` (Borders, Dividers)
+### Primary (Canvas)
+- **Canvas:** `#F5F5F7` (Main background)
+- **Onyx:** `#1D1D1F` (Primary text)
+- **Muted Onyx:** `#6E6E73` (Secondary text)
+- **Warm Grey:** `#E5E5EA` (Borders)
 
-### Accents (The "Intelligence")
-- **Agent Blurple:** `#6366F1` (Primary Action / AI suggestions - a nod to technology)
-- **Soft Camel:** `#D4B483` (Secondary Action / Luxury touch - warmth)
-- **Success Green:** `#10B981` (Confirmations)
-- **Alert Rose:** `#F43F5E` (Errors)
-
-### Gradients
-- **AI Glow:** `linear-gradient(135deg, #6366F1 0%, #D4B483 100%)` (Used sparingly for AI moments)
+### Accents
+- **Action Blue:** `#0071E3` (Primary button / links)
+- **Soft Blue:** `#73C3E6` (Secondary accent)
+- **Success:** `#34C759`
+- **Error:** `#FF3B30`
 
 ## 4. Typography
 
-### Headings: *Playfair Display* (or similar Serif)
-*Sophisticated, editorial feel for product titles and major sections.*
-- **H1:** 4rem (64px) / Tight tracking (-0.02em)
-- **H2:** 2.5rem (40px)
-- **H3:** 1.75rem (28px)
-
-### Body / UI: *Inter* (or similar Sans-Serif)
-*Clean, legible, and functional for detailed specs and interface controls.*
-- **Body:** 1rem (16px) / Regular (400) & Medium (500)
-- **Caption:** 0.875rem (14px) / Text-muted
+### System Stack (Apple-like)
+- **Sans:** `-apple-system`, `BlinkMacSystemFont`, `SF Pro Text`, `SF Pro Display`, `Helvetica Neue`, `Arial`
+- **Sizing:**
+  - **H1:** 2.5rem (40px)
+  - **H2:** 2rem (32px)
+  - **H3:** 1.5rem (24px)
+  - **Body:** 0.95–1rem (15–16px)
+  - **Caption:** 0.75–0.85rem (12–14px)
 
 ## 5. Components & Interactions
 
 ### Buttons
-- **Primary:** Onyx Black background, White text. No border radius (sharp) or fully pill-shaped.
-- **Secondary:** Transparent background, Onyx border.
-- **AI Action:** Gradient background or subtle glow effect.
+- **Primary:** Action Blue background, white text, subtle shadow.
+- **Secondary:** White background, soft border, grey text.
+- **Ghost:** No fill, muted text, subtle hover.
+- **Radius:** 12px rounded corners.
 
-### Cards (Products/Items)
-- Minimal borders.
-- Large imagery (aspect ratio 4:5 or 1:1).
-- Soft hover lift (transform: translateY(-4px)).
+### Cards
+- White background, soft border, light shadow.
+- Rounded corners (16px–20px).
+- Hover: subtle lift + shadow.
 
 ### Input Fields
-- Underlined style or minimal background (`#F5F5F5`).
-- Active state: Onyx bottom border.
+- White background, thin grey border.
+- Focus ring in action blue.
+- Rounded corners (12px).
 
 ## 6. Layout Grid
-- **Desktop:** 12-column grid, 24px gaps, max-width 1440px.
-- **Mobile:** 4-column grid, 16px gaps.
+- **Desktop:** Spacious gutters, generous padding.
+- **Mobile:** Simplified, single-column flow with ample spacing.

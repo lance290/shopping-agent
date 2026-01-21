@@ -9,35 +9,52 @@ const config: Config = {
     extend: {
       colors: {
         canvas: {
-          DEFAULT: "#FAFAFA",
-          dark: "#0A0A0A",
+          DEFAULT: "#F5F5F7",
+          dark: "#1D1D1F",
         },
         onyx: {
-          DEFAULT: "#1A1A1A",
-          muted: "#404040",
+          DEFAULT: "#1D1D1F",
+          muted: "#6E6E73",
         },
         warm: {
-          grey: "#E5E5E5",
-          light: "#F5F5F5",
+          grey: "#E5E5EA",
+          light: "#FAFAFB",
         },
         agent: {
-          blurple: "#6366F1",
-          camel: "#D4B483",
+          blurple: "#0071E3",
+          camel: "#73C3E6",
         },
         status: {
-          success: "#10B981",
-          error: "#F43F5E",
+          success: "#34C759",
+          error: "#FF3B30",
         },
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "sans-serif"],
-        serif: ["var(--font-playfair)", "serif"],
+        sans: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "SF Pro Text",
+          "SF Pro Display",
+          "Helvetica Neue",
+          "Helvetica",
+          "Arial",
+          "sans-serif",
+        ],
+        serif: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "SF Pro Display",
+          "Helvetica Neue",
+          "Helvetica",
+          "Arial",
+          "sans-serif",
+        ],
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "gradient-conic":
           "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
-        "ai-glow": "linear-gradient(135deg, #6366F1 0%, #D4B483 100%)",
+        "ai-glow": "linear-gradient(135deg, #0071E3 0%, #73C3E6 100%)",
       },
     },
   },

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles } from 'lucide-react';
+import { Send, Bot, User } from 'lucide-react';
 import { useShoppingStore } from '../store';
 import { persistRowToDb, runSearchApi, fetchRowsFromDb } from '../utils/api';
 import { Button } from '../../components/ui/Button';
@@ -205,29 +205,29 @@ export default function Chat() {
   }, [store.cardClickQuery]);
 
   return (
-    <div className="flex flex-col h-full bg-canvas-dark/5 backdrop-blur-3xl border-r border-warm-grey/50">
-      <div className="p-6 border-b border-warm-grey/50 bg-white/50 backdrop-blur-md">
-        <h2 className="font-serif text-2xl font-semibold flex items-center gap-3 text-onyx">
-          <Sparkles className="w-6 h-6 text-agent-blurple animate-pulse" />
+    <div className="flex flex-col h-full bg-canvas border-r border-warm-grey/70">
+      <div className="px-6 py-5 border-b border-warm-grey bg-white">
+        <h2 className="text-lg font-semibold flex items-center gap-2 text-onyx">
+          <Bot className="w-5 h-5 text-agent-blurple" />
           Shopping Agent
         </h2>
         {activeRow && (
-          <div className="flex items-center gap-2 mt-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-status-success shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
-            <span className="text-xs font-medium text-onyx-muted uppercase tracking-wider">Active Context:</span>
-            <span className="text-sm font-medium text-onyx truncate max-w-[200px]">{activeRow.title}</span>
+          <div className="flex items-center gap-2 mt-2 text-xs text-onyx-muted">
+            <span className="w-1.5 h-1.5 rounded-full bg-status-success"></span>
+            <span className="uppercase tracking-wider">Active</span>
+            <span className="text-sm font-medium text-onyx truncate max-w-[220px]">{activeRow.title}</span>
           </div>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto p-6 space-y-5">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center p-8 opacity-60">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-agent-blurple to-agent-camel mb-6 flex items-center justify-center shadow-lg shadow-agent-blurple/20">
-              <Bot className="w-8 h-8 text-white" />
+          <div className="flex flex-col items-center justify-center h-full text-center px-6 text-onyx-muted">
+            <div className="w-14 h-14 rounded-full bg-white border border-warm-grey flex items-center justify-center mb-5">
+              <Bot className="w-6 h-6 text-agent-blurple" />
             </div>
-            <h3 className="font-serif text-xl text-onyx mb-2">How can I help you today?</h3>
-            <p className="text-sm text-onyx-muted max-w-xs">
+            <h3 className="text-lg font-semibold text-onyx mb-2">How can I help you today?</h3>
+            <p className="text-sm max-w-xs">
               I can help you find products, compare prices, and manage your procurement list.
             </p>
           </div>
@@ -243,10 +243,8 @@ export default function Chat() {
           >
             <div
               className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm",
-                m.role === 'user' 
-                  ? "bg-onyx text-white" 
-                  : "bg-white text-agent-blurple border border-warm-grey"
+                "w-9 h-9 rounded-full flex items-center justify-center shrink-0 border border-warm-grey bg-white",
+                m.role === 'user' ? "bg-agent-blurple text-white border-transparent" : "text-agent-blurple"
               )}
             >
               {m.role === 'user' ? <User size={18} /> : <Bot size={18} />}
@@ -254,18 +252,18 @@ export default function Chat() {
             
             <div
               className={cn(
-                "rounded-2xl p-4 text-sm leading-relaxed shadow-sm",
+                "rounded-2xl px-4 py-3 text-sm leading-relaxed",
                 m.role === 'user'
-                  ? "bg-onyx text-white rounded-tr-sm"
+                  ? "bg-agent-blurple text-white rounded-tr-sm"
                   : "bg-white border border-warm-grey text-onyx rounded-tl-sm"
               )}
             >
               <div className="whitespace-pre-wrap font-sans">
                 {m.content || (m.role === 'assistant' && isLoading ? (
                   <div className="flex gap-1 items-center h-5">
-                    <span className="w-1.5 h-1.5 bg-agent-blurple rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                    <span className="w-1.5 h-1.5 bg-agent-blurple rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                    <span className="w-1.5 h-1.5 bg-agent-blurple rounded-full animate-bounce"></span>
+                    <span className="w-1.5 h-1.5 bg-onyx-muted rounded-full animate-pulse"></span>
+                    <span className="w-1.5 h-1.5 bg-onyx-muted rounded-full animate-pulse [animation-delay:0.2s]"></span>
+                    <span className="w-1.5 h-1.5 bg-onyx-muted rounded-full animate-pulse [animation-delay:0.4s]"></span>
                   </div>
                 ) : '')}
               </div>
@@ -275,7 +273,7 @@ export default function Chat() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-6 bg-white/80 backdrop-blur-md border-t border-warm-grey/50">
+      <div className="px-6 py-5 bg-white border-t border-warm-grey">
         <form onSubmit={handleSubmit} className="flex gap-3 items-end">
           <Input
             ref={inputRef}
@@ -287,9 +285,9 @@ export default function Chat() {
           <Button
             type="submit"
             disabled={isLoading || !input?.trim()}
-            variant="ai"
+            variant="primary"
             size="md"
-            className="rounded-xl px-4"
+            className="px-4"
           >
             <Send size={20} />
           </Button>
