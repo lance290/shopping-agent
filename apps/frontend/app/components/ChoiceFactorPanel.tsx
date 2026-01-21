@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { parseChoiceFactors, parseChoiceAnswers, useShoppingStore } from '../store';
 import { saveChoiceAnswerToDb, fetchRowsFromDb, runSearchApi } from '../utils/api';
-import { Loader2, Check, AlertCircle, ChevronLeft, RefreshCw } from 'lucide-react';
+import { Loader2, Check, AlertCircle, ChevronLeft, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { cn } from '../../utils/cn';
 
 export default function ChoiceFactorPanel() {
   const { rows, activeRowId, updateRow, setRows, setRowResults, setIsSearching, isSidebarOpen, setSidebarOpen } = useShoppingStore();
@@ -131,45 +134,53 @@ export default function ChoiceFactorPanel() {
 
   return (
     <div 
-      className={`h-full bg-white flex flex-col shrink-0 transition-all duration-300 ease-in-out overflow-hidden border-gray-200 ${
-        isSidebarOpen ? 'w-80 border-r opacity-100' : 'w-0 border-none opacity-0'
-      }`}
+      className={cn(
+        "h-full bg-white/80 backdrop-blur-xl flex flex-col shrink-0 transition-all duration-300 ease-in-out overflow-hidden border-warm-grey/50 z-20",
+        isSidebarOpen ? "w-80 border-r opacity-100" : "w-0 border-none opacity-0"
+      )}
     >
       <div className="w-80 h-full flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
+        <div className="p-6 border-b border-warm-grey/50 flex justify-between items-center bg-white/50">
           <div>
-            <h2 className="font-semibold text-gray-900">Specifications</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {row ? 'Edit requirements' : 'No request selected'}
+            <h2 className="font-serif font-semibold text-lg text-onyx flex items-center gap-2">
+              <SlidersHorizontal size={18} className="text-agent-blurple" />
+              Specifications
+            </h2>
+            <p className="text-xs text-onyx-muted mt-0.5">
+              {row ? 'Refine your requirements' : 'No request selected'}
             </p>
           </div>
           <div className="flex items-center gap-1">
             {row && (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleManualRefresh}
-                className={`p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors ${isRefreshing ? 'animate-spin' : ''}`}
+                className={cn("h-8 w-8 p-0 text-onyx-muted hover:text-agent-blurple", isRefreshing && "animate-spin")}
                 title="Refresh specs"
               >
                 <RefreshCw size={16} />
-              </button>
+              </Button>
             )}
-            <button 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setSidebarOpen(false)}
-              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="h-8 w-8 p-0 text-onyx-muted hover:text-onyx"
               title="Collapse sidebar"
             >
               <ChevronLeft size={20} />
-            </button>
+            </Button>
           </div>
         </div>
         
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
           {!row ? (
-            <div className="h-full flex flex-col items-center justify-center text-center text-gray-400 space-y-3">
-               <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                 <AlertCircle size={20} />
+            <div className="h-full flex flex-col items-center justify-center text-center text-onyx-muted space-y-4">
+               <div className="w-12 h-12 bg-warm-light rounded-full flex items-center justify-center">
+                 <AlertCircle size={24} className="opacity-50" />
                </div>
                <p className="text-sm">Select a request from the board to edit its specifications.</p>
             </div>
@@ -177,31 +188,33 @@ export default function ChoiceFactorPanel() {
             <div className="text-center py-12">
               {pollCount < 5 ? (
                 <>
-                  <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Loader2 className="animate-spin" size={20} />
+                  <div className="w-12 h-12 bg-agent-blurple/10 text-agent-blurple rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Loader2 className="animate-spin" size={24} />
                   </div>
-                  <p className="text-gray-900 font-medium text-sm">Extracting specs...</p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Identifying key attributes...
+                  <p className="text-onyx font-medium text-sm">Analyzing Request...</p>
+                  <p className="text-xs text-onyx-muted mt-2">
+                    Extracting key buying criteria...
                   </p>
                 </>
               ) : (
                 <div className="space-y-4">
-                   <div className="w-10 h-10 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <AlertCircle size={20} />
+                   <div className="w-12 h-12 bg-warm-light text-onyx-muted rounded-full flex items-center justify-center mx-auto mb-2">
+                    <AlertCircle size={24} />
                   </div>
                   <div>
-                    <p className="text-gray-900 font-medium text-sm">No specifications found</p>
-                    <p className="text-xs text-gray-500 mt-1 px-4">
-                      The agent didn't identify specific attributes for this item yet.
+                    <p className="text-onyx font-medium text-sm">No specifications found</p>
+                    <p className="text-xs text-onyx-muted mt-1 px-4">
+                      We couldn't identify specific criteria for this item.
                     </p>
                   </div>
-                  <button 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={handleManualRefresh}
-                    className="text-xs text-blue-600 font-medium hover:underline"
+                    className="text-agent-blurple hover:bg-agent-blurple/5"
                   >
                     Try Refreshing
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -216,20 +229,20 @@ export default function ChoiceFactorPanel() {
                 
                 return (
                   <div key={factor.name} className="group">
-                    <label className="flex items-center justify-between text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
+                    <label className="flex items-center justify-between text-xs font-semibold text-onyx-muted mb-2 uppercase tracking-wide">
                       <span className="flex items-center gap-2">
                         {label}
                         {factor.required && (
-                          <span className="text-[9px] font-bold text-orange-600 bg-orange-50 px-1 py-0.5 rounded">
+                          <span className="text-[9px] font-bold text-agent-camel bg-agent-camel/10 px-1.5 py-0.5 rounded">
                             REQ
                           </span>
                         )}
                       </span>
                       <div className="h-3 w-3">
                         {isSaving ? (
-                          <Loader2 className="animate-spin text-blue-500" size={12} />
+                          <Loader2 className="animate-spin text-agent-blurple" size={12} />
                         ) : hasAnswer ? (
-                          <Check className="text-green-500" size={12} />
+                          <Check className="text-status-success" size={12} />
                         ) : null}
                       </div>
                     </label>
@@ -240,15 +253,15 @@ export default function ChoiceFactorPanel() {
                           <select
                             value={localAnswers[factor.name] || ''}
                             onChange={(e) => handleAnswerChange(factor.name, e.target.value)}
-                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-md text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none appearance-none cursor-pointer hover:border-gray-300"
+                            className="w-full px-4 py-3 bg-warm-light border-b-2 border-transparent rounded-t-md text-sm text-onyx focus:border-onyx transition-colors outline-none appearance-none cursor-pointer hover:bg-warm-grey/20"
                           >
                             <option value="" disabled>Select...</option>
                             {factor.options.map((opt: string) => (
                               <option key={opt} value={opt}>{opt}</option>
                             ))}
                           </select>
-                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-onyx-muted">
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                           </div>
@@ -262,11 +275,12 @@ export default function ChoiceFactorPanel() {
                               <button
                                 key={opt}
                                 onClick={() => handleAnswerChange(factor.name, boolVal)}
-                                className={`flex-1 py-1.5 px-3 rounded-md text-xs font-medium border transition-all duration-200 ${
+                                className={cn(
+                                  "flex-1 py-2 px-4 rounded-lg text-xs font-medium border transition-all duration-200",
                                   isSelected 
-                                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm' 
-                                    : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300'
-                                }`}
+                                    ? "bg-onyx text-white border-onyx shadow-md" 
+                                    : "bg-white border-warm-grey text-onyx hover:bg-warm-light"
+                                )}
                               >
                                 {opt}
                               </button>
@@ -274,32 +288,32 @@ export default function ChoiceFactorPanel() {
                           })}
                         </div>
                       ) : isPriceRangeFactor(factor) ? (
-                        <div className="grid grid-cols-2 gap-2">
-                          <input
+                        <div className="grid grid-cols-2 gap-3">
+                          <Input
                             type="number"
                             value={localAnswers.min_price ?? ''}
                             onChange={(e) => handleTextChange('min_price', e.target.value === '' ? '' : Number(e.target.value))}
                             onBlur={(e) => handleAnswerChange('min_price', e.target.value === '' ? '' : Number(e.target.value))}
                             placeholder="Min"
-                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-md text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none hover:border-gray-300 placeholder-gray-400"
+                            className="text-sm py-2"
                           />
-                          <input
+                          <Input
                             type="number"
                             value={localAnswers.max_price ?? ''}
                             onChange={(e) => handleTextChange('max_price', e.target.value === '' ? '' : Number(e.target.value))}
                             onBlur={(e) => handleAnswerChange('max_price', e.target.value === '' ? '' : Number(e.target.value))}
                             placeholder="Max"
-                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-md text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none hover:border-gray-300 placeholder-gray-400"
+                            className="text-sm py-2"
                           />
                         </div>
                       ) : (
-                        <input
+                        <Input
                           type={factor.type === 'number' ? 'number' : 'text'}
                           value={localAnswers[factor.name] || ''}
                           onChange={(e) => handleTextChange(factor.name, factor.type === 'number' ? Number(e.target.value) : e.target.value)}
                           onBlur={(e) => handleAnswerChange(factor.name, factor.type === 'number' ? Number(e.target.value) : e.target.value)}
-                          placeholder={`...`}
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-md text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none hover:border-gray-300 placeholder-gray-400"
+                          placeholder="..."
+                          className="text-sm"
                         />
                       )}
                     </div>
@@ -312,10 +326,10 @@ export default function ChoiceFactorPanel() {
         
         {/* Footer */}
         {row && factors.length > 0 && (
-          <div className="p-3 bg-gray-50 border-t border-gray-100">
-            <div className="flex items-center justify-center gap-1.5 text-xs text-gray-500">
-              <Check size={12} className="text-green-600" />
-              <span>Changes saved automatically</span>
+          <div className="p-4 bg-warm-light/30 border-t border-warm-grey/30">
+            <div className="flex items-center justify-center gap-1.5 text-[10px] text-onyx-muted uppercase tracking-wider font-medium">
+              <Check size={12} className="text-status-success" />
+              <span>Auto-saved</span>
             </div>
           </div>
         )}

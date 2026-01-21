@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User } from 'lucide-react';
+import { Send, Bot, User, Sparkles } from 'lucide-react';
 import { useShoppingStore } from '../store';
-import { persistRowToDb, runSearchApi, createRowInDb, fetchRowsFromDb } from '../utils/api';
-import { mapBidToOffer } from '../store';
+import { persistRowToDb, runSearchApi, fetchRowsFromDb } from '../utils/api';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { cn } from '../../utils/cn';
 
 interface Message {
   id: string;
@@ -35,7 +37,7 @@ export default function Chat() {
       {
         id: `${Date.now()}-${store.activeRowId}`,
         role: 'assistant',
-        content: `Switched to: ${activeRow.title}`,
+        content: `Focused on: ${activeRow.title}`,
       },
     ]);
   }, [store.activeRowId]);
@@ -53,19 +55,7 @@ export default function Chat() {
     loadRows();
   }, []);
 
-  /**
-   * MAIN FLOW:
-   * 1a. User types in search
-   * 1b. A search query is created and saved to Zustand
-   * 1c. A card is either selected if possible or created
-   * 1d. Zustand is updated as source of truth
-   * 1e. We update the database with the query
-   * 1f. We run the search
-   */
   const handleSearchFlow = async (query: string) => {
-    console.log('[Chat] === SEARCH FLOW START ===');
-    console.log('[Chat] 1a. Query:', query);
-
     store.setCurrentQuery(query);
 
     // 1c. Select or create card
@@ -73,40 +63,28 @@ export default function Chat() {
     let targetRow = store.selectOrCreateRow(query, currentRows);
     
     if (targetRow) {
-      // Select existing row
-      console.log('[Chat] Step 2. Identifying existing row:', targetRow.id, targetRow.title);
       store.setActiveRowId(targetRow.id);
-      
-      // Update title if needed
       if (targetRow.title !== query) {
         store.updateRow(targetRow.id, { title: query });
         await persistRowToDb(targetRow.id, query);
       }
     } else {
-      // Refresh from DB (LLM might have created it)
-      console.log('[Chat] 1c. No matching row in store, refreshing from DB...');
       const freshRows = await fetchRowsFromDb();
       store.setRows(freshRows);
-      
       targetRow = freshRows.find(r => r.title === query) || null;
       if (!targetRow && freshRows.length > 0) {
-        // Fallback to newest
         targetRow = freshRows[freshRows.length - 1];
       }
-      
       if (targetRow) {
         store.setActiveRowId(targetRow.id);
       }
     }
 
-    // 1f. Run the search
     if (targetRow) {
       store.setIsSearching(true);
       const results = await runSearchApi(query, targetRow.id);
       store.setRowResults(targetRow.id, results);
     }
-
-    console.log('[Chat] === SEARCH FLOW END ===');
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -157,14 +135,9 @@ export default function Chat() {
           const chunk = decoder.decode(value, { stream: true });
           assistantContent += chunk;
           
-          // --- Stream Parsing (Phase 1 Refactor: Cleaned up but logic preserved) ---
-          
-          // 1. Row Creation
           const rowMatch = assistantContent.match(/✅ Adding "([^"]+)" to your procurement board/);
           if (rowMatch && !rowCreationHandled) {
             rowCreationHandled = true;
-            const createdItemName = rowMatch[1];
-            // Wait for DB commit
             await new Promise(resolve => setTimeout(resolve, 800));
             const freshRows = await fetchRowsFromDb();
             store.setRows(freshRows);
@@ -172,13 +145,11 @@ export default function Chat() {
             if (freshRows.length > 0) {
               const newestRow = freshRows[freshRows.length - 1];
               store.setActiveRowId(newestRow.id);
-              // Trigger search
               const results = await runSearchApi(newestRow.title, newestRow.id);
               store.setRowResults(newestRow.id, results);
             }
           }
           
-          // 2. Row Update
           const updateMatch = assistantContent.match(/🔄 Updating row #(\d+) to "([^"]+)".*Done!/s);
           if (updateMatch && !rowUpdateHandled) {
             rowUpdateHandled = true;
@@ -193,7 +164,6 @@ export default function Chat() {
             store.setRowResults(updatedRowId, results);
           }
           
-          // 3. Explicit Search
           const searchMatch = assistantContent.match(/🔍 Searching for "([^"]+)"/);
           if (searchMatch && searchMatch[1] !== lastProcessedQuery) {
             lastProcessedQuery = searchMatch[1];
@@ -221,7 +191,6 @@ export default function Chat() {
     }
   };
   
-  // Handle when a card is clicked (called from Board via store)
   useEffect(() => {
     const cardClickQuery = store.cardClickQuery;
     if (cardClickQuery) {
@@ -236,73 +205,94 @@ export default function Chat() {
   }, [store.cardClickQuery]);
 
   return (
-    <div className="flex flex-col h-full border-r border-gray-200 bg-gray-50 w-full">
-      <div className="p-4 border-b border-gray-200 bg-white shadow-sm">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Bot className="w-5 h-5 text-blue-600" />
+    <div className="flex flex-col h-full bg-canvas-dark/5 backdrop-blur-3xl border-r border-warm-grey/50">
+      <div className="p-6 border-b border-warm-grey/50 bg-white/50 backdrop-blur-md">
+        <h2 className="font-serif text-2xl font-semibold flex items-center gap-3 text-onyx">
+          <Sparkles className="w-6 h-6 text-agent-blurple animate-pulse" />
           Shopping Agent
         </h2>
         {activeRow && (
-          <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-            Active: <span className="font-medium text-gray-700 truncate max-w-[200px]">{activeRow.title}</span>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-status-success shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+            <span className="text-xs font-medium text-onyx-muted uppercase tracking-wider">Active Context:</span>
+            <span className="text-sm font-medium text-onyx truncate max-w-[200px]">{activeRow.title}</span>
           </div>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {messages.length === 0 && (
-          <div className="text-center text-gray-500 mt-10">
-            <p>Hello! I can help you find items and manage your procurement list.</p>
-            <p className="text-sm mt-2 text-gray-400">Try "I need a blue hoodie under $50"</p>
+          <div className="flex flex-col items-center justify-center h-full text-center p-8 opacity-60">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-agent-blurple to-agent-camel mb-6 flex items-center justify-center shadow-lg shadow-agent-blurple/20">
+              <Bot className="w-8 h-8 text-white" />
+            </div>
+            <h3 className="font-serif text-xl text-onyx mb-2">How can I help you today?</h3>
+            <p className="text-sm text-onyx-muted max-w-xs">
+              I can help you find products, compare prices, and manage your procurement list.
+            </p>
           </div>
         )}
         
         {messages.map((m) => (
           <div
             key={m.id}
-            className={`flex gap-3 ${
-              m.role === 'user' ? 'flex-row-reverse' : ''
-            }`}
+            className={cn(
+              "flex gap-4 max-w-[90%]",
+              m.role === 'user' ? "ml-auto flex-row-reverse" : ""
+            )}
           >
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-green-100 text-green-600'
-              }`}
+              className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm",
+                m.role === 'user' 
+                  ? "bg-onyx text-white" 
+                  : "bg-white text-agent-blurple border border-warm-grey"
+              )}
             >
-              {m.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+              {m.role === 'user' ? <User size={18} /> : <Bot size={18} />}
             </div>
             
             <div
-              className={`rounded-lg p-3 max-w-[85%] text-sm whitespace-pre-wrap ${
+              className={cn(
+                "rounded-2xl p-4 text-sm leading-relaxed shadow-sm",
                 m.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white border border-gray-200 text-gray-800 shadow-sm'
-              }`}
+                  ? "bg-onyx text-white rounded-tr-sm"
+                  : "bg-white border border-warm-grey text-onyx rounded-tl-sm"
+              )}
             >
-              {m.content || (m.role === 'assistant' && isLoading ? '...' : '')}
+              <div className="whitespace-pre-wrap font-sans">
+                {m.content || (m.role === 'assistant' && isLoading ? (
+                  <div className="flex gap-1 items-center h-5">
+                    <span className="w-1.5 h-1.5 bg-agent-blurple rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                    <span className="w-1.5 h-1.5 bg-agent-blurple rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                    <span className="w-1.5 h-1.5 bg-agent-blurple rounded-full animate-bounce"></span>
+                  </div>
+                ) : '')}
+              </div>
             </div>
           </div>
         ))}
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 bg-white border-t border-gray-200">
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <input
-            className="flex-1 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black text-sm"
+      <div className="p-6 bg-white/80 backdrop-blur-md border-t border-warm-grey/50">
+        <form onSubmit={handleSubmit} className="flex gap-3 items-end">
+          <Input
             ref={inputRef}
             value={input}
-            placeholder={activeRow ? `Refine "${activeRow.title}"...` : "What are you looking for?"}
             onChange={(e) => setInput(e.target.value)}
+            placeholder={activeRow ? `Refine "${activeRow.title}"...` : "What are you looking for?"}
+            className="flex-1"
           />
-          <button
+          <Button
             type="submit"
             disabled={isLoading || !input?.trim()}
-            className="bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            variant="ai"
+            size="md"
+            className="rounded-xl px-4"
           >
-            <Send size={18} />
-          </button>
+            <Send size={20} />
+          </Button>
         </form>
       </div>
     </div>

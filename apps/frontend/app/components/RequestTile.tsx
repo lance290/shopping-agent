@@ -1,5 +1,7 @@
 import { parseChoiceAnswers, Row, useShoppingStore } from '../store';
-import { Trash2 } from 'lucide-react';
+import { Trash2, SlidersHorizontal } from 'lucide-react';
+import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
 
 interface RequestTileProps {
   row: Row;
@@ -36,69 +38,78 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
   };
 
   return (
-    <>
-      <div 
-        className="min-w-[240px] max-w-[280px] bg-white border border-gray-200 rounded-xl p-4 flex-shrink-0 cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all h-full flex flex-col group relative"
-        onClick={handleClick}
-      >
-        {/* Status Badge */}
-        <div className="flex justify-between items-start mb-2">
-           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-             row.status === 'sourcing' ? 'bg-blue-100 text-blue-700' :
-             row.status === 'bids_arriving' ? 'bg-green-100 text-green-700' :
-             'bg-gray-100 text-gray-600'
-           }`}>
-             {row.status.replace('_', ' ')}
-           </span>
+    <Card 
+      variant="hover"
+      className="min-w-[260px] max-w-[280px] h-full flex flex-col p-5 bg-gradient-to-br from-white to-warm-light/50 border-warm-grey cursor-pointer group"
+      onClick={handleClick}
+    >
+      {/* Header */}
+      <div className="flex justify-between items-start mb-4">
+         <div className="p-2 bg-agent-blurple/10 rounded-lg text-agent-blurple">
+           <SlidersHorizontal size={18} />
+         </div>
 
-           <button
-             onClick={(e) => {
-               e.stopPropagation();
-               requestDeleteRow(row.id);
-             }}
-             className="opacity-60 hover:opacity-100 p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all"
-             title="Archive row"
-             aria-label="Archive row"
-           >
-             <Trash2 size={14} />
-           </button>
-        </div>
-
-        {/* Title */}
-        <h3 className="font-semibold text-gray-900 mb-3 line-clamp-2 leading-tight">
-          {row.title}
-        </h3>
-        
-        {/* Key Specs / Constraints */}
-        <div className="space-y-2 mb-4 flex-1">
-          {(minPrice !== undefined || maxPrice !== undefined) && (
-            <div className="flex justify-between text-sm items-center">
-              <span className="text-gray-500">Budget</span>
-              <span className="font-medium text-gray-900">
-                {minPrice !== undefined && maxPrice !== undefined
-                  ? `${row.currency} ${minPrice}–${maxPrice}`
-                  : maxPrice !== undefined
-                    ? `≤ ${row.currency} ${maxPrice}`
-                    : `≥ ${row.currency} ${minPrice}`}
-              </span>
-            </div>
-          )}
-          
-          {constraints.slice(0, 4).map(([key, value]) => (
-            <div key={key} className="flex justify-between text-sm items-start gap-2">
-              <span className="text-gray-500 capitalize shrink-0">{key.replace(/_/g, ' ')}</span>
-              <span className="font-medium text-gray-900 text-right truncate">{String(value)}</span>
-            </div>
-          ))}
-          
-          {constraints.length > 4 && (
-            <div className="text-xs text-gray-400 pt-1">
-              +{constraints.length - 4} more specs
-            </div>
-          )}
-        </div>
-        
+         <Button
+           size="sm"
+           variant="ghost"
+           onClick={(e) => {
+             e.stopPropagation();
+             requestDeleteRow(row.id);
+           }}
+           className="h-8 w-8 p-0 text-onyx-muted hover:text-status-error hover:bg-status-error/5 opacity-0 group-hover:opacity-100 transition-all"
+           title="Archive row"
+         >
+           <Trash2 size={16} />
+         </Button>
       </div>
-    </>
+
+      {/* Title */}
+      <h3 className="font-serif text-lg font-medium text-onyx mb-4 line-clamp-2 leading-tight">
+        {row.title}
+      </h3>
+      
+      {/* Key Specs / Constraints */}
+      <div className="space-y-3 flex-1">
+        {(minPrice !== undefined || maxPrice !== undefined) && (
+          <div className="flex justify-between text-sm items-center pb-2 border-b border-warm-grey/50">
+            <span className="text-onyx-muted font-medium">Budget</span>
+            <span className="font-bold text-onyx font-mono">
+              {minPrice !== undefined && maxPrice !== undefined
+                ? `${row.currency} ${minPrice}–${maxPrice}`
+                : maxPrice !== undefined
+                  ? `≤ ${row.currency} ${maxPrice}`
+                  : `≥ ${row.currency} ${minPrice}`}
+            </span>
+          </div>
+        )}
+        
+        {constraints.slice(0, 4).map(([key, value]) => (
+          <div key={key} className="flex justify-between text-sm items-start gap-3">
+            <span className="text-onyx-muted capitalize shrink-0 text-xs">{key.replace(/_/g, ' ')}</span>
+            <span className="font-medium text-onyx text-right truncate text-xs bg-warm-light px-2 py-0.5 rounded-md border border-warm-grey/50">
+              {String(value)}
+            </span>
+          </div>
+        ))}
+        
+        {constraints.length > 4 && (
+          <div className="text-xs text-agent-blurple font-medium pt-2 text-center">
+            +{constraints.length - 4} more specs
+          </div>
+        )}
+
+        {constraints.length === 0 && minPrice === undefined && maxPrice === undefined && (
+          <div className="text-sm text-onyx-muted italic text-center pt-4">
+            No constraints set
+          </div>
+        )}
+      </div>
+      
+      <div className="mt-4 pt-4 border-t border-warm-grey/50 text-center">
+        <span className="text-xs font-medium text-agent-blurple group-hover:underline">
+          Edit Requirements →
+        </span>
+      </div>
+    </Card>
   );
 }

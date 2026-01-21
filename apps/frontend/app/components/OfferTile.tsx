@@ -1,4 +1,8 @@
 import { Offer } from '../store';
+import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Star, Truck, ShieldCheck, ShoppingCart as ShoppingCartIcon } from 'lucide-react';
+import { cn } from '../../utils/cn';
 
 interface OfferTileProps {
   offer: Offer;
@@ -8,8 +12,7 @@ interface OfferTileProps {
 }
 
 export default function OfferTile({ offer, index, rowId, onSelect }: OfferTileProps) {
-  // Build clickout URL (will be handled by Task 02)
-  // We use the offer fields if available, otherwise fallback
+  // Build clickout URL
   const clickUrl = offer.click_url || `/api/clickout?url=${encodeURIComponent(offer.url)}&row_id=${rowId}&idx=${index}&source=${encodeURIComponent(offer.source)}`;
   const safePrice = Number.isFinite(offer.price) ? offer.price : 0;
   const source = String(offer.source || '').toLowerCase();
@@ -18,104 +21,143 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
   const canSelect = Boolean(onSelect && offer.bid_id);
   
   return (
-    <a
-      href={clickUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`min-w-[220px] max-w-[220px] bg-white border rounded-lg overflow-hidden transition-all flex-shrink-0 flex flex-col group h-full relative ${
-        isSelected
-          ? 'border-green-500 ring-2 ring-green-300'
-          : 'border-gray-200 hover:ring-2 hover:ring-blue-400'
-      }`}
-    >
-      <div
-        className={`absolute top-2 left-2 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10 uppercase tracking-wide ${
-          isBiddable ? 'bg-purple-600 text-white' : 'bg-gray-600 text-white'
-        }`}
-        title={isBiddable ? 'Negotiation possible' : 'Offsite listing (no negotiation)'}
-      >
-        {isBiddable ? 'Biddable' : 'Not biddable'}
-      </div>
-
-      {isSelected ? (
-        <div className="absolute top-2 right-2 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10 uppercase tracking-wide">
-          Selected
-        </div>
-      ) : (
-        offer.match_score && offer.match_score > 0.7 && (
-          <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10 uppercase tracking-wide">
-            Best Match
-          </div>
-        )
+    <Card
+      variant="hover"
+      className={cn(
+        "min-w-[240px] max-w-[240px] h-full flex flex-col relative group border-2",
+        isSelected ? "border-status-success ring-4 ring-status-success/10" : "border-transparent"
       )}
+    >
+      <a
+        href={clickUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex flex-col h-full"
+      >
+        {/* Badges */}
+        <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5">
+          {isBiddable && (
+            <div className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide bg-agent-blurple text-white shadow-sm">
+              Negotiable
+            </div>
+          )}
+        </div>
 
-      <div className="w-full h-32 bg-gray-100 relative overflow-hidden">
-        {offer.image_url ? (
-          <img 
-            src={offer.image_url} 
-            alt={offer.title}
-            className="w-full h-full object-contain mix-blend-multiply p-2"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-300">
-            No Image
-          </div>
-        )}
-      </div>
-      
-      <div className="p-3 flex flex-col flex-1">
-        <div className="text-xs text-gray-500 mb-1 truncate" title={offer.merchant}>
-          {offer.merchant_domain || offer.merchant}
+        <div className="absolute top-3 right-3 z-10 flex flex-col gap-1.5">
+          {isSelected ? (
+            <div className="flex items-center gap-1 bg-status-success text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm">
+              <ShieldCheck size={10} />
+              Selected
+            </div>
+          ) : (
+            offer.match_score && offer.match_score > 0.7 && (
+              <div className="flex items-center gap-1 bg-agent-camel text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm">
+                <Star size={10} className="fill-current" />
+                Best Match
+              </div>
+            )
+          )}
         </div>
-        
-        <div className="text-sm font-medium text-gray-900 line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors" title={offer.title}>
-          {offer.title}
-        </div>
-        
-        <div className="mt-auto pt-2 border-t border-gray-100 flex justify-between items-end">
-          <div className="text-lg font-bold text-gray-900">
-            {offer.currency === 'USD' ? '$' : offer.currency}
-            {safePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          
-          {offer.rating && (
-            <div className="flex items-center gap-1 text-xs text-gray-600">
-              <span className="text-yellow-400">★</span>
-              <span>{offer.rating}</span>
-              {offer.reviews_count && <span className="text-gray-400">({offer.reviews_count})</span>}
+
+        {/* Image Area */}
+        <div className="w-full h-40 bg-white p-4 relative overflow-hidden flex items-center justify-center">
+          {offer.image_url ? (
+            <img 
+              src={offer.image_url} 
+              alt={offer.title}
+              className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="text-warm-grey">
+              <FallbackShoppingBag size={32} />
             </div>
           )}
         </div>
         
-        {offer.shipping_info && (
-          <div className="text-[10px] text-green-600 mt-1 truncate">
-            {offer.shipping_info}
+        {/* Content */}
+        <div className="p-4 flex flex-col flex-1 bg-canvas border-t border-warm-grey/20">
+          <div className="text-xs font-medium text-onyx-muted mb-1 truncate flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-agent-camel"></span>
+            {offer.merchant_domain || offer.merchant}
           </div>
-        )}
-        
-        <div className="mt-3 pt-2 space-y-2">
-          {canSelect && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onSelect?.(offer);
-              }}
-              className={`w-full text-center text-sm font-semibold py-2 rounded-lg border transition-colors ${
-                isSelected
-                  ? 'bg-green-600 border-green-600 text-white'
-                  : 'bg-white border-green-500 text-green-700 hover:bg-green-50'
-              }`}
-            >
-              {isSelected ? 'Selected' : 'Select Deal'}
-            </button>
-          )}
-          <span className="block w-full text-center bg-blue-600 text-white text-sm font-medium py-2 rounded-lg group-hover:bg-blue-700 transition-colors">
-            View Deal →
-          </span>
+          
+          <div className="text-sm font-medium text-onyx line-clamp-2 mb-3 h-10 leading-snug group-hover:text-agent-blurple transition-colors" title={offer.title}>
+            {offer.title}
+          </div>
+          
+          <div className="mt-auto">
+            <div className="flex justify-between items-end mb-3">
+              <div className="text-xl font-serif font-bold text-onyx">
+                {offer.currency === 'USD' ? '$' : offer.currency}
+                {safePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              
+              {offer.rating && (
+                <div className="flex items-center gap-1 text-xs text-onyx-muted font-medium bg-warm-grey/30 px-1.5 py-0.5 rounded">
+                  <Star size={10} className="fill-agent-camel text-agent-camel" />
+                  <span>{offer.rating}</span>
+                  {offer.reviews_count && <span className="text-onyx-muted/70">({offer.reviews_count})</span>}
+                </div>
+              )}
+            </div>
+            
+            {offer.shipping_info && (
+              <div className="flex items-center gap-1.5 text-[10px] text-status-success font-medium mb-3">
+                <Truck size={12} />
+                <span className="truncate">{offer.shipping_info}</span>
+              </div>
+            )}
+            
+            <div className="grid gap-2">
+              {canSelect && !isSelected && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSelect?.(offer);
+                  }}
+                  className="w-full h-9 border-status-success text-status-success hover:bg-status-success hover:text-white"
+                >
+                  Select Deal
+                </Button>
+              )}
+              {isSelected && (
+                <div className="w-full py-2 text-center text-xs font-bold text-status-success bg-status-success/10 rounded-full border border-status-success/20">
+                  Deal Selected
+                </div>
+              )}
+              
+              <div className="w-full text-center py-2 text-xs font-medium text-agent-blurple group-hover:underline flex items-center justify-center gap-1">
+                View Details
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </a>
+      </a>
+    </Card>
+  );
+}
+
+function FallbackShoppingBag({ size }: { size: number }) {
+  return (
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="1.5" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    >
+      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <path d="M16 10a4 4 0 0 1-8 0" />
+    </svg>
   );
 }

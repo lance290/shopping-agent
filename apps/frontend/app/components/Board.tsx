@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, ShoppingBag } from 'lucide-react';
 import { useShoppingStore } from '../store';
 import RowStrip from './RowStrip';
+import { Button } from '../../components/ui/Button';
+import { cn } from '../../utils/cn';
 
 export default function ProcurementBoard() {
   const rows = useShoppingStore(state => state.rows);
@@ -32,42 +34,43 @@ export default function ProcurementBoard() {
   }, []);
 
   return (
-    <div className="flex-1 bg-gray-50 h-full flex flex-col overflow-hidden">
+    <div className="flex-1 bg-warm-light/50 h-full flex flex-col overflow-hidden relative">
       {/* Header / Disclosure */}
-      <div className="p-3 bg-white border-b border-gray-200 flex justify-between items-center shadow-sm z-10 shrink-0">
-        <div className="text-xs text-gray-500">
-          <strong>Disclosure:</strong> We may earn a commission from qualifying purchases. 
-          <a href="/disclosure" className="ml-1 text-blue-500 hover:underline" target="_blank">Learn more</a>
+      <div className="px-6 py-4 bg-white/80 backdrop-blur-md border-b border-warm-grey/50 flex justify-between items-center shadow-sm z-10 shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="text-xs font-serif italic text-onyx-muted">
+            The Agent may earn a commission from purchases.
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-xs font-medium text-gray-600">
+        <div className="flex items-center gap-4">
+          <div className="text-xs font-medium text-onyx uppercase tracking-wider">
             {rows.length} active request{rows.length !== 1 ? 's' : ''}
           </div>
-          <button
+          <Button
+            size="sm"
             onClick={() => {
               setActiveRowId(null);
-              // Focus the chat input
               const chatInput = document.querySelector('input[placeholder*="looking for"]') as HTMLInputElement;
               chatInput?.focus();
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            className="flex items-center gap-2 rounded-lg"
           >
             <Plus size={16} />
             New Request
-          </button>
+          </Button>
         </div>
       </div>
       
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {rows.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-gray-400">
-            <div className="w-16 h-16 mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-              <span className="text-2xl">🛍️</span>
+          <div className="h-full flex flex-col items-center justify-center text-onyx-muted">
+            <div className="w-20 h-20 mb-6 rounded-full bg-white border border-warm-grey flex items-center justify-center shadow-sm">
+              <ShoppingBag className="w-8 h-8 text-onyx/50" />
             </div>
-            <p className="text-lg font-medium text-gray-600">Your Procurement Board is Empty</p>
-            <p className="text-sm mt-2 max-w-xs text-center">
-              Tell the agent what you need in the chat on the left to start a new procurement request.
+            <h3 className="text-2xl font-serif text-onyx mb-2">Your Board is Empty</h3>
+            <p className="text-sm max-w-sm text-center">
+              Start a conversation with the agent to begin finding products.
             </p>
           </div>
         ) : (
@@ -85,34 +88,34 @@ export default function ProcurementBoard() {
       </div>
 
       {toast && (
-        <div className="fixed top-4 right-4 z-50">
-          <div className={`px-4 py-3 rounded-lg shadow-lg border text-sm font-medium flex items-center gap-2 ${
+        <div className="absolute top-6 right-6 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className={cn(
+            "px-4 py-3 rounded-lg shadow-lg border text-sm font-medium flex items-center gap-2 backdrop-blur-md",
             toast.tone === 'error'
-              ? 'bg-red-50 border-red-200 text-red-700'
-              : 'bg-green-50 border-green-200 text-green-700'
-          }`}>
+              ? "bg-status-error/10 border-status-error/20 text-status-error"
+              : "bg-status-success/10 border-status-success/20 text-status-success"
+          )}>
             <span>{toast.message}</span>
           </div>
         </div>
       )}
 
       {pendingRowDelete && (
-        <div className="fixed bottom-4 right-4 z-50 bg-white border border-gray-200 shadow-lg rounded-lg px-4 py-3 w-[360px]">
-          <div className="flex items-start justify-between gap-3">
+        <div className="absolute bottom-6 right-6 z-50 bg-onyx text-white shadow-xl rounded-xl px-6 py-4 w-[400px] animate-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-sm font-medium text-gray-900 truncate">
+              <div className="text-sm font-medium truncate">
                 Archiving “{pendingRowDelete.row.title}”
               </div>
-              <div className="text-xs text-gray-500 mt-0.5">
-                Undo available for a few seconds.
-              </div>
             </div>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={undoDeleteRow}
-              className="shrink-0 text-sm font-semibold text-blue-600 hover:text-blue-700"
+              className="text-agent-blurple hover:text-white hover:bg-white/10"
             >
               Undo
-            </button>
+            </Button>
           </div>
         </div>
       )}

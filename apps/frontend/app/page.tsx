@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import Chat from './components/Chat';
 import ProcurementBoard from './components/Board';
 import ChoiceFactorPanel from './components/ChoiceFactorPanel';
+import { cn } from '../utils/cn';
 
 export default function Home() {
-  const CHAT_MIN_PX = 320;
-  const CHAT_MAX_PX = 580;
-  const CHAT_DEFAULT_PX = 420;
+  const CHAT_MIN_PX = 360;
+  const CHAT_MAX_PX = 700;
+  const CHAT_DEFAULT_PX = 450;
 
   const [chatWidthPx, setChatWidthPx] = useState<number>(CHAT_DEFAULT_PX);
   const isDraggingRef = useRef(false);
@@ -58,17 +59,29 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="flex h-screen w-full bg-white overflow-hidden">
-      {/* Specifications Sidebar (Leftmost, collapsible) */}
-      <ChoiceFactorPanel />
+    <main className="flex h-screen w-full bg-canvas text-onyx overflow-hidden font-sans selection:bg-agent-blurple/20 selection:text-agent-blurple">
+      {/* Specifications Sidebar (Leftmost, collapsible, absolute on mobile, relative on desktop if we wanted) 
+          Actually, current design puts it leftmost in the flex container.
+          Let's keep it there but make sure it has z-index to slide properly.
+      */}
+      <div className="z-20 shadow-xl shadow-onyx/5">
+        <ChoiceFactorPanel />
+      </div>
 
       {/* Chat Pane (Center Left) */}
-      <div style={{ width: `${chatWidthPx}px` }} className="h-full shrink-0">
+      <div 
+        style={{ width: `${chatWidthPx}px` }} 
+        className="h-full shrink-0 z-10 relative shadow-[5px_0_30px_-10px_rgba(0,0,0,0.05)]"
+      >
         <Chat />
       </div>
 
+      {/* Draggable Handle */}
       <div
-        className="w-3 bg-gray-200 hover:bg-blue-400 transition-colors cursor-col-resize"
+        className={cn(
+          "w-1 h-full cursor-col-resize z-30 transition-colors duration-200 relative group -ml-0.5 hover:w-2",
+          isDraggingRef.current ? "bg-agent-blurple w-1.5" : "hover:bg-agent-blurple/50"
+        )}
         onMouseDown={(e) => {
           e.preventDefault();
           isDraggingRef.current = true;
@@ -81,10 +94,14 @@ export default function Home() {
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize chat"
-      />
+      >
+        <div className="absolute inset-y-0 -left-2 -right-2 z-30" /> {/* Hit area */}
+      </div>
       
       {/* Board Pane (Right) */}
-      <ProcurementBoard />
+      <div className="flex-1 min-w-0 bg-warm-light/30 h-full relative z-0">
+        <ProcurementBoard />
+      </div>
     </main>
   );
 }
