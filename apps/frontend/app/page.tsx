@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Chat from './components/Chat';
 import ProcurementBoard from './components/Board';
+import ReportBugModal from './components/ReportBugModal';
 import { cn } from '../utils/cn';
 
 export default function Home() {
@@ -93,6 +94,8 @@ export default function Home() {
       <div className="flex-1 min-w-0 bg-transparent h-full relative z-0">
         <ProcurementBoard />
       </div>
+
+      <ReportBugModal />
     </main>
   );
 }

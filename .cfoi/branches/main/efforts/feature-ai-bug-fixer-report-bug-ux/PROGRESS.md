@@ -4,14 +4,14 @@
 
 ## Current State
 - **Status**: 🟢 Ready for Implementation
-- **Current task**: abf-ux-001 (pending)
+- **Current task**: abf-ux-002 (in_progress)
 - **Last working commit**: N/A
 - **App status**: Unknown
 
 ## Task Summary
 | ID | Description | Status |
 |---|-------------|--------|
-| abf-ux-001 | Add header/help Report Bug entry point | ⬜ pending |
+| abf-ux-001 | Add header/help Report Bug entry point | ✅ completed |
 | abf-ux-002 | Build Report Bug modal UI (screenshots + notes + optional fields) | ⬜ pending |
 | abf-ux-003 | Client API + Next route handler POST /api/bugs forwarding to BFF | ⬜ pending |
 | abf-ux-004 | Wire upload selection + submission to backend and render receipt | ⬜ pending |

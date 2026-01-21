@@ -135,6 +135,9 @@ interface ShoppingState {
   setSidebarOpen: (isOpen: boolean) => void;
   toggleSidebar: () => void;
 
+  isReportBugModalOpen: boolean;
+  setReportBugModalOpen: (isOpen: boolean) => void;
+
   pendingRowDelete: PendingRowDelete | null;
   requestDeleteRow: (rowId: number, undoWindowMs?: number) => void;
   undoDeleteRow: () => void;
@@ -162,6 +165,9 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   setActiveRowId: (id) => set({ activeRowId: id }),
   setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+
+  isReportBugModalOpen: false,
+  setReportBugModalOpen: (isOpen) => set({ isReportBugModalOpen: isOpen }),
 
   requestDeleteRow: (rowId, undoWindowMs = 7000) => {
     const existingPending = get().pendingRowDelete;

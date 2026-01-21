@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Plus, ShoppingBag } from 'lucide-react';
+import { Plus, ShoppingBag, Bug } from 'lucide-react';
 import { useShoppingStore } from '../store';
 import { createRowInDb } from '../utils/api';
 import RowStrip from './RowStrip';
@@ -16,6 +16,7 @@ export default function ProcurementBoard() {
   const addRow = useShoppingStore(state => state.addRow);
   const pendingRowDelete = useShoppingStore(state => state.pendingRowDelete);
   const undoDeleteRow = useShoppingStore(state => state.undoDeleteRow);
+  const setReportBugModalOpen = useShoppingStore(state => state.setReportBugModalOpen);
   const [toast, setToast] = useState<{ message: string; tone?: 'success' | 'error' } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
