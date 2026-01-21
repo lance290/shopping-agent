@@ -24,8 +24,8 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
     <Card
       variant="hover"
       className={cn(
-        "min-w-[230px] max-w-[230px] h-[330px] flex flex-col relative group",
-        "shadow-[0_1px_2px_rgba(0,0,0,0.12)]",
+        "min-w-[255px] max-w-[255px] h-[360px] flex flex-col relative group",
+        "shadow-[0_2px_6px_rgba(0,0,0,0.16)]",
         isSelected ? "border-status-success" : "border-warm-grey/70"
       )}
     >
@@ -61,12 +61,12 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
         </div>
 
         {/* Image Area */}
-        <div className="w-full h-[40%] bg-white relative overflow-hidden">
+        <div className="w-full h-[40%] bg-white relative overflow-hidden flex items-center justify-center p-3">
           {offer.image_url ? (
             <img 
               src={offer.image_url} 
               alt={offer.title}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
           ) : (
             <div className="text-warm-grey">
