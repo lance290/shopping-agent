@@ -40,14 +40,14 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
   return (
     <Card 
       variant="hover"
-      className="min-w-[280px] max-w-[300px] h-full flex flex-col p-5 bg-gradient-to-b from-white via-white to-warm-light/40 border border-warm-grey/70 cursor-pointer group"
+      className="min-w-[280px] max-w-[300px] h-full flex flex-col p-5 bg-white border border-warm-grey/40 cursor-pointer group"
       onClick={handleClick}
     >
       {/* Header */}
       <div className="flex justify-between items-start mb-4">
          <div>
-          <div className="text-[10px] uppercase tracking-[0.2em] text-onyx-muted font-semibold">Request</div>
-          <div className="mt-2 p-2 bg-white border border-warm-grey/70 rounded-lg text-onyx-muted">
+          <div className="text-[10px] uppercase tracking-[0.2em] text-ink-muted font-semibold">Request</div>
+          <div className="mt-2 p-2 bg-white border border-warm-grey/40 rounded-lg text-ink-muted">
            <SlidersHorizontal size={18} />
           </div>
          </div>
@@ -59,7 +59,7 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
              e.stopPropagation();
              requestDeleteRow(row.id);
            }}
-           className="h-8 w-8 p-0 text-onyx-muted hover:text-status-error hover:bg-status-error/5 opacity-0 group-hover:opacity-100 transition-all"
+           className="h-8 w-8 p-0 text-ink-muted hover:text-status-error hover:bg-status-error/5 opacity-0 group-hover:opacity-100 transition-all"
            title="Archive row"
          >
            <Trash2 size={16} />
@@ -67,16 +67,16 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
       </div>
 
       {/* Title */}
-      <h3 className="text-lg font-semibold text-onyx mb-4 line-clamp-2 leading-snug">
+      <h3 className="text-lg font-semibold text-ink mb-4 line-clamp-2 leading-snug">
         {row.title}
       </h3>
       
       {/* Key Specs / Constraints */}
       <div className="space-y-3 flex-1">
         {(minPrice !== undefined || maxPrice !== undefined) && (
-          <div className="flex justify-between text-sm items-center pb-2 border-b border-warm-grey/70">
-            <span className="text-[10px] font-semibold text-onyx-muted uppercase tracking-[0.2em]">Budget</span>
-            <span className="text-base font-semibold text-onyx">
+          <div className="flex justify-between text-sm items-center pb-2 border-b border-warm-grey/40">
+            <span className="text-[10px] font-semibold text-ink-muted uppercase tracking-[0.2em]">Budget</span>
+            <span className="text-base font-semibold text-ink">
               {minPrice !== undefined && maxPrice !== undefined
                 ? `${row.currency} ${minPrice}–${maxPrice}`
                 : maxPrice !== undefined
@@ -88,27 +88,27 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
         
         {constraints.slice(0, 4).map(([key, value]) => (
           <div key={key} className="flex justify-between text-sm items-start gap-3">
-            <span className="text-onyx-muted capitalize shrink-0 text-xs">{key.replace(/_/g, ' ')}</span>
-            <span className="font-medium text-onyx text-right truncate text-xs bg-white px-2 py-0.5 rounded-md border border-warm-grey/70">
+            <span className="text-ink-muted capitalize shrink-0 text-xs">{key.replace(/_/g, ' ')}</span>
+            <span className="font-medium text-ink text-right truncate text-xs bg-white px-2 py-0.5 rounded-md border border-warm-grey/40">
               {String(value)}
             </span>
           </div>
         ))}
         
         {constraints.length > 4 && (
-          <div className="text-xs text-onyx-muted font-medium pt-2 text-center">
+          <div className="text-xs text-ink-muted font-medium pt-2 text-center">
             +{constraints.length - 4} more specs
           </div>
         )}
 
         {constraints.length === 0 && minPrice === undefined && maxPrice === undefined && (
-          <div className="text-sm text-onyx-muted italic text-center pt-4">
+          <div className="text-sm text-ink-muted italic text-center pt-4">
             No constraints set
           </div>
         )}
       </div>
       
-      <div className="mt-4 pt-4 border-t border-warm-grey/70 text-center">
+      <div className="mt-4 pt-4 border-t border-warm-grey/40 text-center">
         <span className="text-xs font-semibold text-agent-blurple group-hover:underline">
           Edit requirements →
         </span>

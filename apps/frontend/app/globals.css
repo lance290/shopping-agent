@@ -3,29 +3,29 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 28, 30, 34;
-  --background-start-rgb: 218, 221, 224;
-  --background-end-rgb: 218, 221, 224;
+  --foreground-rgb: 232, 234, 237;
+  --background-start-rgb: 32, 33, 36;
+  --background-end-rgb: 32, 33, 36;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: #DADDE0;
+  background: #202124;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-gradient-to-r from-[#5B7A93] to-[#4E6D85] text-white border border-[#4A657B] px-6 py-3 rounded-full hover:from-[#4E6D85] hover:to-[#466079] transition-all duration-200 font-semibold shadow-[0_8px_18px_rgba(78,109,133,0.22)];
+    @apply bg-[#1A73E8] text-white border border-[#1A73E8] px-6 py-3 rounded-full hover:bg-[#1967D2] transition-colors duration-200 font-semibold;
   }
   
   .btn-secondary {
-    @apply bg-[#F0F2F4] border border-warm-grey text-onyx px-6 py-3 rounded-full hover:border-onyx-muted hover:bg-[#E6E9ED] transition-colors duration-200 font-medium;
+    @apply bg-[#2B2F33] border border-warm-grey text-onyx px-6 py-3 rounded-full hover:border-onyx-muted hover:bg-[#303134] transition-colors duration-200 font-medium;
   }
   
   .btn-ai {
-    @apply bg-[#E7EDF2] text-onyx border border-[#C9D3DB] px-6 py-3 rounded-full hover:bg-[#DDE6ED] transition-colors duration-200 font-semibold shadow-[0_6px_16px_rgba(28,30,34,0.12)];
+    @apply bg-[#303134] text-onyx border border-[#3C4043] px-6 py-3 rounded-full hover:bg-[#35363A] transition-colors duration-200 font-semibold;
   }
 
   .card-hover {

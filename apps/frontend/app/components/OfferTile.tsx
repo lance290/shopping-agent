@@ -37,7 +37,7 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
         {/* Badges */}
         <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5">
           {isBiddable && (
-            <div className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-warm-light text-onyx-muted border border-warm-grey/70">
+            <div className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-white/90 text-ink-muted border border-warm-grey/40">
               Negotiable
             </div>
           )}
@@ -75,32 +75,32 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
         </div>
         
         {/* Content */}
-        <div className="p-4 flex flex-col flex-1 bg-canvas border-t border-warm-grey/60">
-          <div className="text-xs font-medium text-onyx-muted mb-1 truncate flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-onyx-muted/60"></span>
+        <div className="p-4 flex flex-col flex-1 bg-white border-t border-warm-grey/40">
+          <div className="text-xs font-medium text-ink-muted mb-1 truncate flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-ink-muted/60"></span>
             {offer.merchant_domain || offer.merchant}
           </div>
           
-          <div className="text-sm font-semibold text-onyx line-clamp-2 mb-3 min-h-[40px] leading-snug group-hover:text-onyx-muted transition-colors" title={offer.title}>
+          <div className="text-sm font-semibold text-ink line-clamp-2 mb-3 min-h-[40px] leading-snug group-hover:text-ink-muted transition-colors" title={offer.title}>
             {offer.title}
           </div>
           
           <div className="mt-auto">
-            <div className="text-base font-semibold text-onyx mb-2">
+            <div className="text-base font-semibold text-ink mb-2">
               {offer.currency === 'USD' ? '$' : offer.currency}
               {safePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             
             {offer.rating && (
-              <div className="flex items-center gap-1 text-[11px] text-onyx-muted font-medium mb-3">
-                <Star size={10} className="fill-agent-blurple text-agent-blurple" />
+              <div className="flex items-center gap-1 text-[11px] text-ink-muted font-medium mb-3">
+                <Star size={10} className="fill-[#F9AB00] text-[#F9AB00]" />
                 <span>{offer.rating}</span>
-                {offer.reviews_count && <span className="text-onyx-muted/70">({offer.reviews_count})</span>}
+                {offer.reviews_count && <span className="text-ink-muted/70">({offer.reviews_count})</span>}
               </div>
             )}
             
             {offer.shipping_info && (
-              <div className="flex items-center gap-1.5 text-[10px] text-onyx-muted font-medium mb-3">
+              <div className="flex items-center gap-1.5 text-[10px] text-ink-muted font-medium mb-3">
                 <Truck size={12} />
                 <span className="truncate">{offer.shipping_info}</span>
               </div>
@@ -110,7 +110,7 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
               {canSelect && !isSelected && (
                 <Button
                   size="sm"
-                  variant="secondary"
+                  variant="primary"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
