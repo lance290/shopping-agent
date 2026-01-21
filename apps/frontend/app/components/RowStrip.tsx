@@ -106,7 +106,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       )}
       onClick={onSelect}
     >
-      <div className="flex items-center justify-between px-5 py-4 border-b border-warm-grey bg-warm-light rounded-md">
+      <div className="flex items-center justify-between px-5 py-3 border border-warm-grey/60 bg-white/80 rounded-md">
         <div className="flex items-center gap-4">
           <div className={cn(
             "w-2.5 h-2.5 rounded-full",

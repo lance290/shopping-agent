@@ -60,12 +60,12 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
         </div>
 
         {/* Image Area */}
-        <div className="w-full h-[65%] bg-white relative overflow-hidden flex items-center justify-center">
+        <div className="w-full h-[35%] bg-white relative overflow-hidden">
           {offer.image_url ? (
             <img 
               src={offer.image_url} 
               alt={offer.title}
-              className="w-full h-full object-contain"
+              className="w-full h-full object-cover"
             />
           ) : (
             <div className="text-warm-grey">
@@ -81,25 +81,23 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
             {offer.merchant_domain || offer.merchant}
           </div>
           
-          <div className="text-sm font-semibold text-onyx line-clamp-2 mb-4 h-10 leading-snug group-hover:text-onyx-muted transition-colors" title={offer.title}>
+          <div className="text-sm font-semibold text-onyx line-clamp-2 mb-3 min-h-[40px] leading-snug group-hover:text-onyx-muted transition-colors" title={offer.title}>
             {offer.title}
           </div>
           
           <div className="mt-auto">
-            <div className="flex justify-between items-end mb-3">
-              <div className="text-lg font-semibold text-onyx">
-                {offer.currency === 'USD' ? '$' : offer.currency}
-                {safePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              
-              {offer.rating && (
-                <div className="flex items-center gap-1 text-[11px] text-onyx-muted font-medium bg-warm-light px-2 py-0.5 rounded-full border border-warm-grey/60">
-                  <Star size={10} className="fill-agent-blurple text-agent-blurple" />
-                  <span>{offer.rating}</span>
-                  {offer.reviews_count && <span className="text-onyx-muted/70">({offer.reviews_count})</span>}
-                </div>
-              )}
+            <div className="text-base font-semibold text-onyx mb-2">
+              {offer.currency === 'USD' ? '$' : offer.currency}
+              {safePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
+            
+            {offer.rating && (
+              <div className="flex items-center gap-1 text-[11px] text-onyx-muted font-medium mb-3">
+                <Star size={10} className="fill-agent-blurple text-agent-blurple" />
+                <span>{offer.rating}</span>
+                {offer.reviews_count && <span className="text-onyx-muted/70">({offer.reviews_count})</span>}
+              </div>
+            )}
             
             {offer.shipping_info && (
               <div className="flex items-center gap-1.5 text-[10px] text-onyx-muted font-medium mb-3">
