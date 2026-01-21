@@ -5,6 +5,7 @@ import { X, Bug, Upload, Image as ImageIcon, Trash2, Check, AlertCircle } from '
 import { useShoppingStore } from '../store';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
+import { submitBugReport } from '../utils/api';
 
 type Severity = 'low' | 'medium' | 'high' | 'blocking';
 type Category = 'ui' | 'data' | 'auth' | 'payments' | 'performance' | 'other';
@@ -21,6 +22,8 @@ export default function ReportBugModal() {
   const [category, setCategory] = useState<Category>('ui');
   const [includeDiagnostics, setIncludeDiagnostics] = useState(true);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittedId, setSubmittedId] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -29,7 +32,18 @@ export default function ReportBugModal() {
   // We should reset state when closing.
   const handleClose = () => {
     close(false);
-    // Optional: reset state here if desired, or keep draft. Keeping draft is friendlier.
+    // Reset state after a delay to avoid flicker
+    setTimeout(() => {
+        setNotes('');
+        setExpected('');
+        setActual('');
+        setSeverity('low');
+        setCategory('ui');
+        setIncludeDiagnostics(true);
+        setAttachments([]);
+        setIsSubmitting(false);
+        setSubmittedId(null);
+    }, 200);
   };
 
   if (!isOpen) return null;
@@ -49,21 +63,70 @@ export default function ReportBugModal() {
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = () => {
-    // Task 004 will handle the actual submission
-    console.log('Submit bug report:', {
-      notes,
-      expected,
-      actual,
-      severity,
-      category,
-      includeDiagnostics,
-      attachments
-    });
+  const handleSubmit = async () => {
+    if (!isValid || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+        const formData = new FormData();
+        formData.append('notes', notes);
+        formData.append('expected', expected);
+        formData.append('actual', actual);
+        formData.append('severity', severity);
+        formData.append('category', category);
+        formData.append('includeDiagnostics', String(includeDiagnostics));
+        
+        // Append attachments
+        attachments.forEach(file => {
+            formData.append('attachments', file);
+        });
+        
+        // TODO: Append diagnostics blob if enabled (Effort 4)
+        if (includeDiagnostics) {
+            formData.append('diagnostics', JSON.stringify({
+                userAgent: navigator.userAgent,
+                url: window.location.href,
+                timestamp: new Date().toISOString()
+            }));
+        }
+
+        const result = await submitBugReport(formData);
+        
+        if (result && result.id) {
+            setSubmittedId(result.id);
+        } else {
+            alert('Failed to submit bug report. Please try again.');
+            setIsSubmitting(false);
+        }
+    } catch (err) {
+        console.error('Submit error:', err);
+        alert('An error occurred while submitting.');
+        setIsSubmitting(false);
+    }
   };
 
   const inputClasses = "w-full bg-white border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors outline-none py-2.5 px-4 text-sm text-gray-900 placeholder:text-gray-400 rounded-xl resize-y";
   const labelClasses = "block text-xs font-medium text-onyx mb-1.5";
+
+  if (submittedId) {
+      return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-warm-grey overflow-hidden flex flex-col p-8 items-center text-center animate-in zoom-in-95">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-4">
+                    <Check size={32} />
+                </div>
+                <h2 className="text-xl font-semibold text-onyx mb-2">Bug Reported!</h2>
+                <p className="text-sm text-onyx-muted mb-6">
+                    Thanks for your feedback. Your report ID is <strong className="text-onyx font-mono">{submittedId}</strong>.
+                </p>
+                <Button onClick={handleClose} className="w-full">
+                    Done
+                </Button>
+            </div>
+        </div>
+      );
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">

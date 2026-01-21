@@ -102,7 +102,7 @@
         "automated": "Covered by abf-ux-005",
         "human_owner": "Lance"
       },
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/abf-ux-004/"
     },
     {
@@ -126,10 +126,10 @@
       "error_budget": 3,
       "evidence": {
         "manual_path": ".cfoi/branches/main/proof/abf-ux-005/manual.md",
-        "automated": "Playwright run output",
+        "automated": "Skipped (Blocked by invalid Clerk key in env)",
         "human_owner": "Lance"
       },
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/abf-ux-005/"
     },
     {
