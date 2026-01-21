@@ -205,8 +205,8 @@ export default function Chat() {
   }, [store.cardClickQuery]);
 
   return (
-    <div className="flex flex-col h-full bg-[#E5E5EA] border-r border-warm-grey/70">
-      <div className="h-20 px-6 border-b border-warm-grey/70 bg-[#E5E5EA] flex items-center">
+    <div className="flex flex-col h-full bg-warm-light border-r border-warm-grey/70">
+      <div className="h-20 px-6 border-b border-warm-grey/70 bg-warm-light flex items-center">
         <div className="flex flex-col justify-center min-w-0">
           <div className="text-[10px] uppercase tracking-[0.16em] text-onyx-muted/80 font-medium">Assistant</div>
           <div className="flex items-center gap-3 min-w-0 mt-1">

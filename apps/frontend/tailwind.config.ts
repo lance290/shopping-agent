@@ -17,8 +17,8 @@ const config: Config = {
           muted: "#6D625A",
         },
         warm: {
-          grey: "#C8BFB2",
-          light: "#F4F1EA",
+          grey: "#D0C4B7",
+          light: "#F3ECE3",
         },
         agent: {
           blurple: "#B0744D",
