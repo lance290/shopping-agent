@@ -25,6 +25,7 @@ from models import (
 )
 from affiliate import link_resolver, ClickContext
 from audit import audit_log
+from clerk_auth import verify_clerk_token, get_clerk_user_id
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 FROM_EMAIL = os.getenv("FROM_EMAIL", "Agent Shopper <shopper@info.xcor-cto.com>")
@@ -872,11 +873,43 @@ async def get_current_session(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ) -> Optional[AuthSession]:
-    """Extract and validate session from Authorization header."""
+    """Extract and validate session from Authorization header.
+    
+    Supports both legacy session tokens and Clerk JWTs.
+    """
     if not authorization or not authorization.startswith("Bearer "):
         return None
     
     token = authorization[7:]
+    
+    # First, try Clerk JWT verification
+    clerk_user_id = get_clerk_user_id(token)
+    if clerk_user_id:
+        # Find or create user by Clerk ID
+        result = await session.exec(
+            select(User).where(User.clerk_user_id == clerk_user_id)
+        )
+        user = result.first()
+        
+        if not user:
+            # Create new user for this Clerk ID
+            user = User(clerk_user_id=clerk_user_id, email=None)
+            session.add(user)
+            await session.commit()
+            await session.refresh(user)
+            print(f"[CLERK] Created new user {user.id} for Clerk ID {clerk_user_id}")
+        
+        # Return a synthetic AuthSession for compatibility
+        # We create a fake AuthSession object that has the user_id
+        fake_session = AuthSession(
+            user_id=user.id,
+            session_token_hash="clerk_jwt",
+            email=user.email,
+        )
+        fake_session.id = -1  # Marker for Clerk session
+        return fake_session
+    
+    # Fallback: try legacy session token lookup
     token_hash = hash_token(token)
     
     result = await session.exec(

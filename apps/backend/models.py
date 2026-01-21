@@ -94,7 +94,9 @@ class User(SQLModel, table=True):
     __tablename__ = "user"
     
     id: Optional[int] = Field(default=None, primary_key=True)
-    email: str = Field(index=True, unique=True)
+    email: Optional[str] = Field(default=None, index=True)
+    clerk_user_id: Optional[str] = Field(default=None, index=True, unique=True)
+    phone_number: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     is_admin: bool = Field(default=False)
 
