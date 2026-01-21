@@ -256,14 +256,14 @@ export default function ChoiceFactorPanel() {
                           <select
                             value={localAnswers[factor.name] || ''}
                             onChange={(e) => handleAnswerChange(factor.name, e.target.value)}
-                            className="w-full px-4 py-3 bg-white border border-warm-grey/70 rounded-xl text-sm text-onyx focus:border-agent-blurple transition-colors outline-none appearance-none cursor-pointer hover:border-onyx-muted"
+                            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:border-blue-500 transition-colors outline-none appearance-none cursor-pointer hover:border-gray-400"
                           >
                             <option value="" disabled>Select...</option>
                             {factor.options.map((opt: string) => (
                               <option key={opt} value={opt}>{opt}</option>
                             ))}
                           </select>
-                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-onyx-muted">
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
