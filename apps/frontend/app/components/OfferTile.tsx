@@ -60,12 +60,12 @@ export default function OfferTile({ offer, index, rowId, onSelect }: OfferTilePr
         </div>
 
         {/* Image Area */}
-        <div className="w-full h-44 bg-gradient-to-b from-white to-warm-light/30 p-5 relative overflow-hidden flex items-center justify-center">
+        <div className="w-full h-44 bg-white p-5 relative overflow-hidden flex items-center justify-center">
           {offer.image_url ? (
             <img 
               src={offer.image_url} 
               alt={offer.title}
-              className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-105"
+              className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
             />
           ) : (
             <div className="text-warm-grey">
