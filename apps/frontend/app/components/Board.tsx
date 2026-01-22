@@ -56,6 +56,15 @@ export default function ProcurementBoard() {
             {rows.length} active request{rows.length !== 1 ? 's' : ''}
           </div>
           <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setReportBugModalOpen(true)}
+            className="flex items-center gap-2"
+          >
+            <Bug size={16} />
+            Report Bug
+          </Button>
+          <Button
             size="sm"
             onClick={() => {
               const draftId = -Date.now();

@@ -3,7 +3,15 @@ import { auth } from '@clerk/nextjs/server';
 
 export const dynamic = 'force-dynamic';
 
-const BFF_URL = process.env.BFF_URL || 'http://localhost:8080';
+function normalizeBaseUrl(url: string): string {
+  const trimmed = url.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  return `http://${trimmed}`;
+}
+
+const BFF_URL = normalizeBaseUrl(process.env.BFF_URL || 'http://localhost:8080');
 
 async function getAuthHeader(): Promise<{ Authorization?: string }> {
   const { getToken } = await auth();
