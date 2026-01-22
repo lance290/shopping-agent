@@ -1,7 +1,15 @@
 import { NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 
-const BFF_URL = process.env.BFF_URL || 'http://localhost:8080';
+function normalizeBaseUrl(url: string): string {
+  const trimmed = url.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  return `http://${trimmed}`;
+}
+
+const BFF_URL = normalizeBaseUrl(process.env.BFF_URL || 'http://localhost:8080');
 
 export async function POST(request: NextRequest) {
   const { getToken } = await auth();
