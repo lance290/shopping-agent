@@ -2,17 +2,21 @@
 FastAPI Application Example
 Production-ready template with health checks and CORS
 """
-from fastapi import FastAPI, Depends, HTTPException, Header, Request, Query
+from fastapi import FastAPI, Depends, HTTPException, Header, Request, Query, UploadFile, File, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Any
 import os
+import shutil
+import json
 import httpx
 import traceback
 import asyncio
 import secrets
 from datetime import datetime, timedelta
+from pathlib import Path
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
@@ -29,6 +33,7 @@ from affiliate import link_resolver, ClickContext
 from audit import audit_log
 from clerk_auth import verify_clerk_token, get_clerk_user_id
 from github_client import github_client
+from diagnostics_utils import validate_and_redact_diagnostics, generate_diagnostics_summary
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 FROM_EMAIL = os.getenv("FROM_EMAIL", "Agent Shopper <shopper@info.xcor-cto.com>")
@@ -69,7 +74,9 @@ async def create_github_issue_task(bug_id: int):
                     pass
             
             if bug.diagnostics:
-                body += f"\n<details>\n<summary>Diagnostics</summary>\n\n```json\n{bug.diagnostics}\n```\n</details>\n"
+                summary = generate_diagnostics_summary(bug.diagnostics)
+                body += f"\n### Diagnostics Summary\n{summary}\n"
+                body += f"\n<details>\n<summary>Full Diagnostics JSON</summary>\n\n```json\n{bug.diagnostics}\n```\n</details>\n"
 
             # Add magic instruction block for Claude
             body += "\n\n<!-- CLAUDE-INSTRUCTION: Fix this bug. Use the provided context and diagnostics. -->"

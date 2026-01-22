@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Script from 'next/script';
 import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
+import DiagnosticsInit from './components/DiagnosticsInit';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <body className="font-sans bg-canvas text-onyx">
+          <DiagnosticsInit />
           {children}
           {/* Skimlinks affiliate link conversion */}
           <Script

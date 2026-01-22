@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useRef, ChangeEvent } from 'react';
+import { useState, useRef, ChangeEvent, useEffect } from 'react';
 import { X, Bug, Upload, Image as ImageIcon, Trash2, Check, AlertCircle } from 'lucide-react';
 import { useShoppingStore } from '../store';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 import { submitBugReport } from '../utils/api';
+import { getDiagnostics, redactDiagnostics, addBreadcrumb } from '../utils/diagnostics';
 
 type Severity = 'low' | 'medium' | 'high' | 'blocking';
 type Category = 'ui' | 'data' | 'auth' | 'payments' | 'performance' | 'other';
@@ -26,6 +27,16 @@ export default function ReportBugModal() {
   const [submittedId, setSubmittedId] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      addBreadcrumb({
+        type: 'ui',
+        message: 'Opened Report Bug modal',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }, [isOpen]);
 
   // Reset form when opening/closing would be ideal, but for now we rely on component unmount if conditionally rendered?
   // Actually it is conditionally rendered in page.tsx via store flag? No, it's always rendered but returns null if !isOpen.
@@ -54,6 +65,14 @@ export default function ReportBugModal() {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
       setAttachments(prev => [...prev, ...newFiles]);
+      if (newFiles.length > 0) {
+        addBreadcrumb({
+          type: 'ui',
+          message: `Attached ${newFiles.length} file(s)` ,
+          details: newFiles.map(file => file.name),
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
     // Reset value so same file can be selected again if needed
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -67,6 +86,11 @@ export default function ReportBugModal() {
     if (!isValid || isSubmitting) return;
     
     setIsSubmitting(true);
+    addBreadcrumb({
+      type: 'ui',
+      message: 'Submitted bug report',
+      timestamp: new Date().toISOString(),
+    });
     
     try {
         const formData = new FormData();
@@ -82,13 +106,14 @@ export default function ReportBugModal() {
             formData.append('attachments', file);
         });
         
-        // TODO: Append diagnostics blob if enabled (Effort 4)
+        // Append diagnostics blob if enabled (best-effort)
         if (includeDiagnostics) {
-            formData.append('diagnostics', JSON.stringify({
-                userAgent: navigator.userAgent,
-                url: window.location.href,
-                timestamp: new Date().toISOString()
-            }));
+            try {
+                const diagnosticsPayload = redactDiagnostics(getDiagnostics());
+                formData.append('diagnostics', JSON.stringify(diagnosticsPayload));
+            } catch (diagError) {
+                console.warn('Diagnostics capture failed:', diagError);
+            }
         }
 
         const result = await submitBugReport(formData);

@@ -19,7 +19,7 @@
       "dependencies": [],
       "estimated_minutes": 45,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/abf-diag-001/"
     },
     {
@@ -40,7 +40,7 @@
       ],
       "estimated_minutes": 45,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/abf-diag-002/"
     },
     {
@@ -62,7 +62,7 @@
       ],
       "estimated_minutes": 45,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/abf-diag-003/"
     },
     {
@@ -85,7 +85,7 @@
       ],
       "estimated_minutes": 45,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/abf-diag-004/"
     },
     {
@@ -106,7 +106,7 @@
       ],
       "estimated_minutes": 30,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/abf-diag-005/"
     },
     {
@@ -129,7 +129,7 @@
       ],
       "estimated_minutes": 45,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/abf-diag-006/"
     }
   ]
