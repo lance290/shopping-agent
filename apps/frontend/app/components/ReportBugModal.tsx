@@ -59,7 +59,7 @@ export default function ReportBugModal() {
 
   if (!isOpen) return null;
 
-  const isValid = notes.trim().length > 0 && attachments.length > 0;
+  const isValid = notes.trim().length > 0;
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -136,8 +136,14 @@ export default function ReportBugModal() {
 
   if (submittedId) {
       return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-warm-grey overflow-hidden flex flex-col p-8 items-center text-center animate-in zoom-in-95">
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          onClick={handleClose}
+        >
+            <div
+              className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-warm-grey overflow-hidden flex flex-col p-8 items-center text-center animate-in zoom-in-95"
+              onClick={(e) => e.stopPropagation()}
+            >
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-4">
                     <Check size={32} />
                 </div>
@@ -154,12 +160,16 @@ export default function ReportBugModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div 
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      onClick={handleClose}
+    >
+      <div
         className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-warm-grey overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
         aria-labelledby="report-bug-title"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-6 py-4 border-b border-warm-grey/50 flex justify-between items-center bg-warm-light/50 shrink-0">
