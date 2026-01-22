@@ -208,7 +208,7 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
                     <select
                       value={localAnswers[factor.name] || ''}
                       onChange={(e) => handleAnswerChange(factor.name, e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-onyx focus:border-agent-blurple transition-colors outline-none appearance-none cursor-pointer"
+                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none appearance-none cursor-pointer"
                     >
                       <option value="" disabled>Select...</option>
                       {factor.options.map((opt: string) => (
@@ -234,7 +234,7 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
                             "flex-1 py-2 px-3 rounded-lg text-[11px] font-semibold border transition-all duration-200",
                             isSelected
                               ? "bg-onyx text-white border-onyx"
-                              : "bg-white border-warm-grey/60 text-onyx hover:border-onyx-muted"
+                              : "bg-white border-warm-grey/60 text-gray-900 hover:border-onyx-muted"
                           )}
                         >
                           {opt}
