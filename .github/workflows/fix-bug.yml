@@ -68,7 +68,20 @@ jobs:
 
           PROMPT=$(python -c "import os; n=os.environ.get('ISSUE_NUMBER',''); t=os.environ.get('ISSUE_TITLE',''); b=os.environ.get('ISSUE_BODY',''); print('I have a bug report from GitHub Issue #'+n+'.\n'+'Title: '+t+'\n\n'+'Description:\n'+b+'\n\n'+'Please analyze the codebase, reproduce the issue if possible (or create a test case), fix the bug, and verify the fix.\n'+'IMPORTANT: Use the \'dev\' branch as the base branch for your work (do NOT target main).\n'+'Create your working branch from \'dev\', and open a Pull Request targeting \'dev\'.\n'+('IMPORTANT: Name the branch \'fix/bug-'+n+'\' so we can track it.'))")
 
-          npx @anthropic-ai/claude-code@latest --print --dangerously-skip-permissions -p "$PROMPT"
+          set +e
+          CLAUDE_OUTPUT_FILE="/tmp/claude_output.txt"
+          npx @anthropic-ai/claude-code@latest --print --dangerously-skip-permissions -p "$PROMPT" 2>&1 | tee "$CLAUDE_OUTPUT_FILE"
+          CLAUDE_EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$CLAUDE_EXIT_CODE" -ne 0 ]; then
+            export GH_TOKEN="${GITHUB_TOKEN}"
+            CLAUDE_OUTPUT=$(tail -n 80 "$CLAUDE_OUTPUT_FILE" | sed 's/`/\\`/g')
+            gh issue comment "${ISSUE_NUMBER}" \
+              --repo "${{ github.repository }}" \
+              --body "AI Bug Fixer failed while running Claude Code (exit code ${CLAUDE_EXIT_CODE}).\n\nLast output:\n\n\`\`\`\n${CLAUDE_OUTPUT}\n\`\`\`\n\nIf you see billing/credit errors, top up Anthropic credits or update the repo secret ANTHROPIC_API_KEY."
+            exit "$CLAUDE_EXIT_CODE"
+          fi
 
           git add -A
           if ! git diff --cached --quiet; then
