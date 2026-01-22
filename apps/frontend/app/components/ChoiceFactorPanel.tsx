@@ -256,7 +256,7 @@ export default function ChoiceFactorPanel() {
                           <select
                             value={localAnswers[factor.name] || ''}
                             onChange={(e) => handleAnswerChange(factor.name, e.target.value)}
-                            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:border-blue-500 transition-colors outline-none appearance-none cursor-pointer hover:border-gray-400"
+                            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm text-black focus:border-blue-500 transition-colors outline-none appearance-none cursor-pointer hover:border-gray-400"
                           >
                             <option value="" disabled>Select...</option>
                             {factor.options.map((opt: string) => (
