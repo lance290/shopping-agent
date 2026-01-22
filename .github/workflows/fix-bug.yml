@@ -14,7 +14,7 @@ jobs:
     if: github.event.label.name == 'ai-fix'
     runs-on: ubuntu-latest
     concurrency:
-      group: ai-bug-fixer-${{ github.event.issue.number }}
+      group: ai-bug-fixer-${{ github.event.issue.number }}-${{ github.event.label.name }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
@@ -68,7 +68,7 @@ jobs:
 
           PROMPT=$(python -c "import os; n=os.environ.get('ISSUE_NUMBER',''); t=os.environ.get('ISSUE_TITLE',''); b=os.environ.get('ISSUE_BODY',''); print('I have a bug report from GitHub Issue #'+n+'.\n'+'Title: '+t+'\n\n'+'Description:\n'+b+'\n\n'+'Please analyze the codebase, reproduce the issue if possible (or create a test case), fix the bug, and verify the fix.\n'+'IMPORTANT: Use the \'dev\' branch as the base branch for your work (do NOT target main).\n'+'Create your working branch from \'dev\', and open a Pull Request targeting \'dev\'.\n'+('IMPORTANT: Name the branch \'fix/bug-'+n+'\' so we can track it.'))")
 
-          npx @anthropic-ai/claude-code@latest --print -p "$PROMPT"
+          npx @anthropic-ai/claude-code@latest --print --dangerously-skip-permissions -p "$PROMPT"
 
           if git diff --quiet && git diff --cached --quiet; then
             echo "No changes produced by Claude; skipping PR creation."

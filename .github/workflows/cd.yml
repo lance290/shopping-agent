@@ -88,7 +88,12 @@ jobs:
         elif [[ "${{ github.event_name }}" == "workflow_run" ]]; then
           # CI workflow completed
           if [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]]; then
-            ENVIRONMENT="${{ github.event.workflow_run.head_branch }}"
+            HEAD_BRANCH="${{ github.event.workflow_run.head_branch }}"
+            if [[ "$HEAD_BRANCH" == "dev" || "$HEAD_BRANCH" == "develop" ]]; then
+              ENVIRONMENT="development"
+            else
+              ENVIRONMENT="$HEAD_BRANCH"
+            fi
             PLATFORM="both"
             SHOULD_DEPLOY="true"
           fi

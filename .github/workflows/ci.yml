@@ -1,10 +1,10 @@
-name: 🧪 CI/CD Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop, staging ]
+    branches: [ main, develop, dev, staging ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, dev ]
   workflow_dispatch:
     inputs:
       environment:
