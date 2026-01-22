@@ -163,6 +163,11 @@ export const saveChoiceAnswerToDb = async (
 export interface BugReportResponse {
   id: string;
   status: string;
+  created_at: string;
+  notes: string;
+  severity: string;
+  category: string;
+  attachments?: string[];
   previewUrl?: string;
 }
 
@@ -195,3 +200,18 @@ export const submitBugReport = async (formData: FormData): Promise<BugReportResp
     return null;
   }
 };
+
+export const fetchBugReport = async (id: string): Promise<BugReportResponse | null> => {
+  try {
+    const res = await fetch(`/api/bugs/${id}`);
+    if (res.ok) {
+      return await res.json();
+    }
+    console.error('[API] Fetch bug report failed:', res.status);
+    return null;
+  } catch (err) {
+    console.error('[API] Fetch bug report error:', err);
+    return null;
+  }
+};
+

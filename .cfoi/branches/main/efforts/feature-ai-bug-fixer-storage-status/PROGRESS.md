@@ -3,8 +3,8 @@
 > **Purpose**: Quick context loading for fresh sessions. Read this FIRST.
 
 ## Current State
-- **Status**: 🟢 Ready for Implementation
-- **Current task**: abf-store-005 (in_progress)
+- **Status**: ✅ Complete
+- **Current task**: All tasks done
 - **Last working commit**: N/A
 - **App status**: Unknown
 
@@ -15,8 +15,8 @@
 | abf-store-002 | Implement POST /api/bugs to persist report + attachment refs | ✅ completed |
 | abf-store-003 | Implement GET /api/bugs/{id} for reporter status | ✅ completed |
 | abf-store-004 | Implement GET /api/bugs list for internal triage | ✅ completed |
-| abf-store-005 | Frontend reporter status view for a bug ID | ⬜ pending |
-| abf-store-006 | Define retention policy mechanism (config + cleanup plan) | ⬜ pending |
+| abf-store-005 | Frontend reporter status view for a bug ID | ✅ completed |
+| abf-store-006 | Define retention policy mechanism (config + cleanup plan) | ✅ completed |
 
 ## Quick Start
 ```bash
