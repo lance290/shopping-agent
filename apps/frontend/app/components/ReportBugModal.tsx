@@ -131,7 +131,7 @@ export default function ReportBugModal() {
     }
   };
 
-  const inputClasses = "w-full bg-white border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors outline-none py-2.5 px-4 text-sm text-gray-900 placeholder:text-gray-400 rounded-xl resize-y";
+  const inputClasses = "w-full bg-white border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors outline-none py-2.5 px-4 text-sm !text-gray-900 placeholder:text-gray-400 rounded-xl resize-y";
   const labelClasses = "block text-xs font-medium text-onyx mb-1.5";
 
   if (submittedId) {
