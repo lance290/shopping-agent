@@ -271,21 +271,31 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-)
+ )
 
 # Ensure uploads directory exists
-# Check for /data volume (common in Railway) or use env var
-if os.path.exists("/data") and os.access("/data", os.W_OK):
-    DEFAULT_UPLOAD_PATH = "/data/uploads/bugs"
-else:
-    DEFAULT_UPLOAD_PATH = "uploads/bugs"
+env_upload_dir = os.getenv("UPLOAD_DIR")
+candidate_paths = [
+    env_upload_dir,
+    "/data/uploads/bugs" if os.path.exists("/data") and os.access("/data", os.W_OK) else None,
+    "uploads/bugs",
+    "/tmp/uploads/bugs",
+]
 
-UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", DEFAULT_UPLOAD_PATH))
-try:
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-except PermissionError:
-    UPLOAD_DIR = Path("uploads/bugs")
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR: Optional[Path] = None
+for p in candidate_paths:
+    if not p:
+        continue
+    try:
+        candidate = Path(p)
+        candidate.mkdir(parents=True, exist_ok=True)
+        UPLOAD_DIR = candidate
+        break
+    except Exception:
+        continue
+
+if UPLOAD_DIR is None:
+    raise RuntimeError("No writable upload directory found")
 
 # Mount static files for serving uploads
 # We need to map the /uploads URL to the actual directory
@@ -293,14 +303,13 @@ except PermissionError:
 # Mounting /uploads to the parent directory of 'bugs' is safer.
 # If UPLOAD_DIR is /data/uploads/bugs, we serve /data/uploads at /uploads
 UPLOAD_ROOT = UPLOAD_DIR.parent
-if not UPLOAD_ROOT.exists():
-    try:
-        UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
-    except PermissionError:
-        UPLOAD_DIR = Path("uploads/bugs")
-        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-        UPLOAD_ROOT = UPLOAD_DIR.parent
-        UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+try:
+    UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+except Exception:
+    UPLOAD_DIR = Path("/tmp/uploads/bugs")
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    UPLOAD_ROOT = UPLOAD_DIR.parent
+    UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_ROOT)), name="uploads")
 
