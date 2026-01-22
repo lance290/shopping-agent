@@ -19,6 +19,7 @@ export default function ProcurementBoard() {
   const setReportBugModalOpen = useShoppingStore(state => state.setReportBugModalOpen);
   const [toast, setToast] = useState<{ message: string; tone?: 'success' | 'error' } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   const showToast = (message: string, tone: 'success' | 'error' = 'success') => {
     setToast({ message, tone });
@@ -35,6 +36,14 @@ export default function ProcurementBoard() {
       }
     };
   }, []);
+
+  // Auto-scroll to top when rows change and a new row is added (based on activeRowId)
+  useEffect(() => {
+    if (activeRowId && scrollContainerRef.current) {
+      // Scroll to top smoothly when a new row becomes active
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [activeRowId]);
 
   return (
     <div className="flex-1 bg-transparent h-full flex flex-col overflow-hidden relative">
@@ -91,7 +100,7 @@ export default function ProcurementBoard() {
       </div>
       
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto p-8 space-y-8">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-8 space-y-8">
         {rows.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-onyx-muted">
             <div className="w-16 h-16 mb-5 rounded-full bg-white border border-warm-grey flex items-center justify-center">
