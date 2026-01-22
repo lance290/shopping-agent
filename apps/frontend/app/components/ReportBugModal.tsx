@@ -131,7 +131,7 @@ export default function ReportBugModal() {
     }
   };
 
-  const inputClasses = "w-full bg-white border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors outline-none py-2.5 px-4 text-sm text-gray-900 placeholder:text-gray-400 rounded-xl resize-y";
+  const inputClasses = "w-full bg-white border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors outline-none py-2.5 px-4 text-sm text-gray-900 placeholder:text-gray-400 rounded-xl resize-y [&>option]:text-gray-900";
   const labelClasses = "block text-xs font-medium text-onyx mb-1.5";
 
   if (submittedId) {
@@ -155,8 +155,8 @@ export default function ReportBugModal() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div 
-        className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-warm-grey overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
+      <div
+        className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-warm-grey overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200 [&_input]:!text-black [&_textarea]:!text-black [&_select]:!text-black [&_option]:!text-black"
         role="dialog"
         aria-modal="true"
         aria-labelledby="report-bug-title"
@@ -286,10 +286,10 @@ export default function ReportBugModal() {
                 onChange={(e) => setSeverity(e.target.value as Severity)}
                 className={inputClasses}
               >
-                <option value="low">Low (Cosmetic)</option>
-                <option value="medium">Medium (Annoying)</option>
-                <option value="high">High (Broken Feature)</option>
-                <option value="blocking">Blocking (Crash / Outage)</option>
+                <option value="low" className="text-gray-900">Low (Cosmetic)</option>
+                <option value="medium" className="text-gray-900">Medium (Annoying)</option>
+                <option value="high" className="text-gray-900">High (Broken Feature)</option>
+                <option value="blocking" className="text-gray-900">Blocking (Crash / Outage)</option>
               </select>
             </div>
             <div>
@@ -300,12 +300,12 @@ export default function ReportBugModal() {
                 onChange={(e) => setCategory(e.target.value as Category)}
                 className={inputClasses}
               >
-                <option value="ui">UI / UX</option>
-                <option value="data">Data / Content</option>
-                <option value="auth">Auth / Login</option>
-                <option value="payments">Payments</option>
-                <option value="performance">Performance</option>
-                <option value="other">Other</option>
+                <option value="ui" className="text-gray-900">UI / UX</option>
+                <option value="data" className="text-gray-900">Data / Content</option>
+                <option value="auth" className="text-gray-900">Auth / Login</option>
+                <option value="payments" className="text-gray-900">Payments</option>
+                <option value="performance" className="text-gray-900">Performance</option>
+                <option value="other" className="text-gray-900">Other</option>
               </select>
             </div>
           </div>
