@@ -5,6 +5,28 @@ import { z } from 'zod';
 const model = google(process.env.GEMINI_MODEL || 'gemini-1.5-flash');
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
+async function fetchJsonWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<{ ok: boolean; status: number; data: any; text: string }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    const text = await res.text();
+    let data: any = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = null;
+    }
+    return { ok: res.ok, status: res.status, data, text };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 const constraintValueSchema = z.union([
   z.string(),
   z.number(),
@@ -83,11 +105,15 @@ Return ONLY the JSON array, no explanation.`;
       headers['Authorization'] = authorization;
     }
     
-    await fetch(`${BACKEND_URL}/rows/${rowId}`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({ choice_factors: JSON.stringify(factors) }),
-    });
+    await fetchJsonWithTimeout(
+      `${BACKEND_URL}/rows/${rowId}`,
+      {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ choice_factors: JSON.stringify(factors) }),
+      },
+      15000
+    );
     
     return factors;
   } catch (e) {
@@ -167,20 +193,41 @@ ${activeRowInstruction}`,
               headers['Authorization'] = authorization;
             }
             
-            const response = await fetch(`${BACKEND_URL}/rows`, {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({
-                title: input.item,
-                status: 'sourcing',
-                request_spec: {
-                  item_name: input.item,
-                  constraints: JSON.stringify(normalizedConstraints)
-                },
-                choice_answers: JSON.stringify(normalizedConstraints) // Pre-fill answers from chat constraints
-              })
-            });
-            const data = await response.json() as any;
+            const result = await fetchJsonWithTimeout(
+              `${BACKEND_URL}/rows`,
+              {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                  title: input.item,
+                  status: 'sourcing',
+                  request_spec: {
+                    item_name: input.item,
+                    constraints: JSON.stringify(normalizedConstraints)
+                  },
+                  choice_answers: JSON.stringify(normalizedConstraints)
+                }),
+              },
+              15000
+            );
+
+            if (!result.ok) {
+              return {
+                status: 'error',
+                code: result.status,
+                message: result.data?.message || result.text || 'Backend request failed',
+              };
+            }
+
+            const data = result.data as any;
+            if (!data?.id) {
+              return {
+                status: 'error',
+                code: 502,
+                message: 'Backend returned unexpected response for createRow',
+                data,
+              };
+            }
             
             // Fire-and-forget choice factor generation to avoid blocking the UI
             // The frontend will poll for these updates
@@ -190,7 +237,8 @@ ${activeRowInstruction}`,
             
             return { status: 'row_created', data: { ...data, choice_factors: null } };
           } catch (e) {
-            return { status: 'error', error: String(e) };
+            const msg = e instanceof Error ? e.message : String(e);
+            return { status: 'error', message: msg };
           }
         },
       },
@@ -219,44 +267,70 @@ ${activeRowInstruction}`,
                 item_name: input.title,
                 constraints: JSON.stringify(normalizedConstraints),
               };
-              // Also sync to choice_answers
+
               updateBody.choice_answers = JSON.stringify(normalizedConstraints);
             }
 
-            const response = await fetch(`${BACKEND_URL}/rows/${input.rowId}`, {
-              method: 'PATCH',
-              headers,
-              body: JSON.stringify(updateBody),
-            });
-            const data = await response.json() as any;
-            return { status: 'row_updated', row_id: input.rowId, data };
+            const result = await fetchJsonWithTimeout(
+              `${BACKEND_URL}/rows/${input.rowId}`,
+              {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify(updateBody),
+              },
+              15000
+            );
+
+            if (!result.ok) {
+              return {
+                status: 'error',
+                code: result.status,
+                message: result.data?.message || result.text || 'Backend request failed',
+              };
+            }
+
+            return { status: 'row_updated', data: result.data };
           } catch (e) {
-            return { status: 'error', error: String(e) };
+            const msg = e instanceof Error ? e.message : String(e);
+            return { status: 'error', message: msg };
           }
         },
       },
       searchListings: {
         description: 'Search for existing listings for a row. The search uses the row\'s stored constraints.',
         inputSchema: z.object({
-          query: z.string().describe('The search query (usually the row title)'),
           rowId: z.number().describe('Row ID to scope the search - REQUIRED for proper constraint handling'),
+          query: z.string().describe('The search query (usually the row title)'),
         }),
-        execute: async (input: { query: string; rowId: number }) => {
+        execute: async (input: { rowId: number; query: string }) => {
           try {
             const headers: Record<string, string> = { 'Content-Type': 'application/json' };
             if (authorization) {
               headers['Authorization'] = authorization;
             }
 
-            const response = await fetch(`${BACKEND_URL}/rows/${input.rowId}/search`, {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({ query: input.query })
-            });
-            const data = await response.json() as any;
-            return { status: 'results_found', row_id: input.rowId, count: data.results?.length || 0, preview: data.results?.slice(0, 3) };
+            const result = await fetchJsonWithTimeout(
+              `${BACKEND_URL}/rows/${input.rowId}/search`,
+              {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ query: input.query }),
+              },
+              30000
+            );
+
+            if (!result.ok) {
+              return {
+                status: 'error',
+                code: result.status,
+                message: result.data?.message || result.text || 'Backend request failed',
+              };
+            }
+
+            return result.data;
           } catch (e) {
-            return { status: 'error', error: String(e) };
+            const msg = e instanceof Error ? e.message : String(e);
+            return { status: 'error', message: msg };
           }
         },
       },

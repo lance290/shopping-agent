@@ -18,12 +18,31 @@ CLICKOUT_RETENTION_DAYS = 90   # Keep clickouts for 90 days (affiliate reconcili
 BUG_REPORT_RETENTION_DAYS = int(os.getenv("BUG_REPORT_RETENTION_DAYS", "90")) # Default 90 days
 
 # Check for /data volume (common in Railway) or use env var
-if os.path.exists("/data"):
-    DEFAULT_UPLOAD_PATH = "/data/uploads/bugs"
-else:
-    DEFAULT_UPLOAD_PATH = "uploads/bugs"
+env_upload_dir = os.getenv("UPLOAD_DIR")
+candidate_paths = [
+    env_upload_dir,
+    "/data/uploads/bugs" if os.path.exists("/data") and os.access("/data", os.W_OK) else None,
+    "uploads/bugs",
+    "/tmp/uploads/bugs",
+]
 
-UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", DEFAULT_UPLOAD_PATH))
+UPLOAD_DIR: Path
+_chosen: Path | None = None
+for p in candidate_paths:
+    if not p:
+        continue
+    try:
+        candidate = Path(p)
+        candidate.mkdir(parents=True, exist_ok=True)
+        _chosen = candidate
+        break
+    except Exception:
+        continue
+
+if _chosen is None:
+    raise RuntimeError("No writable upload directory found")
+
+UPLOAD_DIR = _chosen
 
 async def cleanup_old_audit_logs(session: AsyncSession):
     """Delete audit logs older than retention period."""

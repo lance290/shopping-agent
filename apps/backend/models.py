@@ -50,6 +50,7 @@ class Row(RowBase, table=True):
     request_spec: Optional["RequestSpec"] = Relationship(back_populates="row")
 
 class RequestSpec(RequestSpecBase, table=True):
+    __tablename__ = "request_spec"
     id: Optional[int] = Field(default=None, primary_key=True)
     row_id: int = Field(foreign_key="row.id")
     

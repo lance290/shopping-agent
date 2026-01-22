@@ -12,6 +12,28 @@ fastify.register(cors, {
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
+async function fetchJsonWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<{ ok: boolean; status: number; data: any; text: string }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    const text = await res.text();
+    let data: any = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = null;
+    }
+    return { ok: res.ok, status: res.status, data, text };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // Proxy clickout to backend (preserves auth header for user tracking)
 fastify.get('/api/out', async (request, reply) => {
   try {
@@ -128,6 +150,13 @@ fastify.post('/api/chat', async (request, reply) => {
         // AI SDK uses 'output' not 'result' for tool results
         const output = toolResult.output;
         fastify.log.info({ toolName: toolResult.toolName, output }, 'Processing tool-result');
+
+        if (output?.status === 'error') {
+          const msg = output?.message || output?.error || 'Tool failed';
+          const code = output?.code ? ` (${output.code})` : '';
+          reply.raw.write(`\n⚠️ Error${code}: ${msg}`);
+          continue;
+        }
         
         if (toolResult.toolName === 'createRow') {
           if (output?.status === 'row_created') {
@@ -177,19 +206,30 @@ fastify.get('/api/rows', async (request, reply) => {
     if (request.headers.authorization) {
       headers['Authorization'] = request.headers.authorization;
     }
-    
-    const response = await fetch(`${BACKEND_URL}/rows`, { headers });
-    
-    if (response.status === 401) {
+
+    const result = await fetchJsonWithTimeout(
+      `${BACKEND_URL}/rows`,
+      { headers },
+      8000
+    );
+
+    if (result.status === 401) {
       reply.status(401).send({ error: 'Unauthorized' });
       return;
     }
-    
-    const data = await response.json();
-    return data;
+
+    if (!result.ok) {
+      reply.status(result.status).send({
+        error: result.data?.detail || result.data?.message || result.text || 'Failed to fetch rows',
+      });
+      return;
+    }
+
+    return result.data;
   } catch (err) {
     fastify.log.error(err);
-    reply.status(500).send({ error: 'Failed to fetch rows' });
+    const msg = err instanceof Error ? err.message : String(err);
+    reply.status(502).send({ error: msg || 'Failed to fetch rows' });
   }
 });
 
@@ -200,22 +240,33 @@ fastify.post('/api/rows', async (request, reply) => {
       headers['Authorization'] = request.headers.authorization;
     }
 
-    const response = await fetch(`${BACKEND_URL}/rows`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(request.body),
-    });
-    
-    if (response.status === 401) {
+    const result = await fetchJsonWithTimeout(
+      `${BACKEND_URL}/rows`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(request.body),
+      },
+      8000
+    );
+
+    if (result.status === 401) {
       reply.status(401).send({ error: 'Unauthorized' });
       return;
     }
-    
-    const data = await response.json();
-    return data;
+
+    if (!result.ok) {
+      reply.status(result.status).send({
+        error: result.data?.detail || result.data?.message || result.text || 'Failed to create row',
+      });
+      return;
+    }
+
+    return result.data;
   } catch (err) {
     fastify.log.error(err);
-    reply.status(500).send({ error: 'Failed to create row' });
+    const msg = err instanceof Error ? err.message : String(err);
+    reply.status(502).send({ error: msg || 'Failed to create row' });
   }
 });
 
@@ -227,21 +278,33 @@ fastify.get('/api/rows/:id', async (request, reply) => {
       headers['Authorization'] = request.headers.authorization;
     }
 
-    const response = await fetch(`${BACKEND_URL}/rows/${id}`, { headers });
-    
-    if (response.status === 401) {
+    const result = await fetchJsonWithTimeout(
+      `${BACKEND_URL}/rows/${id}`,
+      { headers },
+      8000
+    );
+
+    if (result.status === 401) {
       reply.status(401).send({ error: 'Unauthorized' });
       return;
     }
-    if (response.status === 404) {
+    if (result.status === 404) {
       reply.status(404).send({ error: 'Row not found' });
       return;
     }
-    const data = await response.json();
-    return data;
+
+    if (!result.ok) {
+      reply.status(result.status).send({
+        error: result.data?.detail || result.data?.message || result.text || 'Failed to fetch row',
+      });
+      return;
+    }
+
+    return result.data;
   } catch (err) {
     fastify.log.error(err);
-    reply.status(500).send({ error: 'Failed to fetch row' });
+    const msg = err instanceof Error ? err.message : String(err);
+    reply.status(502).send({ error: msg || 'Failed to fetch row' });
   }
 });
 

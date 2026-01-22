@@ -54,9 +54,6 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PORT=8080
 
-# Switch to non-root user
-USER fastapi
-
 # Expose port
 EXPOSE 8080
 

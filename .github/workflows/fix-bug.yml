@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: dev
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -60,5 +62,6 @@ jobs:
             \
             Please analyze the codebase, reproduce the issue if possible (or create a test case), \
             fix the bug, and verify the fix. \
-            Finally, create a Pull Request with the fix. \
+            IMPORTANT: Use the 'dev' branch as the base branch for your work (do NOT target main). \
+            Create your working branch from 'dev', and open a Pull Request targeting 'dev'. \
             IMPORTANT: Name the branch 'fix/bug-${{ github.event.issue.number }}' so we can track it."
