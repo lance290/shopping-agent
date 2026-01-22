@@ -1,0 +1,63 @@
+name: AI Bug Fixer
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  fix-bug:
+    if: contains(github.event.issue.body, 'CLAUDE-INSTRUCTION')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' 
+
+      - name: Install dependencies (Frontend)
+        run: |
+          cd apps/frontend
+          npm ci
+
+      - name: Install dependencies (Backend)
+        run: |
+          cd apps/backend
+          pip install -r requirements.txt
+
+      - name: Run Claude Code to Fix Bug
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Extract instruction from issue body or just pass the whole body context
+          # We use the generic claude-code CLI to attempt a fix
+          # Note: This requires @anthropic-ai/claude-code to be available or npx-able
+          
+          echo "Starting AI Bug Fixer for Issue #${{ github.event.issue.number }}"
+          
+          # Run Claude Code
+          # -p: prompt
+          # --print: print output to stdout
+          npx @anthropic-ai/claude-code@latest \
+            --print \
+            -p "I have a bug report from GitHub Issue #${{ github.event.issue.number }}. \
+            Title: ${{ github.event.issue.title }} \
+            \
+            Description: \
+            ${{ github.event.issue.body }} \
+            \
+            Please analyze the codebase, reproduce the issue if possible (or create a test case), \
+            fix the bug, and verify the fix. \
+            Finally, create a Pull Request with the fix."

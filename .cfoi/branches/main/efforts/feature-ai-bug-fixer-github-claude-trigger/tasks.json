@@ -17,7 +17,7 @@
       "dependencies": [],
       "estimated_minutes": 30,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/abf-gh-001/"
     },
     {
@@ -38,7 +38,7 @@
       ],
       "estimated_minutes": 45,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/abf-gh-002/"
     },
     {
@@ -61,7 +61,7 @@
       ],
       "estimated_minutes": 45,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/abf-gh-003/"
     },
     {
@@ -85,8 +85,8 @@
       ],
       "estimated_minutes": 30,
       "error_budget": 3,
-      "status": "pending",
-      "proof_path": ".cfoi/branches/main/proof/abf-gh-004/"
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/abf-gh-003/"
     },
     {
       "id": "abf-gh-005",
@@ -108,8 +108,27 @@
       ],
       "estimated_minutes": 45,
       "error_budget": 3,
-      "status": "pending",
-      "proof_path": ".cfoi/branches/main/proof/abf-gh-005/"
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/abf-gh-003/"
+    },
+    {
+      "id": "abf-gh-006",
+      "description": "Add GitHub Action Workflow to trigger Claude on Issue",
+      "e2e_flow": "New issue triggers GH Action that runs Claude Code",
+      "manual_verification": [
+        "Inspect .github/workflows/fix-bug.yml"
+      ],
+      "files": [
+        ".github/workflows/fix-bug.yml"
+      ],
+      "tests_to_write": [],
+      "dependencies": [
+        "abf-gh-001"
+      ],
+      "estimated_minutes": 15,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/abf-gh-006/"
     }
   ]
 }

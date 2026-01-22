@@ -211,5 +211,8 @@ class BugReport(SQLModel, table=True):
     attachments: Optional[str] = None  # JSON list of stored file paths/urls
     diagnostics: Optional[str] = None  # JSON object with captured context
     
+    # External Links
+    github_issue_url: Optional[str] = None
+    
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)

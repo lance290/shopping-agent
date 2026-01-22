@@ -11,6 +11,7 @@ import os
 import httpx
 import traceback
 import asyncio
+import secrets
 from datetime import datetime, timedelta
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -21,14 +22,75 @@ from database import init_db, get_session
 from models import (
     Row, RowBase, RowCreate, RequestSpec,
     AuthLoginCode, AuthSession, Bid, Seller, User, ClickoutEvent,
+    BugReport,
     hash_token, generate_verification_code, generate_session_token
 )
 from affiliate import link_resolver, ClickContext
 from audit import audit_log
 from clerk_auth import verify_clerk_token, get_clerk_user_id
+from github_client import github_client
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 FROM_EMAIL = os.getenv("FROM_EMAIL", "Agent Shopper <shopper@info.xcor-cto.com>")
+
+
+async def create_github_issue_task(bug_id: int):
+    """Background task to create GitHub issue for a bug report."""
+    # Create a new session for the background task
+    async for session in get_session():
+        try:
+            bug = await session.get(BugReport, bug_id)
+            if not bug or bug.github_issue_url:
+                return
+
+            # Construct issue body
+            body = f"### Description\n{bug.notes}\n\n"
+            
+            if bug.expected:
+                body += f"### Expected Behavior\n{bug.expected}\n\n"
+            if bug.actual:
+                body += f"### Actual Behavior\n{bug.actual}\n\n"
+                
+            body += f"### Metadata\n"
+            body += f"- **Severity**: {bug.severity}\n"
+            body += f"- **Category**: {bug.category}\n"
+            body += f"- **Reporter ID**: {bug.user_id}\n"
+            body += f"- **Report ID**: {bug.id}\n\n"
+
+            if bug.attachments and bug.attachments != "[]":
+                body += f"### Attachments\n"
+                try:
+                    paths = json.loads(bug.attachments)
+                    for path in paths:
+                        # In a real app, these would be public URLs or presigned links
+                        # For now, we'll list the paths
+                        body += f"- {path}\n"
+                except:
+                    pass
+            
+            if bug.diagnostics:
+                body += f"\n<details>\n<summary>Diagnostics</summary>\n\n```json\n{bug.diagnostics}\n```\n</details>\n"
+
+            # Add magic instruction block for Claude
+            body += "\n\n<!-- CLAUDE-INSTRUCTION: Fix this bug. Use the provided context and diagnostics. -->"
+
+            # Create Issue
+            issue = await github_client.create_issue(
+                title=f"[Bug] {bug.notes[:50]}...",
+                body=body,
+                labels=["bug", f"severity:{bug.severity}", f"category:{bug.category}"]
+            )
+
+            if issue and issue.get("html_url"):
+                bug.github_issue_url = issue["html_url"]
+                bug.status = "sent"
+                session.add(bug)
+                await session.commit()
+                print(f"[BUG] Linked report {bug_id} to issue {bug.github_issue_url}")
+            
+        except Exception as e:
+            print(f"[BUG] Failed to create GitHub issue for report {bug_id}: {e}")
+            traceback.print_exc()
 
 
 async def require_admin(
@@ -108,11 +170,25 @@ app.add_middleware(
 )
 
 # Ensure uploads directory exists
-UPLOAD_DIR = Path("uploads/bugs")
+# Check for /data volume (common in Railway) or use env var
+if os.path.exists("/data"):
+    DEFAULT_UPLOAD_PATH = "/data/uploads/bugs"
+else:
+    DEFAULT_UPLOAD_PATH = "uploads/bugs"
+
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", DEFAULT_UPLOAD_PATH))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-# Mount static files for serving uploads (protected if needed, but public for MVP)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# Mount static files for serving uploads
+# We need to map the /uploads URL to the actual directory
+# If using absolute path like /data/uploads/bugs, we mount the parent or the specific dir?
+# Mounting /uploads to the parent directory of 'bugs' is safer.
+# If UPLOAD_DIR is /data/uploads/bugs, we serve /data/uploads at /uploads
+UPLOAD_ROOT = UPLOAD_DIR.parent
+if not UPLOAD_ROOT.exists():
+    UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_ROOT)), name="uploads")
 
 # Request/Response models
 class HealthResponse(BaseModel):
@@ -195,6 +271,9 @@ async def create_bug_report(
     session.add(bug)
     await session.commit()
     await session.refresh(bug)
+    
+    # Trigger GitHub Issue Creation
+    background_tasks.add_task(create_github_issue_task, bug.id)
     
     # Return formatted response
     return BugReportRead(
