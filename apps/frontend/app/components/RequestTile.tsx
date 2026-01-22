@@ -116,9 +116,9 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
   };
 
   return (
-    <Card 
+    <Card
       variant="hover"
-      className="min-w-[290px] max-w-[320px] h-full flex flex-col p-4 bg-warm-light border border-warm-grey/70 cursor-default group"
+      className="min-w-[290px] max-w-[320px] h-[360px] flex flex-col p-4 bg-warm-light border border-warm-grey/70 cursor-default group"
       onClick={handleClick}
     >
       {/* Header */}
