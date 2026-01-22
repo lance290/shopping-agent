@@ -117,7 +117,7 @@ export default function ProcurementBoard() {
       </div>
 
       {toast && (
-        <div className="absolute top-6 right-6 z-50">
+        <div className="absolute top-24 right-6 z-50">
           <div className={cn(
             "px-4 py-3 rounded-xl border text-sm font-medium flex items-center gap-2 bg-white shadow-[0_12px_24px_rgba(0,0,0,0.08)]",
             toast.tone === 'error'
