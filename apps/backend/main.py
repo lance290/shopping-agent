@@ -341,6 +341,7 @@ async def create_bug_report(
     diagnostics: Optional[str] = Form(None),
     attachments: List[UploadFile] = File(None),
     authorization: Optional[str] = Header(None),
+    background_tasks: BackgroundTasks = None,
     session: AsyncSession = Depends(get_session)
 ):
     """
@@ -396,7 +397,8 @@ async def create_bug_report(
     await session.refresh(bug)
     
     # Trigger GitHub Issue Creation
-    background_tasks.add_task(create_github_issue_task, bug.id)
+    if background_tasks is not None:
+        background_tasks.add_task(create_github_issue_task, bug.id)
     
     # Return formatted response
     return BugReportRead(
