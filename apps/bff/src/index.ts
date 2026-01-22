@@ -63,6 +63,52 @@ fastify.get('/api/out', async (request, reply) => {
   }
 });
 
+fastify.post('/api/bugs', async (request, reply) => {
+  try {
+    const headers: Record<string, string> = {};
+    const contentType = request.headers['content-type'];
+    if (typeof contentType === 'string' && contentType.length > 0) {
+      headers['Content-Type'] = contentType;
+    }
+    if (request.headers.authorization) {
+      headers['Authorization'] = request.headers.authorization;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/bugs`, {
+        method: 'POST',
+        headers,
+        body: request.raw as any,
+        signal: controller.signal,
+        duplex: 'half',
+      } as any);
+
+      const text = await response.text();
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+
+      reply.status(response.status);
+      if (data !== null) {
+        reply.send(data);
+        return;
+      }
+      reply.send(text);
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (err) {
+    fastify.log.error(err);
+    const msg = err instanceof Error ? err.message : String(err);
+    reply.status(502).send({ error: msg || 'Failed to submit bug report' });
+  }
+});
+
 // Proxy search to backend (supports per-row search with constraints)
 fastify.post('/api/search', async (request, reply) => {
   try {
