@@ -2,7 +2,7 @@ name: AI Bug Fixer
 
 on:
   issues:
-    types: [opened]
+    types: [opened, labeled]
 
 permissions:
   contents: write
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   fix-bug:
-    if: contains(github.event.issue.body, 'CLAUDE-INSTRUCTION')
+    if: contains(github.event.issue.labels.*.name, 'ai-fix')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
       - name: Run Claude Code to Fix Bug
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           # Extract instruction from issue body or just pass the whole body context
           # We use the generic claude-code CLI to attempt a fix
@@ -65,3 +65,32 @@ jobs:
             IMPORTANT: Use the 'dev' branch as the base branch for your work (do NOT target main). \
             Create your working branch from 'dev', and open a Pull Request targeting 'dev'. \
             IMPORTANT: Name the branch 'fix/bug-${{ github.event.issue.number }}' so we can track it."
+
+      - name: Auto-merge PR to dev
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          BRANCH="fix/bug-${{ github.event.issue.number }}"
+
+          echo "Looking for PR for branch: ${BRANCH}"
+          PR_NUMBER=""
+          for i in $(seq 1 30); do
+            PR_NUMBER=$(gh pr list --repo "${{ github.repository }}" --head "${BRANCH}" --state open --json number --jq '.[0].number')
+
+            if [ -n "${PR_NUMBER}" ] && [ "${PR_NUMBER}" != "null" ]; then
+              break
+            fi
+
+            echo "PR not found yet. Waiting... (${i}/30)"
+            sleep 5
+          done
+
+          if [ -z "${PR_NUMBER}" ] || [ "${PR_NUMBER}" = "null" ]; then
+            echo "No open PR found for branch ${BRANCH}. Skipping auto-merge."
+            exit 0
+          fi
+
+          echo "Merging PR #${PR_NUMBER} into dev"
+          gh pr merge "${PR_NUMBER}" --repo "${{ github.repository }}" --merge --delete-branch

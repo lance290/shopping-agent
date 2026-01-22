@@ -189,7 +189,7 @@ async def create_github_issue_task(bug_id: int):
             issue = await github_client.create_issue(
                 title=f"[Bug] {bug.notes[:50]}...",
                 body=body,
-                labels=["bug", f"severity:{bug.severity}", f"category:{bug.category}"]
+                labels=["bug", "ai-fix", f"severity:{bug.severity}", f"category:{bug.category}"]
             )
 
             if issue and issue.get("html_url"):
