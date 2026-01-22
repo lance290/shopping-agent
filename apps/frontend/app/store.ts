@@ -44,6 +44,7 @@ export interface Row {
   choice_factors?: string;   // JSON string
   choice_answers?: string;   // JSON string
   bids?: Bid[];              // Persisted bids from DB
+  last_engaged_at?: number;  // Client-side timestamp for ordering
 }
 
 interface PendingRowDelete {
@@ -162,7 +163,31 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   
   // Basic setters
   setCurrentQuery: (query) => set({ currentQuery: query }),
-  setActiveRowId: (id) => set({ activeRowId: id }),
+  setActiveRowId: (id) => set((state) => {
+    if (id === null) return { activeRowId: id };
+
+    // Update last_engaged_at timestamp and re-sort rows
+    const updatedRows = state.rows.map((row) =>
+      row.id === id ? { ...row, last_engaged_at: Date.now() } : row
+    );
+
+    // Sort rows by engagement (most recent first)
+    const sortedRows = [...updatedRows].sort((a, b) => {
+      const aEngaged = a.last_engaged_at || 0;
+      const bEngaged = b.last_engaged_at || 0;
+
+      if (aEngaged > 0 && bEngaged > 0) {
+        return bEngaged - aEngaged;
+      }
+
+      if (aEngaged > 0) return -1;
+      if (bEngaged > 0) return 1;
+
+      return b.id - a.id;
+    });
+
+    return { activeRowId: id, rows: sortedRows };
+  }),
   setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
 
@@ -239,40 +264,80 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   },
   
   setRows: (rows) => set((state) => {
-    // Keep row order stable across refreshes/polls.
-    // Preserve existing order for known IDs; append any new rows at the end.
-    const existingOrder = new Map<number, number>();
-    state.rows.forEach((r, idx) => existingOrder.set(r.id, idx));
+    // Preserve last_engaged_at timestamps from existing state
+    const existingEngagement = new Map<number, number>();
+    state.rows.forEach((r) => {
+      if (r.last_engaged_at) {
+        existingEngagement.set(r.id, r.last_engaged_at);
+      }
+    });
 
-    const incomingIndex = new Map<number, number>();
-    rows.forEach((r, idx) => incomingIndex.set(r.id, idx));
+    // Merge incoming rows with preserved engagement timestamps
+    const mergedRows = rows.map((row) => ({
+      ...row,
+      last_engaged_at: existingEngagement.get(row.id) || row.last_engaged_at,
+    }));
 
-    const orderedRows = [...rows].sort((a, b) => {
-      const aExisting = existingOrder.get(a.id);
-      const bExisting = existingOrder.get(b.id);
+    // Sort rows: most recently engaged at the top, then by creation order (newest first)
+    const orderedRows = [...mergedRows].sort((a, b) => {
+      const aEngaged = a.last_engaged_at || 0;
+      const bEngaged = b.last_engaged_at || 0;
 
-      const aHas = aExisting !== undefined;
-      const bHas = bExisting !== undefined;
+      // If both have engagement timestamps, sort by most recent engagement
+      if (aEngaged > 0 && bEngaged > 0) {
+        return bEngaged - aEngaged;
+      }
 
-      if (aHas && bHas) return aExisting! - bExisting!;
-      if (aHas && !bHas) return -1;
-      if (!aHas && bHas) return 1;
+      // If only one has engagement, it goes first
+      if (aEngaged > 0) return -1;
+      if (bEngaged > 0) return 1;
 
-      // Both new: preserve server/incoming order
-      return (incomingIndex.get(a.id) ?? 0) - (incomingIndex.get(b.id) ?? 0);
+      // Neither engaged: newest row (highest ID) first
+      return b.id - a.id;
     });
 
     // Automatically hydrate rowResults from persisted bids
+    // IMPORTANT: Merge bids with existing rowResults to preserve search results
     const newRowResults = { ...state.rowResults };
     orderedRows.forEach(row => {
       if (row.bids && row.bids.length > 0) {
-        newRowResults[row.id] = row.bids.map(mapBidToOffer);
+        const bidsAsOffers = row.bids.map(mapBidToOffer);
+        const existingResults = newRowResults[row.id] || [];
+
+        // Create a map of existing offers by bid_id for deduplication
+        const existingByBidId = new Map<number, Offer>();
+        const existingWithoutBidId: Offer[] = [];
+
+        existingResults.forEach(offer => {
+          if (offer.bid_id) {
+            existingByBidId.set(offer.bid_id, offer);
+          } else {
+            existingWithoutBidId.push(offer);
+          }
+        });
+
+        // Update existing offers with fresh bid data or add new bids
+        bidsAsOffers.forEach(bidOffer => {
+          if (bidOffer.bid_id) {
+            existingByBidId.set(bidOffer.bid_id, bidOffer);
+          }
+        });
+
+        // Merge: bids first (in order), then other search results
+        newRowResults[row.id] = [
+          ...Array.from(existingByBidId.values()),
+          ...existingWithoutBidId
+        ];
       }
     });
 
     return { rows: orderedRows, rowResults: newRowResults };
   }),
-  addRow: (row) => set((state) => ({ rows: [...state.rows, row] })),
+  addRow: (row) => set((state) => {
+    const newRow = { ...row, last_engaged_at: Date.now() };
+    // Add new row at the beginning (most recent)
+    return { rows: [newRow, ...state.rows] };
+  }),
   updateRow: (id, updates) => set((state) => ({
     rows: state.rows.map((row) => (row.id === id ? { ...row, ...updates } : row)),
   })),
