@@ -166,7 +166,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
             "text-[10px] uppercase tracking-wider font-semibold",
             row.status === 'closed' ? "text-status-success" : "text-onyx-muted"
           )}>
-            {row.status}
+            {row.status === 'closed' ? 'selected' : row.status}
           </span>
         </div>
         <div className="flex items-center gap-2">
