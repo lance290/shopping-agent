@@ -128,6 +128,13 @@ fastify.post('/api/chat', async (request, reply) => {
         // AI SDK uses 'output' not 'result' for tool results
         const output = toolResult.output;
         fastify.log.info({ toolName: toolResult.toolName, output }, 'Processing tool-result');
+
+        if (output?.status === 'error') {
+          const msg = output?.message || output?.error || 'Tool failed';
+          const code = output?.code ? ` (${output.code})` : '';
+          reply.raw.write(`\n⚠️ Error${code}: ${msg}`);
+          continue;
+        }
         
         if (toolResult.toolName === 'createRow') {
           if (output?.status === 'row_created') {
