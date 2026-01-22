@@ -10,6 +10,14 @@ fastify.register(cors, {
   origin: process.env.CORS_ORIGIN || '*',
 });
 
+fastify.addContentTypeParser(
+  /^multipart\/form-data(?:;.*)?$/,
+  { parseAs: 'buffer' },
+  (req, body, done) => {
+    done(null, body);
+  }
+);
+
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 async function fetchJsonWithTimeout(
@@ -80,9 +88,8 @@ fastify.post('/api/bugs', async (request, reply) => {
       const response = await fetch(`${BACKEND_URL}/api/bugs`, {
         method: 'POST',
         headers,
-        body: request.raw as any,
+        body: request.body as any,
         signal: controller.signal,
-        duplex: 'half',
       } as any);
 
       const text = await response.text();
