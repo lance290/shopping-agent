@@ -275,13 +275,17 @@ app.add_middleware(
 
 # Ensure uploads directory exists
 # Check for /data volume (common in Railway) or use env var
-if os.path.exists("/data"):
+if os.path.exists("/data") and os.access("/data", os.W_OK):
     DEFAULT_UPLOAD_PATH = "/data/uploads/bugs"
 else:
     DEFAULT_UPLOAD_PATH = "uploads/bugs"
 
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", DEFAULT_UPLOAD_PATH))
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+except PermissionError:
+    UPLOAD_DIR = Path("uploads/bugs")
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # Mount static files for serving uploads
 # We need to map the /uploads URL to the actual directory
@@ -290,7 +294,13 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 # If UPLOAD_DIR is /data/uploads/bugs, we serve /data/uploads at /uploads
 UPLOAD_ROOT = UPLOAD_DIR.parent
 if not UPLOAD_ROOT.exists():
-    UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+    try:
+        UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        UPLOAD_DIR = Path("uploads/bugs")
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        UPLOAD_ROOT = UPLOAD_DIR.parent
+        UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_ROOT)), name="uploads")
 
