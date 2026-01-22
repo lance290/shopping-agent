@@ -142,7 +142,7 @@ export default function ReportBugModal() {
                     <Check size={32} />
                 </div>
                 <h2 className="text-xl font-semibold text-onyx mb-2">Bug Reported!</h2>
-                <p className="text-sm text-onyx/70 mb-6">
+                <p className="text-sm text-onyx mb-6">
                     Thanks for your feedback. Your report ID is <strong className="text-onyx font-mono">{submittedId}</strong>.
                 </p>
                 <Button onClick={handleClose} className="w-full">
