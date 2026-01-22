@@ -29,7 +29,7 @@ jobs:
         with: { node-version: 20 }
 
       - name: Install Pulumi CLI
-        uses: pulumi/setup-pulumi@v3
+        uses: pulumi/setup-pulumi@v2
 
       - name: Install dependencies
         if: ${{ hashFiles('package.json') != '' }}
@@ -150,7 +150,7 @@ jobs:
         with: { node-version: 20 }
 
       - name: Install Pulumi CLI
-        uses: pulumi/setup-pulumi@v3
+        uses: pulumi/setup-pulumi@v2
 
       - name: Install Pulumi dependencies
         run: npm install --no-audit --no-fund
