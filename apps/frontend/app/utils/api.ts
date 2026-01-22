@@ -168,7 +168,12 @@ export interface BugReportResponse {
   severity: string;
   category: string;
   attachments?: string[];
-  previewUrl?: string;
+  previewUrl?: string; // Note: Backend sends snake_case 'preview_url', we might need to map it or use snake_case in interface if we don't transform it.
+  // Actually, checking the backend response, it returns snake_case fields.
+  // We should align the interface to match the JSON response from backend.
+  preview_url?: string;
+  github_issue_url?: string;
+  github_pr_url?: string;
 }
 
 export const submitBugReport = async (formData: FormData): Promise<BugReportResponse | null> => {

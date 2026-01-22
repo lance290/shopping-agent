@@ -60,4 +60,5 @@ jobs:
             \
             Please analyze the codebase, reproduce the issue if possible (or create a test case), \
             fix the bug, and verify the fix. \
-            Finally, create a Pull Request with the fix."
+            Finally, create a Pull Request with the fix. \
+            IMPORTANT: Name the branch 'fix/bug-${{ github.event.issue.number }}' so we can track it."

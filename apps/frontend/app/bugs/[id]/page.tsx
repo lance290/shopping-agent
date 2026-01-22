@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { fetchBugReport, BugReportResponse } from '../../utils/api';
 import { Button } from '../../../components/ui/Button';
-import { ArrowLeft, CheckCircle2, Clock, AlertTriangle, XCircle, FileIcon } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, AlertTriangle, XCircle, FileIcon, Github, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
 export default function BugReportStatusPage() {
@@ -65,8 +65,10 @@ export default function BugReportStatusPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'captured': return 'text-blue-600 bg-blue-50 border-blue-200';
-      case 'processing': return 'text-purple-600 bg-purple-50 border-purple-200';
-      case 'sent': return 'text-green-600 bg-green-50 border-green-200';
+      case 'sent': return 'text-indigo-600 bg-indigo-50 border-indigo-200';
+      case 'pr_created': return 'text-orange-600 bg-orange-50 border-orange-200';
+      case 'preview_ready': return 'text-pink-600 bg-pink-50 border-pink-200';
+      case 'shipped': return 'text-green-600 bg-green-50 border-green-200';
       case 'closed': return 'text-gray-600 bg-gray-100 border-gray-200';
       default: return 'text-gray-600 bg-gray-50 border-gray-200';
     }
@@ -75,10 +77,24 @@ export default function BugReportStatusPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'captured': return <CheckCircle2 size={16} />;
-      case 'processing': return <Clock size={16} />;
-      case 'sent': return <CheckCircle2 size={16} />;
+      case 'sent': return <ExternalLink size={16} />;
+      case 'pr_created': return <Github size={16} />;
+      case 'preview_ready': return <ExternalLink size={16} />;
+      case 'shipped': return <CheckCircle2 size={16} />;
       case 'closed': return <XCircle size={16} />;
       default: return <Clock size={16} />;
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'captured': return 'Captured';
+      case 'sent': return 'Issue Created';
+      case 'pr_created': return 'Fix in Progress';
+      case 'preview_ready': return 'Ready for Review';
+      case 'shipped': return 'Fix Shipped';
+      case 'closed': return 'Closed';
+      default: return status;
     }
   };
 
@@ -102,13 +118,36 @@ export default function BugReportStatusPage() {
               </div>
               <div className={`px-3 py-1 rounded-full text-sm font-medium border flex items-center gap-2 ${getStatusColor(report.status)}`}>
                 {getStatusIcon(report.status)}
-                <span className="capitalize">{report.status}</span>
+                <span className="capitalize">{getStatusLabel(report.status)}</span>
               </div>
+            </div>
+            
+            {/* Actions / Links */}
+            <div className="flex flex-wrap gap-3 mt-4">
+                {report.github_issue_url && (
+                    <a href={report.github_issue_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
+                        <Github size={14} className="mr-1.5" />
+                        View Issue
+                    </a>
+                )}
+                {report.github_pr_url && (
+                    <a href={report.github_pr_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-lg text-xs font-medium transition-colors">
+                        <Github size={14} className="mr-1.5" />
+                        View Pull Request
+                    </a>
+                )}
+                {report.preview_url && (
+                    <a href={report.preview_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-3 py-1.5 bg-pink-50 hover:bg-pink-100 text-pink-700 border border-pink-200 rounded-lg text-xs font-medium transition-colors">
+                        <ExternalLink size={14} className="mr-1.5" />
+                        Preview Fix
+                    </a>
+                )}
             </div>
           </div>
 
           {/* Content */}
           <div className="p-6 space-y-6">
+
             
             <div>
               <h3 className="text-sm font-medium text-onyx-muted uppercase tracking-wider mb-2">Description</h3>
@@ -134,7 +173,7 @@ export default function BugReportStatusPage() {
               <div>
                 <h3 className="text-sm font-medium text-onyx-muted uppercase tracking-wider mb-3">Attachments</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {report.attachments.map((path, i) => (
+                  {report.attachments.map((path: string, i: number) => (
                     <a 
                       key={i} 
                       href={path} 

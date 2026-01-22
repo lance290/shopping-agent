@@ -21,7 +21,7 @@
       "dependencies": [],
       "estimated_minutes": 45,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/abf-verify-001/"
     },
     {
@@ -87,7 +87,7 @@
       ],
       "estimated_minutes": 30,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/abf-verify-004/"
     },
     {
@@ -109,7 +109,7 @@
       ],
       "estimated_minutes": 45,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/abf-verify-005/"
     }
   ]

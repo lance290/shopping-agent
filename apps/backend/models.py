@@ -213,6 +213,8 @@ class BugReport(SQLModel, table=True):
     
     # External Links
     github_issue_url: Optional[str] = None
+    github_pr_url: Optional[str] = None
+    preview_url: Optional[str] = None
     
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)

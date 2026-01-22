@@ -3,19 +3,19 @@
 > **Purpose**: Quick context loading for fresh sessions. Read this FIRST.
 
 ## Current State
-- **Status**: 🟢 Ready for Implementation
-- **Current task**: abf-verify-001 (pending)
+- **Status**: ✅ Complete
+- **Current task**: All tasks done
 - **Last working commit**: N/A
 - **App status**: Unknown
 
 ## Task Summary
 | ID | Description | Status |
 |---|-------------|--------|
-| abf-verify-001 | Define webhook authentication + payload contract (GitHub + Railway) | ⬜ pending |
-| abf-verify-002 | Implement GitHub webhook endpoint: PR opened → pr_created | ⬜ pending |
-| abf-verify-003 | Implement preview URL update: Railway webhook (or fallback) → preview_ready | ⬜ pending |
-| abf-verify-004 | Implement GitHub webhook endpoint: PR merged → shipped | ⬜ pending |
-| abf-verify-005 | Update reporter status UI to show PR/preview/shipped | ⬜ pending |
+| abf-verify-001 | Define webhook authentication + payload contract (GitHub + Railway) | ✅ completed |
+| abf-verify-002 | Implement GitHub webhook endpoint: PR opened → pr_created | ✅ completed |
+| abf-verify-003 | Implement preview URL update: Railway webhook (or fallback) → preview_ready | ✅ completed |
+| abf-verify-004 | Implement GitHub webhook endpoint: PR merged → shipped | ✅ completed |
+| abf-verify-005 | Update reporter status UI to show PR/preview/shipped | ✅ completed |
 
 ## Quick Start
 ```bash
