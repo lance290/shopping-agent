@@ -32,8 +32,8 @@ export default function Chat() {
     if (lastRowIdRef.current === store.activeRowId) return;
     lastRowIdRef.current = store.activeRowId;
 
-    setMessages(prev => [
-      ...prev,
+    // Clear previous messages and start fresh for the new active row
+    setMessages([
       {
         id: `${Date.now()}-${store.activeRowId}`,
         role: 'assistant',
