@@ -4,17 +4,17 @@
 
 ## Current State
 - **Status**: 🟢 Ready for Implementation
-- **Current task**: abf-store-001 (pending)
+- **Current task**: abf-store-005 (in_progress)
 - **Last working commit**: N/A
 - **App status**: Unknown
 
 ## Task Summary
 | ID | Description | Status |
 |---|-------------|--------|
-| abf-store-001 | Add backend BugReport model (+ attachment ref fields) | ⬜ pending |
-| abf-store-002 | Implement POST /api/bugs to persist report + attachment refs | ⬜ pending |
-| abf-store-003 | Implement GET /api/bugs/{id} for reporter status | ⬜ pending |
-| abf-store-004 | Implement GET /api/bugs list for internal triage | ⬜ pending |
+| abf-store-001 | Add backend BugReport model (+ attachment ref fields) | ✅ completed |
+| abf-store-002 | Implement POST /api/bugs to persist report + attachment refs | ✅ completed |
+| abf-store-003 | Implement GET /api/bugs/{id} for reporter status | ✅ completed |
+| abf-store-004 | Implement GET /api/bugs list for internal triage | ✅ completed |
 | abf-store-005 | Frontend reporter status view for a bug ID | ⬜ pending |
 | abf-store-006 | Define retention policy mechanism (config + cleanup plan) | ⬜ pending |
 

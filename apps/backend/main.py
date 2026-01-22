@@ -107,10 +107,180 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Ensure uploads directory exists
+UPLOAD_DIR = Path("uploads/bugs")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# Mount static files for serving uploads (protected if needed, but public for MVP)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 # Request/Response models
 class HealthResponse(BaseModel):
     status: str
     version: str
+
+# --- Bug Report Models ---
+class BugReportRead(BaseModel):
+    id: int
+    status: str
+    created_at: datetime
+    notes: str
+    severity: str
+    category: str
+    attachments: Optional[List[str]] = []
+
+# --- Bug Report Endpoints ---
+
+@app.post("/api/bugs", response_model=BugReportRead, status_code=201)
+async def create_bug_report(
+    notes: str = Form(...),
+    severity: str = Form("low"),
+    category: str = Form("ui"),
+    expected: Optional[str] = Form(None),
+    actual: Optional[str] = Form(None),
+    includeDiagnostics: str = Form("true"), # Received as string from FormData
+    diagnostics: Optional[str] = Form(None),
+    attachments: List[UploadFile] = File(None),
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Submit a bug report with optional file attachments.
+    """
+    # Authenticate (Optional - allow anon?)
+    # For now, let's make it optional but link if auth present
+    user_id = None
+    if authorization:
+        auth_session = await get_current_session(authorization, session)
+        if auth_session:
+            user_id = auth_session.user_id
+
+    # 1. Save attachments
+    saved_paths = []
+    if attachments:
+        for file in attachments:
+            if not file.filename:
+                continue
+            
+            # Sanitize filename (basic)
+            safe_name = os.path.basename(file.filename).replace(" ", "_")
+            # Create unique name
+            timestamp = int(datetime.utcnow().timestamp())
+            unique_name = f"{timestamp}_{secrets.token_hex(4)}_{safe_name}"
+            file_path = UPLOAD_DIR / unique_name
+            
+            try:
+                with file_path.open("wb") as buffer:
+                    shutil.copyfileobj(file.file, buffer)
+                # Store relative path for URL generation
+                saved_paths.append(f"/uploads/bugs/{unique_name}")
+            except Exception as e:
+                print(f"[BUG] Failed to save attachment {file.filename}: {e}")
+            finally:
+                file.file.close()
+
+    # 2. Persist to DB
+    bug = BugReport(
+        user_id=user_id,
+        notes=notes,
+        severity=severity,
+        category=category,
+        expected=expected,
+        actual=actual,
+        status="captured",
+        attachments=json.dumps(saved_paths) if saved_paths else "[]",
+        diagnostics=diagnostics
+    )
+    
+    session.add(bug)
+    await session.commit()
+    await session.refresh(bug)
+    
+    # Return formatted response
+    return BugReportRead(
+        id=bug.id,
+        status=bug.status,
+        created_at=bug.created_at,
+        notes=bug.notes,
+        severity=bug.severity,
+        category=bug.category,
+        attachments=saved_paths
+    )
+
+@app.get("/api/bugs/{bug_id}", response_model=BugReportRead)
+async def get_bug_report(
+    bug_id: int,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    """Get status of a specific bug report."""
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Fetch bug
+    result = await session.exec(select(BugReport).where(BugReport.id == bug_id))
+    bug = result.first()
+    
+    if not bug:
+        raise HTTPException(status_code=404, detail="Bug report not found")
+        
+    # Check ownership (or admin)
+    user = await session.get(User, auth_session.user_id)
+    is_admin = user.is_admin if user else False
+    
+    if bug.user_id != auth_session.user_id and not is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to view this report")
+    
+    # Parse attachments
+    attachments_list = []
+    if bug.attachments:
+        try:
+            attachments_list = json.loads(bug.attachments)
+        except:
+            attachments_list = []
+
+    return BugReportRead(
+        id=bug.id,
+        status=bug.status,
+        created_at=bug.created_at,
+        notes=bug.notes,
+        severity=bug.severity,
+        category=bug.category,
+        attachments=attachments_list
+    )
+
+@app.get("/api/bugs", response_model=List[BugReportRead])
+async def list_bug_reports(
+    authorization: Optional[str] = Header(None),
+    admin: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session)
+):
+    """List all bug reports (Admin only)."""
+    result = await session.exec(select(BugReport).order_by(BugReport.created_at.desc()))
+    bugs = result.all()
+    
+    response = []
+    for bug in bugs:
+        attachments_list = []
+        if bug.attachments:
+            try:
+                attachments_list = json.loads(bug.attachments)
+            except:
+                attachments_list = []
+                
+        response.append(BugReportRead(
+            id=bug.id,
+            status=bug.status,
+            created_at=bug.created_at,
+            notes=bug.notes,
+            severity=bug.severity,
+            category=bug.category,
+            attachments=attachments_list
+        ))
+        
+    return response
 
 # --- Response Models for Read with Relationships ---
 class SellerRead(BaseModel):

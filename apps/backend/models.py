@@ -186,3 +186,30 @@ class ClickoutEvent(SQLModel, table=True):
     
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class BugReport(SQLModel, table=True):
+    """User submitted bug reports."""
+    __tablename__ = "bug_report"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # Reporter info
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    
+    # Content
+    notes: str
+    expected: Optional[str] = None
+    actual: Optional[str] = None
+    severity: str = "low"  # low, medium, high, blocking
+    category: str = "ui"   # ui, data, auth, payments, performance, other
+    
+    # Metadata
+    status: str = "captured"  # captured, processing, sent, closed
+    
+    # JSON fields
+    attachments: Optional[str] = None  # JSON list of stored file paths/urls
+    diagnostics: Optional[str] = None  # JSON object with captured context
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
