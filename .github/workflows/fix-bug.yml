@@ -70,18 +70,16 @@ jobs:
 
           npx @anthropic-ai/claude-code@latest --print --dangerously-skip-permissions -p "$PROMPT"
 
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "No changes produced by Claude; skipping PR creation."
-            exit 0
-          fi
-
           git add -A
-          if git diff --cached --quiet; then
-            echo "No staged changes after add; skipping PR creation."
+          if ! git diff --cached --quiet; then
+            git commit -m "fix: issue #${ISSUE_NUMBER}"
+          fi
+
+          if [ "$(git rev-list --count dev..HEAD)" -eq 0 ]; then
+            echo "No commits ahead of dev for ${BRANCH}; skipping PR creation."
             exit 0
           fi
 
-          git commit -m "fix: issue #${ISSUE_NUMBER}"
           git push --set-upstream origin "${BRANCH}"
 
           export GH_TOKEN="${GITHUB_TOKEN}"
@@ -99,4 +97,4 @@ jobs:
           
           # Auto-merge the PR immediately
           echo "Auto-merging branch ${BRANCH} into dev..."
-          gh pr merge "${BRANCH}" --repo "${{ github.repository }}" --merge --delete-branch
+          gh pr merge "${BRANCH}" --repo "${{ github.repository }}" --merge --auto --delete-branch
