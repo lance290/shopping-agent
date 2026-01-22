@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, ChangeEvent, useEffect } from 'react';
-import { X, Bug, Upload, Image as ImageIcon, Trash2, Check, AlertCircle } from 'lucide-react';
+import { X, Bug, Upload, Image as ImageIcon, Trash2, Check } from 'lucide-react';
 import { useShoppingStore } from '../store';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
@@ -186,10 +186,10 @@ export default function ReportBugModal() {
         {/* Scrollable Content */}
         <div className="p-6 overflow-y-auto space-y-6">
           
-          {/* 1. Screenshots (Required) */}
+          {/* 1. Screenshots (Optional) */}
           <div>
             <div className="flex justify-between items-baseline mb-2">
-              <label className={labelClasses}>Screenshots <span className="text-rose-500">*</span></label>
+              <label className={labelClasses}>Screenshots</label>
               <span className="text-[10px] text-onyx-muted">{attachments.length} attached</span>
             </div>
             
@@ -232,11 +232,6 @@ export default function ReportBugModal() {
               accept="image/*"
               onChange={handleFileSelect}
             />
-            {attachments.length === 0 && (
-              <p className="text-[11px] text-rose-500 mt-1.5 flex items-center gap-1">
-                <AlertCircle size={12} /> At least one screenshot is required
-              </p>
-            )}
           </div>
 
           {/* 2. Notes (Required) */}
