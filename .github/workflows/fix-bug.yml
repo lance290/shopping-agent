@@ -2,7 +2,7 @@ name: AI Bug Fixer
 
 on:
   issues:
-    types: [opened, labeled]
+    types: [labeled]
 
 permissions:
   contents: write
@@ -11,12 +11,16 @@ permissions:
 
 jobs:
   fix-bug:
-    if: contains(github.event.issue.labels.*.name, 'ai-fix')
+    if: github.event.label.name == 'ai-fix'
     runs-on: ubuntu-latest
+    concurrency:
+      group: ai-bug-fixer-${{ github.event.issue.number }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
         with:
           ref: dev
+          fetch-depth: 0
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -53,11 +57,45 @@ jobs:
         run: |
           set -euo pipefail
 
+          BRANCH="fix/bug-${ISSUE_NUMBER}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "${BRANCH}"
+
           echo "Starting AI Bug Fixer for Issue #${ISSUE_NUMBER}"
 
           PROMPT=$(python -c "import os; n=os.environ.get('ISSUE_NUMBER',''); t=os.environ.get('ISSUE_TITLE',''); b=os.environ.get('ISSUE_BODY',''); print('I have a bug report from GitHub Issue #'+n+'.\n'+'Title: '+t+'\n\n'+'Description:\n'+b+'\n\n'+'Please analyze the codebase, reproduce the issue if possible (or create a test case), fix the bug, and verify the fix.\n'+'IMPORTANT: Use the \'dev\' branch as the base branch for your work (do NOT target main).\n'+'Create your working branch from \'dev\', and open a Pull Request targeting \'dev\'.\n'+('IMPORTANT: Name the branch \'fix/bug-'+n+'\' so we can track it.'))")
 
           npx @anthropic-ai/claude-code@latest --print -p "$PROMPT"
+
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No changes produced by Claude; skipping PR creation."
+            exit 0
+          fi
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No staged changes after add; skipping PR creation."
+            exit 0
+          fi
+
+          git commit -m "fix: issue #${ISSUE_NUMBER}"
+          git push --set-upstream origin "${BRANCH}"
+
+          export GH_TOKEN="${GITHUB_TOKEN}"
+          if gh pr view --repo "${{ github.repository }}" --head "${BRANCH}" >/dev/null 2>&1; then
+            echo "PR already exists for ${BRANCH}; skipping creation."
+          else
+            gh pr create \
+              --repo "${{ github.repository }}" \
+              --base dev \
+              --head "${BRANCH}" \
+              --title "[AI Fix] #${ISSUE_NUMBER}: ${ISSUE_TITLE}" \
+              --body "Auto-generated fix for issue #${ISSUE_NUMBER}." \
+              --label "ai-fix"
+          fi
 
       - name: Auto-merge PR to dev
         env:
