@@ -96,32 +96,7 @@ jobs:
               --body "Auto-generated fix for issue #${ISSUE_NUMBER}." \
               --label "ai-fix"
           fi
-
-      - name: Auto-merge PR to dev
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          BRANCH="fix/bug-${{ github.event.issue.number }}"
-
-          echo "Looking for PR for branch: ${BRANCH}"
-          PR_NUMBER=""
-          for i in $(seq 1 30); do
-            PR_NUMBER=$(gh pr list --repo "${{ github.repository }}" --head "${BRANCH}" --state open --json number --jq '.[0].number')
-
-            if [ -n "${PR_NUMBER}" ] && [ "${PR_NUMBER}" != "null" ]; then
-              break
-            fi
-
-            echo "PR not found yet. Waiting... (${i}/30)"
-            sleep 5
-          done
-
-          if [ -z "${PR_NUMBER}" ] || [ "${PR_NUMBER}" = "null" ]; then
-            echo "No open PR found for branch ${BRANCH}. Skipping auto-merge."
-            exit 0
-          fi
-
-          echo "Merging PR #${PR_NUMBER} into dev"
-          gh pr merge "${PR_NUMBER}" --repo "${{ github.repository }}" --merge --delete-branch
+          
+          # Auto-merge the PR immediately
+          echo "Auto-merging branch ${BRANCH} into dev..."
+          gh pr merge "${BRANCH}" --repo "${{ github.repository }}" --merge --delete-branch
