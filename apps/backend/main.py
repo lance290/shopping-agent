@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 import os
 import shutil
 import json
@@ -37,6 +37,13 @@ from diagnostics_utils import validate_and_redact_diagnostics, generate_diagnost
 from notifications import send_internal_notification
 import hmac
 import hashlib
+
+# Create FastAPI app (must be defined before any @app.* decorators)
+app = FastAPI(
+    title="Shopping Agent Backend",
+    description="Agent-facilitated competitive bidding backend",
+    version="0.1.0"
+)
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 FROM_EMAIL = os.getenv("FROM_EMAIL", "Agent Shopper <shopper@info.xcor-cto.com>")
@@ -253,13 +260,6 @@ async def send_verification_email(to_email: str, code: str) -> bool:
     except httpx.RequestError as e:
         print(f"[AUTH] Resend request error: {type(e).__name__}")
         return False
-
-# Create FastAPI app
-app = FastAPI(
-    title="Shopping Agent Backend",
-    description="Agent-facilitated competitive bidding backend",
-    version="0.1.0"
-)
 
 # Initialize sourcing repository
 sourcing_repo = SourcingRepository()
