@@ -22,6 +22,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+      
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          pnpm --version
           
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -31,7 +36,7 @@ jobs:
       - name: Install dependencies (Frontend)
         run: |
           cd apps/frontend
-          npm ci
+          pnpm install --frozen-lockfile
 
       - name: Install dependencies (Backend)
         run: |
