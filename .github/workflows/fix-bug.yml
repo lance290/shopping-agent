@@ -115,17 +115,24 @@ jobs:
               PR_CREATE_OUTPUT=$(tail -n 40 "$PR_CREATE_OUTPUT_FILE" | sed 's/`/\\`/g')
               COMPARE_URL="https://github.com/${{ github.repository }}/compare/dev...${BRANCH}"
 
-              if echo "$PR_CREATE_OUTPUT" | grep -qi "createPullRequest"; then
+              if echo "$PR_CREATE_OUTPUT" | grep -qi "already exists"; then
+                echo "PR already exists for ${BRANCH}; continuing."
+                PR_CREATE_EXIT_CODE=0
+              fi
+
+              if [ "$PR_CREATE_EXIT_CODE" -eq 0 ]; then
+                :
+              elif echo "$PR_CREATE_OUTPUT" | grep -qi "createPullRequest"; then
                 gh issue comment "${ISSUE_NUMBER}" \
                   --repo "${{ github.repository }}" \
                   --body "Claude produced a fix and pushed branch \`${BRANCH}\`, but GitHub blocked PR creation from Actions (\`createPullRequest\`).\n\nCreate the PR manually here:\n${COMPARE_URL}\n\nTo allow automation, update repo settings to permit GitHub Actions to create PRs (repo Settings -> Actions -> General -> Workflow permissions / allow GitHub Actions to create and approve pull requests).\n\nLast output:\n\n\`\`\`\n${PR_CREATE_OUTPUT}\n\`\`\`"
                 exit 0
+              else
+                gh issue comment "${ISSUE_NUMBER}" \
+                  --repo "${{ github.repository }}" \
+                  --body "Claude produced a fix and pushed branch \`${BRANCH}\`, but PR creation failed (exit code ${PR_CREATE_EXIT_CODE}).\n\nCreate the PR manually here:\n${COMPARE_URL}\n\nLast output:\n\n\`\`\`\n${PR_CREATE_OUTPUT}\n\`\`\`"
+                exit "$PR_CREATE_EXIT_CODE"
               fi
-
-              gh issue comment "${ISSUE_NUMBER}" \
-                --repo "${{ github.repository }}" \
-                --body "Claude produced a fix and pushed branch \`${BRANCH}\`, but PR creation failed (exit code ${PR_CREATE_EXIT_CODE}).\n\nCreate the PR manually here:\n${COMPARE_URL}\n\nLast output:\n\n\`\`\`\n${PR_CREATE_OUTPUT}\n\`\`\`"
-              exit "$PR_CREATE_EXIT_CODE"
             fi
           fi
           
