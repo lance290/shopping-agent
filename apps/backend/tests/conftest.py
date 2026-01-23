@@ -2,7 +2,7 @@ import pytest
 import sys
 import os
 import pytest_asyncio
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -47,7 +47,8 @@ async def client_fixture(session: AsyncSession):
     
     app.dependency_overrides[get_session] = get_session_override
     
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
     
     app.dependency_overrides.clear()

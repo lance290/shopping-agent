@@ -1,21 +1,26 @@
 # Alignment Check - task-001
 
 ## North Star Goals Supported
-- **Goal Statement**: "Ensure each authenticated user can only see and operate on their own chats/searches/rows."
-- **Support**: This task binds the active session to a specific `User` (via `user_id`), which is the prerequisite for checking ownership on all downstream data.
+- **Goal Statement**: Align product and implementation roadmap... including unified closing layer.
+- **Support**: Establishes the baseline "closing" flow (clickout redirect) which is the precursor to the unified closing layer. verification of the core "Create Row -> See Offers" loop is a prerequisite for all downstream marketplace features.
 
 ## Task Scope Validation
-- **In scope**: 
-  - Schema update: `AuthSession` gets `user_id`.
-  - Logic update: Login flow mints session with `user_id`.
-- **Out of scope**: 
-  - Enforcing ownership on `Row` (next task).
-  - Frontend changes (later task).
+- **In scope**:
+  - Verifying the end-to-end flow from login to clickout.
+  - Implementing/Verifying the backend redirect endpoint (`/api/out` or similar).
+  - Writing a backend test for the redirect.
+  - Manual verification of the flow.
+- **Out of scope**:
+  - Complex multi-category logic (Task 013).
+  - Proactive outreach (Task 008).
+  - Detailed options configuration (User mentioned "options tile has no options", but fixing that fully might be Task 006/007. Will ensure basic redirect works first).
 
 ## Acceptance Criteria
-- [ ] `AuthSession` table has `user_id` column (Foreign Key).
-- [ ] New logins populate `user_id` in `AuthSession`.
-- [ ] Existing `User` lookup logic in `/auth/me` can use `AuthSession.user_id` directly (optimization) or at least remains compatible.
+- [ ] User can create a row via chat.
+- [ ] User sees offers.
+- [ ] User can click "Select Deal" (or equivalent).
+- [ ] Clickout triggers a traceable redirect (server-side 302 preferred for attribution).
+- [ ] Backend test `test_clickout_redirect.py` passes.
 
 ## Approved by: Cascade
-## Date: 2026-01-09
+## Date: 2026-01-23

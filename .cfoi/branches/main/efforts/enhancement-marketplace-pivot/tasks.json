@@ -1,0 +1,287 @@
+{
+  "version": 1,
+  "effort": "enhancement-marketplace-pivot",
+  "created": "2026-01-23T05:01:00Z",
+  "tasks": [
+    {
+      "id": "task-001",
+      "description": "Baseline click-first walkthrough + fixture data sanity",
+      "e2e_flow": "Open app → login → create a row via chat → see offers → select a deal → clickout redirects.",
+      "manual_verification": [
+        "Start app locally",
+        "Create a row by typing into chat",
+        "Confirm row appears and shows offers",
+        "Select a deal",
+        "Click offer → confirm redirect occurs"
+      ],
+      "files": [],
+      "tests_to_write": ["apps/backend/tests/test_clickout_redirect.py"],
+      "dependencies": [],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-001/"
+    },
+    {
+      "id": "task-013",
+      "description": "Project hierarchy MVP: group/indent rows under a project",
+      "e2e_flow": "Buyer creates a project group from the board UI → adds rows under it → rows render grouped/indented under a project header → refresh persists.",
+      "manual_verification": [
+        "Click New Project in the board header",
+        "Name it Trip",
+        "Under the Trip project header, click Add Row",
+        "Create two rows: Flights and Hotel",
+        "Confirm both rows render under the Trip header (visually grouped/indented)",
+        "Refresh browser",
+        "Confirm the Trip project and its child rows persist and still render grouped",
+        "Create an ungrouped row and confirm it renders outside the Trip grouping"
+      ],
+      "files": [
+        "apps/backend/models.py",
+        "apps/backend/main.py",
+        "apps/frontend/app/page.tsx",
+        "apps/frontend/app/store.ts",
+        "apps/frontend/app/components/RowStrip.tsx"
+      ],
+      "tests_to_write": ["apps/backend/tests/test_project_hierarchy.py"],
+      "dependencies": ["task-001"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-013/"
+    },
+    {
+      "id": "task-002",
+      "description": "Persist likes (buyer) for offers/tiles",
+      "e2e_flow": "Buyer opens a row → clicks heart on an offer → refreshes page → like persists.",
+      "manual_verification": [
+        "Like an offer tile",
+        "Refresh browser",
+        "Like state remains"
+      ],
+      "files": [
+        "apps/backend/models.py",
+        "apps/backend/main.py",
+        "apps/frontend/app/components/RowStrip.tsx",
+        "apps/frontend/app/store.ts"
+      ],
+      "tests_to_write": ["apps/backend/tests/test_likes.py"],
+      "dependencies": ["task-001"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-002/"
+    },
+    {
+      "id": "task-003",
+      "description": "Persist comments (buyer/collaborator) with extensible visibility",
+      "e2e_flow": "Buyer opens an offer → adds a comment → comment appears in UI → refresh persists.",
+      "manual_verification": [
+        "Add a comment to a tile",
+        "Confirm it displays",
+        "Refresh and confirm it persists"
+      ],
+      "files": [
+        "apps/backend/models.py",
+        "apps/backend/main.py",
+        "apps/frontend/app/components/RowStrip.tsx",
+        "apps/frontend/app/components/OfferTile.tsx"
+      ],
+      "tests_to_write": ["apps/backend/tests/test_comments.py"],
+      "dependencies": ["task-002"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-003/"
+    },
+    {
+      "id": "task-004",
+      "description": "Share links for tile/row/project (MVP: copy link)",
+      "e2e_flow": "Buyer clicks share on a tile/row → a tokenized link is copied → opening link in an incognito window loads the app and focuses the referenced row (or prompts login then returns).",
+      "manual_verification": [
+        "Click share on a tile",
+        "Paste link in a new incognito window",
+        "If prompted, sign in",
+        "Confirm it opens the app and focuses/highlights the correct row"
+      ],
+      "files": [
+        "apps/frontend/app/components/RowStrip.tsx",
+        "apps/frontend/app/api/rows/route.ts",
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": ["apps/backend/tests/test_share_tokens.py"],
+      "dependencies": ["task-013"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-004/"
+    },
+    {
+      "id": "task-005",
+      "description": "Tile detail view: provenance + FAQ/chat log summary (buyer)",
+      "e2e_flow": "Buyer clicks a tile → sees detail panel with choice-factor highlights + chat/provenance snippet.",
+      "manual_verification": [
+        "Click a tile",
+        "Confirm detail panel opens",
+        "Confirm it displays a provenance summary (even if minimal)"
+      ],
+      "files": [
+        "apps/frontend/app/components/OfferTile.tsx",
+        "apps/frontend/app/components/Chat.tsx",
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": ["apps/frontend/app/components/__tests__/offer_tile_detail.test.tsx"],
+      "dependencies": ["task-003"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-005/"
+    },
+    {
+      "id": "task-006",
+      "description": "AI procurement agent MVP: choice factors + RFP answers persisted per row",
+      "e2e_flow": "Buyer enters intent → agent asks 2–3 questions → answers saved → search query incorporates answers.",
+      "manual_verification": [
+        "Enter a new intent",
+        "Answer follow-up questions",
+        "Confirm subsequent search results reflect the answers"
+      ],
+      "files": [
+        "apps/frontend/app/components/Chat.tsx",
+        "apps/frontend/app/components/ChoiceFactorPanel.tsx",
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": ["apps/backend/tests/test_choice_answers_affect_search.py"],
+      "dependencies": ["task-001"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-006/"
+    },
+    {
+      "id": "task-007",
+      "description": "Multi-channel sourcing provider controls exposed in UI (MVP)",
+      "e2e_flow": "Buyer refreshes row with provider filter → results reflect provider.",
+      "manual_verification": [
+        "Use refresh controls (all vs provider-specific)",
+        "Confirm results change or request includes provider filter"
+      ],
+      "files": [
+        "apps/frontend/app/components/RowStrip.tsx",
+        "apps/frontend/app/utils/api.ts",
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": ["apps/backend/tests/test_provider_filter.py"],
+      "dependencies": ["task-001"],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-007/"
+    },
+    {
+      "id": "task-008",
+      "description": "Proactive outreach MVP: create outreach record + show status in row",
+      "e2e_flow": "Buyer clicks request more sellers → outreach status appears.",
+      "manual_verification": [
+        "Trigger outreach action",
+        "Confirm row shows outreach status"
+      ],
+      "files": [
+        "apps/backend/models.py",
+        "apps/backend/main.py",
+        "apps/frontend/app/components/RowStrip.tsx"
+      ],
+      "tests_to_write": ["apps/backend/tests/test_outreach.py"],
+      "dependencies": ["task-006"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-008/"
+    },
+    {
+      "id": "task-009",
+      "description": "Seller invite-only access: generate invite link + validate",
+      "e2e_flow": "Buyer generates a tokenized seller invite link → opening link shows seller view of buyer need; invalid tokens are rejected.",
+      "manual_verification": [
+        "Generate seller invite link",
+        "Open in incognito",
+        "Confirm it loads a seller-facing view of the need",
+        "Paste an intentionally invalid token and confirm access is denied"
+      ],
+      "files": [
+        "apps/backend/models.py",
+        "apps/backend/main.py",
+        "apps/frontend/app/page.tsx"
+      ],
+      "tests_to_write": ["apps/backend/tests/test_seller_invites.py"],
+      "dependencies": ["task-008"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-009/"
+    },
+    {
+      "id": "task-010",
+      "description": "Seller quote intake: submit quote → appears as buyer tile",
+      "e2e_flow": "Seller opens invite link → submits quote → buyer sees new tile.",
+      "manual_verification": [
+        "Open seller invite link",
+        "Submit quote",
+        "Return to buyer and confirm quote tile appears"
+      ],
+      "files": [
+        "apps/backend/models.py",
+        "apps/backend/main.py",
+        "apps/frontend/app/components/RowStrip.tsx"
+      ],
+      "tests_to_write": ["apps/backend/tests/test_quotes.py"],
+      "dependencies": ["task-009"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-010/"
+    },
+    {
+      "id": "task-011",
+      "description": "Unified closing MVP: normalize clickout close event + status on selected tiles",
+      "e2e_flow": "Buyer selects tile → clicks close → clickout logs → UI shows closed status.",
+      "manual_verification": [
+        "Select a tile",
+        "Click through",
+        "Confirm status in UI updates"
+      ],
+      "files": [
+        "apps/backend/models.py",
+        "apps/backend/main.py",
+        "apps/frontend/app/components/OfferTile.tsx"
+      ],
+      "tests_to_write": ["apps/backend/tests/test_closing_status.py"],
+      "dependencies": ["task-001"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-011/"
+    },
+    {
+      "id": "task-012",
+      "description": "Viral flywheel MVP: referral attribution on share/invite + seller→buyer prompt",
+      "e2e_flow": "New user arrives via share link or seller invite → attribution recorded; after seller quote, seller can post a need.",
+      "manual_verification": [
+        "Open share link in incognito",
+        "Confirm attribution record exists (via log output or DB inspection)",
+        "After seller quote, confirm prompt to post a need"
+      ],
+      "files": [
+        "apps/backend/models.py",
+        "apps/backend/main.py",
+        "apps/frontend/app/components/Chat.tsx"
+      ],
+      "tests_to_write": ["apps/backend/tests/test_referrals.py"],
+      "dependencies": ["task-004", "task-009", "task-010"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-012/"
+    }
+  ]
+}

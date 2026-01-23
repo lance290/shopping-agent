@@ -1,5 +1,28 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import fs from 'fs';
+import path from 'path';
+
+// Manually load .env since we want to avoid dependency issues
+try {
+  const envPath = path.resolve(__dirname, '../.env');
+  if (fs.existsSync(envPath)) {
+    const envConfig = fs.readFileSync(envPath, 'utf8');
+    envConfig.split('\n').forEach(line => {
+      const match = line.match(/^([^#=]+)=(.*)$/);
+      if (match) {
+        const key = match[1].trim();
+        const value = match[2].trim();
+        if (key && !process.env[key]) {
+          process.env[key] = value;
+        }
+      }
+    });
+    console.log('Loaded .env configuration from:', envPath);
+  }
+} catch (e) {
+  console.warn('Failed to load .env file:', e);
+}
 
 const fastify = Fastify({
   logger: true,
@@ -165,6 +188,110 @@ fastify.post('/api/chat', async (request, reply) => {
   try {
     const { messages, activeRowId } = request.body as { messages: any[]; activeRowId?: number };
     const authorization = request.headers.authorization;
+
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+        'Cache-Control': 'no-cache',
+      });
+      headersSent = true;
+
+      const lastUserMessage = Array.isArray(messages)
+        ? [...messages].reverse().find((m: any) => m?.role === 'user')
+        : null;
+
+      const userText =
+        typeof lastUserMessage?.content === 'string'
+          ? lastUserMessage.content
+          : typeof lastUserMessage?.content?.text === 'string'
+            ? lastUserMessage.content.text
+            : '';
+
+      const query = userText.trim();
+      if (!query) {
+        reply.raw.write('No query provided.');
+        reply.raw.end();
+        return;
+      }
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authorization) {
+        headers['Authorization'] = authorization as string;
+      }
+
+      let rowId: number | undefined = activeRowId;
+      if (!rowId) {
+        reply.raw.write(`\n✅ Adding "${query}" to your procurement board...`);
+
+        const createResult = await fetchJsonWithTimeout(
+          `${BACKEND_URL}/rows`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              title: query,
+              status: 'sourcing',
+              request_spec: {
+                item_name: query,
+                constraints: JSON.stringify({}),
+              },
+              choice_answers: JSON.stringify({}),
+            }),
+          },
+          15000
+        );
+
+        if (!createResult.ok) {
+          const msg =
+            createResult.data?.detail ||
+            createResult.data?.message ||
+            createResult.text ||
+            'Backend request failed';
+          reply.raw.write(`\n⚠️ Error (${createResult.status}): ${msg}`);
+          reply.raw.end();
+          return;
+        }
+
+        rowId = createResult.data?.id;
+        if (!rowId) {
+          reply.raw.write(`\n⚠️ Error: Backend returned unexpected response for createRow`);
+          reply.raw.end();
+          return;
+        }
+
+        reply.raw.write(' Done!');
+      }
+
+      reply.raw.write(`\n🔍 Searching for "${query}"...`);
+
+      const searchResult = await fetchJsonWithTimeout(
+        `${BACKEND_URL}/rows/${rowId}/search`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ query }),
+        },
+        30000
+      );
+
+      if (!searchResult.ok) {
+        const msg =
+          searchResult.data?.detail ||
+          searchResult.data?.message ||
+          searchResult.text ||
+          'Backend request failed';
+        reply.raw.write(`\n⚠️ Error (${searchResult.status}): ${msg}`);
+        reply.raw.end();
+        return;
+      }
+
+      const count = Array.isArray(searchResult.data?.results) ? searchResult.data.results.length : 0;
+      reply.raw.write(` Found ${count} results!`);
+      reply.raw.end();
+      return;
+    }
+
     const result = await chatHandler(messages, authorization, activeRowId);
     
     // Set headers for streaming

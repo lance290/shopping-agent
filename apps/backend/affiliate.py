@@ -131,10 +131,28 @@ class AmazonAssociatesHandler(AffiliateHandler):
 
 
 class EbayPartnerHandler(AffiliateHandler):
-    """eBay Partner Network handler (simplified rover link)."""
+    """eBay Partner Network handler (EPN tracking link format)."""
     
-    def __init__(self, campaign_id: Optional[str] = None):
+    def __init__(
+        self,
+        campaign_id: Optional[str] = None,
+        rotation_id: Optional[str] = None,
+        channel_id: Optional[str] = None,
+        event_type: Optional[str] = None,
+        tool_id: Optional[str] = None,
+        custom_id: Optional[str] = None,
+    ):
         self.campaign_id = campaign_id or os.getenv("EBAY_CAMPAIGN_ID", "")
+        # Per eBay docs: mkrid is the rotation ID for the marketplace.
+        self.rotation_id = rotation_id or os.getenv("EBAY_ROTATION_ID", "")
+        # Per eBay docs: mkcid is the channel ID. Default commonly 1 (EPN).
+        self.channel_id = channel_id or os.getenv("EBAY_CHANNEL_ID", "1")
+        # Per eBay docs: mkevt is tracking event type. Default 1 = click.
+        self.event_type = event_type or os.getenv("EBAY_EVENT_TYPE", "1")
+        # Per eBay docs: toolid default 10001.
+        self.tool_id = tool_id or os.getenv("EBAY_TOOL_ID", "10001")
+        # Optional sub ID.
+        self.custom_id = custom_id or os.getenv("EBAY_CUSTOM_ID", "")
     
     @property
     def name(self) -> str:
@@ -152,16 +170,39 @@ class EbayPartnerHandler(AffiliateHandler):
                 rewrite_applied=False,
                 metadata={"error": "No campaign ID configured"},
             )
+
+        if not self.rotation_id:
+            return ResolvedLink(
+                final_url=url,
+                handler_name=self.name,
+                rewrite_applied=False,
+                metadata={"error": "No rotation ID configured (EBAY_ROTATION_ID)"},
+            )
         
         try:
-            # eBay uses rover redirect links
-            # Simplified: append campaign to URL params (real impl usually uses rover.ebay.com)
-            # For this implementation, we'll just append campid/toolid query params to the existing URL
-            # assuming the item URL is direct.
+            # Proper EPN tracking link format (per eBay docs):
+            # {target}&mkevt={event_type}&mkcid={channel_id}&mkrid={rotation_id}&campid={campaign_id}&toolid={tool_id}&customid={custom_id}
             parsed = urlparse(url)
             query_params = parse_qs(parsed.query)
+
+            query_params['mkevt'] = [self.event_type]
+            query_params['mkcid'] = [self.channel_id]
+            query_params['mkrid'] = [self.rotation_id]
             query_params['campid'] = [self.campaign_id]
-            query_params['toolid'] = ['10001']  # Standard tool ID
+            query_params['toolid'] = [self.tool_id]
+
+            custom_id = self.custom_id
+            if not custom_id:
+                # Best-effort per-click sub-id for attribution/debugging (<=256 chars).
+                parts = []
+                if context.user_id is not None:
+                    parts.append(f"u{context.user_id}")
+                if context.row_id is not None:
+                    parts.append(f"r{context.row_id}")
+                parts.append(f"i{context.offer_index}")
+                custom_id = "_".join(parts)[:256]
+            if custom_id:
+                query_params['customid'] = [custom_id]
             
             new_query = urlencode(query_params, doseq=True)
             new_url = urlunparse((
@@ -178,6 +219,12 @@ class EbayPartnerHandler(AffiliateHandler):
                 handler_name=self.name,
                 affiliate_tag=self.campaign_id,
                 rewrite_applied=True,
+                metadata={
+                    "mkevt": self.event_type,
+                    "mkcid": self.channel_id,
+                    "mkrid": self.rotation_id,
+                    "toolid": self.tool_id,
+                },
             )
         except Exception as e:
             return ResolvedLink(

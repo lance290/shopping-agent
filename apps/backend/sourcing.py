@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import httpx
 import os
 import re
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlencode
 import asyncio
 import time
 import base64
@@ -57,6 +57,7 @@ class SearchResult(BaseModel):
     merchant: str
     url: str
     merchant_domain: str = ""
+    click_url: str = ""
     match_score: float = 0.0
     image_url: Optional[str] = None
     rating: Optional[float] = None
@@ -585,9 +586,12 @@ class SourcingRepository:
             )
         
         # Mock provider - FREE fallback for testing, always available
-        use_mock = os.getenv("USE_MOCK_SEARCH", "true").lower() == "true"
-        if use_mock:
+        use_mock_setting = (os.getenv("USE_MOCK_SEARCH", "auto") or "").strip().lower()
+        if use_mock_setting in ("1", "true", "yes", "always"):
             self.providers["mock"] = MockShoppingProvider()
+        elif use_mock_setting == "auto":
+            if len(self.providers) == 0:
+                self.providers["mock"] = MockShoppingProvider()
 
     async def search_all(self, query: str, **kwargs) -> List[SearchResult]:
         print(f"[SourcingRepository] search_all called with query: {query}")
@@ -645,6 +649,24 @@ class SourcingRepository:
             if url_key not in seen_urls:
                 seen_urls.add(url_key)
                 unique_results.append(r)
+
+        # Ensure merchant_domain and click_url are always present (PRD contract)
+        for i, r in enumerate(unique_results):
+            try:
+                if not getattr(r, "merchant_domain", ""):
+                    r.merchant_domain = extract_merchant_domain(r.url)
+                if not getattr(r, "click_url", ""):
+                    # Note: row_id is not known at this layer; row-scoped endpoints can override.
+                    r.click_url = "/api/out?" + urlencode(
+                        {
+                            "url": r.url,
+                            "idx": i,
+                            "source": getattr(r, "source", "unknown"),
+                        }
+                    )
+            except Exception:
+                # Non-fatal: clickout fallback exists on frontend
+                pass
         
         # Scoring
         for result in unique_results:

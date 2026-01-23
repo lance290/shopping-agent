@@ -5,11 +5,18 @@ export const dynamic = 'force-dynamic';
 
 const BFF_URL = process.env.BFF_URL || 'http://localhost:8080';
 
+const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
+
 export async function GET(request: NextRequest) {
   try {
     // Get auth token if available (for tracking, not required)
-    const { getToken } = await auth();
-    const token = await getToken();
+    let token: string | null = null;
+    if (disableClerk) {
+      token = process.env.DEV_SESSION_TOKEN || null;
+    } else {
+      const { getToken } = await auth();
+      token = await getToken();
+    }
     
     // Forward all query params to BFF
     const { searchParams } = new URL(request.url);

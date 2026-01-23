@@ -13,7 +13,14 @@ function normalizeBaseUrl(url: string): string {
 
 const BFF_URL = normalizeBaseUrl(process.env.BFF_URL || 'http://localhost:8080');
 
+const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
+
 async function getAuthHeader(): Promise<{ Authorization?: string }> {
+  if (disableClerk) {
+    const token = process.env.DEV_SESSION_TOKEN;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
   const { getToken } = await auth();
   const token = await getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};

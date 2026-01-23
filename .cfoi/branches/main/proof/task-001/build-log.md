@@ -1,22 +1,19 @@
 # Build Log - task-001
 
 ## Changes Applied
-- **Schema**: Added `user_id` foreign key to `AuthSession` in `apps/backend/models.py`.
-- **Logic**: Updated `auth_verify` in `apps/backend/main.py` to:
-  - Commit/refresh `User` creation to ensure an ID exists.
-  - Populate `user_id` when creating `AuthSession`.
-- **Tests**: Added `apps/backend/tests/test_auth_session_user_id.py` to verify the link.
+- **Baseline test + environment fixes** to enable clean verification before implementation:
+  - Added missing backend deps in `apps/backend/pyproject.toml` (pyjwt, pytest, pytest-asyncio, pytest-cov, python-multipart).
+  - Fixed `apps/backend/tests/conftest.py` to use `ASGITransport` for `httpx.AsyncClient`.
+  - Updated `apps/backend/tests/test_rows_authorization.py` to use unique session tokens and assert soft-delete behavior.
+  - Fixed `tools/verify-implementation.sh` to avoid invalid `local` usage.
 
 ## Verification Instructions
-**Prerequisite**: Database must be running (Docker).
+**Prerequisite**: Backend + frontend running locally.
 
-1. **Start Backend**: `docker compose up -d` (or `uvicorn main:app --reload` with local DB).
-2. **Login Flow**:
-   - `POST /auth/start` with email.
-   - `POST /auth/verify` with code.
-   - Inspect DB `auth_session` table to confirm `user_id` column is populated.
-3. **Automated Test**:
-   - Run `pytest apps/backend/tests/test_auth_session_user_id.py`
+1. **Frontend**: `cd apps/frontend && npm run dev`
+2. **Backend**: `cd apps/backend && uv run uvicorn main:app --reload --port 8000`
+3. **Run baseline verification** (from repo root):
+   - `CFOI_TEST_COMMAND="cd apps/backend && uv run pytest" CFOI_COVERAGE_COMMAND="cd apps/backend && uv run pytest --cov" ./tools/verify-implementation.sh`
 
 ## Alignment check
-- Moves us closer to North Star by establishing the `User` <-> `Session` link required for isolation.
+- Establishes a clean, verified baseline for the click-first walkthrough in task-001.

@@ -17,6 +17,7 @@ import asyncio
 import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
+from dotenv import load_dotenv
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
@@ -37,6 +38,8 @@ from diagnostics_utils import validate_and_redact_diagnostics, generate_diagnost
 from notifications import send_internal_notification
 import hmac
 import hashlib
+
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
 # Create FastAPI app (must be defined before any @app.* decorators)
 app = FastAPI(
@@ -886,6 +889,17 @@ async def search_row_listings(
 
     # Execute Search
     results = await sourcing_repo.search_all(base_query, providers=body.providers)
+
+    # Ensure click_url includes row_id for attribution in clickout logging
+    for r in results:
+        try:
+            # If backend already provided click_url, augment with row_id when missing.
+            # We intentionally keep idx/source/url as-is.
+            if getattr(r, "click_url", "") and "row_id=" not in str(r.click_url):
+                joiner = "&" if "?" in str(r.click_url) else "?"
+                r.click_url = f"{r.click_url}{joiner}row_id={row_id}"
+        except Exception:
+            pass
     
     # --- Persistence Logic ---
     
