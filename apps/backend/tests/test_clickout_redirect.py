@@ -3,9 +3,10 @@ from httpx import AsyncClient
 from main import app, check_rate_limit, rate_limit_store
 from models import Row, User, AuthSession
 from sqlmodel import select
+from datetime import datetime, timedelta
 
 @pytest.mark.asyncio
-async def test_clickout_redirect_success(async_client: AsyncClient, session):
+async def test_clickout_redirect_success(client: AsyncClient, session):
     """
     Test that /api/out redirects to the resolved URL and logs the event.
     """
@@ -15,7 +16,12 @@ async def test_clickout_redirect_success(async_client: AsyncClient, session):
     await session.commit()
     await session.refresh(user)
 
-    auth = AuthSession(user_id=user.id, token_hash="hash", expires_at="2099-01-01T00:00:00")
+    auth = AuthSession(
+        user_id=user.id, 
+        email=user.email,
+        session_token_hash="hash", 
+        created_at=datetime.utcnow()
+    )
     session.add(auth)
     await session.commit()
     
@@ -25,7 +31,7 @@ async def test_clickout_redirect_success(async_client: AsyncClient, session):
     # Bypass rate limit for test
     rate_limit_store.clear()
     
-    response = await async_client.get(
+    response = await client.get(
         "/api/out",
         params={
             "url": target_url,
@@ -39,17 +45,13 @@ async def test_clickout_redirect_success(async_client: AsyncClient, session):
     # 3. Verify Redirect
     assert response.status_code in (302, 307)
     assert response.headers["location"] == target_url
-    
-    # 4. Verify Side Effects (Logging)
-    # Since logging is fire-and-forget in background, checking DB might be flaky without wait.
-    # For MVP, we verify the endpoint logic returns the redirect correctly.
 
 @pytest.mark.asyncio
-async def test_clickout_missing_url(async_client: AsyncClient):
-    response = await async_client.get("/api/out")
+async def test_clickout_missing_url(client: AsyncClient):
+    response = await client.get("/api/out")
     assert response.status_code == 422  # Validation error (missing url)
 
 @pytest.mark.asyncio
-async def test_clickout_invalid_url(async_client: AsyncClient):
-    response = await async_client.get("/api/out", params={"url": "not-a-url"})
+async def test_clickout_invalid_url(client: AsyncClient):
+    response = await client.get("/api/out", params={"url": "not-a-url"})
     assert response.status_code == 400
