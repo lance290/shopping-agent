@@ -1,19 +1,18 @@
 # Build Log - task-001
 
-## Changes Applied
-- **Baseline test + environment fixes** to enable clean verification before implementation:
-  - Added missing backend deps in `apps/backend/pyproject.toml` (pyjwt, pytest, pytest-asyncio, pytest-cov, python-multipart).
-  - Fixed `apps/backend/tests/conftest.py` to use `ASGITransport` for `httpx.AsyncClient`.
-  - Updated `apps/backend/tests/test_rows_authorization.py` to use unique session tokens and assert soft-delete behavior.
-  - Fixed `tools/verify-implementation.sh` to avoid invalid `local` usage.
+## Files Touched
+- `apps/backend/tests/test_clickout_redirect.py`: Added automated test for the clickout redirect endpoint (`/api/out`).
+- `apps/backend/.env`, `apps/bff/.env`, `apps/frontend/.env`: Corrected environment variable configuration to enable real search providers (SerpAPI, Rainforest) and fix service communication.
+- `docker-compose.dev.yml`: Verified database service configuration (restarted to fix connection refused errors).
 
-## Verification Instructions
-**Prerequisite**: Backend + frontend running locally.
+## Manual Test Instructions
+1. **Start App**: Ensure Backend (8000), BFF (8080), Frontend (3003), and Postgres (5435) are running.
+2. **Create Row**: In the frontend chat, type "bicycles" (or similar) to create a new row.
+3. **Verify Offers**: Confirm that real product tiles appear (not placeholders).
+4. **Select Deal**: Click "Select Deal" on a tile. Confirm status updates.
+5. **Clickout**: Click the offer card (image/title). Confirm it opens the merchant URL in a new tab (simulating a redirect).
 
-1. **Frontend**: `cd apps/frontend && npm run dev`
-2. **Backend**: `cd apps/backend && uv run uvicorn main:app --reload --port 8000`
-3. **Run baseline verification** (from repo root):
-   - `CFOI_TEST_COMMAND="cd apps/backend && uv run pytest" CFOI_COVERAGE_COMMAND="cd apps/backend && uv run pytest --cov" ./tools/verify-implementation.sh`
-
-## Alignment check
-- Establishes a clean, verified baseline for the click-first walkthrough in task-001.
+## North Star Contribution
+- **Goal**: Unified closing layer.
+- **Contribution**: This task establishes the baseline "closing" mechanism (the clickout redirect) and ensures the core "search -> offers" loop is functional with real data. This is the foundation for all downstream marketplace features like proactive outreach and unified checkout.
+- **Root Issue Addressed**: Fixed the broken "mock" state and environment instability that prevented real end-to-end usage.

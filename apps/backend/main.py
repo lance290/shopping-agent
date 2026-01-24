@@ -27,7 +27,7 @@ from database import init_db, get_session
 from models import (
     Row, RowBase, RowCreate, RequestSpec,
     AuthLoginCode, AuthSession, Bid, Seller, User, ClickoutEvent,
-    BugReport,
+    BugReport, Project, ProjectCreate,
     hash_token, generate_verification_code, generate_session_token
 )
 from affiliate import link_resolver, ClickContext
@@ -509,6 +509,7 @@ class BidRead(BaseModel):
 class RowReadWithBids(RowBase):
     id: int
     user_id: int
+    project_id: Optional[int] = None
     bids: List[BidRead] = []
 
 class SearchRequest(BaseModel):
@@ -529,6 +530,71 @@ async def health_check():
     }
 
 # DB endpoints
+@app.post("/projects", response_model=Project)
+async def create_project(
+    project: ProjectCreate,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    db_project = Project(
+        title=project.title,
+        user_id=auth_session.user_id
+    )
+    session.add(db_project)
+    await session.commit()
+    await session.refresh(db_project)
+    return db_project
+
+@app.get("/projects", response_model=List[Project])
+async def read_projects(
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    result = await session.exec(
+        select(Project)
+        .where(Project.user_id == auth_session.user_id)
+        .order_by(Project.created_at.desc())
+    )
+    return result.all()
+
+@app.delete("/projects/{project_id}")
+async def delete_project(
+    project_id: int,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    result = await session.exec(
+        select(Project).where(Project.id == project_id, Project.user_id == auth_session.user_id)
+    )
+    project = result.first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Unlink child rows (ungroup them)
+    rows_result = await session.exec(select(Row).where(Row.project_id == project_id))
+    for row in rows_result.all():
+        row.project_id = None
+        session.add(row)
+    
+    await session.delete(project)
+    await session.commit()
+    return {"status": "deleted", "id": project_id}
+
 @app.post("/rows", response_model=Row)
 async def create_row(
     row: RowCreate,
@@ -550,6 +616,7 @@ async def create_row(
         budget_max=row.budget_max,
         currency=row.currency,
         user_id=auth_session.user_id,
+        project_id=row.project_id,
         choice_factors=row.choice_factors,
         choice_answers=row.choice_answers
     )

@@ -40,14 +40,31 @@ class RequestSpecBase(SQLModel):
 
 class RowCreate(RowBase):
     request_spec: RequestSpecBase
+    project_id: Optional[int] = None
+
+class ProjectBase(SQLModel):
+    title: str
+
+class ProjectCreate(ProjectBase):
+    pass
+
+class Project(ProjectBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    rows: List["Row"] = Relationship(back_populates="project")
 
 class Row(RowBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    project_id: Optional[int] = Field(default=None, foreign_key="project.id", index=True)
     
     # Relationships
     bids: List["Bid"] = Relationship(back_populates="row")
     request_spec: Optional["RequestSpec"] = Relationship(back_populates="row")
+    project: Optional[Project] = Relationship(back_populates="rows")
 
 class RequestSpec(RequestSpecBase, table=True):
     __tablename__ = "request_spec"

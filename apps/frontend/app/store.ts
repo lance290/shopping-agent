@@ -44,7 +44,15 @@ export interface Row {
   choice_factors?: string;   // JSON string
   choice_answers?: string;   // JSON string
   bids?: Bid[];              // Persisted bids from DB
+  project_id?: number | null;
   last_engaged_at?: number;  // Client-side timestamp for ordering
+}
+
+export interface Project {
+  id: number;
+  title: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface PendingRowDelete {
@@ -110,6 +118,7 @@ interface ShoppingState {
   currentQuery: string;           // The current search query
   activeRowId: number | null;     // The currently selected row ID
   rows: Row[];                    // All rows from database
+  projects: Project[];            // All projects
   searchResults: Offer[];         // Current search results (legacy view)
   rowResults: Record<number, Offer[]>; // Per-row cached results
   rowOfferSort: Record<number, OfferSortMode>; // Per-row UI sort mode
@@ -120,6 +129,9 @@ interface ShoppingState {
   setCurrentQuery: (query: string) => void;
   setActiveRowId: (id: number | null) => void;
   setRows: (rows: Row[]) => void;
+  setProjects: (projects: Project[]) => void;
+  addProject: (project: Project) => void;
+  removeProject: (id: number) => void;
   addRow: (row: Row) => void;
   updateRow: (id: number, updates: Partial<Row>) => void;
   removeRow: (id: number) => void;
@@ -152,6 +164,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   currentQuery: '',
   activeRowId: null,
   rows: [],
+  projects: [],
   searchResults: [],
   rowResults: {},
   rowOfferSort: {},
@@ -193,6 +206,10 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
 
   isReportBugModalOpen: false,
   setReportBugModalOpen: (isOpen) => set({ isReportBugModalOpen: isOpen }),
+
+  setProjects: (projects) => set({ projects }),
+  addProject: (project) => set((state) => ({ projects: [project, ...state.projects] })),
+  removeProject: (id) => set((state) => ({ projects: state.projects.filter((p) => p.id !== id) })),
 
   requestDeleteRow: (rowId, undoWindowMs = 7000) => {
     const existingPending = get().pendingRowDelete;
@@ -369,7 +386,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   selectOrCreateRow: (query, existingRows) => {
     const lowerQuery = query.toLowerCase().trim();
     const activeRowId = get().activeRowId;
-    
+
     // 1. If there's an active row, check if it's a good match for the new query
     // This allows continuing a conversation within the same card.
     if (activeRowId) {
@@ -381,7 +398,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
         
         // Check for significant word overlap (at least 2 matching words > 3 chars)
         const overlap = rowWords.filter(w => queryWords.some(qw => qw.includes(w) || w.includes(qw)));
-        
+
         if (lowerQuery.includes(rowTitle) || rowTitle.includes(lowerQuery) || overlap.length >= 2) {
           return activeRow;
         }

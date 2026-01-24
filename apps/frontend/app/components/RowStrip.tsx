@@ -241,7 +241,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       </div>
       
       <div className="p-5 bg-transparent">
-        <div className="flex gap-6 min-h-[320px]">
+        <div className="flex gap-6 min-h-[450px]">
           {/* Request/Options Tile (Pinned Left) */}
           <div className="shrink-0">
             <RequestTile row={row} />
@@ -249,7 +249,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
           {/* Offer Tiles (Scrollable) */}
           <div className="flex-1 overflow-x-auto scrollbar-hide">
-            <div className="flex gap-6 min-h-[320px] pr-2">
+            <div className="flex gap-6 min-h-[450px] pr-2">
               {sortedOffers && sortedOffers.length > 0 ? (
                 sortedOffers.map((offer, idx) => (
                   <OfferTile

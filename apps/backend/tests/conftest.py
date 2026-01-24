@@ -30,6 +30,7 @@ async def session_fixture():
     
     # Re-init DB on the test engine to ensure schema
     async with test_engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.drop_all)
         await conn.run_sync(SQLModel.metadata.create_all)
 
     async_session = sessionmaker(

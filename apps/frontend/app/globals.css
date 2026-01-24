@@ -15,6 +15,13 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+@layer base {
+  ::placeholder {
+    color: currentColor;
+    opacity: 0.45;
+  }
+}
+
 @layer components {
   .btn-primary {
     @apply bg-[#1A73E8] text-white border border-[#1A73E8] px-6 py-3 rounded-full hover:bg-[#1967D2] transition-colors duration-200 font-semibold;
