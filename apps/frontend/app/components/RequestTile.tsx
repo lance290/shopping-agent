@@ -26,11 +26,41 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
   const [savingFields, setSavingFields] = useState<Record<string, boolean>>({});
   const [pollCount, setPollCount] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [didAutoRegenerate, setDidAutoRegenerate] = useState(false);
 
   useEffect(() => {
     setLocalAnswers(parseChoiceAnswers(row));
     setPollCount(0);
+    setDidAutoRegenerate(false);
   }, [row.id]);
+
+  const isGenericFallbackFactors = (list: any[]) => {
+    if (!Array.isArray(list) || list.length === 0) return false;
+    const names = list.map((f) => String(f?.name || '').toLowerCase()).filter(Boolean);
+    const generic = ['max_budget', 'preferred_brand', 'condition', 'shipping_speed', 'notes'];
+    return generic.every((n) => names.includes(n));
+  };
+
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    if (!didAutoRegenerate && isGenericFallbackFactors(factors)) {
+      timeoutId = setTimeout(async () => {
+        try {
+          await fetch(`/api/rows?id=${row.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ regenerate_choice_factors: true }),
+          });
+          const freshRows = await fetchRowsFromDb();
+          setRows(freshRows);
+        } finally {
+          setDidAutoRegenerate(true);
+        }
+      }, 250);
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [didAutoRegenerate, row.id, setRows, factors]);
 
   useEffect(() => {
     const serverAnswers = parseChoiceAnswers(row);
@@ -187,10 +217,12 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
           factors.map((factor) => {
             const isSaving = savingFields[factor.name];
             const hasAnswer = localAnswers[factor.name] !== undefined && localAnswers[factor.name] !== '';
-            const label = factor.name
-              .split('_')
-              .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-              .join(' ');
+            const label = String(factor?.label || '')
+              ? String(factor.label)
+              : factor.name
+                  .split('_')
+                  .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+                  .join(' ');
 
             return (
               <div key={factor.name} className="space-y-2">
