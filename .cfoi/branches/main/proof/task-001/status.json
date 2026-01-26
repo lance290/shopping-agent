@@ -1,0 +1,13 @@
+{
+  "id": "task-001",
+  "status": "completed",
+  "completed_at": "2026-01-23T21:05:00Z",
+  "verification_log": [
+    "Fixed 500 error by restarting Postgres container",
+    "Verified environment variables for real search providers",
+    "Added automated test coverage for /api/out redirect endpoint",
+    "Manually verified e2e flow: Login -> Create Row -> See Offers -> Clickout",
+    "Confirmed redirect opens merchant URL"
+  ],
+  "proof_path": ".cfoi/branches/main/proof/task-001/"
+}

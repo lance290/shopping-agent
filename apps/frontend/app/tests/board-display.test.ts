@@ -41,9 +41,9 @@ describe('ProcurementBoard Display Logic', () => {
   test('displays loading/empty state for row with no offers', () => {
     // Row 2 has no offers set
     render(React.createElement(ProcurementBoard));
-    
-    // Should see placeholder for row 2 (Searching or No offers)
-    expect(screen.getAllByText(/Searching for offers/i)).toHaveLength(2);
+
+    // Should see placeholder for rows with no offers (status: "sourcing")
+    expect(screen.getAllByText(/Sourcing offers/i)).toHaveLength(2);
   });
 
   test('highlights active row', () => {
@@ -51,18 +51,17 @@ describe('ProcurementBoard Display Logic', () => {
     store.setActiveRowId(1);
 
     render(React.createElement(ProcurementBoard));
-    
-    // This is a bit tricky to test with just text, checking for visual class requires DOM inspection
-    // But we can verify the ID is displayed
-    expect(screen.getByText('ID: 1')).toBeDefined();
+
+    // Check that the row ID is displayed (format: "#1")
+    expect(screen.getByText('#1')).toBeDefined();
   });
 
   test('displays empty board state when no rows', () => {
     useShoppingStore.getState().setRows([]);
-    
+
     render(React.createElement(ProcurementBoard));
 
-    expect(screen.getByText('Your Procurement Board is Empty')).toBeDefined();
+    expect(screen.getByText('Your Board is Empty')).toBeDefined();
   });
 
   test('OfferTile links to clickout URL', () => {
@@ -74,9 +73,9 @@ describe('ProcurementBoard Display Logic', () => {
     // Get all links that are NOT the disclosure link
     const links = screen.getAllByRole('link').filter(l => l.getAttribute('href') !== '/disclosure');
     
-    // Check href format: /api/clickout?url=...
+    // Check href format: /api/out?url=...
     const href = links[0].getAttribute('href');
-    expect(href).toContain('/api/clickout');
+    expect(href).toContain('/api/out');
     expect(href).toContain(encodeURIComponent('http://a.com'));
   });
 });

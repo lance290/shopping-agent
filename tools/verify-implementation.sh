@@ -31,15 +31,15 @@ if detect_coverage_command >/dev/null 2>&1; then
   COVERAGE_COMMAND=$(detect_coverage_command)
   if run_and_capture "coverage" "$COVERAGE_COMMAND" "$COVERAGE_DIR"; then
     capture_coverage_summary
-    local cov_status="pass"
+    cov_status="pass"
     [ "$LAST_COVERAGE_STATUS" -ne 0 ] && cov_status="fail"
-    local summary_path="$COVERAGE_DIR/latest-summary.json"
-    local regressions_path="$COVERAGE_DIR/coverage-regressions.json"
+    summary_path="$COVERAGE_DIR/latest-summary.json"
+    regressions_path="$COVERAGE_DIR/coverage-regressions.json"
     record_coverage_evidence "$summary_path" "$cov_status" "$COVERAGE_COMMAND" "$regressions_path"
   else
     echo "⚠️  Coverage command failed; skipping summary capture."
-    local summary_path="$COVERAGE_DIR/latest-summary.json"
-    local regressions_path="$COVERAGE_DIR/coverage-regressions.json"
+    summary_path="$COVERAGE_DIR/latest-summary.json"
+    regressions_path="$COVERAGE_DIR/coverage-regressions.json"
     record_coverage_evidence "$summary_path" "fail" "$COVERAGE_COMMAND" "$regressions_path"
   fi
 else

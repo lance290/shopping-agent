@@ -1,0 +1,9 @@
+ImportError while loading conftest '/Volumes/PivotNorth/Shopping Agent/apps/backend/tests/conftest.py'.
+tests/conftest.py:16: in <module>
+    from main import app, get_session
+main.py:34: in <module>
+    from clerk_auth import verify_clerk_token, get_clerk_user_id
+clerk_auth.py:7: in <module>
+    import jwt
+E   ModuleNotFoundError: No module named 'jwt'
+DEBUG: DATABASE_URL starts with: postgresql+asyn...

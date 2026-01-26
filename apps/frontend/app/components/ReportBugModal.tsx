@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, ChangeEvent, useEffect } from 'react';
-import { X, Bug, Upload, Image as ImageIcon, Trash2, Check, AlertCircle } from 'lucide-react';
+import { X, Bug, Upload, Image as ImageIcon, Trash2, Check } from 'lucide-react';
 import { useShoppingStore } from '../store';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
@@ -59,7 +59,7 @@ export default function ReportBugModal() {
 
   if (!isOpen) return null;
 
-  const isValid = notes.trim().length > 0 && attachments.length > 0;
+  const isValid = notes.trim().length > 0;
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -136,14 +136,20 @@ export default function ReportBugModal() {
 
   if (submittedId) {
       return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-warm-grey overflow-hidden flex flex-col p-8 items-center text-center animate-in zoom-in-95">
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          onClick={handleClose}
+        >
+            <div
+              className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-warm-grey overflow-hidden flex flex-col p-8 items-center text-center animate-in zoom-in-95"
+              onClick={(e) => e.stopPropagation()}
+            >
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-4">
                     <Check size={32} />
                 </div>
-                <h2 className="text-xl font-semibold text-onyx mb-2">Bug Reported!</h2>
-                <p className="text-sm text-onyx-muted mb-6">
-                    Thanks for your feedback. Your report ID is <strong className="text-onyx font-mono">{submittedId}</strong>.
+                <h2 className="text-xl font-semibold text-black mb-2">Bug Reported!</h2>
+                <p className="text-sm text-black mb-6">
+                    Thanks for your feedback. Your report ID is <strong className="text-black font-mono">{submittedId}</strong>.
                 </p>
                 <Button onClick={handleClose} className="w-full">
                     Done
@@ -154,12 +160,16 @@ export default function ReportBugModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div 
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      onClick={handleClose}
+    >
+      <div
         className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-warm-grey overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
         aria-labelledby="report-bug-title"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-6 py-4 border-b border-warm-grey/50 flex justify-between items-center bg-warm-light/50 shrink-0">
@@ -169,7 +179,7 @@ export default function ReportBugModal() {
             </div>
             <div>
               <h2 id="report-bug-title" className="font-medium text-base">Report a Bug</h2>
-              <p className="text-xs text-onyx-muted">Help us improve by sharing what you found.</p>
+              <p className="text-xs text-onyx/70">Help us improve by sharing what you found.</p>
             </div>
           </div>
           <Button
@@ -186,10 +196,10 @@ export default function ReportBugModal() {
         {/* Scrollable Content */}
         <div className="p-6 overflow-y-auto space-y-6">
           
-          {/* 1. Screenshots (Required) */}
+          {/* 1. Screenshots (Optional) */}
           <div>
             <div className="flex justify-between items-baseline mb-2">
-              <label className={labelClasses}>Screenshots <span className="text-rose-500">*</span></label>
+              <label className={labelClasses}>Screenshots</label>
               <span className="text-[10px] text-onyx-muted">{attachments.length} attached</span>
             </div>
             
@@ -232,11 +242,6 @@ export default function ReportBugModal() {
               accept="image/*"
               onChange={handleFileSelect}
             />
-            {attachments.length === 0 && (
-              <p className="text-[11px] text-rose-500 mt-1.5 flex items-center gap-1">
-                <AlertCircle size={12} /> At least one screenshot is required
-              </p>
-            )}
           </div>
 
           {/* 2. Notes (Required) */}

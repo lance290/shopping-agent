@@ -2,7 +2,7 @@ name: AI Bug Fixer
 
 on:
   issues:
-    types: [opened]
+    types: [labeled]
 
 permissions:
   contents: write
@@ -11,17 +11,26 @@ permissions:
 
 jobs:
   fix-bug:
-    if: contains(github.event.issue.body, 'CLAUDE-INSTRUCTION')
+    if: github.event.label.name == 'ai-fix'
     runs-on: ubuntu-latest
+    concurrency:
+      group: ai-bug-fixer-${{ github.event.issue.number }}-${{ github.event.label.name }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
         with:
           ref: dev
+          fetch-depth: 0
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+      
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          pnpm --version
           
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -31,7 +40,7 @@ jobs:
       - name: Install dependencies (Frontend)
         run: |
           cd apps/frontend
-          npm ci
+          pnpm install --frozen-lockfile
 
       - name: Install dependencies (Backend)
         run: |
@@ -41,27 +50,92 @@ jobs:
       - name: Run Claude Code to Fix Bug
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
-          # Extract instruction from issue body or just pass the whole body context
-          # We use the generic claude-code CLI to attempt a fix
-          # Note: This requires @anthropic-ai/claude-code to be available or npx-able
+          set -euo pipefail
+
+          BRANCH="fix/bug-${ISSUE_NUMBER}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "${BRANCH}"
+
+          echo "Starting AI Bug Fixer for Issue #${ISSUE_NUMBER}"
+
+          PROMPT=$(python -c "import os; n=os.environ.get('ISSUE_NUMBER',''); t=os.environ.get('ISSUE_TITLE',''); b=os.environ.get('ISSUE_BODY',''); print('I have a bug report from GitHub Issue #'+n+'.\n'+'Title: '+t+'\n\n'+'Description:\n'+b+'\n\n'+'Please analyze the codebase, reproduce the issue if possible (or create a test case), fix the bug, and verify the fix.\n'+'IMPORTANT: Use the \'dev\' branch as the base branch for your work (do NOT target main).\n'+'Create your working branch from \'dev\', and open a Pull Request targeting \'dev\'.\n'+('IMPORTANT: Name the branch \'fix/bug-'+n+'\' so we can track it.'))")
+
+          set +e
+          CLAUDE_OUTPUT_FILE="/tmp/claude_output.txt"
+          npx @anthropic-ai/claude-code@latest --print --dangerously-skip-permissions -p "$PROMPT" 2>&1 | tee "$CLAUDE_OUTPUT_FILE"
+          CLAUDE_EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$CLAUDE_EXIT_CODE" -ne 0 ]; then
+            export GH_TOKEN="${GITHUB_TOKEN}"
+            CLAUDE_OUTPUT=$(tail -n 80 "$CLAUDE_OUTPUT_FILE" | sed 's/`/\\`/g')
+            gh issue comment "${ISSUE_NUMBER}" \
+              --repo "${{ github.repository }}" \
+              --body "AI Bug Fixer failed while running Claude Code (exit code ${CLAUDE_EXIT_CODE}).\n\nLast output:\n\n\`\`\`\n${CLAUDE_OUTPUT}\n\`\`\`\n\nIf you see billing/credit errors, top up Anthropic credits or update the repo secret ANTHROPIC_API_KEY."
+            exit "$CLAUDE_EXIT_CODE"
+          fi
+
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "fix: issue #${ISSUE_NUMBER}"
+          fi
+
+          if [ "$(git rev-list --count dev..HEAD)" -eq 0 ]; then
+            echo "No commits ahead of dev for ${BRANCH}; skipping PR creation."
+            exit 0
+          fi
+
+          git push --set-upstream origin "${BRANCH}"
+
+          export GH_TOKEN="${GITHUB_TOKEN}"
+          if gh pr view --repo "${{ github.repository }}" --head "${BRANCH}" >/dev/null 2>&1; then
+            echo "PR already exists for ${BRANCH}; skipping creation."
+          else
+            set +e
+            PR_CREATE_OUTPUT_FILE="/tmp/pr_create_output.txt"
+            gh pr create \
+              --repo "${{ github.repository }}" \
+              --base dev \
+              --head "${BRANCH}" \
+              --title "[AI Fix] #${ISSUE_NUMBER}: ${ISSUE_TITLE}" \
+              --body "Auto-generated fix for issue #${ISSUE_NUMBER}." \
+              --label "ai-fix" 2>&1 | tee "$PR_CREATE_OUTPUT_FILE"
+            PR_CREATE_EXIT_CODE=${PIPESTATUS[0]}
+            set -e
+
+            if [ "$PR_CREATE_EXIT_CODE" -ne 0 ]; then
+              PR_CREATE_OUTPUT=$(tail -n 40 "$PR_CREATE_OUTPUT_FILE" | sed 's/`/\\`/g')
+              COMPARE_URL="https://github.com/${{ github.repository }}/compare/dev...${BRANCH}"
+
+              if echo "$PR_CREATE_OUTPUT" | grep -qi "already exists"; then
+                echo "PR already exists for ${BRANCH}; continuing."
+                PR_CREATE_EXIT_CODE=0
+              fi
+
+              if [ "$PR_CREATE_EXIT_CODE" -eq 0 ]; then
+                :
+              elif echo "$PR_CREATE_OUTPUT" | grep -qi "createPullRequest"; then
+                gh issue comment "${ISSUE_NUMBER}" \
+                  --repo "${{ github.repository }}" \
+                  --body "Claude produced a fix and pushed branch \`${BRANCH}\`, but GitHub blocked PR creation from Actions (\`createPullRequest\`).\n\nCreate the PR manually here:\n${COMPARE_URL}\n\nTo allow automation, update repo settings to permit GitHub Actions to create PRs (repo Settings -> Actions -> General -> Workflow permissions / allow GitHub Actions to create and approve pull requests).\n\nLast output:\n\n\`\`\`\n${PR_CREATE_OUTPUT}\n\`\`\`"
+                exit 0
+              else
+                gh issue comment "${ISSUE_NUMBER}" \
+                  --repo "${{ github.repository }}" \
+                  --body "Claude produced a fix and pushed branch \`${BRANCH}\`, but PR creation failed (exit code ${PR_CREATE_EXIT_CODE}).\n\nCreate the PR manually here:\n${COMPARE_URL}\n\nLast output:\n\n\`\`\`\n${PR_CREATE_OUTPUT}\n\`\`\`"
+                exit "$PR_CREATE_EXIT_CODE"
+              fi
+            fi
+          fi
           
-          echo "Starting AI Bug Fixer for Issue #${{ github.event.issue.number }}"
-          
-          # Run Claude Code
-          # -p: prompt
-          # --print: print output to stdout
-          npx @anthropic-ai/claude-code@latest \
-            --print \
-            -p "I have a bug report from GitHub Issue #${{ github.event.issue.number }}. \
-            Title: ${{ github.event.issue.title }} \
-            \
-            Description: \
-            ${{ github.event.issue.body }} \
-            \
-            Please analyze the codebase, reproduce the issue if possible (or create a test case), \
-            fix the bug, and verify the fix. \
-            IMPORTANT: Use the 'dev' branch as the base branch for your work (do NOT target main). \
-            Create your working branch from 'dev', and open a Pull Request targeting 'dev'. \
-            IMPORTANT: Name the branch 'fix/bug-${{ github.event.issue.number }}' so we can track it."
+          # Auto-merge the PR immediately
+          echo "Auto-merging branch ${BRANCH} into dev..."
+          gh pr merge "${BRANCH}" --repo "${{ github.repository }}" --squash --auto --delete-branch

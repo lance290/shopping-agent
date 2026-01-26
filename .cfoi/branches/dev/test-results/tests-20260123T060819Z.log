@@ -1,0 +1,48 @@
+[GITHUB] Warning: GITHUB_TOKEN not set
+[GITHUB] Warning: GITHUB_REPO not set
+ImportError while loading conftest '/Volumes/PivotNorth/Shopping Agent/apps/backend/tests/conftest.py'.
+tests/conftest.py:16: in <module>
+    from main import app, get_session
+main.py:1069: in <module>
+    class AuthStartRequest(BaseModel):
+.venv/lib/python3.11/site-packages/pydantic/_internal/_model_construction.py:255: in __new__
+    complete_model_class(
+.venv/lib/python3.11/site-packages/pydantic/_internal/_model_construction.py:648: in complete_model_class
+    schema = gen_schema.generate_schema(cls)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:729: in generate_schema
+    schema = self._generate_schema_inner(obj)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:1023: in _generate_schema_inner
+    return self._model_schema(obj)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:856: in _model_schema
+    {k: self._generate_md_field_schema(k, v, decorators) for k, v in fields.items()},
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:856: in <dictcomp>
+    {k: self._generate_md_field_schema(k, v, decorators) for k, v in fields.items()},
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:1228: in _generate_md_field_schema
+    schema, metadata = self._common_field_schema(name, field_info, decorators)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:1282: in _common_field_schema
+    schema = self._apply_annotations(
+.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:2227: in _apply_annotations
+    schema = get_inner_schema(source_type)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/pydantic/_internal/_schema_generation_shared.py:83: in __call__
+    schema = self._handler(source_type)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:2203: in inner_handler
+    schema = self._generate_schema_from_get_schema_method(obj, source_type)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:919: in _generate_schema_from_get_schema_method
+    schema = get_schema(
+.venv/lib/python3.11/site-packages/pydantic/networks.py:1005: in __get_pydantic_core_schema__
+    import_email_validator()
+.venv/lib/python3.11/site-packages/pydantic/networks.py:967: in import_email_validator
+    raise ImportError("email-validator is not installed, run `pip install 'pydantic[email]'`") from e
+E   ImportError: email-validator is not installed, run `pip install 'pydantic[email]'`
+DEBUG: DATABASE_URL starts with: postgresql+asyn...
+[SourcingRepository] SERPAPI_API_KEY present: False
+[SourcingRepository] RAINFOREST_API_KEY present: False (is_none=True, len=None)

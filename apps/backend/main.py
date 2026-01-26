@@ -17,16 +17,18 @@ import asyncio
 import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
+from dotenv import load_dotenv
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy import text
 
 from sourcing import SourcingRepository, SearchResult, extract_merchant_domain
 from database import init_db, get_session
 from models import (
     Row, RowBase, RowCreate, RequestSpec,
     AuthLoginCode, AuthSession, Bid, Seller, User, ClickoutEvent,
-    BugReport,
+    BugReport, Project, ProjectCreate,
     hash_token, generate_verification_code, generate_session_token
 )
 from affiliate import link_resolver, ClickContext
@@ -37,6 +39,8 @@ from diagnostics_utils import validate_and_redact_diagnostics, generate_diagnost
 from notifications import send_internal_notification
 import hmac
 import hashlib
+
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
 # Create FastAPI app (must be defined before any @app.* decorators)
 app = FastAPI(
@@ -189,7 +193,7 @@ async def create_github_issue_task(bug_id: int):
             issue = await github_client.create_issue(
                 title=f"[Bug] {bug.notes[:50]}...",
                 body=body,
-                labels=["bug", f"severity:{bug.severity}", f"category:{bug.category}"]
+                labels=["ai-fix"]
             )
 
             if issue and issue.get("html_url"):
@@ -341,6 +345,7 @@ async def create_bug_report(
     diagnostics: Optional[str] = Form(None),
     attachments: List[UploadFile] = File(None),
     authorization: Optional[str] = Header(None),
+    background_tasks: BackgroundTasks = None,
     session: AsyncSession = Depends(get_session)
 ):
     """
@@ -396,7 +401,8 @@ async def create_bug_report(
     await session.refresh(bug)
     
     # Trigger GitHub Issue Creation
-    background_tasks.add_task(create_github_issue_task, bug.id)
+    if background_tasks is not None:
+        background_tasks.add_task(create_github_issue_task, bug.id)
     
     # Return formatted response
     return BugReportRead(
@@ -433,7 +439,7 @@ async def get_bug_report(
     is_admin = user.is_admin if user else False
     
     if bug.user_id != auth_session.user_id and not is_admin:
-        raise HTTPException(status_code=403, detail="Not authorized to view this report")
+        raise HTTPException(status_code=404, detail="Bug report not found")
     
     # Parse attachments
     attachments_list = []
@@ -504,6 +510,7 @@ class BidRead(BaseModel):
 class RowReadWithBids(RowBase):
     id: int
     user_id: int
+    project_id: Optional[int] = None
     bids: List[BidRead] = []
 
 class SearchRequest(BaseModel):
@@ -524,6 +531,71 @@ async def health_check():
     }
 
 # DB endpoints
+@app.post("/projects", response_model=Project)
+async def create_project(
+    project: ProjectCreate,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    db_project = Project(
+        title=project.title,
+        user_id=auth_session.user_id
+    )
+    session.add(db_project)
+    await session.commit()
+    await session.refresh(db_project)
+    return db_project
+
+@app.get("/projects", response_model=List[Project])
+async def read_projects(
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    result = await session.exec(
+        select(Project)
+        .where(Project.user_id == auth_session.user_id)
+        .order_by(Project.created_at.desc())
+    )
+    return result.all()
+
+@app.delete("/projects/{project_id}")
+async def delete_project(
+    project_id: int,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    result = await session.exec(
+        select(Project).where(Project.id == project_id, Project.user_id == auth_session.user_id)
+    )
+    project = result.first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Unlink child rows (ungroup them)
+    rows_result = await session.exec(select(Row).where(Row.project_id == project_id))
+    for row in rows_result.all():
+        row.project_id = None
+        session.add(row)
+    
+    await session.delete(project)
+    await session.commit()
+    return {"status": "deleted", "id": project_id}
+
 @app.post("/rows", response_model=Row)
 async def create_row(
     row: RowCreate,
@@ -535,6 +607,13 @@ async def create_row(
     if not auth_session:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
+    # Validate project ownership if project_id is provided
+    if row.project_id is not None:
+        project = await session.get(Project, row.project_id)
+        if not project or project.user_id != auth_session.user_id:
+            # Silently ignore invalid project_id (don't leak info about other users' projects)
+            row.project_id = None
+
     # Extract request_spec data
     request_spec_data = row.request_spec
     
@@ -545,6 +624,7 @@ async def create_row(
         budget_max=row.budget_max,
         currency=row.currency,
         user_id=auth_session.user_id,
+        project_id=row.project_id,
         choice_factors=row.choice_factors,
         choice_answers=row.choice_answers
     )
@@ -884,6 +964,17 @@ async def search_row_listings(
 
     # Execute Search
     results = await sourcing_repo.search_all(base_query, providers=body.providers)
+
+    # Ensure click_url includes row_id for attribution in clickout logging
+    for r in results:
+        try:
+            # If backend already provided click_url, augment with row_id when missing.
+            # We intentionally keep idx/source/url as-is.
+            if getattr(r, "click_url", "") and "row_id=" not in str(r.click_url):
+                joiner = "&" if "?" in str(r.click_url) else "?"
+                r.click_url = f"{r.click_url}{joiner}row_id={row_id}"
+        except Exception:
+            pass
     
     # --- Persistence Logic ---
     
@@ -1105,6 +1196,24 @@ async def mint_session(request: MintSessionRequest, session: AsyncSession = Depe
     await session.commit()
     
     return {"session_token": token}
+
+
+@app.post("/test/reset-db")
+async def test_reset_db(session: AsyncSession = Depends(get_session)):
+    if os.getenv("E2E_TEST_MODE") != "1":
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    try:
+        await session.execute(
+            text(
+                'TRUNCATE TABLE bid, request_spec, "row", project, clickout_event, bug_report, audit_log, auth_login_code, auth_session, "user" RESTART IDENTITY CASCADE;'
+            )
+        )
+        await session.commit()
+        return {"status": "ok"}
+    except Exception as e:
+        await session.rollback()
+        raise HTTPException(status_code=500, detail=f"DB reset failed: {str(e)}")
 
 
 @app.post("/auth/start", response_model=AuthStartResponse)

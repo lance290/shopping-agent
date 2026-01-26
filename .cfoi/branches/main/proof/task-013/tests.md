@@ -1,0 +1,45 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.3, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Volumes/PivotNorth/Shopping Agent/apps/backend
+configfile: pyproject.toml
+plugins: anyio-4.12.1, asyncio-1.3.0, cov-7.0.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 13 items
+
+tests/test_affiliate.py .......                                          [ 53%]
+tests/test_auth_session_user_id.py .                                     [ 61%]
+tests/test_clickout_redirect.py ...                                      [ 84%]
+tests/test_e2e_mint_endpoint.py .                                        [ 92%]
+tests/test_rows_authorization.py .                                       [100%]
+
+=============================== warnings summary ===============================
+main.py:1441
+  /Volumes/PivotNorth/Shopping Agent/apps/backend/main.py:1441: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+.venv/lib/python3.11/site-packages/fastapi/applications.py:4576
+.venv/lib/python3.11/site-packages/fastapi/applications.py:4576
+  /Volumes/PivotNorth/Shopping Agent/apps/backend/.venv/lib/python3.11/site-packages/fastapi/applications.py:4576: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+main.py:1453
+  /Volumes/PivotNorth/Shopping Agent/apps/backend/main.py:1453: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 13 passed, 4 warnings in 0.71s ========================

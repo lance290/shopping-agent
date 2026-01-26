@@ -1,56 +1,63 @@
-# Product North Star (v2026-01-08)
+# Product North Star (v2026-01-23.1)
 
 ## Mission
-Eliminate the friction of comparison shopping by providing an AI agent that transforms natural-language requests into a competitive procurement board—sourcing sellers, collecting bids, and presenting normalized offers so buyers can make confident purchasing decisions in minutes, not hours.
+Eliminate the friction of multi-category procurement by providing an AI agent that transforms natural-language intent into structured RFPs and a project-based workspace—sourcing vendors across channels, collecting comparable bids/offers, and closing transactions (retail + B2B) through a unified payments and contracting layer.
 
 ## Target Users & Core Jobs
 
 ### Primary: Everyday Buyer
-- **Job**: Find the best deal without researching across multiple sites
-- **Pain**: Opening 10 tabs, comparing inconsistent pricing, missing hidden costs
+- **Job**: Buy goods and services across categories (retail + local/B2B) without stitching together multiple platforms
+- **Pain**: Comparison fatigue, fragmented workflows, and unclear tradeoffs across vendors
 
 ### Secondary: Power Buyer  
-- **Job**: Set constraints, control vendor quality, run negotiation rounds
-- **Pain**: Manual vendor outreach, no structured comparison, time-consuming RFQs
+- **Job**: Run a project-based procurement process with structured requirements, stakeholder review, and vendor outreach
+- **Pain**: Manual RFQs, disorganized quotes, and slow vendor follow-up
 
 ### Tertiary: Seller/Vendor
-- **Job**: Get qualified leads, easy quoting, clear path to closing
-- **Pain**: Cold outreach, unclear buyer requirements, lost deals
+- **Job**: Receive structured RFPs and submit quotes quickly (without learning a new platform), with a clear path to closing
+- **Pain**: Unqualified leads, unclear requirements, and slow back-and-forth
 
 ## Differentiators
 
-1. **Chat-native procurement**: One conversation creates structured, actionable requests
-2. **Agent-driven sourcing**: AI finds, invites, and manages sellers automatically  
-3. **Normalized comparison**: Apples-to-apples view of price + shipping + ETA + policies
-4. **Competitive by default**: Target ≥3 comparable bids per request
-5. **Transparency**: Full audit trail of agent actions and bid provenance
+1. **Conversational RFP builder**: Chat extracts specs/constraints and generates structured requirements
+2. **Split-pane workspace**: Persistent chat + interactive tiles/rows for comparison and collaboration
+3. **Multi-channel sourcing**: Aggregators/APIs for instant offers plus proactive vendor outreach for hard-to-source needs
+4. **Unified closing layer**: Retail checkout (Stripe) and B2B contracts (DocuSign) in a consistent flow
+5. **Project-based procurement**: Row hierarchy for multi-item projects with stakeholder sharing and selection
+6. **Tile detail provenance**: Tile click opens a consistent detail view (FAQ + chat log) explaining choice-factor highlights and “why this tile”
+7. **Two-sided marketplace UX**: Sellers have a tile-based view of buyer needs (RFPs) and can submit bids/quotes that appear as tiles for buyers
 
 ## Success Metrics / OKRs
 
 | Metric | Target | Rationale |
 |--------|--------|-----------|
-| Time to first request | <15 seconds | Frictionless entry |
-| Bids per row | ≥3 | Competitive marketplace |
-| Time to first bid | <5 minutes | Fast value delivery |
-| Conversion rate (rows closed) | >20% | Buyer finds value |
-| Buyer satisfaction (thumbs up) | >80% | Quality matches |
+| Time to first project row | <30 seconds | Fast path from intent to workspace |
+| Time to first offers | <30 seconds | Immediate value via instant sourcing |
+| Offers/bids per row | ≥3 | Competitive set for decision-making |
+| % of B2B selections with contract flow completed | High | Validate unified closing layer |
+| GMV growth (affiliate + fees) | 20% MoM | Marketplace monetization trajectory |
 
 ## Non-Negotiables
 
-1. **Every bid must be real**: No invented offers—each tile maps to actual seller submission or verified feed
-2. **User confirms purchases**: No autonomous buying without explicit approval
-3. **Price transparency**: Total cost (item + shipping + tax) always visible
-4. **Audit trail**: Every agent action is logged and visible to the user
-5. **Zustand as source of truth**: Frontend state management is centralized and consistent
+1. **No invented offers**: Tiles must map to real vendor offers, verified listings, or seller-submitted quotes
+2. **User confirms purchases**: No autonomous purchasing without explicit user approval
+3. **Auditability**: Key agent actions and outbound vendor communications are tracked
+4. **Unified closing for trust**: Payments/contracts must use secure, reputable providers (Stripe/DocuSign)
+5. **Project-first UX**: Multi-item projects and collaboration are first-class
+6. **Seller quote intake is first-class**: Sellers can submit bids/quotes by answering key questions and attaching links to products/services
 
 ## Exclusions (Out of Scope)
 
-- General web-scraping engine (prefer APIs, feeds, seller onboarding)
-- "Any product instantly" (focus on categories with accessible sellers)
+- Proprietary logistics, warehousing, or delivery networks
+- Replacing existing merchant storefronts or inventory management systems
 - Fully autonomous purchasing
-- Payment processing in MVP (handoff model first)
+
+## References
+
+- **Original brief**: `need sourcing_ next ebay.md`
 
 ## Approver / Date
-- **Reverse-engineered from**: `agent-facilitated-competitive-bidding-prd.md`
-- **Date**: 2026-01-08
-- **Status**: Draft - Awaiting human approval
+- **Updated to align with**: `buyanything-ai-ai-agent-facilitated-multi-category-marketplace-PRD.md`
+- **Date**: 2026-01-23
+- **Status**: Approved
+- **Approver**: Approved (user)

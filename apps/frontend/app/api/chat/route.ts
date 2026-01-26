@@ -11,9 +11,16 @@ function normalizeBaseUrl(url: string): string {
 
 const BFF_URL = normalizeBaseUrl(process.env.BFF_URL || 'http://localhost:8080');
 
+const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
+
 export async function POST(request: NextRequest) {
-  const { getToken } = await auth();
-  const token = await getToken();
+  let token: string | null = null;
+  if (disableClerk) {
+    token = request.cookies.get('sa_session')?.value || process.env.DEV_SESSION_TOKEN || null;
+  } else {
+    const { getToken } = await auth();
+    token = await getToken();
+  }
   
   if (!token) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {

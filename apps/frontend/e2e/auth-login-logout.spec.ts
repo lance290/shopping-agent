@@ -1,6 +1,28 @@
 import { test, expect } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
 
 test.describe('Auth: Login and Logout', () => {
+  const isClerkDisabled = (() => {
+    if (process.env.NEXT_PUBLIC_DISABLE_CLERK === '1') return true;
+
+    try {
+      const envPath = path.resolve(__dirname, '..', '.env');
+      const raw = fs.readFileSync(envPath, 'utf8');
+      const line = raw
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .find((l) => l.startsWith('NEXT_PUBLIC_DISABLE_CLERK='));
+      if (!line) return false;
+
+      const value = line.split('=')[1]?.trim().replace(/^"|"$/g, '');
+      return value === '1';
+    } catch {
+      return false;
+    }
+  })();
+  test.skip(isClerkDisabled, 'Clerk is disabled in this environment (NEXT_PUBLIC_DISABLE_CLERK=1)');
+
   test.beforeEach(async ({ context }) => {
     // Clear cookies before each test
     await context.clearCookies();

@@ -3,9 +3,16 @@ import { auth } from '@clerk/nextjs/server';
 
 export const dynamic = 'force-dynamic';
 
-const BFF_URL = process.env.BFF_URL || 'http://localhost:8080';
+const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
+const BFF_URL = process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081';
 
-async function getAuthHeader(): Promise<{ Authorization?: string }> {
+async function getAuthHeader(request: NextRequest): Promise<{ Authorization?: string }> {
+  if (disableClerk) {
+    const cookieToken = request.cookies.get('sa_session')?.value;
+    const token = cookieToken || process.env.DEV_SESSION_TOKEN || process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
   const { getToken } = await auth();
   const token = await getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -16,7 +23,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authHeader = await getAuthHeader();
+    const authHeader = await getAuthHeader(request);
     if (!authHeader['Authorization']) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

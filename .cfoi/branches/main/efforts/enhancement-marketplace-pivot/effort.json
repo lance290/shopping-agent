@@ -1,0 +1,76 @@
+{
+  "type": "enhancement",
+  "name": "marketplace-pivot",
+  "description": "Align product + implementation to the multi-category marketplace PRD (outreach + unified closing layer)",
+  "created": "2026-01-23T02:30:00Z",
+  "status": "in-progress",
+  "priority": 10,
+  "parent": null,
+  "definition_of_done": {
+    "version": 1,
+    "status": "active",
+    "thresholds": [
+      {
+        "description": "PRD sliced into 4 child PRDs with traceability and ship order",
+        "metric": "prd_sliced_marketplace_pivot",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "Slice A defined: buyer workspace + tile detail provenance (FAQ/chat log)",
+        "metric": "slice_a_workspace_tile_provenance_defined",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "Slice C defined: seller tiles + quote intake producing buyer-visible tiles",
+        "metric": "slice_c_seller_quote_intake_defined",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "Slice D defined: unified closing layer requirements (retail + contract-required)",
+        "metric": "slice_d_unified_closing_defined",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      }
+    ],
+    "signals": [
+      {
+        "description": "Cross-cutting requirements captured in each slice (auth, monitoring, billing, data, performance, UX/accessibility, privacy)",
+        "metric": "cross_cutting_requirements_captured",
+        "target": 1,
+        "weight": 0.4,
+        "evidence_required": "measured",
+        "type": "signal"
+      },
+      {
+        "description": "Dependencies and ship order reflect independent shippability and north star impact",
+        "metric": "slice_dependencies_ship_order_valid",
+        "target": 1,
+        "weight": 0.3,
+        "evidence_required": "self-reported",
+        "type": "signal"
+      },
+      {
+        "description": "Acceptance criteria are business-testable (binary or quantitative) across all slices",
+        "metric": "slice_acceptance_criteria_testable",
+        "target": 1,
+        "weight": 0.3,
+        "evidence_required": "self-reported",
+        "type": "signal"
+      }
+    ],
+    "confidence": "self-reported",
+    "approval": {
+      "by": "USER",
+      "timestamp": "2026-01-23T03:54:00Z",
+      "change_reason": "Activated DoD with recommended thresholds/signals for marketplace pivot slices",
+      "change_type": "clarify"
+    }
+  }
+}

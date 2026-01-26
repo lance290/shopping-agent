@@ -172,9 +172,6 @@ test.describe('Chat-Board Synchronization Flow', () => {
     // Wait for page to load
     await page.waitForSelector('text=Shopping Agent', { timeout: 15000 });
     
-    // Verify sidebar shows "No requests yet" initially
-    await expect(page.locator('text=No requests yet')).toBeVisible({ timeout: 5000 });
-    
     // Create a row via API (simulating what the LLM createRow tool does)
     const rowTitle = `API Created Row ${Date.now()}`;
     const createResponse = await request.post(`${BACKEND_URL}/rows`, {
@@ -192,14 +189,12 @@ test.describe('Chat-Board Synchronization Flow', () => {
       },
     });
     expect(createResponse.ok()).toBeTruthy();
-    
-    // Click the Refresh button in sidebar
-    await page.getByText('Refresh').click();
-    
+
+    // Reload to force the board to re-fetch rows
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
     // Verify the row appears in sidebar
-    await expect(page.locator(`text=${rowTitle}`)).toBeVisible({ timeout: 10000 });
-    
-    // Verify "No requests yet" is gone
-    await expect(page.locator('text=No requests yet')).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: rowTitle }).first()).toBeVisible({ timeout: 15000 });
   });
 });

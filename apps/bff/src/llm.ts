@@ -2,7 +2,8 @@ import { google } from '@ai-sdk/google';
 import { streamText, generateText } from 'ai';
 import { z } from 'zod';
 
-const model = google(process.env.GEMINI_MODEL || 'gemini-1.5-flash');
+export const GEMINI_MODEL_NAME = 'gemini-3-flash-preview';
+const model = google(GEMINI_MODEL_NAME);
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 async function fetchJsonWithTimeout(
@@ -42,10 +43,10 @@ function normalizeConstraintValue(value: unknown): string {
 }
 
 // Helper to generate and save choice factors
-export async function generateAndSaveChoiceFactors(category: string, rowId: number, authorization?: string, existingConstraints?: Record<string, any>) {
+export async function generateAndSaveChoiceFactors(itemDescription: string, rowId: number, authorization?: string, existingConstraints?: Record<string, any>) {
   const constraintsText = existingConstraints ? `\nExisting constraints: ${JSON.stringify(existingConstraints)}` : '';
   
-  const factorPrompt = `You are determining the key product specifications (attributes) for purchasing: "${category}"${constraintsText}
+  const factorPrompt = `You are determining the key product specifications (attributes) for purchasing: "${itemDescription}"${constraintsText}
 
 Return a JSON array of 3-6 key specifications. Each spec should have:
 - name: lowercase_snake_case identifier (MUST match keys in existing constraints if present)

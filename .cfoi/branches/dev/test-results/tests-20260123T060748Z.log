@@ -1,0 +1,32 @@
+[GITHUB] Warning: GITHUB_TOKEN not set
+[GITHUB] Warning: GITHUB_REPO not set
+Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+
+ImportError while loading conftest '/Volumes/PivotNorth/Shopping Agent/apps/backend/tests/conftest.py'.
+tests/conftest.py:16: in <module>
+    from main import app, get_session
+main.py:333: in <module>
+    @app.post("/api/bugs", response_model=BugReportRead, status_code=201)
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/fastapi/routing.py:1063: in decorator
+    self.add_api_route(
+.venv/lib/python3.11/site-packages/fastapi/routing.py:1002: in add_api_route
+    route = route_class(
+.venv/lib/python3.11/site-packages/fastapi/routing.py:621: in __init__
+    self.dependant = get_dependant(
+.venv/lib/python3.11/site-packages/fastapi/dependencies/utils.py:276: in get_dependant
+    param_details = analyze_param(
+.venv/lib/python3.11/site-packages/fastapi/dependencies/utils.py:495: in analyze_param
+    ensure_multipart_is_installed()
+.venv/lib/python3.11/site-packages/fastapi/dependencies/utils.py:109: in ensure_multipart_is_installed
+    raise RuntimeError(multipart_not_installed_error) from None
+E   RuntimeError: Form data requires "python-multipart" to be installed.
+E   You can install "python-multipart" with:
+E
+E   pip install python-multipart
+DEBUG: DATABASE_URL starts with: postgresql+asyn...
+[SourcingRepository] SERPAPI_API_KEY present: False
+[SourcingRepository] RAINFOREST_API_KEY present: False (is_none=True, len=None)

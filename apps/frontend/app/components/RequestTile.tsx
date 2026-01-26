@@ -26,11 +26,41 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
   const [savingFields, setSavingFields] = useState<Record<string, boolean>>({});
   const [pollCount, setPollCount] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [didAutoRegenerate, setDidAutoRegenerate] = useState(false);
 
   useEffect(() => {
     setLocalAnswers(parseChoiceAnswers(row));
     setPollCount(0);
+    setDidAutoRegenerate(false);
   }, [row.id]);
+
+  const isGenericFallbackFactors = (list: any[]) => {
+    if (!Array.isArray(list) || list.length === 0) return false;
+    const names = list.map((f) => String(f?.name || '').toLowerCase()).filter(Boolean);
+    const generic = ['max_budget', 'preferred_brand', 'condition', 'shipping_speed', 'notes'];
+    return generic.every((n) => names.includes(n));
+  };
+
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    if (!didAutoRegenerate && isGenericFallbackFactors(factors)) {
+      timeoutId = setTimeout(async () => {
+        try {
+          await fetch(`/api/rows?id=${row.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ regenerate_choice_factors: true }),
+          });
+          const freshRows = await fetchRowsFromDb();
+          setRows(freshRows);
+        } finally {
+          setDidAutoRegenerate(true);
+        }
+      }, 250);
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [didAutoRegenerate, row.id, setRows, factors]);
 
   useEffect(() => {
     const serverAnswers = parseChoiceAnswers(row);
@@ -118,7 +148,7 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
   return (
     <Card 
       variant="hover"
-      className="min-w-[290px] max-w-[320px] h-full flex flex-col p-4 bg-warm-light border border-warm-grey/70 cursor-default group"
+      className="min-w-[290px] max-w-[320px] h-[450px] flex flex-col p-4 bg-warm-light border border-warm-grey/70 cursor-default group"
       onClick={handleClick}
     >
       {/* Header */}
@@ -187,10 +217,12 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
           factors.map((factor) => {
             const isSaving = savingFields[factor.name];
             const hasAnswer = localAnswers[factor.name] !== undefined && localAnswers[factor.name] !== '';
-            const label = factor.name
-              .split('_')
-              .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-              .join(' ');
+            const label = String(factor?.label || '')
+              ? String(factor.label)
+              : factor.name
+                  .split('_')
+                  .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+                  .join(' ');
 
             return (
               <div key={factor.name} className="space-y-2">
@@ -208,7 +240,7 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
                     <select
                       value={localAnswers[factor.name] || ''}
                       onChange={(e) => handleAnswerChange(factor.name, e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-onyx focus:border-agent-blurple transition-colors outline-none appearance-none cursor-pointer"
+                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none appearance-none cursor-pointer"
                     >
                       <option value="" disabled>Select...</option>
                       {factor.options.map((opt: string) => (
@@ -234,7 +266,7 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
                             "flex-1 py-2 px-3 rounded-lg text-[11px] font-semibold border transition-all duration-200",
                             isSelected
                               ? "bg-onyx text-white border-onyx"
-                              : "bg-white border-warm-grey/60 text-onyx hover:border-onyx-muted"
+                              : "bg-white border-warm-grey/60 text-gray-900 hover:border-onyx-muted"
                           )}
                         >
                           {opt}

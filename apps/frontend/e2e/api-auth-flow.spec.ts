@@ -173,12 +173,23 @@ test.describe('Row CRUD Operations', () => {
       headers: { Authorization: `Bearer ${sessionToken}` },
     });
     expect(deleteResponse.ok()).toBeTruthy();
+    const deleteData = await deleteResponse.json();
+    expect(deleteData.status).toBe('archived');
 
-    // Verify it's gone
+    // Verify it's archived (soft-delete) and excluded from default /rows list
     const getResponse = await request.get(`${BACKEND_URL}/rows/${id}`, {
       headers: { Authorization: `Bearer ${sessionToken}` },
     });
-    expect(getResponse.status()).toBe(404);
+    expect(getResponse.ok()).toBeTruthy();
+    const archivedRow = await getResponse.json();
+    expect(archivedRow.status).toBe('archived');
+
+    const listResponse = await request.get(`${BACKEND_URL}/rows`, {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    expect(listResponse.ok()).toBeTruthy();
+    const rows = await listResponse.json();
+    expect(rows.find((r: any) => r.id === id)).toBeUndefined();
   });
 
   test('GET /rows/:id returns 404 for non-existent row', async ({ request }) => {

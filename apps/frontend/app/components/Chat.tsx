@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
 import { useShoppingStore } from '../store';
-import { persistRowToDb, runSearchApi, fetchRowsFromDb } from '../utils/api';
+import { persistRowToDb, runSearchApi, fetchRowsFromDb, fetchProjectsFromDb } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
@@ -32,8 +32,8 @@ export default function Chat() {
     if (lastRowIdRef.current === store.activeRowId) return;
     lastRowIdRef.current = store.activeRowId;
 
-    setMessages(prev => [
-      ...prev,
+    // Clear previous messages and start fresh for the new active row
+    setMessages([
       {
         id: `${Date.now()}-${store.activeRowId}`,
         role: 'assistant',
@@ -48,11 +48,13 @@ export default function Chat() {
 
   // Load rows on mount
   useEffect(() => {
-    const loadRows = async () => {
+    const loadData = async () => {
       const rows = await fetchRowsFromDb();
       store.setRows(rows);
+      const projects = await fetchProjectsFromDb();
+      store.setProjects(projects);
     };
-    loadRows();
+    loadData();
   }, []);
 
   const handleSearchFlow = async (query: string) => {
@@ -69,12 +71,28 @@ export default function Chat() {
         await persistRowToDb(targetRow.id, query);
       }
     } else {
+      // No match found - need to create a new row
+      // The BFF/backend will create it when we call search
       const freshRows = await fetchRowsFromDb();
       store.setRows(freshRows);
       targetRow = freshRows.find(r => r.title === query) || null;
-      if (!targetRow && freshRows.length > 0) {
-        targetRow = freshRows[freshRows.length - 1];
+      
+      if (!targetRow) {
+        // Row doesn't exist yet - search API will create it
+        // For now, just trigger the search and let the backend handle row creation
+        store.setIsSearching(true);
+        const results = await runSearchApi(query, null as any);
+        // Refresh rows to get the newly created row
+        const updatedRows = await fetchRowsFromDb();
+        store.setRows(updatedRows);
+        const newRow = updatedRows.find(r => r.title === query);
+        if (newRow) {
+          store.setActiveRowId(newRow.id);
+          store.setRowResults(newRow.id, results);
+        }
+        return;
       }
+      
       if (targetRow) {
         store.setActiveRowId(targetRow.id);
       }
@@ -101,11 +119,7 @@ export default function Chat() {
     const queryText = input.trim();
     setInput('');
     setIsLoading(true);
-    
-    // Always trigger search flow directly for user queries
-    // This ensures search works even if LLM/BFF has issues
-    handleSearchFlow(queryText);
-    
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -113,8 +127,15 @@ export default function Chat() {
         body: JSON.stringify({ 
           messages: [...messages, userMessage],
           activeRowId: store.activeRowId,
+          projectId: store.targetProjectId,
         }),
       });
+      
+      // Clear the target project after sending, so subsequent unrelated queries don't inherit it accidentally
+      // (unless we want "mode" behavior, but for now "one-shot" is safer)
+      if (store.targetProjectId) {
+        store.setTargetProjectId(null);
+      }
       
       if (!response.ok) throw new Error('Failed to send message');
       
@@ -146,12 +167,14 @@ export default function Chat() {
             await new Promise(resolve => setTimeout(resolve, 800));
             const freshRows = await fetchRowsFromDb();
             store.setRows(freshRows);
-            
-            if (freshRows.length > 0) {
-              const newestRow = freshRows[freshRows.length - 1];
-              store.setActiveRowId(newestRow.id);
-              const results = await runSearchApi(newestRow.title, newestRow.id);
-              store.setRowResults(newestRow.id, results);
+
+            // Prefer selecting the row that matches the created query; otherwise pick most recently created
+            const createdTitle = rowMatch[1].toLowerCase().trim();
+            const byTitle = freshRows.find(r => r.title.toLowerCase().trim() === createdTitle);
+            const newestById = [...freshRows].sort((a, b) => b.id - a.id)[0];
+            const selected = byTitle || newestById;
+            if (selected) {
+              store.setActiveRowId(selected.id);
             }
           }
           
@@ -159,20 +182,36 @@ export default function Chat() {
           if (updateMatch && !rowUpdateHandled) {
             rowUpdateHandled = true;
             const updatedRowId = parseInt(updateMatch[1], 10);
-            const updatedTitle = updateMatch[2];
             
             const freshRows = await fetchRowsFromDb();
             store.setRows(freshRows);
             store.setActiveRowId(updatedRowId);
-            
-            const results = await runSearchApi(updatedTitle, updatedRowId);
-            store.setRowResults(updatedRowId, results);
           }
           
           const searchMatch = assistantContent.match(/🔍 Searching for "([^"]+)"/);
           if (searchMatch && searchMatch[1] !== lastProcessedQuery) {
             lastProcessedQuery = searchMatch[1];
-            await handleSearchFlow(lastProcessedQuery);
+
+            // Ensure we have a stable active row for this search
+            let rowId = store.activeRowId;
+            if (!rowId) {
+              const freshRows = await fetchRowsFromDb();
+              store.setRows(freshRows);
+              const q = lastProcessedQuery.toLowerCase().trim();
+              const byTitle = freshRows.find(r => r.title.toLowerCase().trim() === q);
+              const newestById = [...freshRows].sort((a, b) => b.id - a.id)[0];
+              const selected = byTitle || newestById;
+              if (selected) {
+                rowId = selected.id;
+                store.setActiveRowId(rowId);
+              }
+            }
+
+            if (rowId) {
+              store.setIsSearching(true);
+              const results = await runSearchApi(lastProcessedQuery, rowId);
+              store.setRowResults(rowId, results);
+            }
           }
           
           setMessages(prev => 

@@ -24,7 +24,7 @@ export default function OfferTile({
   onShare,
 }: OfferTileProps) {
   // Build clickout URL
-  const clickUrl = offer.click_url || `/api/clickout?url=${encodeURIComponent(offer.url)}&row_id=${rowId}&idx=${index}&source=${encodeURIComponent(offer.source)}`;
+  const clickUrl = offer.click_url || `/api/out?url=${encodeURIComponent(offer.url)}&row_id=${rowId}&idx=${index}&source=${encodeURIComponent(offer.source)}`;
   const safePrice = Number.isFinite(offer.price) ? offer.price : 0;
   const source = String(offer.source || '').toLowerCase();
   const isBiddable = source === 'manual' || source.includes('seller');
@@ -40,7 +40,7 @@ export default function OfferTile({
     <Card
       variant="hover"
       className={cn(
-        "min-w-[255px] max-w-[255px] h-[360px] flex flex-col relative group",
+        "min-w-[255px] max-w-[255px] h-[450px] flex flex-col relative group",
         "shadow-[0_2px_6px_rgba(0,0,0,0.16)]",
         isSelected
           ? "border-status-success ring-2 ring-status-success/30 shadow-[0_10px_24px_rgba(28,148,64,0.25)]"

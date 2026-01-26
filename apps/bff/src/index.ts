@@ -1,5 +1,29 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import fs from 'fs';
+import path from 'path';
+import { chatHandler, generateAndSaveChoiceFactors, GEMINI_MODEL_NAME } from './llm';
+
+// Manually load .env since we want to avoid dependency issues
+try {
+  const envPath = path.resolve(__dirname, '../.env');
+  if (fs.existsSync(envPath)) {
+    const envConfig = fs.readFileSync(envPath, 'utf8');
+    envConfig.split('\n').forEach(line => {
+      const match = line.match(/^([^#=]+)=(.*)$/);
+      if (match) {
+        const key = match[1].trim();
+        const value = match[2].trim();
+        if (key && value.length > 0 && !process.env[key]) {
+          process.env[key] = value;
+        }
+      }
+    });
+    console.log('Loaded .env configuration from:', envPath);
+  }
+} catch (e) {
+  console.warn('Failed to load .env file:', e);
+}
 
 const fastify = Fastify({
   logger: true,
@@ -9,6 +33,14 @@ const fastify = Fastify({
 fastify.register(cors, {
   origin: process.env.CORS_ORIGIN || '*',
 });
+
+fastify.addContentTypeParser(
+  /^multipart\/form-data(?:;.*)?$/,
+  { parseAs: 'buffer' },
+  (req, body, done) => {
+    done(null, body);
+  }
+);
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
@@ -32,6 +64,196 @@ async function fetchJsonWithTimeout(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function buildBasicChoiceFactors(itemName: string): Array<{
+  name: string;
+  label: string;
+  type: 'number' | 'select' | 'text' | 'boolean';
+  options?: string[];
+  required: boolean;
+}> {
+  const normalized = (itemName || '').trim();
+  const displayName = normalized.length ? normalized : 'this item';
+  const text = normalized.toLowerCase();
+
+  const isBike = /(\bbikes?\b|\bbicycles?\b|mtb|mountain bike|road bike|gravel bike|e-bike|ebike)/i.test(text);
+  const isRacquet = /(racquet|racket)/i.test(text);
+  const isSocks = /\bsocks?\b/i.test(text);
+  const isShoes = /(shoe|shoes|sneaker|sneakers|cleat|cleats)/i.test(text);
+
+  const shared: Array<{
+    name: string;
+    label: string;
+    type: 'number' | 'select' | 'text' | 'boolean';
+    options?: string[];
+    required: boolean;
+  }> = [
+    {
+      name: 'max_budget',
+      label: 'Price Range',
+      type: 'number',
+      required: false,
+    },
+    {
+      name: 'preferred_brand',
+      label: 'Preferred Brand',
+      type: 'text',
+      required: false,
+    },
+    {
+      name: 'condition',
+      label: 'Condition',
+      type: 'select',
+      options: ['new', 'used', 'either'],
+      required: false,
+    },
+    {
+      name: 'shipping_speed',
+      label: 'Shipping Speed',
+      type: 'select',
+      options: ['fastest', 'standard', 'no_rush'],
+      required: false,
+    },
+    {
+      name: 'notes',
+      label: `Notes (anything specific about ${displayName})`,
+      type: 'text',
+      required: false,
+    },
+  ];
+
+  if (isBike) {
+    return [
+      {
+        name: 'bike_size',
+        label: 'Bike Size',
+        type: 'select',
+        options: ['XS', 'S', 'M', 'L', 'XL', 'Not sure'],
+        required: false,
+      },
+      {
+        name: 'frame_material',
+        label: 'Frame Material',
+        type: 'select',
+        options: ['carbon', 'aluminum', 'steel', 'titanium', 'either'],
+        required: false,
+      },
+      ...shared,
+    ];
+  }
+
+  if (isRacquet) {
+    return [
+      {
+        name: 'racquet_size',
+        label: 'Racquet Size',
+        type: 'select',
+        options: ['Adult', 'Junior', 'Not sure'],
+        required: false,
+      },
+      {
+        name: 'grip_size',
+        label: 'Grip Size',
+        type: 'select',
+        options: ['4 0/8', '4 1/8', '4 2/8', '4 3/8', '4 4/8', 'Not sure'],
+        required: false,
+      },
+      {
+        name: 'racquet_material',
+        label: 'Material',
+        type: 'select',
+        options: ['graphite', 'carbon', 'aluminum', 'wood', 'either'],
+        required: false,
+      },
+      ...shared,
+    ];
+  }
+
+  if (isSocks) {
+    return [
+      {
+        name: 'sock_size',
+        label: 'Size',
+        type: 'select',
+        options: ['S', 'M', 'L', 'XL', 'Not sure'],
+        required: false,
+      },
+      {
+        name: 'sock_material',
+        label: 'Material',
+        type: 'select',
+        options: ['cotton', 'wool', 'synthetic', 'bamboo', 'either'],
+        required: false,
+      },
+      ...shared,
+    ];
+  }
+
+  if (isShoes) {
+    return [
+      {
+        name: 'shoe_size',
+        label: 'Size',
+        type: 'text',
+        required: false,
+      },
+      {
+        name: 'shoe_material',
+        label: 'Material',
+        type: 'select',
+        options: ['leather', 'synthetic', 'mesh', 'either'],
+        required: false,
+      },
+      ...shared,
+    ];
+  }
+
+  return shared;
+}
+
+async function saveChoiceFactorsToBackend(rowId: number, factors: unknown, authorization?: string) {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (authorization) {
+    headers['Authorization'] = authorization;
+  }
+
+  await fetchJsonWithTimeout(
+    `${BACKEND_URL}/rows/${rowId}`,
+    {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ choice_factors: JSON.stringify(factors) }),
+    },
+    15000
+  );
+}
+
+function normalizeRefinementText(text: string): { normalized: string; isRefinement: boolean } {
+  const raw = (text || '').trim();
+  const lower = raw.toLowerCase();
+
+  const patterns: Array<{ re: RegExp; isRefinement: boolean }> = [
+    { re: /^i\s+meant\s+/i, isRefinement: true },
+    { re: /^actually\s+/i, isRefinement: true },
+    { re: /^no\s*,\s*/i, isRefinement: true },
+    { re: /^instead\s+/i, isRefinement: true },
+    { re: /^change\s+to\s+/i, isRefinement: true },
+    { re: /^make\s+it\s+/i, isRefinement: true },
+  ];
+
+  for (const p of patterns) {
+    if (p.re.test(raw)) {
+      const normalized = raw.replace(p.re, '').trim();
+      return { normalized: normalized || raw, isRefinement: true };
+    }
+  }
+
+  if (lower.startsWith('i mean ')) {
+    return { normalized: raw.slice('i mean '.length).trim() || raw, isRefinement: true };
+  }
+
+  return { normalized: raw, isRefinement: false };
 }
 
 // Proxy clickout to backend (preserves auth header for user tracking)
@@ -60,6 +282,51 @@ fastify.get('/api/out', async (request, reply) => {
   } catch (err) {
     fastify.log.error(err);
     reply.status(500).send({ error: 'Clickout failed' });
+  }
+});
+
+fastify.post('/api/bugs', async (request, reply) => {
+  try {
+    const headers: Record<string, string> = {};
+    const contentType = request.headers['content-type'];
+    if (typeof contentType === 'string' && contentType.length > 0) {
+      headers['Content-Type'] = contentType;
+    }
+    if (request.headers.authorization) {
+      headers['Authorization'] = request.headers.authorization;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/bugs`, {
+        method: 'POST',
+        headers,
+        body: request.body as any,
+        signal: controller.signal,
+      } as any);
+
+      const text = await response.text();
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+
+      reply.status(response.status);
+      if (data !== null) {
+        reply.send(data);
+        return;
+      }
+      reply.send(text);
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (err) {
+    fastify.log.error(err);
+    const msg = err instanceof Error ? err.message : String(err);
+    reply.status(502).send({ error: msg || 'Failed to submit bug report' });
   }
 });
 
@@ -104,14 +371,146 @@ fastify.get('/', async () => {
   return { message: 'Hello from Fastify!' };
 });
 
-// Chat API
-import { chatHandler, generateAndSaveChoiceFactors } from './llm';
-
 fastify.post('/api/chat', async (request, reply) => {
   let headersSent = false;
   try {
-    const { messages, activeRowId } = request.body as { messages: any[]; activeRowId?: number };
+    const { messages, activeRowId, projectId } = request.body as { messages: any[]; activeRowId?: number; projectId?: number };
     const authorization = request.headers.authorization;
+
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+        'Cache-Control': 'no-cache',
+      });
+      headersSent = true;
+
+      const lastUserMessage = Array.isArray(messages)
+        ? [...messages].reverse().find((m: any) => m?.role === 'user')
+        : null;
+
+      const userText =
+        typeof lastUserMessage?.content === 'string'
+          ? lastUserMessage.content
+          : typeof lastUserMessage?.content?.text === 'string'
+            ? lastUserMessage.content.text
+            : '';
+
+      const rawQuery = userText.trim();
+      if (!rawQuery) {
+        reply.raw.write('No query provided.');
+        reply.raw.end();
+        return;
+      }
+
+      const { normalized: normalizedQuery, isRefinement } = normalizeRefinementText(rawQuery);
+      const query = normalizedQuery;
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authorization) {
+        headers['Authorization'] = authorization as string;
+      }
+
+      let rowId: number | undefined = activeRowId;
+
+      // If we have an active row and the user is refining, update the existing row title/spec
+      // so backend search uses the updated row.title/spec.item_name.
+      if (rowId && isRefinement && query) {
+        reply.raw.write(`\n🔄 Updating row #${rowId} to "${query}"...`);
+        await fetchJsonWithTimeout(
+          `${BACKEND_URL}/rows/${rowId}`,
+          {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({
+              title: query,
+              request_spec: {
+                item_name: query,
+              },
+            }),
+          },
+          15000
+        );
+        reply.raw.write(' Done!');
+      }
+      if (!rowId) {
+        reply.raw.write(`\n✅ Adding "${query}" to your procurement board...`);
+
+        const createResult = await fetchJsonWithTimeout(
+          `${BACKEND_URL}/rows`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              title: query,
+              status: 'sourcing',
+              project_id: projectId,
+              request_spec: {
+                item_name: query,
+                constraints: JSON.stringify({}),
+              },
+              choice_answers: JSON.stringify({}),
+            }),
+          },
+          15000
+        );
+
+        if (!createResult.ok) {
+          const msg =
+            createResult.data?.detail ||
+            createResult.data?.message ||
+            createResult.text ||
+            'Backend request failed';
+          reply.raw.write(`\n⚠️ Error (${createResult.status}): ${msg}`);
+          reply.raw.end();
+          return;
+        }
+
+        rowId = createResult.data?.id;
+        if (!rowId) {
+          reply.raw.write(`\n⚠️ Error: Backend returned unexpected response for createRow`);
+          reply.raw.end();
+          return;
+        }
+
+        // Persist deterministic fallback choice factors so the UI can render Options.
+        // Fire-and-forget to avoid delaying search.
+        saveChoiceFactorsToBackend(rowId, buildBasicChoiceFactors(query), authorization as string | undefined).catch((err) => {
+          fastify.log.error({ err, rowId }, 'Failed to save fallback choice_factors');
+        });
+
+        reply.raw.write(' Done!');
+      }
+
+      reply.raw.write(`\n🔍 Searching for "${query}"...`);
+
+      const searchResult = await fetchJsonWithTimeout(
+        `${BACKEND_URL}/rows/${rowId}/search`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ query }),
+        },
+        30000
+      );
+
+      if (!searchResult.ok) {
+        const msg =
+          searchResult.data?.detail ||
+          searchResult.data?.message ||
+          searchResult.text ||
+          'Backend request failed';
+        reply.raw.write(`\n⚠️ Error (${searchResult.status}): ${msg}`);
+        reply.raw.end();
+        return;
+      }
+
+      const count = Array.isArray(searchResult.data?.results) ? searchResult.data.results.length : 0;
+      reply.raw.write(` Found ${count} results!`);
+      reply.raw.end();
+      return;
+    }
+
     const result = await chatHandler(messages, authorization, activeRowId);
     
     // Set headers for streaming
@@ -382,7 +781,12 @@ fastify.patch('/api/rows/:id', async (request, reply) => {
 
       const merged = { ...(constraintsObj || {}), ...(answersObj || {}) };
 
-      await generateAndSaveChoiceFactors(row?.title || row?.request_spec?.item_name || 'product', Number(id), request.headers.authorization as string | undefined, merged);
+      const itemName = row?.title || row?.request_spec?.item_name || 'product';
+      if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+        await saveChoiceFactorsToBackend(Number(id), buildBasicChoiceFactors(itemName), request.headers.authorization as string | undefined);
+      } else {
+        await generateAndSaveChoiceFactors(itemName, Number(id), request.headers.authorization as string | undefined, merged);
+      }
 
       const updatedRes = await fetch(`${BACKEND_URL}/rows/${id}`, { headers });
       const updated = await updatedRes.json();
@@ -414,6 +818,104 @@ fastify.patch('/api/rows/:id', async (request, reply) => {
   } catch (err) {
     fastify.log.error(err);
     reply.status(500).send({ error: 'Failed to update row' });
+  }
+});
+
+// Project Management Proxy
+fastify.get('/api/projects', async (request, reply) => {
+  try {
+    const headers: Record<string, string> = {};
+    if (request.headers.authorization) {
+      headers['Authorization'] = request.headers.authorization;
+    }
+
+    const result = await fetchJsonWithTimeout(
+      `${BACKEND_URL}/projects`,
+      { headers },
+      8000
+    );
+
+    if (result.status === 401) {
+      reply.status(401).send({ error: 'Unauthorized' });
+      return;
+    }
+
+    if (!result.ok) {
+      reply.status(result.status).send({
+        error: result.data?.detail || result.data?.message || result.text || 'Failed to fetch projects',
+      });
+      return;
+    }
+
+    return result.data;
+  } catch (err) {
+    fastify.log.error(err);
+    reply.status(502).send({ error: 'Failed to fetch projects' });
+  }
+});
+
+fastify.post('/api/projects', async (request, reply) => {
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (request.headers.authorization) {
+      headers['Authorization'] = request.headers.authorization;
+    }
+
+    const result = await fetchJsonWithTimeout(
+      `${BACKEND_URL}/projects`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(request.body),
+      },
+      8000
+    );
+
+    if (result.status === 401) {
+      reply.status(401).send({ error: 'Unauthorized' });
+      return;
+    }
+
+    if (!result.ok) {
+      reply.status(result.status).send({
+        error: result.data?.detail || result.data?.message || result.text || 'Failed to create project',
+      });
+      return;
+    }
+
+    return result.data;
+  } catch (err) {
+    fastify.log.error(err);
+    reply.status(502).send({ error: 'Failed to create project' });
+  }
+});
+
+fastify.delete('/api/projects/:id', async (request, reply) => {
+  try {
+    const { id } = request.params as { id: string };
+    const headers: Record<string, string> = {};
+    if (request.headers.authorization) {
+      headers['Authorization'] = request.headers.authorization;
+    }
+
+    const response = await fetch(`${BACKEND_URL}/projects/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
+    
+    if (response.status === 401) {
+      reply.status(401).send({ error: 'Unauthorized' });
+      return;
+    }
+    if (response.status === 404) {
+      reply.status(404).send({ error: 'Project not found' });
+      return;
+    }
+    const data = await response.json();
+    return data;
+  } catch (err) {
+    fastify.log.error(err);
+    reply.status(500).send({ error: 'Failed to delete project' });
   }
 });
 
@@ -483,8 +985,22 @@ fastify.post('/api/auth/logout', async (request, reply) => {
 const start = async () => {
   try {
     const port = parseInt(process.env.PORT || '8080', 10);
-    await fastify.listen({ port, host: '0.0.0.0' });
-    fastify.log.info(`🚀 Server listening on port ${port}`);
+    await fastify.listen({ port, host: '0.0.0.0' }, (err, address) => {
+      if (err) {
+        fastify.log.error(err);
+        process.exit(1);
+      }
+      fastify.log.info(`Server listening at ${address}`);
+      const llmEnabled = Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+      fastify.log.info(
+        {
+          llmEnabled,
+          geminiModel: GEMINI_MODEL_NAME,
+        },
+        llmEnabled ? 'LLM mode enabled (Gemini)' : 'LLM mode disabled (fallback)'
+      );
+      fastify.log.info(`🚀 Server listening on port ${port}`);
+    });
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

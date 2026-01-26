@@ -16,6 +16,24 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
+
+  if (disableClerk) {
+    return (
+      <html lang="en">
+        <body className="font-sans bg-canvas text-onyx">
+          <DiagnosticsInit />
+          {children}
+          {/* Skimlinks affiliate link conversion */}
+          <Script
+            src="https://s.skimresources.com/js/297674X1785170.skimlinks.js"
+            strategy="afterInteractive"
+          />
+        </body>
+      </html>
+    );
+  }
+
   return (
     <ClerkProvider>
       <html lang="en">

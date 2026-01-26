@@ -1,22 +1,18 @@
 # Build Log - task-001
 
-## Changes Applied
-- **Schema**: Added `user_id` foreign key to `AuthSession` in `apps/backend/models.py`.
-- **Logic**: Updated `auth_verify` in `apps/backend/main.py` to:
-  - Commit/refresh `User` creation to ensure an ID exists.
-  - Populate `user_id` when creating `AuthSession`.
-- **Tests**: Added `apps/backend/tests/test_auth_session_user_id.py` to verify the link.
+## Files Touched
+- `apps/backend/tests/test_clickout_redirect.py`: Added automated test for the clickout redirect endpoint (`/api/out`).
+- `apps/backend/.env`, `apps/bff/.env`, `apps/frontend/.env`: Corrected environment variable configuration to enable real search providers (SerpAPI, Rainforest) and fix service communication.
+- `docker-compose.dev.yml`: Verified database service configuration (restarted to fix connection refused errors).
 
-## Verification Instructions
-**Prerequisite**: Database must be running (Docker).
+## Manual Test Instructions
+1. **Start App**: Ensure Backend (8000), BFF (8080), Frontend (3003), and Postgres (5435) are running.
+2. **Create Row**: In the frontend chat, type "bicycles" (or similar) to create a new row.
+3. **Verify Offers**: Confirm that real product tiles appear (not placeholders).
+4. **Select Deal**: Click "Select Deal" on a tile. Confirm status updates.
+5. **Clickout**: Click the offer card (image/title). Confirm it opens the merchant URL in a new tab (simulating a redirect).
 
-1. **Start Backend**: `docker compose up -d` (or `uvicorn main:app --reload` with local DB).
-2. **Login Flow**:
-   - `POST /auth/start` with email.
-   - `POST /auth/verify` with code.
-   - Inspect DB `auth_session` table to confirm `user_id` column is populated.
-3. **Automated Test**:
-   - Run `pytest apps/backend/tests/test_auth_session_user_id.py`
-
-## Alignment check
-- Moves us closer to North Star by establishing the `User` <-> `Session` link required for isolation.
+## North Star Contribution
+- **Goal**: Unified closing layer.
+- **Contribution**: This task establishes the baseline "closing" mechanism (the clickout redirect) and ensures the core "search -> offers" loop is functional with real data. This is the foundation for all downstream marketplace features like proactive outreach and unified checkout.
+- **Root Issue Addressed**: Fixed the broken "mock" state and environment instability that prevented real end-to-end usage.
