@@ -107,6 +107,14 @@ const ACTIONS = [
     run: async (page: Page, ctx: FuzzContext, request: APIRequestContext) => {
       const title = `Item ${Date.now()}-${Math.floor(Math.random() * 100)}`;
       console.log(`👉 Action: CREATE_ROW "${title}"`);
+
+      const beforeRes = await request.get(`${BACKEND_URL}/rows`, {
+        headers: { 'Authorization': `Bearer ${ctx.sessionToken}` }
+      });
+      expect(beforeRes.ok()).toBeTruthy();
+      const beforeRows = await beforeRes.json();
+      const maxIdBefore = Math.max(0, ...beforeRows.map((r: any) => (typeof r.id === 'number' ? r.id : 0)));
+      let createdTitle = title;
       
       // Use UI to create
       const input = page.locator('input[placeholder*="looking for"], input[placeholder*="Refine"]');
@@ -131,7 +139,11 @@ const ACTIONS = [
         const rows = await res.json();
         
         // Debug logging to catch why matching might fail
-        const match = rows.find((r: any) => r.title === title);
+        const match =
+          rows.find((r: any) => r.title === title) ||
+          rows
+            .filter((r: any) => typeof r?.id === 'number' && r.id > maxIdBefore)
+            .sort((a: any, b: any) => (b.id as number) - (a.id as number))[0];
         if (!match) {
           console.log(`[CREATE_ROW] Waiting for "${title}" in API. Found: ${rows.length} rows.`);
           if (rows.length > 0) {
@@ -143,6 +155,10 @@ const ACTIONS = [
         
         expect(match).toBeTruthy();
         createdRowId = match?.id;
+        if (match?.title && match.title !== createdTitle) {
+          console.log(`[CREATE_ROW] Tracking created title from API: "${match.title}" (input was "${createdTitle}")`);
+          createdTitle = match.title;
+        }
       }).toPass({ timeout: 90000, intervals: [2000] });
 
       // 4. Wait for row to appear on board (with reload polling)
@@ -153,10 +169,10 @@ const ACTIONS = [
         if (await alert.isVisible()) {
           console.log('   (Saw alert during wait:', await alert.innerText(), ')');
         }
-        await expect(page.getByRole('heading', { name: title }).first()).toBeVisible({ timeout: 5000 });
+        await expect(page.getByRole('heading', { name: createdTitle }).first()).toBeVisible({ timeout: 5000 });
       }).toPass({ timeout: 90000, intervals: [5000] });
       
-      ctx.rows.add(title);
+      ctx.rows.add(createdTitle);
     }
   },
   {
