@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
 import { useShoppingStore } from '../store';
-import { persistRowToDb, runSearchApi, fetchRowsFromDb } from '../utils/api';
+import { persistRowToDb, runSearchApi, fetchRowsFromDb, fetchProjectsFromDb } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
@@ -51,9 +51,8 @@ export default function Chat() {
     const loadData = async () => {
       const rows = await fetchRowsFromDb();
       store.setRows(rows);
-      // TODO: Re-enable projects fetch once auth is working
-      // const projects = await fetchProjectsFromDb();
-      // store.setProjects(projects);
+      const projects = await fetchProjectsFromDb();
+      store.setProjects(projects);
     };
     loadData();
   }, []);
@@ -128,8 +127,15 @@ export default function Chat() {
         body: JSON.stringify({ 
           messages: [...messages, userMessage],
           activeRowId: store.activeRowId,
+          projectId: store.targetProjectId,
         }),
       });
+      
+      // Clear the target project after sending, so subsequent unrelated queries don't inherit it accidentally
+      // (unless we want "mode" behavior, but for now "one-shot" is safer)
+      if (store.targetProjectId) {
+        store.setTargetProjectId(null);
+      }
       
       if (!response.ok) throw new Error('Failed to send message');
       

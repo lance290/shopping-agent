@@ -160,6 +160,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
   return (
     <div 
+      data-testid="row-strip"
       className={cn(
         "rounded-md transition-all duration-200 overflow-hidden bg-transparent"
       )}

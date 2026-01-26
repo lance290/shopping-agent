@@ -7,6 +7,7 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   reporter: 'list',
+  globalTeardown: './e2e/global-teardown.ts',
   webServer: {
     command: 'pnpm dev',
     url: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',

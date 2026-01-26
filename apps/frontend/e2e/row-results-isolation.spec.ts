@@ -53,26 +53,27 @@ test.describe('Per-Row Results Isolation', () => {
     }]);
 
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
-    // Both rows should be visible in sidebar
-    await expect(page.locator('text=Montana State shirts')).toBeVisible();
-    await expect(page.locator('text=Blue hoodies under $50')).toBeVisible();
+    // Wait until the board has fetched rows
+    await page.waitForResponse(
+      (r) => r.url().includes('/api/rows') && r.request().method() === 'GET' && r.status() === 200,
+      { timeout: 15000 }
+    );
+
+    // Wait until rows are rendered
+    const row1Heading = page.getByRole('heading', { name: 'Montana State shirts' }).first();
+    const row2Heading = page.getByRole('heading', { name: 'Blue hoodies under $50' }).first();
+    await expect(row1Heading).toBeVisible({ timeout: 15000 });
+    await expect(row2Heading).toBeVisible({ timeout: 15000 });
 
     // Click first row
-    await page.locator('text=Montana State shirts').first().click();
-    await page.waitForTimeout(500);
-
-    // The product panel should show the row title
-    const panelTitle = page.locator('h1');
-    await expect(panelTitle).toContainText('Montana State shirts');
+    await row1Heading.click();
+    await expect(page.getByText('Focused on: Montana State shirts')).toBeVisible({ timeout: 10000 });
 
     // Click second row
-    await page.locator('text=Blue hoodies under $50').first().click();
-    await page.waitForTimeout(500);
-
-    // Panel should now show second row's title
-    await expect(panelTitle).toContainText('Blue hoodies under $50');
+    await row2Heading.click();
+    await expect(page.getByText('Focused on: Blue hoodies under $50')).toBeVisible({ timeout: 10000 });
   });
 
   test('row titles persist after page reload', async ({ page }) => {
@@ -87,16 +88,23 @@ test.describe('Per-Row Results Isolation', () => {
     await page.waitForLoadState('networkidle');
 
     // Verify rows exist
-    await expect(page.locator('text=Montana State shirts')).toBeVisible();
-    await expect(page.locator('text=Blue hoodies under $50')).toBeVisible();
+    const row1Heading = page.getByRole('heading', { name: 'Montana State shirts' }).first();
+    const row2Heading = page.getByRole('heading', { name: 'Blue hoodies under $50' }).first();
+    await expect(row1Heading).toBeVisible({ timeout: 15000 });
+    await expect(row2Heading).toBeVisible({ timeout: 15000 });
 
     // Reload page
     await page.reload();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+
+    await page.waitForResponse(
+      (r) => r.url().includes('/api/rows') && r.request().method() === 'GET' && r.status() === 200,
+      { timeout: 15000 }
+    );
 
     // Rows should still be there
-    await expect(page.locator('text=Montana State shirts')).toBeVisible();
-    await expect(page.locator('text=Blue hoodies under $50')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Montana State shirts' }).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'Blue hoodies under $50' }).first()).toBeVisible({ timeout: 15000 });
   });
 
   test('deleting a row removes it from sidebar', async ({ page }) => {
@@ -111,20 +119,22 @@ test.describe('Per-Row Results Isolation', () => {
     await page.waitForLoadState('networkidle');
 
     // Both rows visible
-    await expect(page.locator('text=Montana State shirts')).toBeVisible();
-    await expect(page.locator('text=Blue hoodies under $50')).toBeVisible();
+    const row1Heading = page.getByRole('heading', { name: 'Montana State shirts' }).first();
+    const row2Heading = page.getByRole('heading', { name: 'Blue hoodies under $50' }).first();
+    await expect(row1Heading).toBeVisible({ timeout: 15000 });
+    await expect(row2Heading).toBeVisible({ timeout: 15000 });
 
-    // Find and click delete button on first row
-    const firstRowCard = page.locator('text=Montana State shirts').first().locator('..');
-    const deleteButton = firstRowCard.locator('button').first();
-    await deleteButton.click();
+    // Archive the first row via the archive icon button
+    const firstRowCard = row1Heading.locator('..').locator('..');
+    const archiveButton = firstRowCard.locator('button[title="Archive row"]');
+    await archiveButton.click();
 
-    // Wait for deletion
-    await page.waitForTimeout(500);
+    // UI supports undo; row is removed after the undo window elapses
+    await page.waitForTimeout(8000);
 
     // First row should be gone, second should remain
-    await expect(page.locator('text=Montana State shirts')).not.toBeVisible();
-    await expect(page.locator('text=Blue hoodies under $50')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Montana State shirts' })).toHaveCount(0, { timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'Blue hoodies under $50' }).first()).toBeVisible({ timeout: 15000 });
   });
 });
 

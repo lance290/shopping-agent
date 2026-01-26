@@ -117,7 +117,7 @@ test.describe('Refinement Flow - Row Updates', () => {
     await page.waitForLoadState('networkidle');
 
     // Should see updated title
-    await expect(page.locator('text=Montana State shirts under $50')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Montana State shirts under $50' }).first()).toBeVisible({ timeout: 15000 });
   });
 });
 

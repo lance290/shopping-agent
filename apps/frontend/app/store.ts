@@ -117,6 +117,7 @@ interface ShoppingState {
   // Core state - SOURCE OF TRUTH
   currentQuery: string;           // The current search query
   activeRowId: number | null;     // The currently selected row ID
+  targetProjectId: number | null; // The project ID to create new rows in
   rows: Row[];                    // All rows from database
   projects: Project[];            // All projects
   searchResults: Offer[];         // Current search results (legacy view)
@@ -128,6 +129,7 @@ interface ShoppingState {
   // Actions
   setCurrentQuery: (query: string) => void;
   setActiveRowId: (id: number | null) => void;
+  setTargetProjectId: (id: number | null) => void;
   setRows: (rows: Row[]) => void;
   setProjects: (projects: Project[]) => void;
   addProject: (project: Project) => void;
@@ -163,6 +165,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   // Initial state
   currentQuery: '',
   activeRowId: null,
+  targetProjectId: null,
   rows: [],
   projects: [],
   searchResults: [],
@@ -176,6 +179,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   
   // Basic setters
   setCurrentQuery: (query) => set({ currentQuery: query }),
+  setTargetProjectId: (id) => set({ targetProjectId: id }),
   setActiveRowId: (id) => set((state) => {
     if (id === null) return { activeRowId: id };
 

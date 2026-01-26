@@ -13,6 +13,7 @@ export default function ProcurementBoard() {
   const projects = useShoppingStore(state => state.projects);
   const activeRowId = useShoppingStore(state => state.activeRowId);
   const rowResults = useShoppingStore(state => state.rowResults);
+  const setTargetProjectId = useShoppingStore(state => state.setTargetProjectId);
   const setActiveRowId = useShoppingStore(state => state.setActiveRowId);
   const addRow = useShoppingStore(state => state.addRow);
   const addProject = useShoppingStore(state => state.addProject);
@@ -82,11 +83,19 @@ export default function ProcurementBoard() {
   };
 
   const handleCreateRow = (projectId?: number) => {
+    // Set the target project for the next created row
+    setTargetProjectId(projectId || null);
+    
     // Just focus the chat input - the chat will create the row when user types
     const chatInput = document.querySelector('input[placeholder*="looking for"], input[placeholder*="Refine"]') as HTMLInputElement | null;
     chatInput?.focus();
-    showToast('Tell us what you are buying to start a new request.');
-    // TODO: Handle projectId when creating row from chat
+    
+    if (projectId) {
+      const project = projects.find(p => p.id === projectId);
+      showToast(`Adding to "${project?.title || 'project'}"...`);
+    } else {
+      showToast('Tell us what you are buying to start a new request.');
+    }
   };
 
   // Grouping logic

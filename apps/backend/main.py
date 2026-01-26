@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy import text
 
 from sourcing import SourcingRepository, SearchResult, extract_merchant_domain
 from database import init_db, get_session
@@ -438,7 +439,7 @@ async def get_bug_report(
     is_admin = user.is_admin if user else False
     
     if bug.user_id != auth_session.user_id and not is_admin:
-        raise HTTPException(status_code=403, detail="Not authorized to view this report")
+        raise HTTPException(status_code=404, detail="Bug report not found")
     
     # Parse attachments
     attachments_list = []
@@ -605,6 +606,13 @@ async def create_row(
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
         raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Validate project ownership if project_id is provided
+    if row.project_id is not None:
+        project = await session.get(Project, row.project_id)
+        if not project or project.user_id != auth_session.user_id:
+            # Silently ignore invalid project_id (don't leak info about other users' projects)
+            row.project_id = None
 
     # Extract request_spec data
     request_spec_data = row.request_spec
@@ -1188,6 +1196,24 @@ async def mint_session(request: MintSessionRequest, session: AsyncSession = Depe
     await session.commit()
     
     return {"session_token": token}
+
+
+@app.post("/test/reset-db")
+async def test_reset_db(session: AsyncSession = Depends(get_session)):
+    if os.getenv("E2E_TEST_MODE") != "1":
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    try:
+        await session.execute(
+            text(
+                'TRUNCATE TABLE bid, request_spec, "row", project, clickout_event, bug_report, audit_log, auth_login_code, auth_session, "user" RESTART IDENTITY CASCADE;'
+            )
+        )
+        await session.commit()
+        return {"status": "ok"}
+    except Exception as e:
+        await session.rollback()
+        raise HTTPException(status_code=500, detail=f"DB reset failed: {str(e)}")
 
 
 @app.post("/auth/start", response_model=AuthStartResponse)

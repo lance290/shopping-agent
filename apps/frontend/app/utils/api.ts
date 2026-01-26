@@ -1,5 +1,24 @@
 import { Row, Offer, Project } from '../store';
 
+function getDevAuthToken(): string {
+  const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
+  if (!disableClerk) return '';
+
+  // Prefer the Playwright-set cookie so UI E2E tests and API-created rows share the same session.
+  if (typeof document !== 'undefined') {
+    const match = document.cookie
+      .split(';')
+      .map((c) => c.trim())
+      .find((c) => c.startsWith('sa_session='));
+    if (match) {
+      const value = match.split('=')[1];
+      if (value) return decodeURIComponent(value);
+    }
+  }
+
+  return process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN || '';
+}
+
 // Helper: Persist row to database
 export const persistRowToDb = async (rowId: number, title: string) => {
   console.log('[API] Persisting to DB:', rowId, title);
@@ -124,7 +143,11 @@ export const createRowInDb = async (title: string, projectId?: number | null): P
 // Helper: Fetch all rows from DB
 export const fetchRowsFromDb = async (): Promise<Row[]> => {
   try {
-    const res = await fetch('/api/rows');
+    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8081';
+    const token = getDevAuthToken();
+    const res = await fetch(`${bffUrl}/api/rows`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
     if (res.ok) {
       const rows = await res.json();
       return Array.isArray(rows) ? rows : [];
@@ -141,8 +164,8 @@ export const fetchRowsFromDb = async (): Promise<Row[]> => {
 export const fetchProjectsFromDb = async (): Promise<Project[]> => {
   try {
     // Call BFF directly to bypass Next.js API route registration issue
-    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8080';
-    const token = process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN || '';
+    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8081';
+    const token = getDevAuthToken();
     const res = await fetch(`${bffUrl}/api/projects`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -162,8 +185,8 @@ export const fetchProjectsFromDb = async (): Promise<Project[]> => {
 // Helper: Create project
 export const createProjectInDb = async (title: string): Promise<Project | null> => {
   try {
-    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8080';
-    const token = process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN || '';
+    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8081';
+    const token = getDevAuthToken();
     const res = await fetch(`${bffUrl}/api/projects`, {
       method: 'POST',
       headers: { 
@@ -185,8 +208,8 @@ export const createProjectInDb = async (title: string): Promise<Project | null> 
 // Helper: Delete project
 export const deleteProjectFromDb = async (id: number): Promise<boolean> => {
   try {
-    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8080';
-    const token = process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN || '';
+    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8081';
+    const token = getDevAuthToken();
     const res = await fetch(`${bffUrl}/api/projects/${id}`, { 
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` },

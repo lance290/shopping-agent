@@ -985,7 +985,7 @@ fastify.post('/api/auth/logout', async (request, reply) => {
 const start = async () => {
   try {
     const port = parseInt(process.env.PORT || '8080', 10);
-    await fastify.listen({ port: 8080, host: '0.0.0.0' }, (err, address) => {
+    await fastify.listen({ port, host: '0.0.0.0' }, (err, address) => {
       if (err) {
         fastify.log.error(err);
         process.exit(1);
@@ -999,7 +999,7 @@ const start = async () => {
         },
         llmEnabled ? 'LLM mode enabled (Gemini)' : 'LLM mode disabled (fallback)'
       );
-      fastify.log.info(`🚀 Server listening on port 8080`);
+      fastify.log.info(`🚀 Server listening on port ${port}`);
     });
   } catch (err) {
     fastify.log.error(err);

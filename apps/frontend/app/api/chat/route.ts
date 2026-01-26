@@ -16,7 +16,7 @@ const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
 export async function POST(request: NextRequest) {
   let token: string | null = null;
   if (disableClerk) {
-    token = process.env.DEV_SESSION_TOKEN || null;
+    token = request.cookies.get('sa_session')?.value || process.env.DEV_SESSION_TOKEN || null;
   } else {
     const { getToken } = await auth();
     token = await getToken();
