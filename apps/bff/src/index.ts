@@ -77,7 +77,7 @@ function buildBasicChoiceFactors(itemName: string): Array<{
   const displayName = normalized.length ? normalized : 'this item';
   const text = normalized.toLowerCase();
 
-  const isBike = /(bike|bicycle|mtb|mountain bike|road bike|gravel bike|e-bike|ebike)/i.test(text);
+  const isBike = /(\bbikes?\b|\bbicycles?\b|mtb|mountain bike|road bike|gravel bike|e-bike|ebike)/i.test(text);
   const isRacquet = /(racquet|racket)/i.test(text);
   const isSocks = /\bsocks?\b/i.test(text);
   const isShoes = /(shoe|shoes|sneaker|sneakers|cleat|cleats)/i.test(text);

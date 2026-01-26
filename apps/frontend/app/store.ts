@@ -179,27 +179,11 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   setActiveRowId: (id) => set((state) => {
     if (id === null) return { activeRowId: id };
 
-    // Update last_engaged_at timestamp and re-sort rows
     const updatedRows = state.rows.map((row) =>
       row.id === id ? { ...row, last_engaged_at: Date.now() } : row
     );
 
-    // Sort rows by engagement (most recent first)
-    const sortedRows = [...updatedRows].sort((a, b) => {
-      const aEngaged = a.last_engaged_at || 0;
-      const bEngaged = b.last_engaged_at || 0;
-
-      if (aEngaged > 0 && bEngaged > 0) {
-        return bEngaged - aEngaged;
-      }
-
-      if (aEngaged > 0) return -1;
-      if (bEngaged > 0) return 1;
-
-      return b.id - a.id;
-    });
-
-    return { activeRowId: id, rows: sortedRows };
+    return { activeRowId: id, rows: updatedRows };
   }),
   setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
@@ -295,23 +279,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       last_engaged_at: existingEngagement.get(row.id) || row.last_engaged_at,
     }));
 
-    // Sort rows: most recently engaged at the top, then by creation order (newest first)
-    const orderedRows = [...mergedRows].sort((a, b) => {
-      const aEngaged = a.last_engaged_at || 0;
-      const bEngaged = b.last_engaged_at || 0;
-
-      // If both have engagement timestamps, sort by most recent engagement
-      if (aEngaged > 0 && bEngaged > 0) {
-        return bEngaged - aEngaged;
-      }
-
-      // If only one has engagement, it goes first
-      if (aEngaged > 0) return -1;
-      if (bEngaged > 0) return 1;
-
-      // Neither engaged: newest row (highest ID) first
-      return b.id - a.id;
-    });
+    const orderedRows = [...mergedRows];
 
     // Automatically hydrate rowResults from persisted bids
     // IMPORTANT: Merge bids with existing rowResults to preserve search results

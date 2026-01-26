@@ -15,15 +15,28 @@ const BFF_URL = normalizeBaseUrl(process.env.BFF_URL || 'http://localhost:8080')
 
 const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
 
+function getDevSessionToken(): string | undefined {
+  return process.env.DEV_SESSION_TOKEN || process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN;
+}
+
+function isClerkConfigured(): boolean {
+  return Boolean(process.env.CLERK_SECRET_KEY);
+}
+
 async function getAuthHeader(): Promise<{ Authorization?: string }> {
-  if (disableClerk) {
-    const token = process.env.DEV_SESSION_TOKEN;
+  if (disableClerk || !isClerkConfigured()) {
+    const token = getDevSessionToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
-  const { getToken } = await auth();
-  const token = await getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  try {
+    const { getToken } = await auth();
+    const token = await getToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    const token = getDevSessionToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
 }
 
 export async function GET() {

@@ -29,6 +29,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
   const [cooldownUntil, setCooldownUntil] = useState<number>(0);
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didAutoLoadRef = useRef<boolean>(false);
 
   useEffect(() => {
     return () => {
@@ -61,6 +62,15 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       setIsSearching(false);
     }
   };
+
+  useEffect(() => {
+    if (!isActive) return;
+    if (didAutoLoadRef.current) return;
+    if (Array.isArray(offers) && offers.length > 0) return;
+
+    didAutoLoadRef.current = true;
+    refresh('all');
+  }, [isActive, row.id]);
 
   const sortOffers = (list: Offer[]) => {
     if (!list || list.length === 0) return [];

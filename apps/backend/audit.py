@@ -20,6 +20,7 @@ from fastapi import Request
 import json
 
 from models import AuditLog
+from utils.security import redact_sensitive
 
 
 async def audit_log(
@@ -75,20 +76,3 @@ async def audit_log(
     except Exception as e:
         # Never let audit logging break the main flow
         print(f"[AUDIT ERROR] Failed to log {action}: {e}")
-
-
-def redact_sensitive(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Redact sensitive fields from audit details."""
-    sensitive_keys = {'password', 'token', 'secret', 'api_key', 'code', 'session_token'}
-    
-    def _redact(obj):
-        if isinstance(obj, dict):
-            return {
-                k: '[REDACTED]' if k.lower() in sensitive_keys else _redact(v)
-                for k, v in obj.items()
-            }
-        if isinstance(obj, list):
-            return [_redact(item) for item in obj]
-        return obj
-    
-    return _redact(data)
