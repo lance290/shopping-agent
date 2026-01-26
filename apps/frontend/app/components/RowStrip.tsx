@@ -3,7 +3,7 @@ import { Row, Offer, OfferSortMode, useShoppingStore } from '../store';
 import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import { Archive, RefreshCw, FlaskConical, Undo2 } from 'lucide-react';
-import { runSearchApi, selectOfferForRow } from '../utils/api';
+import { runSearchApi, selectOfferForRow, toggleLikeApi, fetchLikesApi } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -30,6 +30,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const [cooldownUntil, setCooldownUntil] = useState<number>(0);
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didAutoLoadRef = useRef<boolean>(false);
+  const didLoadLikesRef = useRef<boolean>(false);
 
   useEffect(() => {
     return () => {
@@ -57,16 +58,62 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         row.id,
         mode === 'rainforest' ? { providers: ['rainforest'] } : undefined
       );
-      setRowResults(row.id, results);
+      
+      // Preserve existing likes if we haven't re-fetched them yet, 
+      // but ideally we should merge them. For now, rely on fetchLikes to hydrate.
+      // Or better: re-apply likes from current state? 
+      // Actually, after search, we should probably re-fetch likes to be safe,
+      // or merge with known likes.
+      // Let's re-fetch likes after search to ensure sync.
+      const likes = await fetchLikesApi(row.id);
+      const mergedResults = mergeLikes(results, likes);
+      
+      setRowResults(row.id, mergedResults);
     } finally {
       setIsSearching(false);
     }
   };
 
+  // Helper to merge likes into offers
+  const mergeLikes = (currentOffers: Offer[], likes: any[]): Offer[] => {
+    if (!likes || likes.length === 0) return currentOffers;
+    
+    // Create a set of liked bid_ids and offer_urls
+    const likedBidIds = new Set(likes.map(l => l.bid_id).filter(Boolean));
+    const likedUrls = new Set(likes.map(l => l.offer_url).filter(Boolean));
+    
+    return currentOffers.map(offer => ({
+      ...offer,
+      is_liked: !!(
+        (offer.bid_id && likedBidIds.has(offer.bid_id)) ||
+        (offer.url && likedUrls.has(offer.url))
+      )
+    }));
+  };
+
+  // Load likes when active (once)
+  useEffect(() => {
+    if (isActive && !didLoadLikesRef.current && row.id) {
+      didLoadLikesRef.current = true;
+      fetchLikesApi(row.id).then(likes => {
+        if (likes.length > 0) {
+          const merged = mergeLikes(offers, likes);
+          // Only update if changed to avoid loop/jitter
+          if (JSON.stringify(merged) !== JSON.stringify(offers)) {
+            setRowResults(row.id, merged);
+          }
+        }
+      });
+    }
+  }, [isActive, row.id, offers, setRowResults]);
+
   useEffect(() => {
     if (!isActive) return;
     if (didAutoLoadRef.current) return;
-    if (Array.isArray(offers) && offers.length > 0) return;
+    if (Array.isArray(offers) && offers.length > 0) {
+        // If we have offers but haven't loaded likes yet, ensure we do (handled above)
+        return;
+    }
 
     didAutoLoadRef.current = true;
     refresh('all');
@@ -122,19 +169,33 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     onToast?.(`Selected “${offer.title}”`, 'success');
   };
 
-  const handleToggleLike = (offer: Offer) => {
+  const handleToggleLike = async (offer: Offer) => {
+    const previousOffers = [...offers];
+    const newIsLiked = !offer.is_liked;
+    
+    // Optimistic update
     const updatedOffers = offers.map((item) => {
       if (item.bid_id && offer.bid_id && item.bid_id === offer.bid_id) {
-        return { ...item, is_liked: !item.is_liked };
+        return { ...item, is_liked: newIsLiked };
       }
       if (!item.bid_id && !offer.bid_id && item.url === offer.url) {
-        return { ...item, is_liked: !item.is_liked };
+        return { ...item, is_liked: newIsLiked };
       }
       return item;
     });
 
     setRowResults(row.id, applyLikedOrdering(sortOffers(updatedOffers)));
-    onToast?.(offer.is_liked ? 'Removed like.' : 'Liked this offer.', 'success');
+    
+    // Call API
+    const success = await toggleLikeApi(row.id, newIsLiked, offer.bid_id, offer.url);
+    
+    if (success) {
+      onToast?.(newIsLiked ? 'Liked this offer.' : 'Removed like.', 'success');
+    } else {
+      // Revert on failure
+      setRowResults(row.id, previousOffers);
+      onToast?.('Failed to save like. Try again.', 'error');
+    }
   };
 
   const handleComment = (_offer: Offer) => {

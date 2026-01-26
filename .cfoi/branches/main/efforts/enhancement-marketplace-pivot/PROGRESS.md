@@ -4,7 +4,7 @@
 
 ## Current State
 - **Status**: Ready for Implementation
-- **Current task**: task-013 (pending)
+- **Current task**: task-002 (pending)
 - **Last working commit**: N/A
 - **App status**: Unknown
 
@@ -33,7 +33,7 @@
 | ID | Description | Status |
 |---|---|---|
 | task-001 | Baseline click-first walkthrough + fixture data sanity | ✅ completed (waived due to Postgres instability; see `.cfoi/branches/main/proof/task-001/manual.md`) |
-| task-013 | Project hierarchy MVP: group/indent rows under a project | ⬜ pending |
+| task-013 | Project hierarchy MVP: group/indent rows under a project | ✅ completed |
 | task-002 | Persist likes (buyer) for offers/tiles | ⬜ pending |
 | task-003 | Persist comments (buyer/collaborator) with extensible visibility | ⬜ pending |
 | task-004 | Share links for tile/row/project (MVP: copy link) | ⬜ pending |

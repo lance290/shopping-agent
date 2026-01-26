@@ -190,6 +190,7 @@ Users enter through a centralized 'Intent Bar' on the landing page or via a coll
 |------|--------|------------|------------|
 | Agent Hallucination in RFP Specs | High | Medium | Implement a 'Human-in-the-loop' verification for the buyer to approve the generated RFP before vendor outreach. |
 | Low Vendor Response to Automated Outreach | Medium | Medium | Optimize WattData messaging to ensure outreach emails are personalized and clearly indicate buyer intent and budget. |
+| Search provider rate limits / quota exhaustion | High | High | Monitor provider usage, add budget alerts, and maintain multiple providers with automatic fallback and retry windows. |
 
 ---
 

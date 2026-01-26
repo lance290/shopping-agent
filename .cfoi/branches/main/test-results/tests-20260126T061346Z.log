@@ -1,0 +1,55 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.10.11, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Volumes/PivotNorth/Shopping Agent
+plugins: asyncio-1.3.0, anyio-3.7.1
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+DEBUG: DATABASE_URL starts with: postgresql+asyn...
+[SourcingRepository] SERPAPI_API_KEY present: True
+[SourcingRepository] SerpAPI provider initialized
+[SourcingRepository] RAINFOREST_API_KEY present: True (is_none=False, len=32)
+collected 33 items
+
+apps/backend/tests/test_affiliate.py .......                             [ 21%]
+apps/backend/tests/test_auth_session_user_id.py .                        [ 24%]
+apps/backend/tests/test_clickout_redirect.py ...                         [ 33%]
+apps/backend/tests/test_dependencies.py ........                         [ 57%]
+apps/backend/tests/test_e2e_mint_endpoint.py .                           [ 60%]
+apps/backend/tests/test_project_hierarchy.py .                           [ 63%]
+apps/backend/tests/test_rows_authorization.py .                          [ 66%]
+apps/backend/tests/test_security_utils.py ...........                    [100%]
+
+=============================== warnings summary ===============================
+../../../Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/formparsers.py:10
+  /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/formparsers.py:10: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+apps/backend/main.py:1534
+  /Volumes/PivotNorth/Shopping Agent/apps/backend/main.py:1534: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+../../../Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/applications.py:4547
+../../../Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/applications.py:4547
+  /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/applications.py:4547: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+apps/backend/main.py:1546
+  /Volumes/PivotNorth/Shopping Agent/apps/backend/main.py:1546: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 33 passed, 5 warnings in 6.06s ========================

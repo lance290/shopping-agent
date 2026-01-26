@@ -1,0 +1,56 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.3, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Volumes/PivotNorth/Shopping Agent
+plugins: anyio-4.12.1, asyncio-1.3.0, cov-7.0.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+DEBUG: DATABASE_URL starts with: postgresql+asyn...
+[SourcingRepository] SERPAPI_API_KEY present: True
+[SourcingRepository] SerpAPI provider initialized
+[SourcingRepository] RAINFOREST_API_KEY present: True (is_none=False, len=32)
+collected 34 items
+
+apps/backend/tests/test_affiliate.py .......                             [ 20%]
+apps/backend/tests/test_auth_session_user_id.py .                        [ 23%]
+apps/backend/tests/test_clickout_redirect.py ...                         [ 32%]
+apps/backend/tests/test_dependencies.py ........                         [ 55%]
+apps/backend/tests/test_e2e_mint_endpoint.py .                           [ 58%]
+apps/backend/tests/test_likes.py .                                       [ 61%]
+apps/backend/tests/test_project_hierarchy.py .                           [ 64%]
+apps/backend/tests/test_rows_authorization.py .                          [ 67%]
+apps/backend/tests/test_security_utils.py ...........                    [100%]
+
+=============================== warnings summary ===============================
+apps/backend/main.py:1648
+  /Volumes/PivotNorth/Shopping Agent/apps/backend/main.py:1648: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+apps/backend/.venv/lib/python3.11/site-packages/fastapi/applications.py:4576
+apps/backend/.venv/lib/python3.11/site-packages/fastapi/applications.py:4576
+  /Volumes/PivotNorth/Shopping Agent/apps/backend/.venv/lib/python3.11/site-packages/fastapi/applications.py:4576: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+apps/backend/main.py:1660
+  /Volumes/PivotNorth/Shopping Agent/apps/backend/main.py:1660: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform darwin, python 3.11.3-final-0 _______________
+
+Coverage XML written to file coverage.xml
+======================== 34 passed, 4 warnings in 9.30s ========================

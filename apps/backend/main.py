@@ -28,6 +28,7 @@ from database import init_db, get_session
 from models import (
     Row, RowBase, RowCreate, RequestSpec,
     AuthLoginCode, AuthSession, Bid, Seller, User, ClickoutEvent,
+    Like,
     BugReport, Project, ProjectCreate,
     hash_token, generate_verification_code, generate_session_token
 )
@@ -1136,6 +1137,119 @@ async def search_listings(request: SearchRequest):
         providers=request.providers,
     )
     return {"results": results}
+
+
+
+# ============ LIKE ENDPOINTS ============
+
+class LikeCreate(BaseModel):
+    row_id: int
+    bid_id: Optional[int] = None
+    offer_url: Optional[str] = None
+
+class LikeRead(BaseModel):
+    id: int
+    row_id: int
+    bid_id: Optional[int] = None
+    offer_url: Optional[str] = None
+    created_at: datetime
+
+@app.post("/likes", response_model=LikeRead)
+async def create_like(
+    like_in: LikeCreate,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Validate row access
+    row = await session.get(Row, like_in.row_id)
+    if not row or row.user_id != auth_session.user_id:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    # Check for existing like to avoid duplicates
+    query = select(Like).where(
+        Like.user_id == auth_session.user_id,
+        Like.row_id == like_in.row_id
+    )
+    if like_in.bid_id:
+        query = query.where(Like.bid_id == like_in.bid_id)
+    elif like_in.offer_url:
+        query = query.where(Like.offer_url == like_in.offer_url)
+    else:
+        raise HTTPException(status_code=400, detail="Must provide bid_id or offer_url")
+
+    existing = await session.exec(query)
+    if existing.first():
+        raise HTTPException(status_code=409, detail="Already liked")
+
+    # Create Like
+    db_like = Like(
+        user_id=auth_session.user_id,
+        row_id=like_in.row_id,
+        bid_id=like_in.bid_id,
+        offer_url=like_in.offer_url
+    )
+    session.add(db_like)
+    await session.commit()
+    await session.refresh(db_like)
+    return db_like
+
+@app.delete("/likes")
+async def delete_like(
+    row_id: int,
+    bid_id: Optional[int] = None,
+    offer_url: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Find the like
+    query = select(Like).where(
+        Like.user_id == auth_session.user_id,
+        Like.row_id == row_id
+    )
+    if bid_id:
+        query = query.where(Like.bid_id == bid_id)
+    elif offer_url:
+        query = query.where(Like.offer_url == offer_url)
+    else:
+        raise HTTPException(status_code=400, detail="Must provide bid_id or offer_url")
+
+    result = await session.exec(query)
+    like = result.first()
+    
+    if not like:
+        raise HTTPException(status_code=404, detail="Like not found")
+
+    await session.delete(like)
+    await session.commit()
+    return {"status": "deleted"}
+
+@app.get("/likes", response_model=List[LikeRead])
+async def list_likes(
+    row_id: Optional[int] = None,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    # Authenticate
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    query = select(Like).where(Like.user_id == auth_session.user_id)
+    if row_id:
+        query = query.where(Like.row_id == row_id)
+    
+    result = await session.exec(query)
+    return result.all()
 
 
 # ============ AUTH ENDPOINTS ============

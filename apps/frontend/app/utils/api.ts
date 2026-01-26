@@ -19,6 +19,54 @@ function getDevAuthToken(): string {
   return process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN || '';
 }
 
+async function getOrCreateDevAuthToken(forceMint: boolean = false): Promise<string> {
+  const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
+  if (!disableClerk) return '';
+
+  const existing = getDevAuthToken();
+  if (existing && !forceMint) return existing;
+
+  if (typeof document === 'undefined') return '';
+
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
+  try {
+    const res = await fetch(`${backendUrl}/test/mint-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'dev@example.com' }),
+    });
+    if (!res.ok) return '';
+    const data = await res.json();
+    if (data?.session_token) {
+      document.cookie = `sa_session=${encodeURIComponent(data.session_token)}; path=/`;
+      return data.session_token;
+    }
+  } catch (err) {
+    console.error('[API] Dev session mint failed:', err);
+  }
+  return '';
+}
+
+async function fetchWithDevAuth(url: string, init: RequestInit = {}): Promise<Response> {
+  const baseHeaders = init.headers ? { ...(init.headers as Record<string, string>) } : {};
+  const token = await getOrCreateDevAuthToken();
+  const headers = token ? { ...baseHeaders, Authorization: `Bearer ${token}` } : baseHeaders;
+
+  const res = await fetch(url, { ...init, headers });
+  if (res.status !== 401) {
+    return res;
+  }
+
+  // If we got a 401, mint a fresh token and retry once.
+  const freshToken = await getOrCreateDevAuthToken(true);
+  if (!freshToken || freshToken === token) {
+    return res;
+  }
+
+  const retryHeaders = { ...baseHeaders, Authorization: `Bearer ${freshToken}` };
+  return fetch(url, { ...init, headers: retryHeaders });
+}
+
 // Helper: Persist row to database
 export const persistRowToDb = async (rowId: number, title: string) => {
   console.log('[API] Persisting to DB:', rowId, title);
@@ -144,10 +192,7 @@ export const createRowInDb = async (title: string, projectId?: number | null): P
 export const fetchRowsFromDb = async (): Promise<Row[]> => {
   try {
     const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8081';
-    const token = getDevAuthToken();
-    const res = await fetch(`${bffUrl}/api/rows`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
+    const res = await fetchWithDevAuth(`${bffUrl}/api/rows`);
     if (res.ok) {
       const rows = await res.json();
       return Array.isArray(rows) ? rows : [];
@@ -165,10 +210,7 @@ export const fetchProjectsFromDb = async (): Promise<Project[]> => {
   try {
     // Call BFF directly to bypass Next.js API route registration issue
     const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8081';
-    const token = getDevAuthToken();
-    const res = await fetch(`${bffUrl}/api/projects`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
+    const res = await fetchWithDevAuth(`${bffUrl}/api/projects`);
     if (res.ok) {
       const projects = await res.json();
       return Array.isArray(projects) ? projects : [];
@@ -186,12 +228,10 @@ export const fetchProjectsFromDb = async (): Promise<Project[]> => {
 export const createProjectInDb = async (title: string): Promise<Project | null> => {
   try {
     const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8081';
-    const token = getDevAuthToken();
-    const res = await fetch(`${bffUrl}/api/projects`, {
+    const res = await fetchWithDevAuth(`${bffUrl}/api/projects`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({ title }),
     });
@@ -209,10 +249,8 @@ export const createProjectInDb = async (title: string): Promise<Project | null> 
 export const deleteProjectFromDb = async (id: number): Promise<boolean> => {
   try {
     const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8081';
-    const token = getDevAuthToken();
-    const res = await fetch(`${bffUrl}/api/projects/${id}`, { 
+    const res = await fetchWithDevAuth(`${bffUrl}/api/projects/${id}`, { 
       method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` },
     });
     return res.ok;
   } catch (err) {
@@ -244,6 +282,65 @@ export const saveChoiceAnswerToDb = async (
     return false;
   }
 };
+
+// Helper: Toggle like (persist)
+export const toggleLikeApi = async (
+  rowId: number,
+  isLiked: boolean,
+  bidId?: number,
+  offerUrl?: string
+): Promise<boolean> => {
+  try {
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    if (isLiked) {
+      // Create like
+      const res = await fetchWithDevAuth('/api/likes', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ row_id: rowId, bid_id: bidId, offer_url: offerUrl }),
+      });
+      return res.ok;
+    } else {
+      // Delete like
+      // We send params as query string for DELETE if simple, or body if allowed.
+      // Backend expects query params or body? Let's use body for clarity if allowed, 
+      // but standard DELETE often ignores body. Backend 'delete_like' uses query params 
+      // via FastAPI dependencies (default behavior) unless Body() is explicit.
+      // Let's use query params to be safe with standard fetch/FastAPI.
+      const params = new URLSearchParams({ row_id: String(rowId) });
+      if (bidId) params.append('bid_id', String(bidId));
+      if (offerUrl) params.append('offer_url', offerUrl);
+      
+      const res = await fetchWithDevAuth(`/api/likes?${params.toString()}`, {
+        method: 'DELETE',
+        headers,
+      });
+      return res.ok;
+    }
+  } catch (err) {
+    console.error('[API] Toggle like error:', err);
+    return false;
+  }
+};
+
+// Helper: Fetch likes
+export const fetchLikesApi = async (rowId?: number): Promise<any[]> => {
+  try {
+    const params = rowId ? `?row_id=${rowId}` : '';
+    const res = await fetchWithDevAuth(`/api/likes${params}`);
+    if (res.ok) {
+      return await res.json();
+    }
+    return [];
+  } catch (err) {
+    console.error('[API] Fetch likes error:', err);
+    return [];
+  }
+};
+
 
 export interface BugReportResponse {
   id: string;

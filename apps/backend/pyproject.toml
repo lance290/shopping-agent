@@ -18,6 +18,7 @@ dependencies = [
   "greenlet>=3.3.0",
   "python-multipart>=0.0.21",
   "email-validator>=2.3.0",
+  "pytest-cov>=7.0.0",
 ]
 
 [project.optional-dependencies]
