@@ -26,8 +26,8 @@ async def test_rows_authorization(client: AsyncClient, session):
     await session.refresh(user_b)
     
     # Create Sessions
-    token_a = "token_a_123"
-    token_b = "token_b_456"
+    token_a = generate_session_token()
+    token_b = generate_session_token()
     
     session_a = AuthSession(email=user_a_email, user_id=user_a.id, session_token_hash=hash_token(token_a))
     session_b = AuthSession(email=user_b_email, user_id=user_b.id, session_token_hash=hash_token(token_b))
@@ -100,6 +100,7 @@ async def test_rows_authorization(client: AsyncClient, session):
     resp = await client.delete(f"/rows/{row_id_a}", headers=headers_a)
     assert resp.status_code == 200
     
-    # Verify row gone
+    # Verify row archived (soft delete)
     db_row = await session.get(Row, row_id_a)
-    assert db_row is None
+    assert db_row is not None
+    assert db_row.status == "archived"

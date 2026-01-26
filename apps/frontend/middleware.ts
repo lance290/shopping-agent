@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
 
 const isPublicRoute = createRouteMatcher([
   '/login(.*)',
@@ -7,11 +8,20 @@ const isPublicRoute = createRouteMatcher([
   '/api/health(.*)',
 ]);
 
-export default clerkMiddleware(async (auth, request) => {
+const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
+
+const middleware = clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {
     await auth.protect();
   }
 });
+
+export default function authMiddleware(request: NextRequest, event: NextFetchEvent) {
+  if (disableClerk) {
+    return NextResponse.next();
+  }
+  return middleware(request, event);
+}
 
 export const config = {
   matcher: [

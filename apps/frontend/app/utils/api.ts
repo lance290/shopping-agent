@@ -1,4 +1,4 @@
-import { Row, Offer } from '../store';
+import { Row, Offer, Project } from '../store';
 
 // Helper: Persist row to database
 export const persistRowToDb = async (rowId: number, title: string) => {
@@ -92,8 +92,8 @@ export const runSearchApi = async (
 };
 
 // Helper: Create a new row in database
-export const createRowInDb = async (title: string): Promise<Row | null> => {
-  console.log('[API] Creating row in DB:', title);
+export const createRowInDb = async (title: string, projectId?: number | null): Promise<Row | null> => {
+  console.log('[API] Creating row in DB:', title, 'projectId:', projectId);
   try {
     const res = await fetch('/api/rows', {
       method: 'POST',
@@ -101,6 +101,7 @@ export const createRowInDb = async (title: string): Promise<Row | null> => {
       body: JSON.stringify({ 
         title, 
         status: 'sourcing',
+        project_id: projectId,
         request_spec: {
           item_name: title,
           constraints: '{}'
@@ -134,6 +135,67 @@ export const fetchRowsFromDb = async (): Promise<Row[]> => {
     console.error('[API] Fetch rows error:', err);
   }
   return [];
+};
+
+// Helper: Fetch projects
+export const fetchProjectsFromDb = async (): Promise<Project[]> => {
+  try {
+    // Call BFF directly to bypass Next.js API route registration issue
+    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8080';
+    const token = process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN || '';
+    const res = await fetch(`${bffUrl}/api/projects`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const projects = await res.json();
+      return Array.isArray(projects) ? projects : [];
+    } else {
+      console.error('[API] fetchProjectsFromDb failed:', res.status);
+      return [];
+    }
+  } catch (err) {
+    console.error('[API] fetchProjectsFromDb error:', err);
+    return [];
+  }
+};
+
+// Helper: Create project
+export const createProjectInDb = async (title: string): Promise<Project | null> => {
+  try {
+    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8080';
+    const token = process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN || '';
+    const res = await fetch(`${bffUrl}/api/projects`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ title }),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+    console.error('[API] Create project failed:', res.status);
+  } catch (err) {
+    console.error('[API] Create project error:', err);
+  }
+  return null;
+};
+
+// Helper: Delete project
+export const deleteProjectFromDb = async (id: number): Promise<boolean> => {
+  try {
+    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8080';
+    const token = process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN || '';
+    const res = await fetch(`${bffUrl}/api/projects/${id}`, { 
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    return res.ok;
+  } catch (err) {
+    console.error('[API] Delete project error:', err);
+    return false;
+  }
 };
 
 // Helper: Save choice answer

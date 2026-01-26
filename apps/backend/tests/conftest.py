@@ -2,7 +2,7 @@ import pytest
 import sys
 import os
 import pytest_asyncio
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -30,6 +30,7 @@ async def session_fixture():
     
     # Re-init DB on the test engine to ensure schema
     async with test_engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.drop_all)
         await conn.run_sync(SQLModel.metadata.create_all)
 
     async_session = sessionmaker(
@@ -40,14 +41,26 @@ async def session_fixture():
     
     await test_engine.dispose()
 
+@pytest_asyncio.fixture(name="test_user")
+async def test_user_fixture(session: AsyncSession):
+    """Create a test user for authentication tests."""
+    from models import User
+
+    user = User(email="test@example.com", is_admin=False)
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
+
 @pytest_asyncio.fixture(name="client")
 async def client_fixture(session: AsyncSession):
     def get_session_override():
         return session
-    
+
     app.dependency_overrides[get_session] = get_session_override
-    
-    async with AsyncClient(app=app, base_url="http://test") as client:
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
-    
+
     app.dependency_overrides.clear()

@@ -112,15 +112,16 @@ describe('Zustand Store - Per-Row Results', () => {
     expect(row?.status).toBe('sourcing'); // unchanged
   });
 
-  test('addRow appends to rows array', () => {
+  test('addRow prepends to rows array (newest first)', () => {
     const store = useShoppingStore.getState();
     const newRow = { id: 4, title: 'New item', status: 'sourcing', budget_max: null, currency: 'USD' };
-    
+
     store.addRow(newRow);
 
     const state = useShoppingStore.getState();
     expect(state.rows).toHaveLength(4);
-    expect(state.rows[3].id).toBe(4);
+    expect(state.rows[0].id).toBe(4); // New row should be first
+    expect(state.rows[0].last_engaged_at).toBeDefined(); // Should have engagement timestamp
   });
 });
 

@@ -29,6 +29,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
   const [cooldownUntil, setCooldownUntil] = useState<number>(0);
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didAutoLoadRef = useRef<boolean>(false);
 
   useEffect(() => {
     return () => {
@@ -61,6 +62,15 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       setIsSearching(false);
     }
   };
+
+  useEffect(() => {
+    if (!isActive) return;
+    if (didAutoLoadRef.current) return;
+    if (Array.isArray(offers) && offers.length > 0) return;
+
+    didAutoLoadRef.current = true;
+    refresh('all');
+  }, [isActive, row.id]);
 
   const sortOffers = (list: Offer[]) => {
     if (!list || list.length === 0) return [];
@@ -166,7 +176,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
             "text-[10px] uppercase tracking-wider font-semibold",
             row.status === 'closed' ? "text-status-success" : "text-onyx-muted"
           )}>
-            {row.status}
+            {row.status === 'closed' ? 'selected' : row.status}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -241,7 +251,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       </div>
       
       <div className="p-5 bg-transparent">
-        <div className="flex gap-6 min-h-[320px]">
+        <div className="flex gap-6 min-h-[450px]">
           {/* Request/Options Tile (Pinned Left) */}
           <div className="shrink-0">
             <RequestTile row={row} />
@@ -249,7 +259,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
           {/* Offer Tiles (Scrollable) */}
           <div className="flex-1 overflow-x-auto scrollbar-hide">
-            <div className="flex gap-6 min-h-[320px] pr-2">
+            <div className="flex gap-6 min-h-[450px] pr-2">
               {sortedOffers && sortedOffers.length > 0 ? (
                 sortedOffers.map((offer, idx) => (
                   <OfferTile

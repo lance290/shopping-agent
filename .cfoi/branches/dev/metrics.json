@@ -1,0 +1,181 @@
+{
+  "tasks": {
+    "total": 0,
+    "completed": 0,
+    "inProgress": 0,
+    "remaining": 0
+  },
+  "currentTask": null,
+  "errorBudget": {
+    "perTask": 3,
+    "currentTaskErrors": 0,
+    "sessionErrors": 0,
+    "maxSession": 10,
+    "log": []
+  },
+  "timeTracking": {
+    "events": [
+      {
+        "type": "test",
+        "status": "fail",
+        "command": "pytest",
+        "log": ".cfoi/branches/dev/test-results/tests-20260123T055924Z.log",
+        "timestamp": "2026-01-23T05:59:28.926836+00:00"
+      },
+      {
+        "type": "test",
+        "status": "fail",
+        "command": "pytest",
+        "log": ".cfoi/branches/dev/test-results/tests-20260123T060531Z.log",
+        "timestamp": "2026-01-23T06:05:32.428970+00:00"
+      },
+      {
+        "type": "coverage",
+        "status": "fail",
+        "command": "pytest --cov",
+        "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
+        "regressions": null,
+        "timestamp": "2026-01-23T06:05:32.644866+00:00"
+      },
+      {
+        "type": "test",
+        "status": "fail",
+        "command": "pytest",
+        "log": ".cfoi/branches/dev/test-results/tests-20260123T060621Z.log",
+        "timestamp": "2026-01-23T06:06:22.620213+00:00"
+      },
+      {
+        "type": "coverage",
+        "status": "fail",
+        "command": "pytest --cov",
+        "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
+        "regressions": null,
+        "timestamp": "2026-01-23T06:06:22.831387+00:00"
+      },
+      {
+        "type": "test",
+        "status": "fail",
+        "command": "cd apps/backend && uv run pytest",
+        "log": ".cfoi/branches/dev/test-results/tests-20260123T060650Z.log",
+        "timestamp": "2026-01-23T06:06:51.504189+00:00"
+      },
+      {
+        "type": "coverage",
+        "status": "fail",
+        "command": "cd apps/backend && uv run pytest --cov",
+        "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
+        "regressions": null,
+        "timestamp": "2026-01-23T06:06:52.263188+00:00"
+      },
+      {
+        "type": "test",
+        "status": "fail",
+        "command": "cd apps/backend && uv run pytest",
+        "log": ".cfoi/branches/dev/test-results/tests-20260123T060748Z.log",
+        "timestamp": "2026-01-23T06:07:52.749496+00:00"
+      },
+      {
+        "type": "coverage",
+        "status": "fail",
+        "command": "cd apps/backend && uv run pytest --cov",
+        "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
+        "regressions": null,
+        "timestamp": "2026-01-23T06:07:54.059211+00:00"
+      },
+      {
+        "type": "test",
+        "status": "fail",
+        "command": "cd apps/backend && uv run pytest",
+        "log": ".cfoi/branches/dev/test-results/tests-20260123T060819Z.log",
+        "timestamp": "2026-01-23T06:08:22.526820+00:00"
+      },
+      {
+        "type": "coverage",
+        "status": "fail",
+        "command": "cd apps/backend && uv run pytest --cov",
+        "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
+        "regressions": null,
+        "timestamp": "2026-01-23T06:08:23.792231+00:00"
+      },
+      {
+        "type": "test",
+        "status": "fail",
+        "command": "cd apps/backend && uv run pytest",
+        "log": ".cfoi/branches/dev/test-results/tests-20260123T060852Z.log",
+        "timestamp": "2026-01-23T06:08:53.678159+00:00"
+      },
+      {
+        "type": "coverage",
+        "status": "fail",
+        "command": "cd apps/backend && uv run pytest --cov",
+        "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
+        "regressions": null,
+        "timestamp": "2026-01-23T06:08:55.324422+00:00"
+      },
+      {
+        "type": "test",
+        "status": "fail",
+        "command": "cd apps/backend && uv run pytest",
+        "log": ".cfoi/branches/dev/test-results/tests-20260123T060930Z.log",
+        "timestamp": "2026-01-23T06:09:34.282640+00:00"
+      },
+      {
+        "type": "coverage",
+        "status": "fail",
+        "command": "cd apps/backend && uv run pytest --cov",
+        "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
+        "regressions": null,
+        "timestamp": "2026-01-23T06:09:36.140412+00:00"
+      },
+      {
+        "type": "test",
+        "status": "fail",
+        "command": "cd apps/backend && uv run pytest",
+        "log": ".cfoi/branches/dev/test-results/tests-20260123T061019Z.log",
+        "timestamp": "2026-01-23T06:10:21.185871+00:00"
+      },
+      {
+        "type": "coverage",
+        "status": "fail",
+        "command": "cd apps/backend && uv run pytest --cov",
+        "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
+        "regressions": null,
+        "timestamp": "2026-01-23T06:10:25.103107+00:00"
+      },
+      {
+        "type": "test",
+        "status": "pass",
+        "command": "cd apps/backend && uv run pytest",
+        "log": ".cfoi/branches/dev/test-results/tests-20260123T061140Z.log",
+        "timestamp": "2026-01-23T06:11:41.419787+00:00"
+      },
+      {
+        "type": "coverage",
+        "status": "pass",
+        "command": "cd apps/backend && uv run pytest --cov",
+        "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
+        "regressions": null,
+        "timestamp": "2026-01-23T06:11:44.016276+00:00"
+      }
+    ],
+    "lastTestRun": "2026-01-23T06:11:41.419787+00:00",
+    "lastCoverageRun": "2026-01-23T06:11:44.016276+00:00"
+  },
+  "evidence": {
+    "tests": {
+      "status": "pass",
+      "command": "cd apps/backend && uv run pytest",
+      "log": ".cfoi/branches/dev/test-results/tests-20260123T061140Z.log",
+      "timestamp": "2026-01-23T06:11:41.419787+00:00"
+    },
+    "coverage": {
+      "status": "pass",
+      "command": "cd apps/backend && uv run pytest --cov",
+      "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
+      "regressions": null,
+      "timestamp": "2026-01-23T06:11:44.016276+00:00",
+      "metrics": null
+    },
+    "manual": {}
+  }
+}
