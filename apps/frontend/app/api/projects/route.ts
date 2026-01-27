@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    console.log(`[API] Creating project with title: ${body.title} via BFF: ${BFF_URL}`);
     
     const response = await fetch(`${BFF_URL}/api/projects`, {
       method: 'POST',
@@ -80,6 +81,12 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     });
     
+    if (!response.ok) {
+      const text = await response.text();
+      console.error(`[API] BFF project creation failed: ${response.status}`, text);
+      return NextResponse.json({ error: 'BFF failed' }, { status: response.status });
+    }
+
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
