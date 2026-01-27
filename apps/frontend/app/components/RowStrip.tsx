@@ -3,7 +3,7 @@ import { Row, Offer, OfferSortMode, useShoppingStore } from '../store';
 import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import { Archive, RefreshCw, FlaskConical, Undo2 } from 'lucide-react';
-import { runSearchApi, selectOfferForRow, toggleLikeApi, fetchLikesApi } from '../utils/api';
+import { runSearchApi, selectOfferForRow, toggleLikeApi, fetchLikesApi, createCommentApi, fetchCommentsApi } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -31,6 +31,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didAutoLoadRef = useRef<boolean>(false);
   const didLoadLikesRef = useRef<boolean>(false);
+  const didLoadCommentsRef = useRef<boolean>(false);
 
   useEffect(() => {
     return () => {
@@ -99,6 +100,49 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         if (likes.length > 0) {
           const merged = mergeLikes(offers, likes);
           // Only update if changed to avoid loop/jitter
+          if (JSON.stringify(merged) !== JSON.stringify(offers)) {
+            setRowResults(row.id, merged);
+          }
+        }
+      });
+    }
+  }, [isActive, row.id, offers, setRowResults]);
+
+  // Helper to merge comment previews into offers (latest comment wins)
+  const mergeComments = (currentOffers: Offer[], comments: any[]): Offer[] => {
+    if (!comments || comments.length === 0) return currentOffers;
+
+    const latestByBidId = new Map<number, string>();
+    const latestByUrl = new Map<string, string>();
+
+    for (const c of comments) {
+      const body = typeof c?.body === 'string' ? c.body : '';
+      if (!body) continue;
+      if (typeof c?.bid_id === 'number') {
+        if (!latestByBidId.has(c.bid_id)) latestByBidId.set(c.bid_id, body);
+        continue;
+      }
+      if (typeof c?.offer_url === 'string' && c.offer_url) {
+        if (!latestByUrl.has(c.offer_url)) latestByUrl.set(c.offer_url, body);
+      }
+    }
+
+    return currentOffers.map((offer) => {
+      const preview =
+        (offer.bid_id && latestByBidId.get(offer.bid_id)) ||
+        (offer.url && latestByUrl.get(offer.url)) ||
+        offer.comment_preview;
+      return preview ? { ...offer, comment_preview: preview } : offer;
+    });
+  };
+
+  // Load comments when active (once)
+  useEffect(() => {
+    if (isActive && !didLoadCommentsRef.current && row.id) {
+      didLoadCommentsRef.current = true;
+      fetchCommentsApi(row.id).then((comments) => {
+        if (comments.length > 0) {
+          const merged = mergeComments(offers, comments);
           if (JSON.stringify(merged) !== JSON.stringify(offers)) {
             setRowResults(row.id, merged);
           }
@@ -200,9 +244,36 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
   const handleComment = (_offer: Offer) => {
     const comment = window.prompt('Add a comment for this offer');
-    if (comment && comment.trim().length > 0) {
-      onToast?.('Comment saved.', 'success');
-    }
+    if (!comment || comment.trim().length === 0) return;
+
+    const body = comment.trim();
+    const previousOffers = [...offers];
+
+    // Optimistic UI
+    const optimisticOffers = offers.map((item) => {
+      if (_offer.bid_id && item.bid_id === _offer.bid_id) {
+        return { ...item, comment_preview: body };
+      }
+      if (!_offer.bid_id && item.url === _offer.url) {
+        return { ...item, comment_preview: body };
+      }
+      return item;
+    });
+    setRowResults(row.id, optimisticOffers);
+
+    createCommentApi(row.id, body, _offer.bid_id, _offer.url)
+      .then((created) => {
+        if (created) {
+          onToast?.('Comment saved.', 'success');
+          return;
+        }
+        setRowResults(row.id, previousOffers);
+        onToast?.('Failed to save comment. Try again.', 'error');
+      })
+      .catch(() => {
+        setRowResults(row.id, previousOffers);
+        onToast?.('Failed to save comment. Try again.', 'error');
+      });
   };
 
   const handleShare = async (offer: Offer) => {

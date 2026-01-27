@@ -29,6 +29,7 @@ from models import (
     Row, RowBase, RowCreate, RequestSpec,
     AuthLoginCode, AuthSession, Bid, Seller, User, ClickoutEvent,
     Like,
+    Comment,
     BugReport, Project, ProjectCreate,
     hash_token, generate_verification_code, generate_session_token
 )
@@ -37,7 +38,7 @@ from audit import audit_log
 from clerk_auth import verify_clerk_token, get_clerk_user_id
 from github_client import github_client
 from diagnostics_utils import validate_and_redact_diagnostics, generate_diagnostics_summary
-from notifications import send_internal_notification
+from storage import get_storage_provider
 import hmac
 import hashlib
 
@@ -269,10 +270,16 @@ async def send_verification_email(to_email: str, code: str) -> bool:
 # Initialize sourcing repository
 sourcing_repo = SourcingRepository()
 
+# Initialize storage provider
+storage_provider = get_storage_provider()
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3003",
+        "http://127.0.0.1:3003",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -367,22 +374,14 @@ async def create_bug_report(
             if not file.filename:
                 continue
             
-            # Sanitize filename (basic)
-            safe_name = os.path.basename(file.filename).replace(" ", "_")
-            # Create unique name
-            timestamp = int(datetime.utcnow().timestamp())
-            unique_name = f"{timestamp}_{secrets.token_hex(4)}_{safe_name}"
-            file_path = UPLOAD_DIR / unique_name
-            
             try:
-                with file_path.open("wb") as buffer:
-                    shutil.copyfileobj(file.file, buffer)
-                # Store relative path for URL generation
-                saved_paths.append(f"/uploads/bugs/{unique_name}")
+                content = await file.read()
+                public_url = await storage_provider.save_file(content, file.filename, "bugs")
+                saved_paths.append(public_url)
             except Exception as e:
                 print(f"[BUG] Failed to save attachment {file.filename}: {e}")
             finally:
-                file.file.close()
+                await file.close()
 
     # 2. Persist to DB
     bug = BugReport(
@@ -1252,6 +1251,79 @@ async def list_likes(
     return result.all()
 
 
+# ============ COMMENT ENDPOINTS ============
+
+class CommentCreate(BaseModel):
+    row_id: int
+    body: str
+    bid_id: Optional[int] = None
+    offer_url: Optional[str] = None
+    visibility: Optional[str] = "private"
+
+
+class CommentRead(BaseModel):
+    id: int
+    row_id: int
+    body: str
+    bid_id: Optional[int] = None
+    offer_url: Optional[str] = None
+    visibility: str
+    created_at: datetime
+
+
+@app.post("/comments", response_model=CommentRead)
+async def create_comment(
+    comment_in: CommentCreate,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if not comment_in.body or not comment_in.body.strip():
+        raise HTTPException(status_code=400, detail="Comment body is required")
+
+    row = await session.get(Row, comment_in.row_id)
+    if not row or row.user_id != auth_session.user_id:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    if not comment_in.bid_id and not comment_in.offer_url:
+        raise HTTPException(status_code=400, detail="Must provide bid_id or offer_url")
+
+    db_comment = Comment(
+        user_id=auth_session.user_id,
+        row_id=comment_in.row_id,
+        bid_id=comment_in.bid_id,
+        offer_url=comment_in.offer_url,
+        body=comment_in.body.strip(),
+        visibility=comment_in.visibility or "private",
+    )
+    session.add(db_comment)
+    await session.commit()
+    await session.refresh(db_comment)
+    return db_comment
+
+
+@app.get("/comments", response_model=List[CommentRead])
+async def list_comments(
+    row_id: Optional[int] = None,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    query = select(Comment).where(Comment.user_id == auth_session.user_id)
+    if row_id:
+        query = query.where(Comment.row_id == row_id)
+
+    query = query.order_by(Comment.created_at.desc())
+    result = await session.exec(query)
+    return result.all()
+
+
 # ============ AUTH ENDPOINTS ============
 
 LOCKOUT_MINUTES = 45
@@ -1320,7 +1392,7 @@ async def test_reset_db(session: AsyncSession = Depends(get_session)):
     try:
         await session.execute(
             text(
-                'TRUNCATE TABLE bid, request_spec, "row", project, clickout_event, bug_report, audit_log, auth_login_code, auth_session, "user" RESTART IDENTITY CASCADE;'
+                'TRUNCATE TABLE comment, "like", bid, request_spec, "row", project, clickout_event, bug_report, audit_log, auth_login_code, auth_session, "user" RESTART IDENTITY CASCADE;'
             )
         )
         await session.commit()
@@ -1652,8 +1724,10 @@ async def startup_event():
     print(f"Environment: {os.getenv('ENVIRONMENT', 'development')}")
     print(f"E2E_TEST_MODE: {os.getenv('E2E_TEST_MODE')}")
     # In production, schema management is handled by Alembic migrations (run via start command).
-    # We do NOT run init_db() here to avoid conflicts and ensure version control.
-    # await init_db()
+    # In dev/E2E, ensure tables exist so new models (e.g. Comment) work without manual migration.
+    if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("ENVIRONMENT") == "production":
+        return
+    await init_db()
 
 
 # Shutdown event

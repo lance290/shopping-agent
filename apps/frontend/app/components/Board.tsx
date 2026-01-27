@@ -85,6 +85,12 @@ export default function ProcurementBoard() {
   const handleCreateRow = (projectId?: number) => {
     // Set the target project for the next created row
     setTargetProjectId(projectId || null);
+
+    // If the user is explicitly adding to a project, clear the active row so chat creates a new request
+    // rather than refining the currently active (often ungrouped) row.
+    if (projectId) {
+      setActiveRowId(null);
+    }
     
     // Just focus the chat input - the chat will create the row when user types
     const chatInput = document.querySelector('input[placeholder*="looking for"], input[placeholder*="Refine"]') as HTMLInputElement | null;
@@ -179,10 +185,14 @@ export default function ProcurementBoard() {
             {projects.map(project => (
               <div key={project.id} className="space-y-4">
                 <div className="flex items-center gap-3 pb-2 border-b border-warm-grey/50">
-                  <div className="flex items-center gap-2 text-onyx font-medium">
+                  <button
+                    type="button"
+                    onClick={() => handleCreateRow(project.id)}
+                    className="flex items-center gap-2 text-onyx font-medium hover:text-agent-blurple"
+                  >
                     <FolderPlus size={18} className="text-agent-blurple" />
                     {project.title}
-                  </div>
+                  </button>
                   <div className="flex-1" />
                   <Button
                     variant="ghost"

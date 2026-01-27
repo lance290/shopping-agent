@@ -18,6 +18,7 @@ export interface Offer {
   bid_id?: number;
   is_selected?: boolean;
   is_liked?: boolean;
+  comment_preview?: string;
 }
 
 export interface Bid {
@@ -358,38 +359,45 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   selectOrCreateRow: (query, existingRows) => {
     const lowerQuery = query.toLowerCase().trim();
     const activeRowId = get().activeRowId;
+    const targetProjectId = get().targetProjectId;
+
+    const candidateRows = targetProjectId
+      ? existingRows.filter((r) => r.project_id === targetProjectId)
+      : existingRows;
 
     // 1. If there's an active row, check if it's a good match for the new query
     // This allows continuing a conversation within the same card.
     if (activeRowId) {
-      const activeRow = existingRows.find(r => r.id === activeRowId);
+      const activeRow = existingRows.find((r) => r.id === activeRowId);
       if (activeRow) {
-        const rowTitle = activeRow.title.toLowerCase().trim();
-        const rowWords = rowTitle.split(/\s+/).filter(w => w.length > 3);
-        const queryWords = lowerQuery.split(/\s+/).filter(w => w.length > 3);
-        
-        // Check for significant word overlap (at least 2 matching words > 3 chars)
-        const overlap = rowWords.filter(w => queryWords.some(qw => qw.includes(w) || w.includes(qw)));
+        if (!targetProjectId || activeRow.project_id === targetProjectId) {
+          const rowTitle = activeRow.title.toLowerCase().trim();
+          const rowWords = rowTitle.split(/\s+/).filter((w) => w.length > 3);
+          const queryWords = lowerQuery.split(/\s+/).filter((w) => w.length > 3);
 
-        if (lowerQuery.includes(rowTitle) || rowTitle.includes(lowerQuery) || overlap.length >= 2) {
-          return activeRow;
+          // Check for significant word overlap (at least 2 matching words > 3 chars)
+          const overlap = rowWords.filter((w) => queryWords.some((qw) => qw.includes(w) || w.includes(qw)));
+
+          if (lowerQuery.includes(rowTitle) || rowTitle.includes(lowerQuery) || overlap.length >= 2) {
+            return activeRow;
+          }
         }
       }
     }
 
     // 2. Try exact match across all rows
-    let match = existingRows.find(r => r.title.toLowerCase().trim() === lowerQuery);
+    let match = candidateRows.find((r) => r.title.toLowerCase().trim() === lowerQuery);
     if (match) return match;
 
     // 3. Try partial match (is an existing row title contained in the new query?)
-    match = existingRows.find(r => {
+    match = candidateRows.find((r) => {
       const rowTitle = r.title.toLowerCase().trim();
       return lowerQuery.includes(rowTitle);
     });
     if (match) return match;
 
     // 4. Try reverse partial match (is the new query contained in an existing row title?)
-    match = existingRows.find(r => {
+    match = candidateRows.find((r) => {
       const rowTitle = r.title.toLowerCase().trim();
       return rowTitle.includes(lowerQuery);
     });

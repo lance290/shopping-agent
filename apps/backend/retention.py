@@ -73,6 +73,11 @@ async def cleanup_old_clickouts(session: AsyncSession):
     #     await session.delete(item)
     # await session.commit()
 
+from storage import get_storage_provider
+
+# Initialize storage provider
+storage_provider = get_storage_provider()
+
 async def cleanup_old_bug_reports(session: AsyncSession):
     """
     Deletes bug reports older than the retention period and removes their attachments.
@@ -92,14 +97,9 @@ async def cleanup_old_bug_reports(session: AsyncSession):
             try:
                 import json
                 paths = json.loads(report.attachments)
-                for rel_path in paths:
-                    # rel_path is like "/uploads/bugs/filename"
-                    # We need to match it to our UPLOAD_DIR
-                    filename = os.path.basename(rel_path)
-                    file_path = UPLOAD_DIR / filename
-                    if file_path.exists():
-                        file_path.unlink()
-                        print(f"[RETENTION] Deleted file: {file_path}")
+                for path in paths:
+                    await storage_provider.delete_file(path)
+                    print(f"[RETENTION] Deleted attachment: {path}")
             except Exception as e:
                 print(f"[RETENTION] Error cleaning files for report {report.id}: {e}")
 

@@ -123,7 +123,12 @@ Return ONLY the JSON array, no explanation.`;
   }
 }
 
-export const chatHandler = async (messages: any[], authorization?: string, activeRowId?: number | null): Promise<any> => {
+export const chatHandler = async (
+  messages: any[],
+  authorization?: string,
+  activeRowId?: number | null,
+  projectId?: number | null
+): Promise<any> => {
   // Build context about active row for the LLM
   const activeRowInstruction = activeRowId 
     ? `\n\n⚠️ CRITICAL: There is an ACTIVE ROW with ID ${activeRowId}. 
@@ -202,6 +207,7 @@ ${activeRowInstruction}`,
                 body: JSON.stringify({
                   title: input.item,
                   status: 'sourcing',
+                  project_id: projectId || undefined,
                   request_spec: {
                     item_name: input.item,
                     constraints: JSON.stringify(normalizedConstraints)

@@ -511,7 +511,7 @@ fastify.post('/api/chat', async (request, reply) => {
       return;
     }
 
-    const result = await chatHandler(messages, authorization, activeRowId);
+    const result = await chatHandler(messages, authorization, activeRowId, projectId);
     
     // Set headers for streaming
     reply.raw.writeHead(200, {

@@ -103,6 +103,12 @@ export default function OfferTile({
           <div className="text-[12px] font-semibold text-onyx line-clamp-3 mb-2 min-h-[48px] leading-snug group-hover:text-onyx-muted transition-colors" title={offer.title}>
             {offer.title}
           </div>
+
+          {offer.comment_preview && (
+            <div className="text-[10px] text-onyx-muted/90 bg-white/60 border border-warm-grey/60 rounded-md px-2 py-1 mb-2 line-clamp-2">
+              {offer.comment_preview}
+            </div>
+          )}
           
           <div className="mt-auto">
             <div className="flex items-center gap-2 mb-2">

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
 import { useShoppingStore } from '../store';
-import { persistRowToDb, runSearchApi, fetchRowsFromDb, fetchProjectsFromDb } from '../utils/api';
+import { persistRowToDb, runSearchApi, fetchRowsFromDb, fetchProjectsFromDb, createRowInDb } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
@@ -71,28 +71,31 @@ export default function Chat() {
         await persistRowToDb(targetRow.id, query);
       }
     } else {
-      // No match found - need to create a new row
-      // The BFF/backend will create it when we call search
-      const freshRows = await fetchRowsFromDb();
-      store.setRows(freshRows);
-      targetRow = freshRows.find(r => r.title === query) || null;
-      
-      if (!targetRow) {
-        // Row doesn't exist yet - search API will create it
-        // For now, just trigger the search and let the backend handle row creation
-        store.setIsSearching(true);
-        const results = await runSearchApi(query, null as any);
-        // Refresh rows to get the newly created row
-        const updatedRows = await fetchRowsFromDb();
-        store.setRows(updatedRows);
-        const newRow = updatedRows.find(r => r.title === query);
-        if (newRow) {
-          store.setActiveRowId(newRow.id);
-          store.setRowResults(newRow.id, results);
+      // No match found - create a new row explicitly so we can attach it to the selected project.
+      const intendedProjectId = store.targetProjectId;
+      const created = await createRowInDb(query, store.targetProjectId);
+      if (created) {
+        store.addRow(created);
+        store.setActiveRowId(created.id);
+
+        // Clear the one-shot target project after it has been used.
+        if (store.targetProjectId) {
+          store.setTargetProjectId(null);
         }
+
+        store.setIsSearching(true);
+        const results = await runSearchApi(query, created.id);
+        store.setRowResults(created.id, results);
         return;
       }
-      
+
+      // Fallback: if create failed, refresh and attempt to locate an existing row.
+      const freshRows = await fetchRowsFromDb();
+      store.setRows(freshRows);
+      targetRow = intendedProjectId
+        ? freshRows.find((r) => r.title === query && r.project_id === intendedProjectId) || null
+        : freshRows.find((r) => r.title === query) || null;
+
       if (targetRow) {
         store.setActiveRowId(targetRow.id);
       }
@@ -119,6 +122,17 @@ export default function Chat() {
     const queryText = input.trim();
     setInput('');
     setIsLoading(true);
+    const intendedProjectId = store.targetProjectId;
+
+    const pickRowFromFresh = (freshRows: any[], query: string) => {
+      const q = query.toLowerCase().trim();
+      const scoped = intendedProjectId
+        ? freshRows.filter((r) => r.project_id === intendedProjectId)
+        : freshRows;
+      const byTitle = scoped.find((r) => r.title?.toLowerCase?.().trim?.() === q);
+      const newestById = [...scoped].sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0];
+      return byTitle || newestById || null;
+    };
 
     try {
       const response = await fetch('/api/chat', {
@@ -127,15 +141,9 @@ export default function Chat() {
         body: JSON.stringify({ 
           messages: [...messages, userMessage],
           activeRowId: store.activeRowId,
-          projectId: store.targetProjectId,
+          projectId: intendedProjectId,
         }),
       });
-      
-      // Clear the target project after sending, so subsequent unrelated queries don't inherit it accidentally
-      // (unless we want "mode" behavior, but for now "one-shot" is safer)
-      if (store.targetProjectId) {
-        store.setTargetProjectId(null);
-      }
       
       if (!response.ok) throw new Error('Failed to send message');
       
@@ -168,11 +176,7 @@ export default function Chat() {
             const freshRows = await fetchRowsFromDb();
             store.setRows(freshRows);
 
-            // Prefer selecting the row that matches the created query; otherwise pick most recently created
-            const createdTitle = rowMatch[1].toLowerCase().trim();
-            const byTitle = freshRows.find(r => r.title.toLowerCase().trim() === createdTitle);
-            const newestById = [...freshRows].sort((a, b) => b.id - a.id)[0];
-            const selected = byTitle || newestById;
+            const selected = pickRowFromFresh(freshRows, rowMatch[1]);
             if (selected) {
               store.setActiveRowId(selected.id);
             }
@@ -197,10 +201,7 @@ export default function Chat() {
             if (!rowId) {
               const freshRows = await fetchRowsFromDb();
               store.setRows(freshRows);
-              const q = lastProcessedQuery.toLowerCase().trim();
-              const byTitle = freshRows.find(r => r.title.toLowerCase().trim() === q);
-              const newestById = [...freshRows].sort((a, b) => b.id - a.id)[0];
-              const selected = byTitle || newestById;
+              const selected = pickRowFromFresh(freshRows, lastProcessedQuery);
               if (selected) {
                 rowId = selected.id;
                 store.setActiveRowId(rowId);
@@ -231,6 +232,10 @@ export default function Chat() {
         content: 'Sorry, something went wrong. Please try again.',
       }]);
     } finally {
+      // Clear the one-shot target project after the request completes, so subsequent queries don't inherit it.
+      if (intendedProjectId) {
+        store.setTargetProjectId(null);
+      }
       setIsLoading(false);
     }
   };
