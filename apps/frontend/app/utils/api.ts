@@ -84,8 +84,7 @@ export const createCommentApi = async (
   offerUrl?: string
 ): Promise<CommentDto | null> => {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
-    const res = await fetchWithDevAuth(`${backendUrl}/comments`, {
+    const res = await fetch('/api/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ row_id: rowId, body, bid_id: bidId, offer_url: offerUrl, visibility: 'private' }),
@@ -103,8 +102,7 @@ export const createCommentApi = async (
 
 export const fetchCommentsApi = async (rowId: number): Promise<CommentDto[]> => {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
-    const res = await fetchWithDevAuth(`${backendUrl}/comments?row_id=${rowId}`);
+    const res = await fetch(`/api/comments?row_id=${rowId}`);
     if (!res.ok) {
       console.error('[API] fetchComments failed:', res.status);
       return [];
@@ -347,29 +345,24 @@ export const toggleLikeApi = async (
   offerUrl?: string
 ): Promise<boolean> => {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
     if (isLiked) {
       // Create like
-      const res = await fetchWithDevAuth(`${backendUrl}/likes`, {
+      const res = await fetch('/api/likes', {
         method: 'POST',
         headers,
         body: JSON.stringify({ row_id: rowId, bid_id: bidId, offer_url: offerUrl }),
       });
       return res.ok;
     } else {
-      // Delete like
-      // We send params as query string for DELETE if simple, or body if allowed.
-      // Backend expects query params or body? Let's use query params to be safe with standard fetch/FastAPI.
-      // Let's use query params to be safe with standard fetch/FastAPI.
       const params = new URLSearchParams({ row_id: String(rowId) });
       if (bidId) params.append('bid_id', String(bidId));
       if (offerUrl) params.append('offer_url', offerUrl);
       
-      const res = await fetchWithDevAuth(`${backendUrl}/likes?${params.toString()}`, {
+      const res = await fetch(`/api/likes?${params.toString()}`, {
         method: 'DELETE',
         headers,
       });
@@ -384,9 +377,8 @@ export const toggleLikeApi = async (
 // Helper: Fetch likes
 export const fetchLikesApi = async (rowId?: number): Promise<any[]> => {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
     const params = rowId ? `?row_id=${rowId}` : '';
-    const res = await fetchWithDevAuth(`${backendUrl}/likes${params}`);
+    const res = await fetch(`/api/likes${params}`);
     if (res.ok) {
       return await res.json();
     }
