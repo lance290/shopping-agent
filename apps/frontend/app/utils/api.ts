@@ -284,9 +284,20 @@ export const createProjectInDb = async (title: string): Promise<Project | null> 
     if (res.ok) {
       return await res.json();
     }
-    console.error('[API] Create project failed:', res.status);
+    const errorText = await res.text();
+    console.error(`[API] Create project failed: ${res.status} ${res.statusText}`, errorText);
+    
+    // Attempt to parse JSON error if available
+    try {
+      const errorJson = JSON.parse(errorText);
+      if (errorJson.error) {
+        console.error(`[API] Server error detail: ${errorJson.error}`);
+      }
+    } catch {
+      // Not JSON, ignore
+    }
   } catch (err) {
-    console.error('[API] Create project error:', err);
+    console.error('[API] Create project network error:', err);
   }
   return null;
 };
