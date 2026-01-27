@@ -241,7 +241,7 @@ export const createRowInDb = async (title: string, projectId?: number | null): P
 // Helper: Fetch all rows from DB
 export const fetchRowsFromDb = async (): Promise<Row[]> => {
   try {
-    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8081';
+    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8080';
     const res = await fetchWithDevAuth(`${bffUrl}/api/rows`);
     if (res.ok) {
       const rows = await res.json();
@@ -259,7 +259,7 @@ export const fetchRowsFromDb = async (): Promise<Row[]> => {
 export const fetchProjectsFromDb = async (): Promise<Project[]> => {
   try {
     // Call BFF directly to bypass Next.js API route registration issue
-    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8081';
+    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8080';
     const res = await fetchWithDevAuth(`${bffUrl}/api/projects`);
     if (res.ok) {
       const projects = await res.json();
@@ -277,7 +277,7 @@ export const fetchProjectsFromDb = async (): Promise<Project[]> => {
 // Helper: Create project
 export const createProjectInDb = async (title: string): Promise<Project | null> => {
   try {
-    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8081';
+    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8080';
     const res = await fetchWithDevAuth(`${bffUrl}/api/projects`, {
       method: 'POST',
       headers: { 
@@ -298,7 +298,7 @@ export const createProjectInDb = async (title: string): Promise<Project | null> 
 // Helper: Delete project
 export const deleteProjectFromDb = async (id: number): Promise<boolean> => {
   try {
-    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8081';
+    const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8080';
     const res = await fetchWithDevAuth(`${bffUrl}/api/projects/${id}`, { 
       method: 'DELETE',
     });
