@@ -67,6 +67,16 @@ async function fetchWithDevAuth(url: string, init: RequestInit = {}): Promise<Re
   return fetch(url, { ...init, headers: retryHeaders });
 }
 
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
+
+async function readResponseBodySafe(res: Response): Promise<string> {
+  try {
+    return await res.text();
+  } catch {
+    return '';
+  }
+}
+
 export interface CommentDto {
   id: number;
   row_id: number;
@@ -345,28 +355,33 @@ export const toggleLikeApi = async (
   offerUrl?: string
 ): Promise<boolean> => {
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
     if (isLiked) {
       // Create like
-      const res = await fetch('/api/likes', {
+      const url = `${backendUrl}/likes`;
+      const res = await fetchWithDevAuth(url, {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ row_id: rowId, bid_id: bidId, offer_url: offerUrl }),
       });
-      return res.ok;
+      if (res.ok) return true;
+      if (res.status === 409) return true;
+      const body = await readResponseBodySafe(res);
+      console.error('[API] Toggle like failed:', res.status, url, body);
+      return false;
     } else {
       const params = new URLSearchParams({ row_id: String(rowId) });
       if (bidId) params.append('bid_id', String(bidId));
       if (offerUrl) params.append('offer_url', offerUrl);
       
-      const res = await fetch(`/api/likes?${params.toString()}`, {
+      const url = `${backendUrl}/likes?${params.toString()}`;
+      const res = await fetchWithDevAuth(url, {
         method: 'DELETE',
-        headers,
       });
-      return res.ok;
+      if (res.ok) return true;
+      if (res.status === 404) return true;
+      const body = await readResponseBodySafe(res);
+      console.error('[API] Toggle unlike failed:', res.status, url, body);
+      return false;
     }
   } catch (err) {
     console.error('[API] Toggle like error:', err);
@@ -378,10 +393,13 @@ export const toggleLikeApi = async (
 export const fetchLikesApi = async (rowId?: number): Promise<any[]> => {
   try {
     const params = rowId ? `?row_id=${rowId}` : '';
-    const res = await fetch(`/api/likes${params}`);
+    const url = `${backendUrl}/likes${params}`;
+    const res = await fetchWithDevAuth(url);
     if (res.ok) {
       return await res.json();
     }
+    const body = await readResponseBodySafe(res);
+    console.error('[API] Fetch likes failed:', res.status, url, body);
     return [];
   } catch (err) {
     console.error('[API] Fetch likes error:', err);

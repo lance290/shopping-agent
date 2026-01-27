@@ -31,6 +31,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didAutoLoadRef = useRef<boolean>(false);
   const didLoadLikesRef = useRef<boolean>(false);
+  const loadedLikesRef = useRef<any[]>([]);
   const didLoadCommentsRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -43,6 +44,32 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   }, []);
 
   const canRefresh = () => Date.now() > cooldownUntil;
+
+  const getCanonicalOfferUrl = (offer: Offer): string | null => {
+    const raw = offer.url || '';
+
+    const extract = (u: string): string | null => {
+      if (!u) return null;
+
+      // If this is our clickout wrapper, unwrap it.
+      if (u.startsWith('/api/clickout')) {
+        try {
+          const parsed = new URL(u, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+          const inner = parsed.searchParams.get('url');
+          return inner ? decodeURIComponent(inner) : null;
+        } catch {
+          return null;
+        }
+      }
+
+      // If it's a real http(s) URL, keep it.
+      if (u.startsWith('http://') || u.startsWith('https://')) return u;
+
+      return null;
+    };
+
+    return extract(raw) || extract(offer.click_url || '');
+  };
 
   const refresh = async (mode: 'all' | 'rainforest') => {
     if (!canRefresh()) return;
@@ -83,28 +110,44 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     const likedBidIds = new Set(likes.map(l => l.bid_id).filter(Boolean));
     const likedUrls = new Set(likes.map(l => l.offer_url).filter(Boolean));
     
-    return currentOffers.map(offer => ({
-      ...offer,
-      is_liked: !!(
-        (offer.bid_id && likedBidIds.has(offer.bid_id)) ||
-        (offer.url && likedUrls.has(offer.url))
-      )
-    }));
+    return currentOffers.map((offer) => {
+      const canonical = getCanonicalOfferUrl(offer);
+      return {
+        ...offer,
+        is_liked: !!(
+          (offer.bid_id && likedBidIds.has(offer.bid_id)) ||
+          (canonical && likedUrls.has(canonical))
+        ),
+      };
+    });
   };
 
   // Load likes when active (once)
   useEffect(() => {
     if (isActive && !didLoadLikesRef.current && row.id) {
       didLoadLikesRef.current = true;
+      console.log('[Like] fetching likes for row:', row.id);
       fetchLikesApi(row.id).then(likes => {
+        console.log('[Like] fetched likes:', likes);
+        loadedLikesRef.current = Array.isArray(likes) ? likes : [];
         if (likes.length > 0) {
           const merged = mergeLikes(offers, likes);
-          // Only update if changed to avoid loop/jitter
+          console.log('[Like] merged offers with likes, matched:', merged.filter(o => o.is_liked).length);
           if (JSON.stringify(merged) !== JSON.stringify(offers)) {
             setRowResults(row.id, merged);
           }
         }
       });
+    }
+  }, [isActive, row.id, offers, setRowResults]);
+
+  useEffect(() => {
+    if (!isActive || !row.id) return;
+    if (!loadedLikesRef.current || loadedLikesRef.current.length === 0) return;
+
+    const merged = mergeLikes(offers, loadedLikesRef.current);
+    if (JSON.stringify(merged) !== JSON.stringify(offers)) {
+      setRowResults(row.id, merged);
     }
   }, [isActive, row.id, offers, setRowResults]);
 
@@ -216,29 +259,52 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const handleToggleLike = async (offer: Offer) => {
     const previousOffers = [...offers];
     const newIsLiked = !offer.is_liked;
+
+    const canonicalUrl = getCanonicalOfferUrl(offer);
+    const offerBidId = offer.bid_id;
     
-    // Optimistic update
+    // Optimistic update - match by bid_id, canonical URL, or object reference
     const updatedOffers = offers.map((item) => {
-      if (item.bid_id && offer.bid_id && item.bid_id === offer.bid_id) {
+      // Match by bid_id if available
+      if (offerBidId && item.bid_id === offerBidId) {
         return { ...item, is_liked: newIsLiked };
       }
-      if (!item.bid_id && !offer.bid_id && item.url === offer.url) {
-        return { ...item, is_liked: newIsLiked };
+      // Match by canonical URL if no bid_id
+      if (!offerBidId && canonicalUrl) {
+        const itemUrl = getCanonicalOfferUrl(item);
+        if (itemUrl === canonicalUrl) {
+          return { ...item, is_liked: newIsLiked };
+        }
+      }
+      // Fallback: match by object reference (same title + price + merchant)
+      if (!offerBidId && !canonicalUrl) {
+        if (item.title === offer.title && item.price === offer.price && item.merchant === offer.merchant) {
+          return { ...item, is_liked: newIsLiked };
+        }
       }
       return item;
     });
 
-    setRowResults(row.id, applyLikedOrdering(sortOffers(updatedOffers)));
+    setRowResults(row.id, updatedOffers);
     
     // Call API
-    const success = await toggleLikeApi(row.id, newIsLiked, offer.bid_id, offer.url);
+    // Use bid_id if available, otherwise canonical URL
+    const success = await toggleLikeApi(
+      row.id,
+      newIsLiked,
+      offer.bid_id || undefined,
+      canonicalUrl || undefined
+    );
+    
+    console.log('[Like] toggled:', { rowId: row.id, bidId: offer.bid_id, url: canonicalUrl, newIsLiked, success });
     
     if (success) {
       onToast?.(newIsLiked ? 'Liked this offer.' : 'Removed like.', 'success');
     } else {
       // Revert on failure
+      console.error('[RowStrip] Failed to save like');
       setRowResults(row.id, previousOffers);
-      onToast?.('Failed to save like. Try again.', 'error');
+      onToast?.('Failed to save like.', 'error');
     }
   };
 

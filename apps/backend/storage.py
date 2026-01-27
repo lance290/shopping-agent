@@ -11,7 +11,7 @@ from botocore.client import Config
 
 class IStorageProvider(ABC):
     @abstractmethod
-    async def save_file(self, file_content: bytes, filename: string, subfolder: str = "bugs") -> str:
+    async def save_file(self, file_content: bytes, filename: str, subfolder: str = "bugs") -> str:
         pass
 
     @abstractmethod
