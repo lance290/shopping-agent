@@ -54,6 +54,7 @@ class RowUpdate(BaseModel):
     request_spec: Optional[RequestSpecUpdate] = None
     choice_factors: Optional[str] = None
     choice_answers: Optional[str] = None
+    provider_query: Optional[str] = None
     selected_bid_id: Optional[int] = None
 
 

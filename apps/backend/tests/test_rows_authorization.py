@@ -271,6 +271,54 @@ async def test_search_query_sanitizes_long_query(client: AsyncClient, session, m
 
 
 @pytest.mark.asyncio
+async def test_provider_query_persists_on_row(client: AsyncClient, session):
+    user = User(email="provider_query@example.com")
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    token = generate_session_token()
+    auth_session = AuthSession(
+        email=user.email,
+        user_id=user.id,
+        session_token_hash=hash_token(token),
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    resp = await client.post(
+        "/rows",
+        json={
+            "title": "Roblox gift cards $50 and up",
+            "status": "sourcing",
+            "currency": "USD",
+            "request_spec": {
+                "item_name": "Roblox gift cards",
+                "constraints": "{}",
+            },
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    row_id = resp.json()["id"]
+
+    patch = await client.patch(
+        f"/rows/{row_id}",
+        json={"provider_query": "Roblox gift cards"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert patch.status_code == 200
+    assert patch.json().get("provider_query") == "Roblox gift cards"
+
+    get = await client.get(
+        f"/rows/{row_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert get.status_code == 200
+    assert get.json().get("provider_query") == "Roblox gift cards"
+
+
+@pytest.mark.asyncio
 async def test_search_defaults_to_row_title(client: AsyncClient, session, monkeypatch):
     user = User(email="defaults@example.com")
     session.add(user)

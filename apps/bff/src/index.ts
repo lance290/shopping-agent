@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fs from 'fs';
 import path from 'path';
-import { chatHandler, generateAndSaveChoiceFactors, GEMINI_MODEL_NAME } from './llm';
+import { chatHandler, generateAndSaveChoiceFactors, GEMINI_MODEL_NAME, triageProviderQuery } from './llm';
 
 // Manually load .env since we want to avoid dependency issues
 try {
@@ -18,29 +18,12 @@ try {
           process.env[key] = value;
         }
       }
-    });
+        });
     console.log('Loaded .env configuration from:', envPath);
   }
 } catch (e) {
   console.warn('Failed to load .env file:', e);
 }
-
-const fastify = Fastify({
-  logger: true,
-});
-
-// Register plugins
-fastify.register(cors, {
-  origin: process.env.CORS_ORIGIN || '*',
-});
-
-fastify.addContentTypeParser(
-  /^multipart\/form-data(?:;.*)?$/,
-  { parseAs: 'buffer' },
-  (req, body, done) => {
-    done(null, body);
-  }
-);
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
@@ -212,26 +195,44 @@ function buildBasicChoiceFactors(itemName: string): Array<{
   return shared;
 }
 
-async function saveChoiceFactorsToBackend(rowId: number, factors: unknown, authorization?: string) {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (authorization) {
-    headers['Authorization'] = authorization;
+export function buildApp() {
+  const fastify = Fastify({
+    logger: true,
+  });
+
+  // Register plugins
+  fastify.register(cors, {
+    origin: process.env.CORS_ORIGIN || '*',
+  });
+
+  fastify.addContentTypeParser(
+    /^multipart\/form-data(?:;.*)?$/,
+    { parseAs: 'buffer' },
+    (req, body, done) => {
+      done(null, body);
+    }
+  );
+
+  async function saveChoiceFactorsToBackend(rowId: number, factors: unknown, authorization?: string) {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authorization) {
+      headers['Authorization'] = authorization;
+    }
+
+    await fetchJsonWithTimeout(
+      `${BACKEND_URL}/rows/${rowId}`,
+      {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ choice_factors: JSON.stringify(factors) }),
+      },
+      15000
+    );
   }
 
-  await fetchJsonWithTimeout(
-    `${BACKEND_URL}/rows/${rowId}`,
-    {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({ choice_factors: JSON.stringify(factors) }),
-    },
-    15000
-  );
-}
-
-function normalizeRefinementText(text: string): { normalized: string; isRefinement: boolean } {
-  const raw = (text || '').trim();
-  const lower = raw.toLowerCase();
+  function normalizeRefinementText(text: string): { normalized: string; isRefinement: boolean } {
+    const raw = (text || '').trim();
+    const lower = raw.toLowerCase();
 
   const patterns: Array<{ re: RegExp; isRefinement: boolean }> = [
     { re: /^i\s+meant\s+/i, isRefinement: true },
@@ -253,39 +254,39 @@ function normalizeRefinementText(text: string): { normalized: string; isRefineme
     return { normalized: raw.slice('i mean '.length).trim() || raw, isRefinement: true };
   }
 
-  return { normalized: raw, isRefinement: false };
-}
-
-// Proxy clickout to backend (preserves auth header for user tracking)
-fastify.get('/api/out', async (request, reply) => {
-  try {
-    const query = request.query as Record<string, string>;
-    const params = new URLSearchParams(query).toString();
-    
-    const headers: Record<string, string> = {};
-    if (request.headers.authorization) {
-      headers['Authorization'] = request.headers.authorization;
-    }
-    
-    const response = await fetch(`${BACKEND_URL}/api/out?${params}`, {
-      headers,
-      redirect: 'manual', // Don't follow redirect, pass it through
-    });
-    
-    // Pass through the redirect
-    const location = response.headers.get('location');
-    if (location) {
-      reply.redirect(302, location);
-    } else {
-      reply.status(response.status).send(await response.text());
-    }
-  } catch (err) {
-    fastify.log.error(err);
-    reply.status(500).send({ error: 'Clickout failed' });
+    return { normalized: raw, isRefinement: false };
   }
-});
 
-fastify.post('/api/bugs', async (request, reply) => {
+  // Proxy clickout to backend (preserves auth header for user tracking)
+  fastify.get('/api/out', async (request, reply) => {
+    try {
+      const query = request.query as Record<string, string>;
+      const params = new URLSearchParams(query).toString();
+
+      const headers: Record<string, string> = {};
+      if (request.headers.authorization) {
+        headers['Authorization'] = request.headers.authorization;
+      }
+
+      const response = await fetch(`${BACKEND_URL}/api/out?${params}`, {
+        headers,
+        redirect: 'manual', // Don't follow redirect, pass it through
+      });
+
+      // Pass through the redirect
+      const location = response.headers.get('location');
+      if (location) {
+        reply.redirect(302, location);
+      } else {
+        reply.status(response.status).send(await response.text());
+      }
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Clickout failed' });
+    }
+  });
+
+  fastify.post('/api/bugs', async (request, reply) => {
   try {
     const headers: Record<string, string> = {};
     const contentType = request.headers['content-type'];
@@ -330,8 +331,7 @@ fastify.post('/api/bugs', async (request, reply) => {
   }
 });
 
-// Proxy search to backend (supports per-row search with constraints)
-fastify.post('/api/search', async (request, reply) => {
+  fastify.post('/api/search', async (request, reply) => {
   try {
     const body = request.body as any;
     const rowId = body?.rowId;
@@ -341,9 +341,55 @@ fastify.post('/api/search', async (request, reply) => {
       headers['Authorization'] = request.headers.authorization as string;
     }
 
-    const targetUrl = rowId
-      ? `${BACKEND_URL}/rows/${rowId}/search`
-      : `${BACKEND_URL}/v1/sourcing/search`;
+    if (rowId) {
+      const rowRes = await fetch(`${BACKEND_URL}/rows/${rowId}`, { headers });
+      if (!rowRes.ok) {
+        const text = await rowRes.text();
+        reply.status(rowRes.status).send({ error: text || 'Failed to fetch row' });
+        return;
+      }
+      const row = await rowRes.json() as any;
+
+      let projectTitle: string | null = null;
+      if (row?.project_id) {
+        const projectsRes = await fetch(`${BACKEND_URL}/projects`, { headers });
+        if (projectsRes.ok) {
+          const projects = await projectsRes.json();
+          if (Array.isArray(projects)) {
+            const project = projects.find((p: any) => p?.id === row.project_id);
+            if (project?.title) projectTitle = String(project.title);
+          }
+        }
+      }
+
+      const displayQuery = typeof body?.query === 'string' ? body.query : (row?.title || '');
+      const providerQuery = await triageProviderQuery({
+        displayQuery,
+        rowTitle: row?.title,
+        projectTitle,
+        choiceAnswersJson: row?.choice_answers,
+        requestSpecConstraintsJson: row?.request_spec?.constraints,
+      });
+
+      const safeProviderQuery = providerQuery || displayQuery;
+
+      await fetch(`${BACKEND_URL}/rows/${rowId}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ provider_query: safeProviderQuery }),
+      });
+
+      const response = await fetch(`${BACKEND_URL}/rows/${rowId}/search`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ...body, query: safeProviderQuery }),
+      });
+      const data = await response.json();
+      reply.status(response.status).send(data);
+      return;
+    }
+
+    const targetUrl = `${BACKEND_URL}/v1/sourcing/search`;
 
     const response = await fetch(targetUrl, {
       method: 'POST',
@@ -356,22 +402,18 @@ fastify.post('/api/search', async (request, reply) => {
     fastify.log.error(err);
     reply.status(500).send({ error: 'Failed to fetch from backend' });
   }
-});
-fastify.get('/health', async () => {
-  return {
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    service: 'fastify-app',
-    version: '0.1.0',
-  };
-});
+  });
+
+  fastify.get('/health', async () => {
+    return { status: 'ok' };
+  });
 
 // Root route
-fastify.get('/', async () => {
-  return { message: 'Hello from Fastify!' };
-});
+  fastify.get('/', async () => {
+    return { message: 'Hello from Fastify!' };
+  });
 
-fastify.post('/api/chat', async (request, reply) => {
+  fastify.post('/api/chat', async (request, reply) => {
   let headersSent = false;
   try {
     const { messages, activeRowId, projectId } = request.body as { messages: any[]; activeRowId?: number; projectId?: number };
@@ -601,7 +643,7 @@ fastify.post('/api/chat', async (request, reply) => {
 });
 
 // Row Management Proxy
-fastify.get('/api/rows', async (request, reply) => {
+  fastify.get('/api/rows', async (request, reply) => {
   try {
     const headers: Record<string, string> = {};
     if (request.headers.authorization) {
@@ -634,7 +676,7 @@ fastify.get('/api/rows', async (request, reply) => {
   }
 });
 
-fastify.post('/api/rows', async (request, reply) => {
+  fastify.post('/api/rows', async (request, reply) => {
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (request.headers.authorization) {
@@ -671,7 +713,7 @@ fastify.post('/api/rows', async (request, reply) => {
   }
 });
 
-fastify.get('/api/rows/:id', async (request, reply) => {
+  fastify.get('/api/rows/:id', async (request, reply) => {
   try {
     const { id } = request.params as { id: string };
     const headers: Record<string, string> = {};
@@ -709,7 +751,7 @@ fastify.get('/api/rows/:id', async (request, reply) => {
   }
 });
 
-fastify.delete('/api/rows/:id', async (request, reply) => {
+  fastify.delete('/api/rows/:id', async (request, reply) => {
   try {
     const { id } = request.params as { id: string };
     const headers: Record<string, string> = {};
@@ -738,7 +780,7 @@ fastify.delete('/api/rows/:id', async (request, reply) => {
   }
 });
 
-fastify.patch('/api/rows/:id', async (request, reply) => {
+  fastify.patch('/api/rows/:id', async (request, reply) => {
   try {
     const { id } = request.params as { id: string };
     fastify.log.info({ id, body: request.body }, 'Proxying PATCH row request');
@@ -824,7 +866,7 @@ fastify.patch('/api/rows/:id', async (request, reply) => {
 });
 
 // Project Management Proxy
-fastify.get('/api/projects', async (request, reply) => {
+  fastify.get('/api/projects', async (request, reply) => {
   try {
     const headers: Record<string, string> = {};
     if (request.headers.authorization) {
@@ -856,7 +898,7 @@ fastify.get('/api/projects', async (request, reply) => {
   }
 });
 
-fastify.post('/api/projects', async (request, reply) => {
+  fastify.post('/api/projects', async (request, reply) => {
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (request.headers.authorization) {
@@ -892,7 +934,7 @@ fastify.post('/api/projects', async (request, reply) => {
   }
 });
 
-fastify.delete('/api/projects/:id', async (request, reply) => {
+  fastify.delete('/api/projects/:id', async (request, reply) => {
   try {
     const { id } = request.params as { id: string };
     const headers: Record<string, string> = {};
@@ -923,7 +965,7 @@ fastify.delete('/api/projects/:id', async (request, reply) => {
 
 // ============ AUTH PROXY ROUTES ============
 
-fastify.post('/api/auth/start', async (request, reply) => {
+  fastify.post('/api/auth/start', async (request, reply) => {
   try {
     const response = await fetch(`${BACKEND_URL}/auth/start`, {
       method: 'POST',
@@ -938,7 +980,7 @@ fastify.post('/api/auth/start', async (request, reply) => {
   }
 });
 
-fastify.post('/api/auth/verify', async (request, reply) => {
+  fastify.post('/api/auth/verify', async (request, reply) => {
   try {
     const response = await fetch(`${BACKEND_URL}/auth/verify`, {
       method: 'POST',
@@ -953,7 +995,7 @@ fastify.post('/api/auth/verify', async (request, reply) => {
   }
 });
 
-fastify.get('/api/auth/me', async (request, reply) => {
+  fastify.get('/api/auth/me', async (request, reply) => {
   try {
     const authHeader = request.headers.authorization;
     const response = await fetch(`${BACKEND_URL}/auth/me`, {
@@ -968,7 +1010,7 @@ fastify.get('/api/auth/me', async (request, reply) => {
   }
 });
 
-fastify.post('/api/auth/logout', async (request, reply) => {
+  fastify.post('/api/auth/logout', async (request, reply) => {
   try {
     const authHeader = request.headers.authorization;
     const response = await fetch(`${BACKEND_URL}/auth/logout`, {
@@ -982,6 +1024,9 @@ fastify.post('/api/auth/logout', async (request, reply) => {
     reply.status(500).send({ error: 'Failed to logout' });
   }
 });
+
+  return fastify;
+}
 
 async function isPortAlreadyInUse(port: number): Promise<boolean> {
   const controller = new AbortController();
@@ -1002,6 +1047,7 @@ async function isPortAlreadyInUse(port: number): Promise<boolean> {
 // Start server
 const start = async () => {
   try {
+    const fastify = buildApp();
     const port = parseInt(process.env.PORT || '8080', 10);
     if (await isPortAlreadyInUse(port)) {
       fastify.log.warn(
@@ -1033,9 +1079,11 @@ const start = async () => {
       fastify.log.info(`🚀 Server listening on port ${port}`);
     });
   } catch (err) {
-    fastify.log.error(err);
+    console.error(err);
     process.exit(1);
   }
 };
 
-start();
+if (require.main === module) {
+  start();
+}

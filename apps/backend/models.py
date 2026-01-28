@@ -32,6 +32,7 @@ class RowBase(SQLModel):
     # Choice factors as JSON strings for MVP simplicity
     choice_factors: Optional[str] = None  # JSON array of ChoiceFactor objects
     choice_answers: Optional[str] = None  # JSON object of factor_name -> answer
+    provider_query: Optional[str] = None
 
 class RequestSpecBase(SQLModel):
     item_name: str

@@ -6,6 +6,65 @@ export const GEMINI_MODEL_NAME = 'gemini-3-flash-preview';
 const model = google(GEMINI_MODEL_NAME);
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
+export async function triageProviderQuery(params: {
+  displayQuery: string;
+  rowTitle?: string | null;
+  projectTitle?: string | null;
+  choiceAnswersJson?: string | null;
+  requestSpecConstraintsJson?: string | null;
+}): Promise<string> {
+  const displayQuery = (params.displayQuery || '').trim();
+  const rowTitle = (params.rowTitle || '').trim();
+  const projectTitle = (params.projectTitle || '').trim();
+
+  const heuristic = () => {
+    const text = displayQuery || rowTitle;
+    if (!text) return '';
+
+    let q = text;
+    q = q.replace(/\$\s*\d+(?:\.\d+)?/g, '');
+    q = q.replace(/\b(over|under|below|above)\s*\$?\s*\d+(?:\.\d+)?\b/gi, '');
+    q = q.replace(/\b\d+\s*\+\b/g, '');
+    q = q.replace(/\$\s*\d+(?:\.\d+)?\s*(and\s*up|\+|or\s*more|and\s*above)\b/gi, '');
+    q = q.replace(/\b(and\s*up|or\s*more|and\s*above)\b/gi, '');
+    q = q.replace(/[()]/g, ' ');
+    q = q.replace(/\s+/g, ' ').trim();
+    return q;
+  };
+
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    return heuristic();
+  }
+
+  const prompt = `You are generating a concise search query to send to shopping providers (Amazon/Google Shopping/eBay).
+
+Input:
+- Display query (what user sees): ${JSON.stringify(displayQuery)}
+- Row title: ${JSON.stringify(rowTitle)}
+- Project title: ${JSON.stringify(projectTitle)}
+- choice_answers JSON (may include min_price/max_price): ${JSON.stringify(params.choiceAnswersJson || '')}
+- request_spec.constraints JSON: ${JSON.stringify(params.requestSpecConstraintsJson || '')}
+
+Goal:
+- Output a provider_query that maximizes product relevance.
+- Do NOT include price phrases like "$50 and up", "over $50", "under $50", "50+", "or more" in provider_query.
+- Keep it short (2-6 words), only the core product/category.
+- If the project title helps disambiguate meaning, use it ONLY as context to choose the right meaning; do not include project title in provider_query.
+
+Return JSON ONLY:
+{"provider_query":"..."}`;
+
+  try {
+    const { text } = await generateText({ model, prompt });
+    const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    const q = typeof parsed?.provider_query === 'string' ? parsed.provider_query.trim() : '';
+    return q || heuristic();
+  } catch {
+    return heuristic();
+  }
+}
+
 async function fetchJsonWithTimeout(
   url: string,
   init: RequestInit,
