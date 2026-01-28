@@ -21,5 +21,15 @@
   - **Backend (8000)**: `/likes`, `/rows`, `/projects`, `/search`, auth endpoints
   - **BFF (8081)**: `/chat`, `/stream`, LLM-related endpoints only
 
+## Project assignment regression (do not repeat)
+- Recurring bug: user selects a project (e.g. "Zac’s Birthday") and creates a request, but the new row lands under "Other requests" instead of the selected project.
+- Invariant: if a request is created while a project is selected/armed, the created row must persist `project_id=<active project id>` through the entire chain:
+  - frontend state -> Next.js API route/proxy -> BFF chat/tooling -> backend row creation.
+- This has multiple creation paths and all must preserve `project_id`:
+  - UI "Add Request" (non-LLM)
+  - Chat/LLM tool path
+  - Chat fallback/non-tool path
+- This must be guarded by regression tests.
+
 ## Tests added to prevent regressions
 - Backend tests assert explicit query bypasses constraints, and constraints are used only when query is omitted: @apps/backend/tests/test_rows_authorization.py.

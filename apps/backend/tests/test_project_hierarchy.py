@@ -39,6 +39,17 @@ async def test_project_crud(client: AsyncClient, session):
     project_data = response.json()
     assert project_data["title"] == "My Trip"
     project_id = project_data["id"]
+
+    # 2b. Create another user + project to ensure project ownership is enforced
+    other_user = User(email="project_test_other@example.com")
+    session.add(other_user)
+    await session.commit()
+    await session.refresh(other_user)
+
+    other_project = Project(title="Other Trip", user_id=other_user.id)
+    session.add(other_project)
+    await session.commit()
+    await session.refresh(other_project)
     
     # 3. Create Row under Project
     response = await client.post(
@@ -56,6 +67,21 @@ async def test_project_crud(client: AsyncClient, session):
     assert response.status_code == 200
     row_data = response.json()
     assert row_data["project_id"] == project_id
+
+    # 3b. Creating a row with a project_id not owned by the user should fail loudly
+    response = await client.post(
+        "/rows",
+        json={
+            "title": "Should Fail",
+            "request_spec": {
+                "item_name": "should fail",
+                "constraints": "{}",
+            },
+            "project_id": other_project.id,
+        },
+        headers=headers,
+    )
+    assert response.status_code == 403
     
     # 4. List Projects
     response = await client.get(

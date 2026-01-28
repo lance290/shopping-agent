@@ -71,8 +71,10 @@ async def create_row(
 
     if row.project_id is not None:
         project = await session.get(Project, row.project_id)
-        if not project or project.user_id != auth_session.user_id:
-            row.project_id = None
+        if not project:
+            raise HTTPException(status_code=400, detail="Project not found")
+        if project.user_id != auth_session.user_id:
+            raise HTTPException(status_code=403, detail="Project not owned by user")
 
     request_spec_data = row.request_spec
     
