@@ -9,6 +9,8 @@ import asyncio
 import time
 import base64
 
+from utils.security import redact_secrets_from_text
+
 
 def extract_merchant_domain(url: str) -> str:
     """Extract the merchant domain from a URL."""
@@ -36,19 +38,9 @@ def normalize_url(url: str) -> str:
     return url
 
 
-def redact_secrets(text: str) -> str:
-    if not text:
-        return text
-    redactions = [
-        (r"(api_key=)[^&\s]+", r"\1[REDACTED]"),
-        (r"(key=)[^&\s]+", r"\1[REDACTED]"),
-        (r"(token=)[^&\s]+", r"\1[REDACTED]"),
-        (r"(Authorization: Bearer)\s+[^\s]+", r"\1 [REDACTED]"),
-    ]
-    out = text
-    for pattern, repl in redactions:
-        out = re.sub(pattern, repl, out, flags=re.IGNORECASE)
-    return out
+# Redaction moved to utils.security.redact_secrets_from_text
+# Keeping this alias for backward compatibility
+redact_secrets = redact_secrets_from_text
 
 class SearchResult(BaseModel):
     title: str
