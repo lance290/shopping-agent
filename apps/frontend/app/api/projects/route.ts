@@ -11,12 +11,26 @@ function normalizeBaseUrl(url: string): string {
   return `http://${trimmed}`;
 }
 
-const BFF_URL = normalizeBaseUrl(process.env.BFF_URL || 'http://localhost:8080');
+const BFF_URL = normalizeBaseUrl(
+  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8080'
+);
 const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
 
-async function getAuthHeader(): Promise<{ Authorization?: string }> {
-  if (disableClerk) {
-    const token = process.env.DEV_SESSION_TOKEN;
+function getDevSessionToken(): string | undefined {
+  return process.env.DEV_SESSION_TOKEN || process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN;
+}
+
+function getCookieSessionToken(request: NextRequest): string | undefined {
+  return request.cookies.get('sa_session')?.value;
+}
+
+function isClerkConfigured(): boolean {
+  return Boolean(process.env.CLERK_SECRET_KEY);
+}
+
+async function getAuthHeader(request: NextRequest): Promise<{ Authorization?: string }> {
+  if (disableClerk || !isClerkConfigured()) {
+    const token = getCookieSessionToken(request) || getDevSessionToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
@@ -25,9 +39,9 @@ async function getAuthHeader(): Promise<{ Authorization?: string }> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const authHeader = await getAuthHeader();
+    const authHeader = await getAuthHeader(request);
     if (!authHeader['Authorization']) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -50,12 +64,13 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = await getAuthHeader();
+    const authHeader = await getAuthHeader(request);
     if (!authHeader['Authorization']) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
+    console.log(`[API] Creating project with title: ${body.title} via BFF: ${BFF_URL}`);
     
     const response = await fetch(`${BFF_URL}/api/projects`, {
       method: 'POST',
@@ -66,6 +81,12 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     });
     
+    if (!response.ok) {
+      const text = await response.text();
+      console.error(`[API] BFF project creation failed: ${response.status}`, text);
+      return NextResponse.json({ error: 'BFF failed' }, { status: response.status });
+    }
+
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
@@ -76,7 +97,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const authHeader = await getAuthHeader();
+    const authHeader = await getAuthHeader(request);
     if (!authHeader['Authorization']) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

@@ -35,7 +35,7 @@ A lightweight NPM package (or embeddable script) that host applications install.
 ### 3.2. The "Fixer Core" (Backend Service)
 A centralized API and worker service.
 *   **Responsibility:** Receives reports, manages storage, interfaces with GitHub, and orchestrates the AI Agent.
-*   **Stack:** Python (FastAPI), Postgres (Metadata), **Railway Volume** (Artifacts).
+*   **Stack:** Python (FastAPI), Postgres (Metadata), **Railway Bucket (S3-compatible)** for artifacts (screenshots/logs).
 
 ---
 
@@ -53,21 +53,27 @@ A centralized API and worker service.
         *   Network Errors (Last 10 failed requests)
 *   **Feedback:** Instant "Report Submitted" confirmation with a link to track status.
 
-### 4.2. Storage & Persistence (Railway Volumes)
-*   **Constraint:** We do NOT use S3. We use **Railway Volumes** for persistence.
-*   **Requirement:** All uploaded content (screenshots, logs) must be written to a dedicated persistent mount point.
+### 4.2. Storage & Persistence (Railway Bucket + Optional Volumes)
+*   **Constraint:** Attachments must be durable across deploys/restarts.
+*   **Production Default:** Use **Railway Bucket (S3-compatible)** for all uploaded artifacts (screenshots/logs).
+*   **Optional Fallback:** Railway Volumes (disk) may be used for local dev or temporary deployments, but should not be the default for a multi-project, portable service.
 *   **Implementation:**
     *   **Storage Adapter Pattern:** Backend implements `IStorageProvider`.
-    *   **Disk Adapter:** The primary (and only) implementation writes files to a local path defined by `STORAGE_PATH` (e.g., `/data/uploads`).
-    *   **Serving Files:** The FastAPI app must serve static files from this directory (e.g., mounted at `/static/uploads`), ensuring correct MIME types.
-    *   **Database:** Store metadata (notes, severity) in Postgres, and store the *relative path* to the file in the DB (e.g., `uploads/bug-123.png`).
+    *   **Bucket Adapter (Primary):** Uses an S3-compatible client configured from env vars:
+        *   `BUCKET_ENDPOINT_URL` (e.g., `https://storage.railway.app`)
+        *   `BUCKET_REGION` (often `auto`)
+        *   `BUCKET_NAME`
+        *   `BUCKET_ACCESS_KEY_ID`
+        *   `BUCKET_SECRET_ACCESS_KEY`
+    *   **Disk Adapter (Fallback):** Writes files to a local path defined by `STORAGE_PATH` (e.g., `/data/uploads`).
+    *   **Database:** Store metadata (notes, severity) in Postgres, and store the *public URL* (bucket) or *relative path* (disk fallback) for each artifact.
 
 ### 4.3. GitHub Integration & AI Loop
 *   **Issue Creation:** Backend authenticates as a GitHub App (or Bot) to create an Issue in the *target* repository (configured via `projectId`).
 *   **Trigger Label:** Automatically applies label `ai-fix`.
 *   **AI Agent Execution:**
     *   Listens for `ai-fix` webhook.
-    *   Reads Issue + Screenshots (via public URL served by API) + Context Logs.
+    *   Reads Issue + Screenshots (via bucket URL or API-served fallback) + Context Logs.
     *   (Optional) Attempts to reproduce via E2E test generation.
     *   Generates code fix.
     *   Opens Pull Request.
@@ -106,12 +112,16 @@ A centralized API and worker service.
 *   **API Keys:** Host apps identify via `X-Project-ID` and `X-API-Key`.
 *   **CORS:** Backend must whitelist host domains.
 *   **Sanitization:** AI Agent must redact secrets (API keys, PII) from console logs before uploading.
+*   **Credential hygiene:** Bucket credentials must be stored only in Railway Variables/Secrets (never in git). Rotate credentials immediately if they’re ever exposed.
 
 ### 6.3. Development vs. Production
-*   **Configuration:** Controlled via `STORAGE_PATH` env var.
-    *   **Local Dev:** `STORAGE_PATH=./uploads` (Gitignored).
-    *   **Production (Railway):** `STORAGE_PATH=/data/uploads` (Mounted Volume).
-*   **Docker:** The Dockerfile must declare the volume mount point or ensure permissions are correct for the `STORAGE_PATH`.
+*   **Configuration:** Controlled via `STORAGE_PROVIDER=bucket|disk`.
+    *   **Local Dev (recommended):** `STORAGE_PROVIDER=disk` and `STORAGE_PATH=./uploads` (Gitignored).
+    *   **Production (Railway, recommended):** `STORAGE_PROVIDER=bucket` and set the bucket env vars (endpoint/region/name/keys).
+    *   **Production (fallback):** `STORAGE_PROVIDER=disk` with a Railway Volume mounted at `STORAGE_PATH=/data/uploads`.
+*   **Docker:**
+    *   For `disk` provider: ensure permissions are correct for `STORAGE_PATH`.
+    *   For `bucket` provider: no filesystem persistence requirements.
 
 ---
 
@@ -119,8 +129,9 @@ A centralized API and worker service.
 
 ### Phase 1: Core Service (The "Sister Project")
 1.  Initialize `apps/bug-fixer-api` (FastAPI).
-2.  Implement `DiskStorageProvider` using `STORAGE_PATH`.
-3.  Implement `GitHubClient` (Issue creation).
+2.  Implement `BucketStorageProvider` (primary) using Railway Bucket (S3-compatible) env vars.
+3.  Implement `DiskStorageProvider` (fallback) using `STORAGE_PATH`.
+4.  Implement `GitHubClient` (Issue creation).
 
 ### Phase 2: The SDK
 1.  Initialize `packages/bug-reporter-sdk` (React + Tailwind).
@@ -130,5 +141,5 @@ A centralized API and worker service.
 
 ### Phase 3: AI Integration
 1.  Wire up the `ai-fix` label trigger.
-2.  Deploy to Railway (mapping the Volume to `/data`).
-3.  Verify end-to-end flow: Report -> Disk Write -> GitHub Issue -> PR.
+2.  Deploy to Railway (configure the Bucket vars; optionally map Volume to `/data` only if using `disk` fallback).
+3.  Verify end-to-end flow: Report -> Upload -> GitHub Issue -> PR.

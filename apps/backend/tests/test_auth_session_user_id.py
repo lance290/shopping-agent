@@ -24,7 +24,7 @@ async def test_auth_session_has_user_id(client: AsyncClient, session):
     # First, we need a login code (bypassing email sending for test if possible, 
     # or just inserting one manually)
     from models import AuthLoginCode
-    from main import hash_token
+    from models import hash_token
     
     code = "123456"
     code_hash = hash_token(code)

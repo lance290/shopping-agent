@@ -9,14 +9,16 @@ function normalizeBaseUrl(url: string): string {
   return `http://${trimmed}`;
 }
 
-const BFF_URL = normalizeBaseUrl(process.env.BFF_URL || 'http://localhost:8080');
+const BFF_URL = normalizeBaseUrl(
+  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8080'
+);
 
 const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
 
 export async function POST(request: NextRequest) {
   let token: string | null = null;
   if (disableClerk) {
-    token = process.env.DEV_SESSION_TOKEN || null;
+    token = request.cookies.get('sa_session')?.value || process.env.DEV_SESSION_TOKEN || process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN || null;
   } else {
     const { getToken } = await auth();
     token = await getToken();

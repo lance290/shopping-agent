@@ -206,6 +206,51 @@ class ClickoutEvent(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class Like(SQLModel, table=True):
+    """
+    Persisted user likes for offers/bids.
+    """
+    __tablename__ = "like"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # Who liked
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    
+    # What they liked (either a specific Bid ID or a raw URL if not yet a bid)
+    bid_id: Optional[int] = Field(default=None, foreign_key="bid.id", index=True)
+    offer_url: Optional[str] = Field(default=None, index=True) 
+    
+    # Context
+    row_id: Optional[int] = Field(default=None, foreign_key="row.id", index=True)
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Comment(SQLModel, table=True):
+    """
+    Persisted user comments for offers/bids.
+    """
+    __tablename__ = "comment"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    # Who commented
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+
+    # Context
+    row_id: Optional[int] = Field(default=None, foreign_key="row.id", index=True)
+
+    # What they commented on (either a specific Bid ID or a raw URL)
+    bid_id: Optional[int] = Field(default=None, foreign_key="bid.id", index=True)
+    offer_url: Optional[str] = Field(default=None, index=True)
+
+    body: str
+    visibility: str = Field(default="private")
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class BugReport(SQLModel, table=True):
     """User submitted bug reports."""
     __tablename__ = "bug_report"

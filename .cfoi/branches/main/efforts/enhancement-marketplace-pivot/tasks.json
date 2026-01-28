@@ -24,6 +24,7 @@
     },
     {
       "id": "task-013",
+      "status": "completed",
       "description": "Project hierarchy MVP: group/indent rows under a project",
       "e2e_flow": "Buyer creates a project group from the board UI → adds rows under it → rows render grouped/indented under a project header → refresh persists.",
       "manual_verification": [
@@ -47,7 +48,6 @@
       "dependencies": ["task-001"],
       "estimated_minutes": 45,
       "error_budget": 3,
-      "status": "pending",
       "proof_path": ".cfoi/branches/main/proof/task-013/"
     },
     {
@@ -69,7 +69,7 @@
       "dependencies": ["task-001"],
       "estimated_minutes": 45,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/main/proof/task-002/"
     },
     {

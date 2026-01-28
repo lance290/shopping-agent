@@ -2,8 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
+import Link from 'next/link';
+import { SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
 import { useShoppingStore } from '../store';
-import { persistRowToDb, runSearchApi, fetchRowsFromDb } from '../utils/api';
+import { persistRowToDb, runSearchApi, fetchRowsFromDb, fetchProjectsFromDb, createRowInDb } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
@@ -15,6 +17,7 @@ interface Message {
 }
 
 export default function Chat() {
+  const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -51,9 +54,8 @@ export default function Chat() {
     const loadData = async () => {
       const rows = await fetchRowsFromDb();
       store.setRows(rows);
-      // TODO: Re-enable projects fetch once auth is working
-      // const projects = await fetchProjectsFromDb();
-      // store.setProjects(projects);
+      const projects = await fetchProjectsFromDb();
+      store.setProjects(projects);
     };
     loadData();
   }, []);
@@ -72,28 +74,31 @@ export default function Chat() {
         await persistRowToDb(targetRow.id, query);
       }
     } else {
-      // No match found - need to create a new row
-      // The BFF/backend will create it when we call search
-      const freshRows = await fetchRowsFromDb();
-      store.setRows(freshRows);
-      targetRow = freshRows.find(r => r.title === query) || null;
-      
-      if (!targetRow) {
-        // Row doesn't exist yet - search API will create it
-        // For now, just trigger the search and let the backend handle row creation
-        store.setIsSearching(true);
-        const results = await runSearchApi(query, null as any);
-        // Refresh rows to get the newly created row
-        const updatedRows = await fetchRowsFromDb();
-        store.setRows(updatedRows);
-        const newRow = updatedRows.find(r => r.title === query);
-        if (newRow) {
-          store.setActiveRowId(newRow.id);
-          store.setRowResults(newRow.id, results);
+      // No match found - create a new row explicitly so we can attach it to the selected project.
+      const intendedProjectId = store.targetProjectId;
+      const created = await createRowInDb(query, store.targetProjectId);
+      if (created) {
+        store.addRow(created);
+        store.setActiveRowId(created.id);
+
+        // Clear the one-shot target project after it has been used.
+        if (store.targetProjectId) {
+          store.setTargetProjectId(null);
         }
+
+        store.setIsSearching(true);
+        const results = await runSearchApi(query, created.id);
+        store.setRowResults(created.id, results);
         return;
       }
-      
+
+      // Fallback: if create failed, refresh and attempt to locate an existing row.
+      const freshRows = await fetchRowsFromDb();
+      store.setRows(freshRows);
+      targetRow = intendedProjectId
+        ? freshRows.find((r) => r.title === query && r.project_id === intendedProjectId) || null
+        : freshRows.find((r) => r.title === query) || null;
+
       if (targetRow) {
         store.setActiveRowId(targetRow.id);
       }
@@ -120,7 +125,19 @@ export default function Chat() {
     const queryText = input.trim();
     setInput('');
     setIsLoading(true);
+    const intendedProjectId = store.targetProjectId;
 
+    const pickRowFromFresh = (freshRows: any[], query: string) => {
+      const q = query.toLowerCase().trim();
+      const scoped = intendedProjectId
+        ? freshRows.filter((r) => r.project_id === intendedProjectId)
+        : freshRows;
+      const byTitle = scoped.find((r) => r.title?.toLowerCase?.().trim?.() === q);
+      const newestById = [...scoped].sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0];
+      return byTitle || newestById || null;
+    };
+
+    let searchTriggered = false;
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -128,6 +145,7 @@ export default function Chat() {
         body: JSON.stringify({ 
           messages: [...messages, userMessage],
           activeRowId: store.activeRowId,
+          projectId: intendedProjectId,
         }),
       });
       
@@ -162,11 +180,7 @@ export default function Chat() {
             const freshRows = await fetchRowsFromDb();
             store.setRows(freshRows);
 
-            // Prefer selecting the row that matches the created query; otherwise pick most recently created
-            const createdTitle = rowMatch[1].toLowerCase().trim();
-            const byTitle = freshRows.find(r => r.title.toLowerCase().trim() === createdTitle);
-            const newestById = [...freshRows].sort((a, b) => b.id - a.id)[0];
-            const selected = byTitle || newestById;
+            const selected = pickRowFromFresh(freshRows, rowMatch[1]);
             if (selected) {
               store.setActiveRowId(selected.id);
             }
@@ -185,16 +199,14 @@ export default function Chat() {
           const searchMatch = assistantContent.match(/🔍 Searching for "([^"]+)"/);
           if (searchMatch && searchMatch[1] !== lastProcessedQuery) {
             lastProcessedQuery = searchMatch[1];
+            searchTriggered = true;
 
             // Ensure we have a stable active row for this search
             let rowId = store.activeRowId;
             if (!rowId) {
               const freshRows = await fetchRowsFromDb();
               store.setRows(freshRows);
-              const q = lastProcessedQuery.toLowerCase().trim();
-              const byTitle = freshRows.find(r => r.title.toLowerCase().trim() === q);
-              const newestById = [...freshRows].sort((a, b) => b.id - a.id)[0];
-              const selected = byTitle || newestById;
+              const selected = pickRowFromFresh(freshRows, lastProcessedQuery);
               if (selected) {
                 rowId = selected.id;
                 store.setActiveRowId(rowId);
@@ -225,6 +237,18 @@ export default function Chat() {
         content: 'Sorry, something went wrong. Please try again.',
       }]);
     } finally {
+      if (!searchTriggered) {
+        const rowId = store.activeRowId;
+        if (rowId && queryText) {
+          store.setIsSearching(true);
+          const results = await runSearchApi(queryText, rowId);
+          store.setRowResults(rowId, results);
+        }
+      }
+      // Clear the one-shot target project after the request completes, so subsequent queries don't inherit it.
+      if (intendedProjectId) {
+        store.setTargetProjectId(null);
+      }
       setIsLoading(false);
     }
   };
@@ -242,9 +266,17 @@ export default function Chat() {
     }
   }, [store.cardClickQuery]);
 
+  const handleDevLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      window.location.href = '/login';
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-warm-light border-r border-warm-grey/70">
-      <div className="h-20 px-6 border-b border-warm-grey/70 bg-warm-light flex items-center">
+      <div className="h-20 px-6 border-b border-warm-grey/70 bg-warm-light flex items-center justify-between gap-4">
         <div className="flex flex-col justify-center min-w-0">
           <div className="text-[10px] uppercase tracking-[0.16em] text-onyx-muted/80 font-medium">Assistant</div>
           <div className="flex items-center gap-3 min-w-0 mt-1">
@@ -260,6 +292,33 @@ export default function Chat() {
               </div>
             )}
           </div>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          {disableClerk ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleDevLogout}
+              className="text-xs"
+            >
+              Clear session
+            </Button>
+          ) : (
+            <>
+              <SignedOut>
+                <Link
+                  href="/login"
+                  className="text-xs font-medium text-onyx hover:text-agent-blurple transition-colors"
+                >
+                  Sign in
+                </Link>
+              </SignedOut>
+              <SignedIn>
+                <UserButton afterSignOutUrl="/login" />
+              </SignedIn>
+            </>
+          )}
         </div>
       </div>
 

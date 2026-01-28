@@ -2,7 +2,7 @@ import { google } from '@ai-sdk/google';
 import { streamText, generateText } from 'ai';
 import { z } from 'zod';
 
-export const GEMINI_MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+export const GEMINI_MODEL_NAME = 'gemini-3-flash-preview';
 const model = google(GEMINI_MODEL_NAME);
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
@@ -123,7 +123,12 @@ Return ONLY the JSON array, no explanation.`;
   }
 }
 
-export const chatHandler = async (messages: any[], authorization?: string, activeRowId?: number | null): Promise<any> => {
+export const chatHandler = async (
+  messages: any[],
+  authorization?: string,
+  activeRowId?: number | null,
+  projectId?: number | null
+): Promise<any> => {
   // Build context about active row for the LLM
   const activeRowInstruction = activeRowId 
     ? `\n\n⚠️ CRITICAL: There is an ACTIVE ROW with ID ${activeRowId}. 
@@ -202,6 +207,7 @@ ${activeRowInstruction}`,
                 body: JSON.stringify({
                   title: input.item,
                   status: 'sourcing',
+                  project_id: projectId || undefined,
                   request_spec: {
                     item_name: input.item,
                     constraints: JSON.stringify(normalizedConstraints)
@@ -236,7 +242,35 @@ ${activeRowInstruction}`,
               console.error(`[Background] Failed to generate factors for row ${data.id}:`, err);
             });
             
-            return { status: 'row_created', data: { ...data, choice_factors: null } };
+            // Auto-trigger search since AI SDK v6 doesn't support multi-step tool calls
+            const searchHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (authorization) {
+              searchHeaders['Authorization'] = authorization;
+            }
+            
+            const searchResult = await fetchJsonWithTimeout(
+              `${BACKEND_URL}/rows/${data.id}/search`,
+              {
+                method: 'POST',
+                headers: searchHeaders,
+                body: JSON.stringify({ query: input.item }),
+              },
+              30000
+            );
+            
+            const searchCount = searchResult.ok && searchResult.data?.results 
+              ? searchResult.data.results.length 
+              : 0;
+            
+            return { 
+              status: 'row_created_and_searched', 
+              rowId: data.id,
+              searchCount,
+              message: searchCount > 0 
+                ? `Created row and found ${searchCount} results for "${input.item}".`
+                : `Created row for "${input.item}". Search returned no results - try refining your query.`,
+              data: { ...data, choice_factors: null } 
+            };
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
             return { status: 'error', message: msg };

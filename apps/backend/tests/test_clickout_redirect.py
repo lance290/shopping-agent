@@ -1,6 +1,7 @@
 import pytest
 from httpx import AsyncClient
-from main import app, check_rate_limit, rate_limit_store
+from main import app
+from routes.rate_limit import check_rate_limit, rate_limit_store
 from models import Row, User, AuthSession
 from sqlmodel import select
 from datetime import datetime, timedelta

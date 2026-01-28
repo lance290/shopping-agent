@@ -1,6 +1,7 @@
 import pytest
 import sys
 import os
+import json
 from httpx import AsyncClient
 from sqlmodel import select
 from models import Row, AuthSession, User
@@ -8,7 +9,10 @@ from models import Row, AuthSession, User
 # Add parent directory to path to allow importing models and main
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from main import app, get_session, hash_token, generate_session_token
+from main import app
+from database import get_session
+from models import hash_token, generate_session_token
+import routes.rows_search as rows_search_module
 
 @pytest.mark.asyncio
 async def test_rows_authorization(client: AsyncClient, session):
@@ -104,3 +108,215 @@ async def test_rows_authorization(client: AsyncClient, session):
     db_row = await session.get(Row, row_id_a)
     assert db_row is not None
     assert db_row.status == "archived"
+
+
+@pytest.mark.asyncio
+async def test_search_query_uses_explicit_query_when_provided(client: AsyncClient, session, monkeypatch):
+    user = User(email="searcher@example.com")
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    token = generate_session_token()
+    auth_session = AuthSession(
+        email=user.email,
+        user_id=user.id,
+        session_token_hash=hash_token(token),
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    row_data = {
+        "title": "Roblox gift cards",
+        "status": "sourcing",
+        "currency": "USD",
+        "choice_answers": json.dumps({"quantity": 3, "is_gift": True}),
+        "request_spec": {
+            "item_name": "Roblox gift cards",
+            "constraints": json.dumps({"card_value": "$100"}),
+        },
+    }
+
+    resp = await client.post(
+        "/rows",
+        json=row_data,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    row_id = resp.json()["id"]
+
+    captured = {}
+
+    async def fake_search_all(self, query: str, **kwargs):
+        captured["query"] = query
+        return []
+
+    # Patch the sourcing repo in the search module
+    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+
+    search_resp = await client.post(
+        f"/rows/{row_id}/search",
+        json={"query": "Roblox gift cards"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert search_resp.status_code == 200
+    assert captured["query"] == "Roblox gift cards"
+
+
+@pytest.mark.asyncio
+async def test_search_query_uses_constraints_when_query_missing(client: AsyncClient, session, monkeypatch):
+    user = User(email="constraints@example.com")
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    token = generate_session_token()
+    auth_session = AuthSession(
+        email=user.email,
+        user_id=user.id,
+        session_token_hash=hash_token(token),
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    row_data = {
+        "title": "Roblox gift cards",
+        "status": "sourcing",
+        "currency": "USD",
+        "choice_answers": json.dumps({"quantity": 3, "is_gift": True}),
+        "request_spec": {
+            "item_name": "Roblox gift cards",
+            "constraints": json.dumps({"card_value": "$100"}),
+        },
+    }
+
+    resp = await client.post(
+        "/rows",
+        json=row_data,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    row_id = resp.json()["id"]
+
+    captured = {}
+
+    async def fake_search_all(self, query: str, **kwargs):
+        captured["query"] = query
+        return []
+
+    # Patch the sourcing repo in the search module
+    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+
+    search_resp = await client.post(
+        f"/rows/{row_id}/search",
+        json={},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert search_resp.status_code == 200
+    assert "card_value" in captured["query"]
+    assert "quantity" in captured["query"]
+
+
+@pytest.mark.asyncio
+async def test_search_query_sanitizes_long_query(client: AsyncClient, session, monkeypatch):
+    user = User(email="sanitize@example.com")
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    token = generate_session_token()
+    auth_session = AuthSession(
+        email=user.email,
+        user_id=user.id,
+        session_token_hash=hash_token(token),
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    row_data = {
+        "title": "Long Query Row",
+        "status": "sourcing",
+        "currency": "USD",
+        "request_spec": {
+            "item_name": "Long Query Row",
+            "constraints": "{}",
+        },
+    }
+
+    resp = await client.post(
+        "/rows",
+        json=row_data,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    row_id = resp.json()["id"]
+
+    captured = {}
+
+    async def fake_search_all(self, query: str, **kwargs):
+        captured["query"] = query
+        return []
+
+    # Patch the sourcing repo in the search module
+    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+
+    long_query = "one two three four five six seven eight nine ten eleven"
+    search_resp = await client.post(
+        f"/rows/{row_id}/search",
+        json={"query": long_query},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert search_resp.status_code == 200
+    assert len(captured["query"].split()) <= 8
+
+
+@pytest.mark.asyncio
+async def test_search_defaults_to_row_title(client: AsyncClient, session, monkeypatch):
+    user = User(email="defaults@example.com")
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    token = generate_session_token()
+    auth_session = AuthSession(
+        email=user.email,
+        user_id=user.id,
+        session_token_hash=hash_token(token),
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    row_data = {
+        "title": "Nintendo Switch 2",
+        "status": "sourcing",
+        "currency": "USD",
+        "request_spec": {
+            "item_name": "Nintendo Switch 2",
+            "constraints": "{}",
+        },
+    }
+
+    resp = await client.post(
+        "/rows",
+        json=row_data,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    row_id = resp.json()["id"]
+
+    captured = {}
+
+    async def fake_search_all(self, query: str, **kwargs):
+        captured["query"] = query
+        return []
+
+    # Patch the sourcing repo in the search module
+    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+
+    search_resp = await client.post(
+        f"/rows/{row_id}/search",
+        json={},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert search_resp.status_code == 200
+    assert captured["query"].startswith("Nintendo Switch 2")

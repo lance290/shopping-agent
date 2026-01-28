@@ -1,21 +1,22 @@
 # Alignment Check - task-003
 
 ## North Star Goals Supported
-- **Goal Statement**: "Ensure each authenticated user can only see and operate on their own chats/searches/rows."
-- **Support**: The BFF acts as the gateway; it must propagate the user's identity (via Authorization header) to the backend so the isolation logic (implemented in task-002) can function.
+- **Effort Goal**: Align product and implementation roadmap to deliver the multi-category marketplace experience (workspace + tiles + multi-channel sourcing + unified closing).
+- **Supports Metric**: Increase collaboration quality and decision velocity by letting buyers/collaborators attach structured commentary to offers and retain it across reloads.
 
 ## Task Scope Validation
-- **In scope**: 
-  - Update BFF proxy routes (`/api/rows*`) to forward `Authorization` header.
-  - Update Chat API (`/api/chat`) to accept and pass auth token.
-  - Update LLM tools (`createRow`) to use the user's auth token.
-- **Out of Scope**: 
-  - Frontend sending the token (next task).
+- **In scope**:
+  - Persist a comment attached to an offer/tile (bid-backed or URL-backed) and a row.
+  - Render comment(s) in the UI and confirm they survive refresh.
+  - Keep visibility extensible (e.g., author, timestamps, optional visibility scope), without overbuilding permissions.
+- **Out of scope**:
+  - Full collaborator/share-link access control (task-004).
+  - Threaded discussions, mentions, reactions, or rich text.
 
 ## Acceptance Criteria
-- [ ] BFF `/api/rows` calls backend with `Authorization` header from incoming request.
-- [ ] BFF `/api/chat` calls backend tools with `Authorization` header.
-- [ ] Missing auth header in BFF request results in 401 (propagated from backend).
+- [ ] Buyer can add a comment to a tile.
+- [ ] Comment displays immediately in the UI.
+- [ ] Refreshing the page keeps the comment visible (persisted in DB).
 
 ## Approved by: Cascade
-## Date: 2026-01-09
+## Date: 2026-01-26
