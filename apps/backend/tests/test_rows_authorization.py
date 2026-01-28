@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from main import app
 from database import get_session
 from models import hash_token, generate_session_token
-import routes.rows as rows_module
+import routes.rows_search as rows_search_module
 
 @pytest.mark.asyncio
 async def test_rows_authorization(client: AsyncClient, session):
@@ -151,8 +151,8 @@ async def test_search_query_uses_explicit_query_when_provided(client: AsyncClien
         captured["query"] = query
         return []
 
-    # Patch the sourcing repo in the rows module
-    rows_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+    # Patch the sourcing repo in the search module
+    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
 
     search_resp = await client.post(
         f"/rows/{row_id}/search",
@@ -204,8 +204,8 @@ async def test_search_query_uses_constraints_when_query_missing(client: AsyncCli
         captured["query"] = query
         return []
 
-    # Patch the sourcing repo in the rows module
-    rows_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+    # Patch the sourcing repo in the search module
+    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
 
     search_resp = await client.post(
         f"/rows/{row_id}/search",
@@ -257,8 +257,8 @@ async def test_search_query_sanitizes_long_query(client: AsyncClient, session, m
         captured["query"] = query
         return []
 
-    # Patch the sourcing repo in the rows module
-    rows_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+    # Patch the sourcing repo in the search module
+    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
 
     long_query = "one two three four five six seven eight nine ten eleven"
     search_resp = await client.post(
@@ -310,8 +310,8 @@ async def test_search_defaults_to_row_title(client: AsyncClient, session, monkey
         captured["query"] = query
         return []
 
-    # Patch the sourcing repo in the rows module
-    rows_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+    # Patch the sourcing repo in the search module
+    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
 
     search_resp = await client.post(
         f"/rows/{row_id}/search",
