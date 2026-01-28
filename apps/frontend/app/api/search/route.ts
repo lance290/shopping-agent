@@ -1,13 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 
-const BFF_URL = process.env.BFF_URL || 'http://localhost:8080';
+function normalizeBaseUrl(url: string): string {
+  const trimmed = url.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  return `http://${trimmed}`;
+}
+
+const BFF_URL = normalizeBaseUrl(
+  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
+);
 
 const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
 
 async function getAuthHeader(request: NextRequest): Promise<{ Authorization?: string }> {
   if (disableClerk) {
-    const token = request.cookies.get('sa_session')?.value || process.env.DEV_SESSION_TOKEN;
+    const token =
+      request.cookies.get('sa_session')?.value ||
+      process.env.DEV_SESSION_TOKEN ||
+      process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN;
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 

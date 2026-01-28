@@ -112,7 +112,7 @@ export const createCommentApi = async (
 
 export const fetchCommentsApi = async (rowId: number): Promise<CommentDto[]> => {
   try {
-    const res = await fetch(`/api/comments?row_id=${rowId}`);
+    const res = await fetchWithDevAuth(`${backendUrl}/comments?row_id=${rowId}`);
     if (!res.ok) {
       console.error('[API] fetchComments failed:', res.status);
       return [];
@@ -249,13 +249,28 @@ export const createRowInDb = async (title: string, projectId?: number | null): P
 // Helper: Fetch all rows from DB
 export const fetchRowsFromDb = async (): Promise<Row[]> => {
   try {
+    // Ensure we have a valid session token in cookie before calling
+    await getOrCreateDevAuthToken();
+    
     const res = await fetch('/api/rows');
     if (res.ok) {
       const rows = await res.json();
       return Array.isArray(rows) ? rows : [];
-    } else {
-      console.error('[API] fetchRowsFromDb failed:', res.status);
     }
+    
+    // On 401, mint fresh token and retry
+    if (res.status === 401) {
+      const freshToken = await getOrCreateDevAuthToken(true);
+      if (freshToken) {
+        const retry = await fetch('/api/rows');
+        if (retry.ok) {
+          const rows = await retry.json();
+          return Array.isArray(rows) ? rows : [];
+        }
+      }
+    }
+    
+    console.error('[API] fetchRowsFromDb failed:', res.status);
   } catch (err) {
     console.error('[API] Fetch rows error:', err);
   }
@@ -265,14 +280,29 @@ export const fetchRowsFromDb = async (): Promise<Row[]> => {
 // Helper: Fetch projects
 export const fetchProjectsFromDb = async (): Promise<Project[]> => {
   try {
+    // Ensure we have a valid session token in cookie before calling
+    await getOrCreateDevAuthToken();
+    
     const res = await fetch('/api/projects');
     if (res.ok) {
       const projects = await res.json();
       return Array.isArray(projects) ? projects : [];
-    } else {
-      console.error('[API] fetchProjectsFromDb failed:', res.status);
-      return [];
     }
+    
+    // On 401, mint fresh token and retry
+    if (res.status === 401) {
+      const freshToken = await getOrCreateDevAuthToken(true);
+      if (freshToken) {
+        const retry = await fetch('/api/projects');
+        if (retry.ok) {
+          const projects = await retry.json();
+          return Array.isArray(projects) ? projects : [];
+        }
+      }
+    }
+    
+    console.error('[API] fetchProjectsFromDb failed:', res.status);
+    return [];
   } catch (err) {
     console.error('[API] fetchProjectsFromDb error:', err);
     return [];

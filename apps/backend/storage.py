@@ -6,8 +6,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from datetime import datetime
 from typing import List, Optional, Protocol
-import aioboto3
-from botocore.client import Config
 
 class IStorageProvider(ABC):
     @abstractmethod
@@ -50,6 +48,13 @@ class DiskStorageProvider(IStorageProvider):
 
 class BucketStorageProvider(IStorageProvider):
     def __init__(self):
+        try:
+            import aioboto3  # type: ignore
+            from botocore.client import Config  # type: ignore
+        except ModuleNotFoundError as exc:
+            raise ModuleNotFoundError(
+                "aioboto3 is required for bucket storage. Install it or use STORAGE_PROVIDER=disk."
+            ) from exc
         self.endpoint_url = os.getenv("BUCKET_ENDPOINT_URL")
         self.region_name = os.getenv("BUCKET_REGION", "auto")
         self.bucket_name = os.getenv("BUCKET_NAME")
@@ -60,6 +65,7 @@ class BucketStorageProvider(IStorageProvider):
             raise ValueError("Missing bucket configuration environment variables")
 
         self.session = aioboto3.Session()
+        self._config = Config
 
     async def save_file(self, file_content: bytes, filename: str, subfolder: str = "bugs") -> str:
         safe_name = os.path.basename(filename).replace(" ", "_")
@@ -73,7 +79,7 @@ class BucketStorageProvider(IStorageProvider):
             aws_access_key_id=self.access_key,
             aws_secret_access_key=self.secret_key,
             region_name=self.region_name,
-            config=Config(signature_version="s3v4")
+            config=self._config(signature_version="s3v4")
         ) as s3:
             await s3.put_object(
                 Bucket=self.bucket_name,

@@ -526,7 +526,9 @@ fastify.post('/api/chat', async (request, reply) => {
       fastify.log.info({ partType: part.type, part }, 'Stream part received');
       
       if (part.type === 'text-delta') {
-        reply.raw.write(part.textDelta);
+        if (part.textDelta) {
+          reply.raw.write(part.textDelta);
+        }
       } else if (part.type === 'tool-call') {
         // Provide feedback when a tool is called
         // AI SDK uses 'input' not 'args' for tool call parameters
@@ -981,12 +983,41 @@ fastify.post('/api/auth/logout', async (request, reply) => {
   }
 });
 
+async function isPortAlreadyInUse(port: number): Promise<boolean> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1500);
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    return res.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // Start server
 const start = async () => {
   try {
     const port = parseInt(process.env.PORT || '8080', 10);
+    if (await isPortAlreadyInUse(port)) {
+      fastify.log.warn(
+        `BFF already running on port ${port}. Skipping duplicate start to avoid conflicts.`
+      );
+      process.exit(0);
+    }
+
     await fastify.listen({ port, host: '0.0.0.0' }, (err, address) => {
       if (err) {
+        if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+          fastify.log.warn(
+            `Port ${port} already in use. Another BFF instance is likely running.`
+          );
+          process.exit(0);
+        }
         fastify.log.error(err);
         process.exit(1);
       }

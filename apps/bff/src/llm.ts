@@ -242,7 +242,35 @@ ${activeRowInstruction}`,
               console.error(`[Background] Failed to generate factors for row ${data.id}:`, err);
             });
             
-            return { status: 'row_created', data: { ...data, choice_factors: null } };
+            // Auto-trigger search since AI SDK v6 doesn't support multi-step tool calls
+            const searchHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (authorization) {
+              searchHeaders['Authorization'] = authorization;
+            }
+            
+            const searchResult = await fetchJsonWithTimeout(
+              `${BACKEND_URL}/rows/${data.id}/search`,
+              {
+                method: 'POST',
+                headers: searchHeaders,
+                body: JSON.stringify({ query: input.item }),
+              },
+              30000
+            );
+            
+            const searchCount = searchResult.ok && searchResult.data?.results 
+              ? searchResult.data.results.length 
+              : 0;
+            
+            return { 
+              status: 'row_created_and_searched', 
+              rowId: data.id,
+              searchCount,
+              message: searchCount > 0 
+                ? `Created row and found ${searchCount} results for "${input.item}".`
+                : `Created row for "${input.item}". Search returned no results - try refining your query.`,
+              data: { ...data, choice_factors: null } 
+            };
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
             return { status: 'error', message: msg };

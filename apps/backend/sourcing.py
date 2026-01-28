@@ -434,8 +434,38 @@ class RainforestAPIProvider(SourcingProvider):
             if not isinstance(data, dict):
                 return []
 
+            search_results = data.get("search_results") if isinstance(data, dict) else None
+            if not search_results:
+                fallback_query = " ".join(query.split()[:4]).strip()
+                if fallback_query and fallback_query.lower() != query.lower():
+                    print(
+                        f"[RainforestAPIProvider] Empty results for query='{query}'. "
+                        f"Retrying with simplified query='{fallback_query}'."
+                    )
+                    params = {
+                        "api_key": self.api_key,
+                        "type": "search",
+                        "amazon_domain": "amazon.com",
+                        "search_term": fallback_query,
+                    }
+                    try:
+                        async with httpx.AsyncClient(timeout=10.0) as client:
+                            response = await client.get(self.base_url, params=params)
+                            response.raise_for_status()
+                            data = response.json()
+                    except httpx.HTTPStatusError as e:
+                        status = None
+                        try:
+                            status = e.response.status_code
+                        except Exception:
+                            status = None
+                        safe_msg = redact_secrets(str(e))
+                        print(f"[RainforestAPIProvider] HTTP error status={status}: {safe_msg}")
+                        return []
+                    search_results = data.get("search_results") if isinstance(data, dict) else None
+
             results = []
-            for item in data.get("search_results", [])[:20]:
+            for item in (search_results or [])[:20]:
                 price_info = item.get("price", {})
                 price = price_info.get("value", 0) if isinstance(price_info, dict) else 0
                 

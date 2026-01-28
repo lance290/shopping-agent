@@ -263,22 +263,32 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     const canonicalUrl = getCanonicalOfferUrl(offer);
     const offerBidId = offer.bid_id;
     
+    console.log('[Like] handleToggleLike called:', {
+      offerTitle: offer.title,
+      offerBidId,
+      canonicalUrl,
+      offerPrice: offer.price,
+      offersCount: offers.length,
+    });
+    
     // Optimistic update - match by bid_id, canonical URL, or object reference
-    const updatedOffers = offers.map((item) => {
+    const updatedOffers = offers.map((item, idx) => {
+      const itemUrl = getCanonicalOfferUrl(item);
+      
       // Match by bid_id if available
       if (offerBidId && item.bid_id === offerBidId) {
+        console.log('[Like] matched by bid_id at index', idx);
         return { ...item, is_liked: newIsLiked };
       }
-      // Match by canonical URL if no bid_id
-      if (!offerBidId && canonicalUrl) {
-        const itemUrl = getCanonicalOfferUrl(item);
-        if (itemUrl === canonicalUrl) {
-          return { ...item, is_liked: newIsLiked };
-        }
+      // Match by canonical URL if no bid_id on clicked offer
+      if (!offerBidId && canonicalUrl && itemUrl === canonicalUrl) {
+        console.log('[Like] matched by URL at index', idx);
+        return { ...item, is_liked: newIsLiked };
       }
-      // Fallback: match by object reference (same title + price + merchant)
+      // Fallback: match by title + price + merchant
       if (!offerBidId && !canonicalUrl) {
         if (item.title === offer.title && item.price === offer.price && item.merchant === offer.merchant) {
+          console.log('[Like] matched by title/price/merchant at index', idx);
           return { ...item, is_liked: newIsLiked };
         }
       }

@@ -134,6 +134,7 @@ export default function Chat() {
       return byTitle || newestById || null;
     };
 
+    let searchTriggered = false;
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -195,6 +196,7 @@ export default function Chat() {
           const searchMatch = assistantContent.match(/🔍 Searching for "([^"]+)"/);
           if (searchMatch && searchMatch[1] !== lastProcessedQuery) {
             lastProcessedQuery = searchMatch[1];
+            searchTriggered = true;
 
             // Ensure we have a stable active row for this search
             let rowId = store.activeRowId;
@@ -232,6 +234,14 @@ export default function Chat() {
         content: 'Sorry, something went wrong. Please try again.',
       }]);
     } finally {
+      if (!searchTriggered) {
+        const rowId = store.activeRowId;
+        if (rowId && queryText) {
+          store.setIsSearching(true);
+          const results = await runSearchApi(queryText, rowId);
+          store.setRowResults(rowId, results);
+        }
+      }
       // Clear the one-shot target project after the request completes, so subsequent queries don't inherit it.
       if (intendedProjectId) {
         store.setTargetProjectId(null);

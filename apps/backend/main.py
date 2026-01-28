@@ -911,59 +911,66 @@ async def search_row_listings(
     # Build query from stored state unless overridden
     base_query = body.query or row.title or (spec.item_name if spec else "")
 
-    # Combine constraints (stored as JSON string) into the query for now
-    if spec and spec.constraints:
-        try:
-            import json
-            constraints_obj = json.loads(spec.constraints)
-            constraint_parts = []
-            for k, v in constraints_obj.items():
-                constraint_parts.append(f"{k}: {v}")
-            if constraint_parts:
-                base_query = base_query + " " + " ".join(constraint_parts)
-        except Exception:
-            pass
+    # Only append stored constraints when the client did not supply an explicit query.
+    if not body.query:
+        # Combine constraints (stored as JSON string) into the query for now
+        if spec and spec.constraints:
+            try:
+                import json
+                constraints_obj = json.loads(spec.constraints)
+                constraint_parts = []
+                for k, v in constraints_obj.items():
+                    constraint_parts.append(f"{k}: {v}")
+                if constraint_parts:
+                    base_query = base_query + " " + " ".join(constraint_parts)
+            except Exception:
+                pass
 
-    # Combine choice answers (user-defined specifications) into the query
-    if row.choice_answers:
-        try:
-            import json
-            answers_obj = json.loads(row.choice_answers)
-            answer_parts = []
+        # Combine choice answers (user-defined specifications) into the query
+        if row.choice_answers:
+            try:
+                import json
+                answers_obj = json.loads(row.choice_answers)
+                answer_parts = []
 
-            def _to_num(v):
-                if v is None or v == "":
-                    return None
-                try:
-                    return float(v)
-                except Exception:
-                    return None
+                def _to_num(v):
+                    if v is None or v == "":
+                        return None
+                    try:
+                        return float(v)
+                    except Exception:
+                        return None
 
-            min_price = _to_num(answers_obj.get('min_price'))
-            max_price = _to_num(answers_obj.get('max_price'))
-            if min_price is not None or max_price is not None:
-                if min_price is not None and max_price is not None:
-                    answer_parts.append(f"price between {min_price} and {max_price}")
-                elif max_price is not None:
-                    answer_parts.append(f"price under {max_price}")
-                else:
-                    answer_parts.append(f"price over {min_price}")
+                min_price = _to_num(answers_obj.get('min_price'))
+                max_price = _to_num(answers_obj.get('max_price'))
+                if min_price is not None or max_price is not None:
+                    if min_price is not None and max_price is not None:
+                        answer_parts.append(f"price between {min_price} and {max_price}")
+                    elif max_price is not None:
+                        answer_parts.append(f"price under {max_price}")
+                    else:
+                        answer_parts.append(f"price over {min_price}")
 
-            for k, v in answers_obj.items():
-                if k in ('min_price', 'max_price'):
-                    continue
-                # specific logic to handle boolean/select/text differently if needed
-                # for now, simply append "key: value" or just "value" might be better for search?
-                # "color: blue" is good. "primary_use: gaming" is good.
-                if v and str(v).lower() != "not answered":
-                     answer_parts.append(f"{k} {v}")
-            if answer_parts:
-                base_query = base_query + " " + " ".join(answer_parts)
-        except Exception:
-            pass
+                for k, v in answers_obj.items():
+                    if k in ('min_price', 'max_price'):
+                        continue
+                    # specific logic to handle boolean/select/text differently if needed
+                    # for now, simply append "key: value" or just "value" might be better for search?
+                    # "color: blue" is good. "primary_use: gaming" is good.
+                    if v and str(v).lower() != "not answered":
+                        answer_parts.append(f"{k} {v}")
+                if answer_parts:
+                    base_query = base_query + " " + " ".join(answer_parts)
+            except Exception:
+                pass
 
-    # Execute Search
-    results = await sourcing_repo.search_all(base_query, providers=body.providers)
+    # Execute Search (sanitize overly verbose queries)
+    sanitized_query = " ".join(base_query.replace("(", " ").replace(")", " ").split())
+    sanitized_query = " ".join(sanitized_query.split()[:8]).strip()
+    if not sanitized_query:
+        sanitized_query = base_query.strip()
+
+    results = await sourcing_repo.search_all(sanitized_query, providers=body.providers)
 
     # Ensure click_url includes row_id for attribution in clickout logging
     for r in results:
