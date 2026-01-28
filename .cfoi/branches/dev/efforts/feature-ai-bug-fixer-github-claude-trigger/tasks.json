@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "effort": "feature-ai-bug-fixer-github-claude-trigger",
+  "created": "2026-01-21T22:56:00Z",
+  "tasks": [
+    {
+      "id": "abf-gh-001",
+      "description": "Add root CLAUDE.md guardrails file",
+      "e2e_flow": "Repo root contains CLAUDE.md with required guardrails",
+      "manual_verification": [
+        "Verify CLAUDE.md exists at repo root"
+      ],
+      "files": [
+        "CLAUDE.md"
+      ],
+      "tests_to_write": [],
+      "dependencies": [],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/abf-gh-001/"
+    },
+    {
+      "id": "abf-gh-002",
+      "description": "Add backend GitHub client (auth + request helper)",
+      "e2e_flow": "Backend can call GitHub REST API using configured token/repo",
+      "manual_verification": [
+        "Run a minimal GitHub API call in dev (sandbox repo)"
+      ],
+      "files": [
+        "apps/backend/..."
+      ],
+      "tests_to_write": [
+        "unit test: github client request/response parsing"
+      ],
+      "dependencies": [
+        "abf-gh-001"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/abf-gh-002/"
+    },
+    {
+      "id": "abf-gh-003",
+      "description": "Implement issue creation on bug report submit",
+      "e2e_flow": "Submitting a bug report creates a private GitHub issue with required content",
+      "manual_verification": [
+        "Submit bug report",
+        "Confirm issue created with notes, screenshot URLs, context, instruction block"
+      ],
+      "files": [
+        "apps/backend/main.py",
+        "apps/backend/..."
+      ],
+      "tests_to_write": [
+        "integration test: create bug report with mocked GitHub"
+      ],
+      "dependencies": [
+        "abf-gh-002"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/abf-gh-003/"
+    },
+    {
+      "id": "abf-gh-004",
+      "description": "Persist GitHub issue URL back onto bug report",
+      "e2e_flow": "Bug report stores github_issue_url after issue creation",
+      "manual_verification": [
+        "Submit bug report",
+        "Fetch bug by ID",
+        "Verify github_issue_url present"
+      ],
+      "files": [
+        "apps/backend/models.py",
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": [
+        "api test: submit then verify stored issue URL"
+      ],
+      "dependencies": [
+        "abf-gh-003"
+      ],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/abf-gh-003/"
+    },
+    {
+      "id": "abf-gh-005",
+      "description": "Add retry/backoff + observability for GitHub API failures",
+      "e2e_flow": "GitHub errors are retried; failures are visible and do not block capture",
+      "manual_verification": [
+        "Set invalid token",
+        "Submit bug report",
+        "Verify capture succeeds and failure is observable"
+      ],
+      "files": [
+        "apps/backend/..."
+      ],
+      "tests_to_write": [
+        "unit test: backoff on 429/5xx"
+      ],
+      "dependencies": [
+        "abf-gh-003"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/abf-gh-003/"
+    },
+    {
+      "id": "abf-gh-006",
+      "description": "Add GitHub Action Workflow to trigger Claude on Issue",
+      "e2e_flow": "New issue triggers GH Action that runs Claude Code",
+      "manual_verification": [
+        "Inspect .github/workflows/fix-bug.yml"
+      ],
+      "files": [
+        ".github/workflows/fix-bug.yml"
+      ],
+      "tests_to_write": [],
+      "dependencies": [
+        "abf-gh-001"
+      ],
+      "estimated_minutes": 15,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/abf-gh-006/"
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "type": "feature",
+  "name": "email-auth",
+  "description": "Email sign-in via verification code (Resend); protect home route",
+  "created": "2026-01-09T06:40:00Z",
+  "status": "verified",
+  "priority": 2,
+  "parent": null,
+  "definition_of_done": {
+    "version": 1,
+    "status": "active",
+    "thresholds": [
+      {
+        "description": "Unauthenticated user cannot access home page",
+        "metric": "auth_home_protected",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "User can request a verification code via Resend and complete sign-in",
+        "metric": "auth_email_code_login_success",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "User can log out and log back in successfully",
+        "metric": "auth_logout_relogin",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      }
+    ],
+    "signals": [
+      {
+        "description": "E2E coverage: Playwright covers login + logout happy path",
+        "metric": "e2e_auth_login_logout",
+        "target": 1,
+        "weight": 0.6,
+        "evidence_required": "measured",
+        "type": "signal"
+      },
+      {
+        "description": "Unit coverage: Backend token/session + verification flow unit tests exist",
+        "metric": "unit_auth_backend_verification",
+        "target": 1,
+        "weight": 0.4,
+        "evidence_required": "measured",
+        "type": "signal"
+      }
+    ],
+    "confidence": "measured",
+    "approval": {
+      "by": "Lance",
+      "timestamp": "2026-01-09T06:43:00Z",
+      "change_reason": "DoD defaults approved",
+      "change_type": "clarify"
+    }
+  }
+}

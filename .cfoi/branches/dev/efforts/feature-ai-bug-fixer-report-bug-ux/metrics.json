@@ -1,0 +1,13 @@
+{
+  "tasks": {
+    "total": 6,
+    "completed": 6,
+    "inProgress": 0
+  },
+  "currentTask": null,
+  "errorBudget": {
+    "perTask": 3,
+    "currentTaskErrors": 0
+  },
+  "evidence": {}
+}

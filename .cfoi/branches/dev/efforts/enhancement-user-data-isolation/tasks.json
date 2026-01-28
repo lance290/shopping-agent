@@ -1,0 +1,170 @@
+{
+  "version": 1,
+  "effort": "enhancement-user-data-isolation",
+  "created": "2026-01-09T17:41:00Z",
+  "tasks": [
+    {
+      "id": "task-001",
+      "description": "Backend: add user_id to AuthSession and mint sessions with user_id",
+      "e2e_flow": "After login verification, session is tied to a User via user_id",
+      "manual_verification": [
+        "Ensure backend boots",
+        "Login via /auth/start + /auth/verify",
+        "Confirm auth still works (existing /auth/me works with the issued token)"
+      ],
+      "files": [
+        "apps/backend/models.py",
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_auth_session_user_id.py (new)"
+      ],
+      "dependencies": [],
+      "estimated_minutes": 35,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-001/"
+    },
+    {
+      "id": "task-002",
+      "description": "Backend: add user_id ownership to Row + enforce auth + ownership on /rows endpoints",
+      "e2e_flow": "Authenticated user can CRUD only their own rows; cross-user access returns 404",
+      "manual_verification": [
+        "With an authenticated token, create a row",
+        "List rows and confirm only your rows appear",
+        "Attempt to access a different user’s row ID (once available) and confirm 404",
+        "Confirm unauthenticated requests to /rows return 401"
+      ],
+      "files": [
+        "apps/backend/models.py",
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_rows_authorization.py (new)"
+      ],
+      "dependencies": [
+        "task-001"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-002/"
+    },
+    {
+      "id": "task-003",
+      "description": "BFF: forward Authorization for /api/rows and ensure chat tool row creation respects auth",
+      "e2e_flow": "Frontend sends Authorization to BFF; BFF forwards to backend; chat createRow cannot bypass auth",
+      "manual_verification": [
+        "With cookie-based session, load app and confirm requests list loads",
+        "Create a row via chat; confirm it is created successfully",
+        "Attempt calling BFF /api/rows without Authorization and confirm 401"
+      ],
+      "files": [
+        "apps/bff/src/index.ts",
+        "apps/bff/src/llm.ts"
+      ],
+      "tests_to_write": [
+        "apps/bff/src/index.test.ts (add coverage for auth forwarding if test setup exists)"
+      ],
+      "dependencies": [
+        "task-002"
+      ],
+      "estimated_minutes": 40,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-003/"
+    },
+    {
+      "id": "task-004",
+      "description": "Frontend (Next API): attach Authorization from sa_session cookie for /api/rows and /api/chat",
+      "e2e_flow": "Logged-in user can fetch/create/update/delete rows and chat can create rows with auth",
+      "manual_verification": [
+        "Login in browser",
+        "Confirm Requests sidebar shows only your rows",
+        "Create a new request via chat and confirm it appears",
+        "Open DevTools and confirm no session token is exposed to JS (HTTP-only cookie)"
+      ],
+      "files": [
+        "apps/frontend/app/api/rows/route.ts",
+        "apps/frontend/app/api/chat/route.ts",
+        "apps/frontend/app/api/auth/constants.ts"
+      ],
+      "tests_to_write": [
+        "apps/frontend/e2e/user-data-isolation.spec.ts (new)"
+      ],
+      "dependencies": [
+        "task-003"
+      ],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-004/"
+    },
+    {
+      "id": "task-005",
+      "description": "Backend: add E2E_TEST_MODE-only endpoint to mint sessions for Playwright isolation tests",
+      "e2e_flow": "Automated tests can obtain distinct user tokens without relying on email delivery",
+      "manual_verification": [
+        "Set E2E_TEST_MODE=1 locally",
+        "Call the test endpoint to mint a token for user A and user B",
+        "Confirm endpoint is disabled when E2E_TEST_MODE is not set"
+      ],
+      "files": [
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_e2e_mint_endpoint.py (new)"
+      ],
+      "dependencies": [
+        "task-001"
+      ],
+      "estimated_minutes": 35,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-005/"
+    },
+    {
+      "id": "task-006",
+      "description": "Playwright: add E2E coverage for cross-user isolation (list/get/patch/delete)",
+      "e2e_flow": "User A creates a row; User B cannot list it nor access it by ID; write attempts are blocked",
+      "manual_verification": [
+        "Run the new Playwright spec locally",
+        "Confirm it passes and produces deterministic results"
+      ],
+      "files": [
+        "apps/frontend/e2e/user-data-isolation.spec.ts"
+      ],
+      "tests_to_write": [
+        "(this task is the test)"
+      ],
+      "dependencies": [
+        "task-004",
+        "task-005"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-006/"
+    },
+    {
+      "id": "task-007",
+      "description": "Operational: reset DB (dev + Railway) and capture evidence that isolation is active",
+      "e2e_flow": "Fresh DB has correct schema and isolation behavior is verified end-to-end",
+      "manual_verification": [
+        "Reset local DB (docker volume) and restart services",
+        "Reset Railway Postgres (acceptable data loss)",
+        "Confirm login works and each account sees only its own rows"
+      ],
+      "files": [],
+      "tests_to_write": [],
+      "dependencies": [
+        "task-002",
+        "task-006"
+      ],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-007/"
+    }
+  ]
+}

@@ -1,0 +1,209 @@
+{
+  "version": 1,
+  "effort": "feature-email-auth",
+  "created": "2026-01-09T07:01:05Z",
+  "tasks": [
+    {
+      "id": "task-001",
+      "description": "Add backend auth data models (login codes + sessions) with hashing helpers",
+      "e2e_flow": "Developer can start backend and DB initializes auth tables without breaking existing endpoints",
+      "manual_verification": [
+        "Start Postgres (docker-compose.dev.yml)",
+        "Start backend", 
+        "Confirm backend starts successfully and existing /health and /rows endpoints still work"
+      ],
+      "files": [
+        "apps/backend/models.py",
+        "apps/backend/database.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_auth_models.py (or equivalent)"
+      ],
+      "dependencies": [],
+      "estimated_minutes": 35,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-001/"
+    },
+    {
+      "id": "task-002",
+      "description": "Backend: implement Resend email sender utility (env-driven)",
+      "e2e_flow": "Calling the email-sender function with a test payload results in a successful Resend API call (or a clearly logged failure when disabled)",
+      "manual_verification": [
+        "Set RESEND_API_KEY and FROM_EMAIL in your environment", 
+        "Run a lightweight manual call path (temporary endpoint or direct invocation) to send a code email to a test address", 
+        "Confirm email arrives from the configured FROM_EMAIL"
+      ],
+      "files": [
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_resend_sender.py (mock httpx)"
+      ],
+      "dependencies": ["task-001"],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-002/"
+    },
+    {
+      "id": "task-003",
+      "description": "Backend: implement POST /auth/start (generate code, invalidate old, enforce lockout)",
+      "e2e_flow": "User enters email on /login, clicks Send Code, and backend accepts request unless in 45-minute lockout",
+      "manual_verification": [
+        "POST to /auth/start with a valid email", 
+        "Confirm response {status: sent}",
+        "Request again and confirm old code is invalidated (by later verify behavior)",
+        "Force 5 invalid verifications (can be done after task-004) and confirm /auth/start returns 429 during lockout"
+      ],
+      "files": [
+        "apps/backend/main.py",
+        "apps/backend/models.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_auth_start.py"
+      ],
+      "dependencies": ["task-001", "task-002"],
+      "estimated_minutes": 40,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-003/"
+    },
+    {
+      "id": "task-004",
+      "description": "Backend: implement POST /auth/verify + session creation + GET /auth/me + POST /auth/logout",
+      "e2e_flow": "User submits correct code and receives a session token; user can query /auth/me and can logout to revoke session",
+      "manual_verification": [
+        "POST /auth/verify with correct email+code and confirm response includes sessionToken", 
+        "GET /auth/me with Authorization: Bearer <token> returns authenticated true", 
+        "POST /auth/logout revokes token; subsequent /auth/me returns 401", 
+        "Try wrong code 5 times and confirm lockout for 45 minutes"
+      ],
+      "files": [
+        "apps/backend/main.py",
+        "apps/backend/models.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_auth_verify_and_lockout.py",
+        "apps/backend/tests/test_auth_sessions.py"
+      ],
+      "dependencies": ["task-001", "task-003"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-004/"
+    },
+    {
+      "id": "task-005",
+      "description": "BFF: add /api/auth/* proxy routes to backend",
+      "e2e_flow": "Frontend can call BFF /api/auth/start|verify|me|logout and BFF forwards correctly to backend",
+      "manual_verification": [
+        "Start BFF and backend", 
+        "curl BFF endpoints and confirm they proxy to backend successfully", 
+        "Verify Authorization header forwarding works for /me and /logout"
+      ],
+      "files": [
+        "apps/bff/src/index.ts"
+      ],
+      "tests_to_write": [
+        "apps/bff/src/index.test.ts (or vitest test file for auth proxy)"
+      ],
+      "dependencies": ["task-004"],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-005/"
+    },
+    {
+      "id": "task-006",
+      "description": "Frontend: implement Next API auth handlers that set/clear HTTP-only cookie",
+      "e2e_flow": "Browser calls /api/auth/verify and receives an HTTP-only session cookie; /api/auth/me reads cookie and returns auth state",
+      "manual_verification": [
+        "Start frontend + BFF + backend", 
+        "From browser devtools: request code then verify code", 
+        "Confirm Set-Cookie for sa_session is present and httpOnly", 
+        "Call /api/auth/me and confirm authenticated=true", 
+        "Call /api/auth/logout and confirm cookie cleared"
+      ],
+      "files": [
+        "apps/frontend/app/api/auth/start/route.ts",
+        "apps/frontend/app/api/auth/verify/route.ts",
+        "apps/frontend/app/api/auth/me/route.ts",
+        "apps/frontend/app/api/auth/logout/route.ts"
+      ],
+      "tests_to_write": [
+        "apps/frontend/app/tests/auth-api.test.ts"
+      ],
+      "dependencies": ["task-005"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-006/"
+    },
+    {
+      "id": "task-007",
+      "description": "Frontend: add /login page UI (email step + code step + cooldown messaging)",
+      "e2e_flow": "User can visit /login, send code, enter code, and upon success is redirected to /",
+      "manual_verification": [
+        "Navigate to /login", 
+        "Enter email and click Send code", 
+        "Enter code and click Verify", 
+        "Confirm redirect to /", 
+        "Trigger lockout and confirm UI shows lockout state"
+      ],
+      "files": [
+        "apps/frontend/app/login/page.tsx"
+      ],
+      "tests_to_write": [
+        "apps/frontend/app/tests/login-page.test.tsx"
+      ],
+      "dependencies": ["task-006"],
+      "estimated_minutes": 40,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-007/"
+    },
+    {
+      "id": "task-008",
+      "description": "Frontend: protect / with middleware; redirect /login to / when authenticated",
+      "e2e_flow": "Unauthenticated users hitting / are redirected to /login; authenticated users hitting /login are redirected to /",
+      "manual_verification": [
+        "Clear cookies and navigate to / -> verify redirect to /login", 
+        "Login successfully and navigate to /login -> verify redirect to /"
+      ],
+      "files": [
+        "apps/frontend/middleware.ts"
+      ],
+      "tests_to_write": [
+        "apps/frontend/app/tests/middleware-auth.test.ts (route-level test or minimal integration test)"
+      ],
+      "dependencies": ["task-006", "task-007"],
+      "estimated_minutes": 25,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-008/"
+    },
+    {
+      "id": "task-009",
+      "description": "Testing: make Playwright baseURL configurable and add E2E login/logout test",
+      "e2e_flow": "Playwright can run against a configurable baseURL; E2E test covers login and logout",
+      "manual_verification": [
+        "Set PLAYWRIGHT_BASE_URL (or similar) to local frontend URL", 
+        "Run playwright test locally", 
+        "Confirm test passes for login/logout flow"
+      ],
+      "files": [
+        "apps/frontend/playwright.config.ts",
+        "apps/frontend/e2e/auth-login-logout.spec.ts"
+      ],
+      "tests_to_write": [
+        "(E2E test is the deliverable for this task)"
+      ],
+      "dependencies": ["task-008"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-009/"
+    }
+  ]
+}

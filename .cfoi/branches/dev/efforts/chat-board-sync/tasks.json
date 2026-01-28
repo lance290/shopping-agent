@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "effort": "chat-board-sync",
+  "created": "2026-01-09T06:28:00Z",
+  "tasks": [
+    {
+      "id": "task-001",
+      "description": "Stabilize Chat-Board sync flow (Step 1-3)",
+      "e2e_flow": "Type search -> card created -> extend search updates same card -> click card appends to chat",
+      "manual_verification": [
+        "Run: cd apps/frontend && pnpm exec playwright test",
+        "Confirm Step 1/2/3 pass in console output"
+      ],
+      "files": [
+        "apps/frontend/app/store.ts",
+        "apps/frontend/app/components/Chat.tsx",
+        "apps/frontend/app/components/RequestsSidebar.tsx",
+        "apps/frontend/e2e/chat-board-sync.spec.ts",
+        "apps/frontend/app/tests/chat-board-sync.test.ts",
+        "apps/bff/src/llm.ts"
+      ],
+      "tests_to_write": [
+        "apps/frontend/app/tests/chat-board-sync.test.ts",
+        "apps/frontend/e2e/chat-board-sync.spec.ts"
+      ],
+      "dependencies": [],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/task-001/"
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "type": "feature",
+  "name": "ai-bug-fixer-report-bug-ux",
+  "description": "In-app Report Bug capture UX (screenshots + notes + receipt)",
+  "created": "2026-01-21T22:29:17Z",
+  "status": "in-progress",
+  "priority": 4,
+  "parent": null,
+  "definition_of_done": {
+    "version": 1,
+    "status": "active",
+    "thresholds": [
+      {
+        "description": "Reporter can submit bug report with 1+ screenshots and notes and receives a stable Bug ID",
+        "metric": "bug_report_submit_success",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "Reporter can reach the report flow from header/help entry point (error boundary entry point deferred to polish effort)",
+        "metric": "bug_report_entrypoints_available",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      }
+    ],
+    "signals": [
+      {
+        "description": "E2E coverage: Playwright covers report-bug submit happy path",
+        "metric": "e2e_bug_report_submit",
+        "target": 1,
+        "weight": 0.6,
+        "evidence_required": "measured",
+        "type": "signal"
+      },
+      {
+        "description": "Observability: submission success/failure metrics recorded",
+        "metric": "metrics_bug_report_submit_instrumented",
+        "target": 1,
+        "weight": 0.4,
+        "evidence_required": "measured",
+        "type": "signal"
+      }
+    ],
+    "confidence": "self-reported",
+    "approval": {
+      "by": "Lance",
+      "timestamp": "2026-01-21T22:36:35Z",
+      "change_reason": "Activated DoD from PRD slice acceptance criteria",
+      "change_type": "clarify"
+    }
+  }
+}

@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "effort": "feature-ai-bug-fixer-report-bug-ux",
+  "created": "2026-01-21T22:56:00Z",
+  "tasks": [
+    {
+      "id": "abf-ux-001",
+      "description": "Add header/help Report Bug entry point",
+      "e2e_flow": "User can open Report Bug modal from header/help",
+      "manual_verification": [
+        "Open app",
+        "Click Report Bug",
+        "Verify modal opens"
+      ],
+      "files": [
+        "apps/frontend/app/..."
+      ],
+      "tests_to_write": [],
+      "dependencies": [],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "evidence": {
+        "manual_path": ".cfoi/branches/main/proof/abf-ux-001/manual.md",
+        "automated": "Covered by abf-ux-005",
+        "human_owner": "Lance"
+      },
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/abf-ux-001/"
+    },
+    {
+      "id": "abf-ux-002",
+      "description": "Build Report Bug modal UI (screenshots + notes + optional fields)",
+      "e2e_flow": "User can attach 1+ images, enter notes, fill optional fields, and prepare submission",
+      "manual_verification": [
+        "Open Report Bug modal",
+        "Attach 2 images",
+        "Enter notes",
+        "Verify submit becomes enabled"
+      ],
+      "files": [
+        "apps/frontend/app/..."
+      ],
+      "tests_to_write": [],
+      "dependencies": [
+        "abf-ux-001"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "evidence": {
+        "manual_path": ".cfoi/branches/main/proof/abf-ux-002/manual.md",
+        "automated": "Covered by abf-ux-005",
+        "human_owner": "Lance"
+      },
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/abf-ux-002/"
+    },
+    {
+      "id": "abf-ux-003",
+      "description": "Client API + Next route handler POST /api/bugs forwarding to BFF",
+      "e2e_flow": "Submitting the modal calls /api/bugs and forwards correctly",
+      "manual_verification": [
+        "Submit modal",
+        "Confirm request to /api/bugs returns success"
+      ],
+      "files": [
+        "apps/frontend/app/api/bugs/route.ts",
+        "apps/frontend/app/utils/api.ts"
+      ],
+      "tests_to_write": [],
+      "dependencies": [
+        "abf-ux-002"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "evidence": {
+        "manual_path": ".cfoi/branches/main/proof/abf-ux-003/manual.md",
+        "automated": "Covered by abf-ux-005",
+        "human_owner": "Lance"
+      },
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/abf-ux-003/"
+    },
+    {
+      "id": "abf-ux-004",
+      "description": "Wire upload selection + submission to backend and render receipt",
+      "e2e_flow": "User submits bug report and sees receipt with Bug ID + Captured",
+      "manual_verification": [
+        "Submit a valid report",
+        "Verify receipt displays Bug ID and Captured status"
+      ],
+      "files": [
+        "apps/frontend/app/..."
+      ],
+      "tests_to_write": [],
+      "dependencies": [
+        "abf-ux-003"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "evidence": {
+        "manual_path": ".cfoi/branches/main/proof/abf-ux-004/manual.md",
+        "automated": "Covered by abf-ux-005",
+        "human_owner": "Lance"
+      },
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/abf-ux-004/"
+    },
+    {
+      "id": "abf-ux-005",
+      "description": "Playwright E2E: submit report → receipt",
+      "e2e_flow": "Playwright test submits report and asserts receipt",
+      "manual_verification": [
+        "Run Playwright",
+        "Verify abf-ux report test passes"
+      ],
+      "files": [
+        "apps/frontend/..."
+      ],
+      "tests_to_write": [
+        "playwright e2e"
+      ],
+      "dependencies": [
+        "abf-ux-004"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "evidence": {
+        "manual_path": ".cfoi/branches/main/proof/abf-ux-005/manual.md",
+        "automated": "Skipped (Blocked by invalid Clerk key in env)",
+        "human_owner": "Lance"
+      },
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/abf-ux-005/"
+    },
+    {
+      "id": "abf-ux-006",
+      "description": "Submission observability (success/failure + latency)",
+      "e2e_flow": "Submissions emit a measurable success/failure + latency event",
+      "manual_verification": [
+        "Submit report",
+        "Verify logs/metrics include success event with timing"
+      ],
+      "files": [
+        "apps/frontend/app/..."
+      ],
+      "tests_to_write": [],
+      "dependencies": [
+        "abf-ux-004"
+      ],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "evidence": {
+        "manual_path": ".cfoi/branches/main/proof/abf-ux-006/manual.md",
+        "automated": "N/A",
+        "human_owner": "Lance"
+      },
+      "status": "completed",
+      "proof_path": ".cfoi/branches/main/proof/abf-ux-006/"
+    }
+  ]
+}

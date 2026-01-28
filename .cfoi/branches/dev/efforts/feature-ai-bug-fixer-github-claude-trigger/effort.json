@@ -1,0 +1,54 @@
+{
+  "type": "feature",
+  "name": "ai-bug-fixer-github-claude-trigger",
+  "description": "Create private GitHub issues and trigger Claude Code Actions",
+  "created": "2026-01-21T22:29:17Z",
+  "status": "in-progress",
+  "priority": 6,
+  "parent": null,
+  "definition_of_done": {
+    "version": 1,
+    "status": "active",
+    "thresholds": [
+      {
+        "description": "New bug report results in a private GitHub issue with required content blocks",
+        "metric": "github_issue_created_for_bug_report",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "Bug report is updated with GitHub issue URL",
+        "metric": "bug_report_github_issue_url_stored",
+        "target": 1,
+        "evidence_required": "measured",
+        "type": "threshold"
+      }
+    ],
+    "signals": [
+      {
+        "description": "Claude trigger reliability: issue creation triggers Claude automation consistently in test repo workflow",
+        "metric": "claude_triggered_from_issue",
+        "target": 1,
+        "weight": 0.6,
+        "evidence_required": "measured",
+        "type": "signal"
+      },
+      {
+        "description": "Rate limit/backoff behavior verified",
+        "metric": "github_api_retry_backoff_verified",
+        "target": 1,
+        "weight": 0.4,
+        "evidence_required": "measured",
+        "type": "signal"
+      }
+    ],
+    "confidence": "self-reported",
+    "approval": {
+      "by": "Lance",
+      "timestamp": "2026-01-21T22:36:35Z",
+      "change_reason": "Activated DoD from PRD slice acceptance criteria",
+      "change_type": "clarify"
+    }
+  }
+}
