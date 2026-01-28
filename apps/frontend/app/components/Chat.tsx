@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
+import Link from 'next/link';
+import { SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
 import { useShoppingStore } from '../store';
 import { persistRowToDb, runSearchApi, fetchRowsFromDb, fetchProjectsFromDb, createRowInDb } from '../utils/api';
 import { Button } from '../../components/ui/Button';
@@ -15,6 +17,7 @@ interface Message {
 }
 
 export default function Chat() {
+  const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -263,9 +266,17 @@ export default function Chat() {
     }
   }, [store.cardClickQuery]);
 
+  const handleDevLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      window.location.href = '/login';
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-warm-light border-r border-warm-grey/70">
-      <div className="h-20 px-6 border-b border-warm-grey/70 bg-warm-light flex items-center">
+      <div className="h-20 px-6 border-b border-warm-grey/70 bg-warm-light flex items-center justify-between gap-4">
         <div className="flex flex-col justify-center min-w-0">
           <div className="text-[10px] uppercase tracking-[0.16em] text-onyx-muted/80 font-medium">Assistant</div>
           <div className="flex items-center gap-3 min-w-0 mt-1">
@@ -281,6 +292,33 @@ export default function Chat() {
               </div>
             )}
           </div>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          {disableClerk ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleDevLogout}
+              className="text-xs"
+            >
+              Clear session
+            </Button>
+          ) : (
+            <>
+              <SignedOut>
+                <Link
+                  href="/login"
+                  className="text-xs font-medium text-onyx hover:text-agent-blurple transition-colors"
+                >
+                  Sign in
+                </Link>
+              </SignedOut>
+              <SignedIn>
+                <UserButton afterSignOutUrl="/login" />
+              </SignedIn>
+            </>
+          )}
         </div>
       </div>
 

@@ -1,5 +1,22 @@
 import { Row, Offer, Project } from '../store';
 
+const DEV_SESSION_STORAGE_KEY = 'sa_session_token';
+
+function setDevSessionCookie(token: string) {
+  if (typeof document === 'undefined' || !token) return;
+  document.cookie = `sa_session=${encodeURIComponent(token)}; path=/`;
+}
+
+function getStoredSessionToken(): string {
+  if (typeof localStorage === 'undefined') return '';
+  return localStorage.getItem(DEV_SESSION_STORAGE_KEY) || '';
+}
+
+function storeSessionToken(token: string) {
+  if (typeof localStorage === 'undefined' || !token) return;
+  localStorage.setItem(DEV_SESSION_STORAGE_KEY, token);
+}
+
 function getDevAuthToken(): string {
   const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
   if (!disableClerk) return '';
@@ -16,6 +33,12 @@ function getDevAuthToken(): string {
     }
   }
 
+  const stored = getStoredSessionToken();
+  if (stored) {
+    setDevSessionCookie(stored);
+    return stored;
+  }
+
   return process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN || '';
 }
 
@@ -24,7 +47,7 @@ async function getOrCreateDevAuthToken(forceMint: boolean = false): Promise<stri
   if (!disableClerk) return '';
 
   const existing = getDevAuthToken();
-  if (existing && !forceMint) return existing;
+  if (existing) return existing;
 
   if (typeof document === 'undefined') return '';
 
@@ -38,7 +61,8 @@ async function getOrCreateDevAuthToken(forceMint: boolean = false): Promise<stri
     if (!res.ok) return '';
     const data = await res.json();
     if (data?.session_token) {
-      document.cookie = `sa_session=${encodeURIComponent(data.session_token)}; path=/`;
+      setDevSessionCookie(data.session_token);
+      storeSessionToken(data.session_token);
       return data.session_token;
     }
   } catch (err) {
@@ -57,9 +81,13 @@ async function fetchWithDevAuth(url: string, init: RequestInit = {}): Promise<Re
     return res;
   }
 
-  // If we got a 401, mint a fresh token and retry once.
+  if (token) {
+    return res;
+  }
+
+  // If we got a 401 without any token, mint a fresh token and retry once.
   const freshToken = await getOrCreateDevAuthToken(true);
-  if (!freshToken || freshToken === token) {
+  if (!freshToken) {
     return res;
   }
 
@@ -258,14 +286,17 @@ export const fetchRowsFromDb = async (): Promise<Row[]> => {
       return Array.isArray(rows) ? rows : [];
     }
     
-    // On 401, mint fresh token and retry
+    // On 401, only mint if we truly have no token (avoid creating a new user).
     if (res.status === 401) {
-      const freshToken = await getOrCreateDevAuthToken(true);
-      if (freshToken) {
-        const retry = await fetch('/api/rows');
-        if (retry.ok) {
-          const rows = await retry.json();
-          return Array.isArray(rows) ? rows : [];
+      const existing = getDevAuthToken();
+      if (!existing) {
+        const freshToken = await getOrCreateDevAuthToken(true);
+        if (freshToken) {
+          const retry = await fetch('/api/rows');
+          if (retry.ok) {
+            const rows = await retry.json();
+            return Array.isArray(rows) ? rows : [];
+          }
         }
       }
     }
@@ -289,14 +320,17 @@ export const fetchProjectsFromDb = async (): Promise<Project[]> => {
       return Array.isArray(projects) ? projects : [];
     }
     
-    // On 401, mint fresh token and retry
+    // On 401, only mint if we truly have no token (avoid creating a new user).
     if (res.status === 401) {
-      const freshToken = await getOrCreateDevAuthToken(true);
-      if (freshToken) {
-        const retry = await fetch('/api/projects');
-        if (retry.ok) {
-          const projects = await retry.json();
-          return Array.isArray(projects) ? projects : [];
+      const existing = getDevAuthToken();
+      if (!existing) {
+        const freshToken = await getOrCreateDevAuthToken(true);
+        if (freshToken) {
+          const retry = await fetch('/api/projects');
+          if (retry.ok) {
+            const projects = await retry.json();
+            return Array.isArray(projects) ? projects : [];
+          }
         }
       }
     }
@@ -386,9 +420,7 @@ export const toggleLikeApi = async (
 ): Promise<boolean> => {
   try {
     if (isLiked) {
-      // Create like
-      const url = `${backendUrl}/likes`;
-      const res = await fetchWithDevAuth(url, {
+      const res = await fetch('/api/likes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ row_id: rowId, bid_id: bidId, offer_url: offerUrl }),
@@ -396,21 +428,20 @@ export const toggleLikeApi = async (
       if (res.ok) return true;
       if (res.status === 409) return true;
       const body = await readResponseBodySafe(res);
-      console.error('[API] Toggle like failed:', res.status, url, body);
+      console.error('[API] Toggle like failed:', res.status, body);
       return false;
     } else {
       const params = new URLSearchParams({ row_id: String(rowId) });
       if (bidId) params.append('bid_id', String(bidId));
       if (offerUrl) params.append('offer_url', offerUrl);
-      
-      const url = `${backendUrl}/likes?${params.toString()}`;
-      const res = await fetchWithDevAuth(url, {
+
+      const res = await fetch(`/api/likes?${params.toString()}`, {
         method: 'DELETE',
       });
       if (res.ok) return true;
       if (res.status === 404) return true;
       const body = await readResponseBodySafe(res);
-      console.error('[API] Toggle unlike failed:', res.status, url, body);
+      console.error('[API] Toggle unlike failed:', res.status, body);
       return false;
     }
   } catch (err) {
@@ -423,13 +454,12 @@ export const toggleLikeApi = async (
 export const fetchLikesApi = async (rowId?: number): Promise<any[]> => {
   try {
     const params = rowId ? `?row_id=${rowId}` : '';
-    const url = `${backendUrl}/likes${params}`;
-    const res = await fetchWithDevAuth(url);
+    const res = await fetch(`/api/likes${params}`);
     if (res.ok) {
       return await res.json();
     }
     const body = await readResponseBodySafe(res);
-    console.error('[API] Fetch likes failed:', res.status, url, body);
+    console.error('[API] Fetch likes failed:', res.status, body);
     return [];
   } catch (err) {
     console.error('[API] Fetch likes error:', err);

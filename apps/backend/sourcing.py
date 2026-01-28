@@ -380,6 +380,7 @@ class RainforestAPIProvider(SourcingProvider):
         self.base_url = "https://api.rainforestapi.com/request"
 
     async def search(self, query: str, **kwargs) -> List[SearchResult]:
+        print(f"[RainforestAPIProvider] Searching with query: {query!r}")
         params = {
             "api_key": self.api_key,
             "type": "search",

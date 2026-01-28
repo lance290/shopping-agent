@@ -229,6 +229,28 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       .map((entry) => entry.offer);
   };
 
+  const getOfferKey = (offer: Offer, idx: number) => {
+    if (offer.bid_id) return `bid:${offer.bid_id}`;
+    const canonical = getCanonicalOfferUrl(offer);
+    if (canonical) return `url:${canonical}`;
+    return `fallback:${offer.title}-${offer.merchant}-${offer.price}-${idx}`;
+  };
+
+  const updateLoadedLikes = (rowId: number, isLiked: boolean, bidId?: number, offerUrl?: string) => {
+    if (!rowId) return;
+    const current = Array.isArray(loadedLikesRef.current) ? [...loadedLikesRef.current] : [];
+    const matches = (like: any) => {
+      if (bidId && like?.bid_id === bidId) return true;
+      if (offerUrl && like?.offer_url === offerUrl) return true;
+      return false;
+    };
+    const filtered = current.filter((like) => !matches(like));
+    if (isLiked) {
+      filtered.push({ row_id: rowId, bid_id: bidId, offer_url: offerUrl });
+    }
+    loadedLikesRef.current = filtered;
+  };
+
   const sortedOffers = applyLikedOrdering(sortOffers(offers));
 
   const handleSelectOffer = async (offer: Offer) => {
@@ -309,6 +331,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     console.log('[Like] toggled:', { rowId: row.id, bidId: offer.bid_id, url: canonicalUrl, newIsLiked, success });
     
     if (success) {
+      updateLoadedLikes(row.id, newIsLiked, offer.bid_id || undefined, canonicalUrl || undefined);
       onToast?.(newIsLiked ? 'Liked this offer.' : 'Removed like.', 'success');
     } else {
       // Revert on failure
@@ -472,7 +495,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
               {sortedOffers && sortedOffers.length > 0 ? (
                 sortedOffers.map((offer, idx) => (
                   <OfferTile
-                    key={`${row.id}-${idx}`}
+                    key={getOfferKey(offer, idx)}
                     offer={offer}
                     index={idx}
                     rowId={row.id}

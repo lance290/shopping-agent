@@ -1,18 +1,25 @@
-# App State Progress Log
+# App State Learnings + Gotchas
 
-- 2026-01-28 06:15:48Z
-  - Search requests are reaching /api/search and backend /rows/{id}/search.
-  - Providers returning empty results:
-    - SerpAPI: 429 Too Many Requests
-    - SearchAPI: 429 Too Many Requests
-    - Rainforest: 0 results (request_info success=true, status=None)
-  - Mock search is disabled by user request.
-  - Next action: restore real provider results (fresh API keys/quota or disable rate-limited providers).
+## Search regressions (do not repeat)
+- Search is triggered in the frontend only when an explicit query is sent. If the LLM stream does not emit a search marker, fallback must still call `runSearchApi` after chat completes (see @apps/frontend/app/components/Chat.tsx).
+- Backend must not append stored constraints/choice answers when the client already supplies `body.query`. This bloats queries and causes providers (Rainforest) to return 0 or timeout.
+- Backend sanitizes queries to <= 8 words before provider calls. Keep this in place to avoid long constraint strings.
+- **CRITICAL**: Price patterns like "$50", "over $50", "under $100" MUST be stripped from search queries before sending to Rainforest/Amazon. Amazon interprets these as filters, not search terms, causing completely wrong results (e.g., "Roblox Gift Cards over $50" returns "over 50" fitness books instead of gift cards). The backend now removes these patterns in `main.py` search sanitization.
 
-- 2026-01-28 06:17:35Z
-  - User requested re-enable Google search provider.
-  - Need GOOGLE_CSE_API_KEY and GOOGLE_CSE_CX values to enable Google CSE provider.
+## Provider gotchas
+- SerpAPI and SearchAPI keys can 429 quickly. When they 429, results are empty.
+- Rainforest can return `request_info success=true` with 0 results; retries only help when the query is clean.
+- Google CSE only works if both `GOOGLE_CSE_API_KEY` and `GOOGLE_CSE_CX` are set.
+- Mocks are disabled by explicit user request.
 
-- 2026-01-28 06:39:42Z
-  - Search results restored after backend query sanitization and skipping constraint/answer appends when explicit query is provided.
-  - Added backend tests to cover explicit query vs. constraint-built query behavior.
+## Likes persistence gotcha (do not repeat)
+- Do NOT call backend `/likes` directly from the frontend. It bypasses the Next.js auth proxy and can 404 due to mismatched tokens/row ownership. Always use `/api/likes`.
+- **CRITICAL**: The Next.js `/api/likes` route MUST proxy to the **BACKEND** (port 8000), NOT the BFF (port 8081). The BFF does NOT have likes endpoints. This has been broken multiple times by routing to BFF_URL instead of BACKEND_URL.
+  - Correct: `${BACKEND_URL}/likes` → `http://127.0.0.1:8000/likes`
+  - Wrong: `${BFF_URL}/api/likes` → 404 because BFF has no likes routes
+- When adding new API proxy routes, always verify which service owns the endpoint:
+  - **Backend (8000)**: `/likes`, `/rows`, `/projects`, `/search`, auth endpoints
+  - **BFF (8081)**: `/chat`, `/stream`, LLM-related endpoints only
+
+## Tests added to prevent regressions
+- Backend tests assert explicit query bypasses constraints, and constraints are used only when query is omitted: @apps/backend/tests/test_rows_authorization.py.
