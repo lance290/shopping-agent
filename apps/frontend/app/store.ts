@@ -18,6 +18,7 @@ export interface Offer {
   bid_id?: number;
   is_selected?: boolean;
   is_liked?: boolean;
+  liked_at?: string; // ISO timestamp when liked
   comment_preview?: string;
 }
 
