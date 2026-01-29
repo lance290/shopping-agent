@@ -595,32 +595,29 @@ class SourcingRepository:
         if rainforest_present:
             self.providers["rainforest"] = RainforestAPIProvider(rainforest_key)
         
+        # Other providers DISABLED - using only Rainforest for now
         # ValueSerp - cheap alternative
-        valueserp_key = os.getenv("VALUESERP_API_KEY")
-        if valueserp_key:
-            self.providers["valueserp"] = ValueSerpProvider(valueserp_key)
+        # valueserp_key = os.getenv("VALUESERP_API_KEY")
+        # if valueserp_key:
+        #     self.providers["valueserp"] = ValueSerpProvider(valueserp_key)
         
         # Google Custom Search - 100 free/day
-        google_key = os.getenv("GOOGLE_CSE_API_KEY")
-        google_cx = os.getenv("GOOGLE_CSE_CX")
-        if google_key and google_cx:
-            self.providers["google_cse"] = GoogleCustomSearchProvider(google_key, google_cx)
+        # google_key = os.getenv("GOOGLE_CSE_API_KEY")
+        # google_cx = os.getenv("GOOGLE_CSE_CX")
+        # if google_key and google_cx:
+        #     self.providers["google_cse"] = GoogleCustomSearchProvider(google_key, google_cx)
         
         # SearchAPI (original)
-        searchapi_key = os.getenv("SEARCHAPI_API_KEY")
-        if searchapi_key:
-            self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
+        # searchapi_key = os.getenv("SEARCHAPI_API_KEY")
+        # if searchapi_key:
+        #     self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
 
         # eBay Browse API (official)
-        ebay_client_id = os.getenv("EBAY_CLIENT_ID")
-        ebay_client_secret = os.getenv("EBAY_CLIENT_SECRET")
-        ebay_marketplace_id = os.getenv("EBAY_MARKETPLACE_ID", "EBAY-US")
-        if ebay_client_id and ebay_client_secret:
-            self.providers["ebay"] = EbayBrowseProvider(
-                client_id=ebay_client_id,
-                client_secret=ebay_client_secret,
-                marketplace_id=ebay_marketplace_id,
-            )
+        # ebay_client_id = os.getenv("EBAY_CLIENT_ID")
+        # ebay_client_secret = os.getenv("EBAY_CLIENT_SECRET")
+        # ebay_marketplace_id = os.getenv("EBAY_MARKETPLACE_ID", "EBAY-US")
+        # if ebay_client_id and ebay_client_secret:
+        #     self.providers["ebay"] = EbayBrowseProvider(...)
         
         # Mock provider - FREE fallback for testing, always available
         use_mock_setting = (os.getenv("USE_MOCK_SEARCH", "auto") or "").strip().lower()
