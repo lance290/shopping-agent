@@ -174,8 +174,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log(`[API/projects] Creating project with title: ${body.title}`);
     
-    // Call backend directly (bypass BFF) for project creation
-    let response = await fetch(`${BACKEND_URL}/projects`, {
+    let response = await fetch(`${BFF_URL}/api/projects`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -183,12 +182,11 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify(body),
     });
-    console.log(`[API/projects] Backend response: ${response.status}`);
 
     if (response.status === 401) {
       const mintedToken = await mintDevSessionToken();
       if (mintedToken) {
-        response = await fetch(`${BACKEND_URL}/projects`, {
+        response = await fetch(`${BFF_URL}/api/projects`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
