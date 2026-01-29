@@ -16,6 +16,8 @@ const chatPlanSchema = z.object({
           title: z.string(),
           project_id: z.number().nullable().optional(),
           constraints: z.record(z.string(), z.any()).optional(),
+          min_price: z.number().optional(),
+          max_price: z.number().optional(),
           providers: z.array(z.string()).optional(),
           search_query: z.string().optional(),
         }),
@@ -24,6 +26,8 @@ const chatPlanSchema = z.object({
           row_id: z.number(),
           title: z.string().optional(),
           constraints: z.record(z.string(), z.any()).optional(),
+          min_price: z.number().optional(),
+          max_price: z.number().optional(),
           providers: z.array(z.string()).optional(),
           search_query: z.string().optional(),
         }),
@@ -90,7 +94,12 @@ Hard requirements:
 
 Rules:
 - If active_row_id is present and the user is refining constraints (price/color/size/etc), use update_row with row_id=active_row_id.
-- For any update_row or create_row, include constraints as a key-value JSON object when the user expressed constraints.
+- For any update_row or create_row, include constraints as a key-value JSON object when the user expressed constraints (EXCEPT price).
+- Price constraints MUST be expressed ONLY via min_price/max_price numeric fields:
+  - "over $50" -> min_price: 50
+  - "under $50" -> max_price: 50
+  - "$25-$75" -> min_price: 25 and max_price: 75
+  - Do NOT put price info into "constraints".
 - If you create_row or update_row, you SHOULD also include either:
   - search_query (preferred) on that same action, OR
   - a follow-up search action.
@@ -104,6 +113,8 @@ Schema:
       "title": string,
       "project_id"?: number|null,
       "constraints"?: object,
+      "min_price"?: number,
+      "max_price"?: number,
       "providers"?: string[],
       "search_query"?: string
     }
@@ -112,6 +123,8 @@ Schema:
       "row_id": number,
       "title"?: string,
       "constraints"?: object,
+      "min_price"?: number,
+      "max_price"?: number,
       "providers"?: string[],
       "search_query"?: string
     }

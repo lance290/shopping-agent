@@ -819,6 +819,13 @@ export function buildApp() {
     for (const action of plan.actions || []) {
       if (action.type === 'create_row') {
         const constraints = action.constraints && typeof action.constraints === 'object' ? action.constraints : {};
+        const choiceAnswers: Record<string, any> = { ...constraints };
+        if (typeof action.min_price === 'number' && Number.isFinite(action.min_price)) {
+          choiceAnswers.min_price = action.min_price;
+        }
+        if (typeof action.max_price === 'number' && Number.isFinite(action.max_price)) {
+          choiceAnswers.max_price = action.max_price;
+        }
         const title = action.title;
         writeEvent('action_started', { type: 'create_row', title });
         const createRes = await fetchJsonWithTimeoutRetry(
@@ -834,7 +841,7 @@ export function buildApp() {
                 item_name: title,
                 constraints: JSON.stringify(constraints),
               },
-              choice_answers: JSON.stringify(constraints),
+              choice_answers: JSON.stringify(choiceAnswers),
             }),
           },
           20000,
@@ -879,8 +886,16 @@ export function buildApp() {
             constraints: JSON.stringify(constraints || {}),
           };
         }
-        if (constraints) {
-          updateBody.choice_answers = JSON.stringify(constraints);
+
+        const choiceAnswers: Record<string, any> = constraints ? { ...constraints } : {};
+        if (typeof action.min_price === 'number' && Number.isFinite(action.min_price)) {
+          choiceAnswers.min_price = action.min_price;
+        }
+        if (typeof action.max_price === 'number' && Number.isFinite(action.max_price)) {
+          choiceAnswers.max_price = action.max_price;
+        }
+        if (Object.keys(choiceAnswers).length > 0) {
+          updateBody.choice_answers = JSON.stringify(choiceAnswers);
         }
 
         writeEvent('action_started', { type: 'update_row', row_id: action.row_id });
