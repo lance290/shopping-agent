@@ -4,12 +4,15 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict
 from datetime import datetime
 from sqlalchemy import func
+import logging
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import Like, Row
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["likes"])
 
@@ -73,6 +76,7 @@ async def create_like(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Failed to create like for row_id={like_in.row_id}, bid_id={like_in.bid_id}, offer_url={like_in.offer_url}: {str(e)}", exc_info=True)
         await session.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to create like: {str(e)}")
 
@@ -127,16 +131,21 @@ async def list_likes(
 ):
     from routes.auth import get_current_session
 
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        auth_session = await get_current_session(authorization, session)
+        if not auth_session:
+            raise HTTPException(status_code=401, detail="Not authenticated")
 
-    query = select(Like).where(Like.user_id == auth_session.user_id)
-    if row_id:
-        query = query.where(Like.row_id == row_id)
+        query = select(Like).where(Like.user_id == auth_session.user_id)
+        if row_id:
+            query = query.where(Like.row_id == row_id)
 
-    result = await session.exec(query)
-    return result.all()
+        result = await session.exec(query)
+        return result.all()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch likes: {str(e)}")
 
 
 @router.get("/likes/counts")

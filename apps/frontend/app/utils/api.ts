@@ -140,7 +140,7 @@ export const createCommentApi = async (
 
 export const fetchCommentsApi = async (rowId: number): Promise<CommentDto[]> => {
   try {
-    const res = await fetchWithDevAuth(`${backendUrl}/comments?row_id=${rowId}`);
+    const res = await fetch(`/api/comments?row_id=${rowId}`);
     if (!res.ok) {
       console.error('[API] fetchComments failed:', res.status);
       return [];
