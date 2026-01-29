@@ -1,0 +1,30 @@
+name: Agent Approval Router
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+permissions:
+  contents: write      # Required for auto-merge
+  pull-requests: write # Required for labels/comments
+  issues: write        # Fallback for some comment ops
+
+jobs:
+  route-pr:
+    name: Route Agent PR
+    runs-on: ubuntu-latest
+    if: startsWith(github.actor, 'agent-')
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed for diff calculation
+
+      - name: Run Approval Router Logic
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          # Ensure script is executable
+          chmod +x .github/scripts/approval-router.sh
+          ./.github/scripts/approval-router.sh
