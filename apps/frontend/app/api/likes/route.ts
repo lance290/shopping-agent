@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
   try {
     const authHeader = await getAuthHeader(request);
     const body = await request.json();
-    
+
     const response = await fetch(`${BACKEND_URL}/likes`, {
       method: 'POST',
       headers: {
@@ -66,8 +66,18 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify(body),
     });
-    
-    const data = await response.json();
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      console.error('Error parsing response:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid response from server' },
+        { status: response.status || 500 }
+      );
+    }
+
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error creating like:', error);
@@ -79,15 +89,25 @@ export async function DELETE(request: NextRequest) {
   try {
     const authHeader = await getAuthHeader(request);
     const params = request.nextUrl.searchParams.toString();
-    
+
     const response = await fetch(`${BACKEND_URL}/likes?${params}`, {
       method: 'DELETE',
       headers: {
         ...authHeader,
       },
     });
-    
-    const data = await response.json();
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      console.error('Error parsing response:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid response from server' },
+        { status: response.status || 500 }
+      );
+    }
+
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error deleting like:', error);
