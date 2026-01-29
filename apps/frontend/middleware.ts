@@ -39,10 +39,6 @@ export default function authMiddleware(request: NextRequest, event: NextFetchEve
     return NextResponse.next();
   }
 
-  if (request.nextUrl.pathname.startsWith('/api')) {
-    return NextResponse.next();
-  }
-
   console.log(
     `[clerk:middleware] pk_prefix=${publishableKey?.slice(0, 12) || 'missing'} pk_len=${publishableKey?.length || 0} sk_set=${Boolean(secretKey)}`
   );
