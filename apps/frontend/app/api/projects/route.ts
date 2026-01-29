@@ -64,7 +64,7 @@ async function ensureAuthHeader(request: NextRequest): Promise<{ Authorization?:
     return { Authorization: authHeader.Authorization };
   }
 
-  if (!disableClerk || isClerkConfigured()) {
+  if (!disableClerk && isClerkConfigured()) {
     return {};
   }
 
