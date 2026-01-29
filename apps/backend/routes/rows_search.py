@@ -65,6 +65,7 @@ async def search_row_listings(
     spec = spec_result.first()
 
     base_query = body.query or row.title or (spec.item_name if spec else "")
+    user_provided_query = bool(body.query)  # Track if query was explicitly provided by user
     logger.info(
         f"[SEARCH DEBUG] body.query={body.query!r}, row.title={row.title!r}, base_query={base_query!r}"
     )
@@ -120,7 +121,13 @@ async def search_row_listings(
         r"\b(over|under|below|above)\s*\$?\d+\b", "", clean_query, flags=re.IGNORECASE
     )
     sanitized_query = " ".join(clean_query.replace("(", " ").replace(")", " ").split())
-    sanitized_query = " ".join(sanitized_query.split()[:8]).strip()
+
+    # Only truncate if query was NOT explicitly provided by user
+    # When user provides explicit search query, preserve it fully (after sanitization)
+    if not user_provided_query:
+        # For auto-constructed queries (with constraints/answers), limit to 12 words to keep focused
+        sanitized_query = " ".join(sanitized_query.split()[:12]).strip()
+
     if not sanitized_query:
         sanitized_query = base_query.strip()
     logger.info(f"[SEARCH DEBUG] base_query={base_query!r}, sanitized_query={sanitized_query!r}")
