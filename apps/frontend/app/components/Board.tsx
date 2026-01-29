@@ -104,7 +104,7 @@ export default function ProcurementBoard() {
     }
   };
 
-  // Grouping logic
+  // Grouping logic with sorting by last_engaged_at (most recent first)
   const groupedRows: Record<number, Row[]> = {};
   const ungroupedRows: Row[] = [];
 
@@ -117,6 +117,22 @@ export default function ProcurementBoard() {
     } else {
       ungroupedRows.push(row);
     }
+  });
+
+  // Sort each group by last_engaged_at (most recent first)
+  Object.keys(groupedRows).forEach(projectId => {
+    groupedRows[Number(projectId)].sort((a, b) => {
+      const aTime = a.last_engaged_at || 0;
+      const bTime = b.last_engaged_at || 0;
+      return bTime - aTime;
+    });
+  });
+
+  // Sort ungrouped rows by last_engaged_at (most recent first)
+  ungroupedRows.sort((a, b) => {
+    const aTime = a.last_engaged_at || 0;
+    const bTime = b.last_engaged_at || 0;
+    return bTime - aTime;
   });
 
   return (
