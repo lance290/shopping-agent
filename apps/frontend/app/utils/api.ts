@@ -528,3 +528,56 @@ export const fetchBugReport = async (id: string): Promise<BugReportResponse | nu
   }
 };
 
+// Helper: Create custom bid
+export const createCustomBidApi = async (
+  rowId: number,
+  url: string,
+  title?: string,
+  price?: number,
+  merchant?: string,
+  imageUrl?: string
+): Promise<Offer | null> => {
+  console.log('[API] Creating custom bid for row:', rowId);
+  try {
+    const res = await fetch(`/api/rows/${rowId}/custom-bids`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url,
+        title: title || undefined,
+        price: price !== undefined ? price : undefined,
+        merchant: merchant || undefined,
+        image_url: imageUrl || undefined,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error('[API] Create custom bid failed:', res.status, await res.text());
+      return null;
+    }
+
+    const bid = await res.json();
+    console.log('[API] Custom bid created:', bid);
+
+    // Convert bid to Offer format
+    return {
+      title: bid.item_title,
+      price: bid.price,
+      currency: bid.currency,
+      merchant: bid.seller?.name || 'Custom',
+      url: bid.item_url || url,
+      image_url: bid.image_url,
+      rating: null,
+      reviews_count: null,
+      shipping_info: null,
+      source: bid.source,
+      merchant_domain: bid.seller?.domain,
+      bid_id: bid.id,
+      is_selected: bid.is_selected,
+    };
+  } catch (err) {
+    console.error('[API] Create custom bid error:', err);
+    return null;
+  }
+};
+

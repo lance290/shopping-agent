@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Row, Offer, OfferSortMode, useShoppingStore } from '../store';
 import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
-import { Archive, RefreshCw, FlaskConical, Undo2 } from 'lucide-react';
-import { runSearchApi, selectOfferForRow, toggleLikeApi, fetchLikesApi, createCommentApi, fetchCommentsApi } from '../utils/api';
+import AddCustomOfferTile from './AddCustomOfferTile';
+import { Archive, RefreshCw, FlaskConical, Undo2, Plus } from 'lucide-react';
+import { runSearchApi, selectOfferForRow, toggleLikeApi, fetchLikesApi, createCommentApi, fetchCommentsApi, createCustomBidApi } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -389,6 +390,34 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     onToast?.('Share link ready.', 'success');
   };
 
+  const handleAddCustomOffer = async (offerData: {
+    url: string;
+    title?: string;
+    price?: number;
+    merchant?: string;
+    imageUrl?: string;
+  }) => {
+    console.log('[RowStrip] Adding custom offer:', offerData);
+
+    const newOffer = await createCustomBidApi(
+      row.id,
+      offerData.url,
+      offerData.title,
+      offerData.price,
+      offerData.merchant,
+      offerData.imageUrl
+    );
+
+    if (newOffer) {
+      // Add to the beginning of the offers list (far left position)
+      const updatedOffers = [newOffer, ...offers];
+      setRowResults(row.id, updatedOffers);
+      onToast?.('Custom offer added successfully.', 'success');
+    } else {
+      onToast?.('Failed to add custom offer. Please try again.', 'error');
+    }
+  };
+
   return (
     <div 
       data-testid="row-strip"
@@ -493,32 +522,38 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
           <div className="flex-1 overflow-x-auto scrollbar-hide">
             <div className="flex gap-6 min-h-[450px] pr-2">
               {sortedOffers && sortedOffers.length > 0 ? (
-                sortedOffers.map((offer, idx) => (
-                  <OfferTile
-                    key={getOfferKey(offer, idx)}
-                    offer={offer}
-                    index={idx}
-                    rowId={row.id}
-                    onSelect={handleSelectOffer}
-                    onToggleLike={handleToggleLike}
-                    onComment={handleComment}
-                    onShare={handleShare}
-                  />
-                ))
+                <>
+                  {sortedOffers.map((offer, idx) => (
+                    <OfferTile
+                      key={getOfferKey(offer, idx)}
+                      offer={offer}
+                      index={idx}
+                      rowId={row.id}
+                      onSelect={handleSelectOffer}
+                      onToggleLike={handleToggleLike}
+                      onComment={handleComment}
+                      onShare={handleShare}
+                    />
+                  ))}
+                  <AddCustomOfferTile onAdd={handleAddCustomOffer} />
+                </>
               ) : (
-                <div className="flex flex-col items-center justify-center w-64 rounded-2xl border border-dashed border-warm-grey bg-warm-light/60 text-onyx-muted">
-                  {row.status === 'sourcing' ? (
-                    <>
-                      <RefreshCw className="w-6 h-6 animate-spin mb-3 opacity-50" />
-                      <span className="text-sm font-medium">Sourcing offers...</span>
-                    </>
-                  ) : (
-                    <>
-                      <FlaskConical className="w-6 h-6 mb-3 opacity-50" />
-                      <span className="text-sm font-medium">No offers found</span>
-                    </>
-                  )}
-                </div>
+                <>
+                  <div className="flex flex-col items-center justify-center w-64 rounded-2xl border border-dashed border-warm-grey bg-warm-light/60 text-onyx-muted">
+                    {row.status === 'sourcing' ? (
+                      <>
+                        <RefreshCw className="w-6 h-6 animate-spin mb-3 opacity-50" />
+                        <span className="text-sm font-medium">Sourcing offers...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FlaskConical className="w-6 h-6 mb-3 opacity-50" />
+                        <span className="text-sm font-medium">No offers found</span>
+                      </>
+                    )}
+                  </div>
+                  <AddCustomOfferTile onAdd={handleAddCustomOffer} />
+                </>
               )}
             </div>
           </div>

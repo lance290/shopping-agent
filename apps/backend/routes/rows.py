@@ -289,3 +289,109 @@ async def select_row_option(
         "option_id": option_id,
         "row_status": row.status,
     }
+
+
+class CustomBidCreate(BaseModel):
+    url: str
+    title: Optional[str] = None
+    price: Optional[float] = None
+    merchant: Optional[str] = None
+    image_url: Optional[str] = None
+
+
+@router.post("/rows/{row_id}/custom-bids", response_model=BidRead)
+async def create_custom_bid(
+    row_id: int,
+    bid_data: CustomBidCreate,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    """Create a custom bid from a user-provided URL."""
+    from routes.auth import get_current_session
+    from models import Seller
+
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Verify the row exists and belongs to the user
+    result = await session.exec(
+        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+    )
+    row = result.first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    # Extract merchant domain from URL if not provided
+    merchant_name = bid_data.merchant
+    merchant_domain = None
+
+    if bid_data.url:
+        try:
+            from urllib.parse import urlparse
+            parsed_url = urlparse(bid_data.url)
+            merchant_domain = parsed_url.netloc or None
+            if not merchant_name:
+                # Use domain as fallback merchant name
+                merchant_name = merchant_domain or "Custom"
+        except Exception:
+            merchant_name = merchant_name or "Custom"
+
+    # Find or create seller
+    seller = None
+    if merchant_domain:
+        seller_result = await session.exec(
+            select(Seller).where(Seller.domain == merchant_domain)
+        )
+        seller = seller_result.first()
+
+        if not seller:
+            seller = Seller(
+                name=merchant_name or merchant_domain,
+                domain=merchant_domain
+            )
+            session.add(seller)
+            await session.commit()
+            await session.refresh(seller)
+
+    # Create the bid
+    price_value = bid_data.price if bid_data.price is not None else 0.0
+    db_bid = Bid(
+        row_id=row_id,
+        seller_id=seller.id if seller else None,
+        price=price_value,
+        shipping_cost=0.0,
+        total_cost=price_value,
+        currency="USD",
+        item_title=bid_data.title or "Custom Offer",
+        item_url=bid_data.url,
+        image_url=bid_data.image_url,
+        source="manual",
+        is_selected=False
+    )
+
+    session.add(db_bid)
+    await session.commit()
+    await session.refresh(db_bid)
+
+    # Load seller relationship for response
+    if db_bid.seller_id:
+        await session.refresh(db_bid, ["seller"])
+
+    # Return in BidRead format
+    return BidRead(
+        id=db_bid.id,
+        price=db_bid.price,
+        currency=db_bid.currency,
+        item_title=db_bid.item_title,
+        item_url=db_bid.item_url,
+        image_url=db_bid.image_url,
+        source=db_bid.source,
+        is_selected=db_bid.is_selected,
+        seller=SellerRead(
+            id=seller.id,
+            name=seller.name,
+            domain=seller.domain
+        ) if seller else None
+    )
