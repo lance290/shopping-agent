@@ -46,17 +46,23 @@ async function getOrCreateDevAuthToken(forceMint: boolean = false): Promise<stri
   const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
   if (!disableClerk) return '';
 
-  const existing = getDevAuthToken();
-  if (existing) return existing;
+  if (!forceMint) {
+    const existing = getDevAuthToken();
+    if (existing) return existing;
+  }
 
   if (typeof document === 'undefined') return '';
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
+  const devEmail =
+    process.env.NEXT_PUBLIC_DEV_SESSION_EMAIL ||
+    process.env.DEV_SESSION_EMAIL ||
+    'test@example.com';
   try {
     const res = await fetch(`${backendUrl}/test/mint-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'dev@example.com' }),
+      body: JSON.stringify({ email: devEmail }),
     });
     if (!res.ok) return '';
     const data = await res.json();
@@ -275,7 +281,7 @@ export const createRowInDb = async (title: string, projectId?: number | null): P
 };
 
 // Helper: Fetch all rows from DB
-export const fetchRowsFromDb = async (): Promise<Row[]> => {
+export const fetchRowsFromDb = async (): Promise<Row[] | null> => {
   try {
     // Ensure we have a valid session token in cookie before calling
     await getOrCreateDevAuthToken();
@@ -286,7 +292,7 @@ export const fetchRowsFromDb = async (): Promise<Row[]> => {
       return Array.isArray(rows) ? rows : [];
     }
     
-    // On 401, only mint if we truly have no token (avoid creating a new user).
+    // On 401, only mint if we truly have no token (avoid silently switching users).
     if (res.status === 401) {
       const existing = getDevAuthToken();
       if (!existing) {
@@ -299,17 +305,20 @@ export const fetchRowsFromDb = async (): Promise<Row[]> => {
           }
         }
       }
+
+      console.error('[API] fetchRowsFromDb failed: 401');
+      return null;
     }
     
     console.error('[API] fetchRowsFromDb failed:', res.status);
   } catch (err) {
     console.error('[API] Fetch rows error:', err);
   }
-  return [];
+  return null;
 };
 
 // Helper: Fetch projects
-export const fetchProjectsFromDb = async (): Promise<Project[]> => {
+export const fetchProjectsFromDb = async (): Promise<Project[] | null> => {
   try {
     // Ensure we have a valid session token in cookie before calling
     await getOrCreateDevAuthToken();
@@ -320,26 +329,25 @@ export const fetchProjectsFromDb = async (): Promise<Project[]> => {
       return Array.isArray(projects) ? projects : [];
     }
     
-    // On 401, only mint if we truly have no token (avoid creating a new user).
+    // On 401, mint a fresh token and retry once. Existing token may be stale.
     if (res.status === 401) {
-      const existing = getDevAuthToken();
-      if (!existing) {
-        const freshToken = await getOrCreateDevAuthToken(true);
-        if (freshToken) {
-          const retry = await fetch('/api/projects');
-          if (retry.ok) {
-            const projects = await retry.json();
-            return Array.isArray(projects) ? projects : [];
-          }
+      const freshToken = await getOrCreateDevAuthToken(true);
+      if (freshToken) {
+        const retry = await fetch('/api/projects');
+        if (retry.ok) {
+          const projects = await retry.json();
+          return Array.isArray(projects) ? projects : [];
         }
       }
+      console.error('[API] fetchProjectsFromDb failed: 401');
+      return null;
     }
     
     console.error('[API] fetchProjectsFromDb failed:', res.status);
-    return [];
+    return null;
   } catch (err) {
     console.error('[API] fetchProjectsFromDb error:', err);
-    return [];
+    return null;
   }
 };
 

@@ -3,8 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
 import Link from 'next/link';
-import { SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
-import { useShoppingStore } from '../store';
+import { SignedIn, SignedOut, SignOutButton, UserButton } from '@clerk/nextjs';
+import { useShoppingStore, shouldForceNewRow } from '../store';
 import { persistRowToDb, runSearchApi, fetchRowsFromDb, fetchProjectsFromDb, createRowInDb } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -53,9 +53,13 @@ export default function Chat() {
   useEffect(() => {
     const loadData = async () => {
       const rows = await fetchRowsFromDb();
-      store.setRows(rows);
+      if (rows) {
+        store.setRows(rows);
+      }
       const projects = await fetchProjectsFromDb();
-      store.setProjects(projects);
+      if (projects) {
+        store.setProjects(projects);
+      }
     };
     loadData();
   }, []);
@@ -81,11 +85,6 @@ export default function Chat() {
         store.addRow(created);
         store.setActiveRowId(created.id);
 
-        // Clear the one-shot target project after it has been used.
-        if (store.targetProjectId) {
-          store.setTargetProjectId(null);
-        }
-
         store.setIsSearching(true);
         const results = await runSearchApi(query, created.id);
         store.setRowResults(created.id, results);
@@ -94,10 +93,12 @@ export default function Chat() {
 
       // Fallback: if create failed, refresh and attempt to locate an existing row.
       const freshRows = await fetchRowsFromDb();
-      store.setRows(freshRows);
-      targetRow = intendedProjectId
-        ? freshRows.find((r) => r.title === query && r.project_id === intendedProjectId) || null
-        : freshRows.find((r) => r.title === query) || null;
+      if (freshRows) {
+        store.setRows(freshRows);
+        targetRow = intendedProjectId
+          ? freshRows.find((r) => r.title === query && r.project_id === intendedProjectId) || null
+          : freshRows.find((r) => r.title === query) || null;
+      }
 
       if (targetRow) {
         store.setActiveRowId(targetRow.id);
@@ -126,6 +127,16 @@ export default function Chat() {
     setInput('');
     setIsLoading(true);
     const intendedProjectId = store.targetProjectId;
+    const shouldNewRow = shouldForceNewRow({
+      message: queryText,
+      activeRowTitle: activeRow?.title || null,
+      aggressiveness: store.newRowAggressiveness,
+    });
+
+    const effectiveActiveRowId = shouldNewRow ? null : store.activeRowId;
+    if (shouldNewRow) {
+      store.setActiveRowId(null);
+    }
 
     const pickRowFromFresh = (freshRows: any[], query: string) => {
       const q = query.toLowerCase().trim();
@@ -144,7 +155,7 @@ export default function Chat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           messages: [...messages, userMessage],
-          activeRowId: store.activeRowId,
+          activeRowId: effectiveActiveRowId,
           projectId: intendedProjectId,
         }),
       });
@@ -178,11 +189,14 @@ export default function Chat() {
             rowCreationHandled = true;
             await new Promise(resolve => setTimeout(resolve, 800));
             const freshRows = await fetchRowsFromDb();
-            store.setRows(freshRows);
+            if (freshRows) {
+              store.setRows(freshRows);
 
-            const selected = pickRowFromFresh(freshRows, rowMatch[1]);
-            if (selected) {
-              store.setActiveRowId(selected.id);
+              const selected = pickRowFromFresh(freshRows, rowMatch[1]);
+              if (selected) {
+                store.setActiveRowId(selected.id);
+                store.setCurrentQuery(selected.title);
+              }
             }
           }
           
@@ -192,8 +206,10 @@ export default function Chat() {
             const updatedRowId = parseInt(updateMatch[1], 10);
             
             const freshRows = await fetchRowsFromDb();
-            store.setRows(freshRows);
-            store.setActiveRowId(updatedRowId);
+            if (freshRows) {
+              store.setRows(freshRows);
+              store.setActiveRowId(updatedRowId);
+            }
           }
           
           const searchMatch = assistantContent.match(/🔍 Searching for "([^"]+)"/);
@@ -205,11 +221,13 @@ export default function Chat() {
             let rowId = store.activeRowId;
             if (!rowId) {
               const freshRows = await fetchRowsFromDb();
-              store.setRows(freshRows);
-              const selected = pickRowFromFresh(freshRows, lastProcessedQuery);
-              if (selected) {
-                rowId = selected.id;
-                store.setActiveRowId(rowId);
+              if (freshRows) {
+                store.setRows(freshRows);
+                const selected = pickRowFromFresh(freshRows, lastProcessedQuery);
+                if (selected) {
+                  rowId = selected.id;
+                  store.setActiveRowId(rowId);
+                }
               }
             }
 
@@ -244,10 +262,6 @@ export default function Chat() {
           const results = await runSearchApi(queryText, rowId);
           store.setRowResults(rowId, results);
         }
-      }
-      // Clear the one-shot target project after the request completes, so subsequent queries don't inherit it.
-      if (intendedProjectId) {
-        store.setTargetProjectId(null);
       }
       setIsLoading(false);
     }
@@ -315,6 +329,11 @@ export default function Chat() {
                 </Link>
               </SignedOut>
               <SignedIn>
+                <SignOutButton redirectUrl="/login">
+                  <Button type="button" variant="ghost" size="sm" className="text-xs">
+                    Sign out
+                  </Button>
+                </SignOutButton>
                 <UserButton afterSignOutUrl="/login" />
               </SignedIn>
             </>
@@ -377,6 +396,22 @@ export default function Chat() {
       </div>
 
       <div className="px-6 py-5 bg-white border-t border-warm-grey">
+        <div className="mb-3">
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] uppercase tracking-[0.16em] text-onyx-muted/80 font-medium">Topic switching</div>
+            <div className="text-[11px] text-onyx-muted">{store.newRowAggressiveness}</div>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={store.newRowAggressiveness}
+            onChange={(e) => store.setNewRowAggressiveness(Number(e.target.value))}
+            className="w-full"
+            aria-label="Topic switching aggressiveness"
+          />
+        </div>
         <form onSubmit={handleSubmit} className="flex gap-3 items-end">
           <Input
             ref={inputRef}

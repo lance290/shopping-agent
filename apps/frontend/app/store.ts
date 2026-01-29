@@ -120,6 +120,7 @@ interface ShoppingState {
   currentQuery: string;           // The current search query
   activeRowId: number | null;     // The currently selected row ID
   targetProjectId: number | null; // The project ID to create new rows in
+  newRowAggressiveness: number;   // 0..100: higher => more likely to start a new row
   rows: Row[];                    // All rows from database
   projects: Project[];            // All projects
   searchResults: Offer[];         // Current search results (legacy view)
@@ -132,6 +133,7 @@ interface ShoppingState {
   setCurrentQuery: (query: string) => void;
   setActiveRowId: (id: number | null) => void;
   setTargetProjectId: (id: number | null) => void;
+  setNewRowAggressiveness: (value: number) => void;
   setRows: (rows: Row[]) => void;
   setProjects: (projects: Project[]) => void;
   addProject: (project: Project) => void;
@@ -168,6 +170,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   currentQuery: '',
   activeRowId: null,
   targetProjectId: null,
+  newRowAggressiveness: 50,
   rows: [],
   projects: [],
   searchResults: [],
@@ -182,6 +185,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   // Basic setters
   setCurrentQuery: (query) => set({ currentQuery: query }),
   setTargetProjectId: (id) => set({ targetProjectId: id }),
+  setNewRowAggressiveness: (value) => set({ newRowAggressiveness: Math.max(0, Math.min(100, Math.round(value))) }),
   setActiveRowId: (id) => set((state) => {
     if (id === null) return { activeRowId: id };
 
@@ -406,3 +410,30 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     return match || null;
   },
 }));
+
+export function shouldForceNewRow(params: {
+  message: string;
+  activeRowTitle?: string | null;
+  aggressiveness: number;
+}): boolean {
+  const msg = (params.message || '').toLowerCase().trim();
+  const activeTitle = (params.activeRowTitle || '').toLowerCase().trim();
+  const aggressiveness = Math.max(0, Math.min(100, params.aggressiveness));
+
+  if (!msg || !activeTitle) return false;
+
+  if (aggressiveness < 60) return false;
+
+  const refinementRegex = /\b(over|under|below|above|cheaper|more|less|budget|price)\b|\$\s*\d+|\b\d+\s*(usd|dollars)\b/;
+  if (refinementRegex.test(msg)) return false;
+
+  const aWords = new Set(activeTitle.split(/\s+/).filter((w) => w.length > 2));
+  const mWords = msg.split(/\s+/).filter((w) => w.length > 2);
+  const overlap = mWords.filter((w) => aWords.has(w)).length;
+  const denom = Math.max(1, Math.min(aWords.size, mWords.length));
+  const similarity = overlap / denom;
+
+  const normalized = (aggressiveness - 60) / 40;
+  const threshold = 0.1 + normalized * 0.4;
+  return similarity < threshold;
+}

@@ -332,76 +332,75 @@ export function buildApp() {
 });
 
   fastify.post('/api/search', async (request, reply) => {
-  try {
-    const body = request.body as any;
-    const rowId = body?.rowId;
+    try {
+      const body = request.body as any;
+      const rowId = body?.rowId;
 
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (request.headers.authorization) {
-      headers['Authorization'] = request.headers.authorization as string;
-    }
-
-    if (rowId) {
-      const rowRes = await fetch(`${BACKEND_URL}/rows/${rowId}`, { headers });
-      if (!rowRes.ok) {
-        const text = await rowRes.text();
-        reply.status(rowRes.status).send({ error: text || 'Failed to fetch row' });
-        return;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (request.headers.authorization) {
+        headers['Authorization'] = request.headers.authorization as string;
       }
-      const row = await rowRes.json() as any;
 
-      let projectTitle: string | null = null;
-      if (row?.project_id) {
-        const projectsRes = await fetch(`${BACKEND_URL}/projects`, { headers });
-        if (projectsRes.ok) {
-          const projects = await projectsRes.json();
-          if (Array.isArray(projects)) {
-            const project = projects.find((p: any) => p?.id === row.project_id);
-            if (project?.title) projectTitle = String(project.title);
+      if (rowId) {
+        const rowRes = await fetch(`${BACKEND_URL}/rows/${rowId}`, { headers });
+        if (!rowRes.ok) {
+          const text = await rowRes.text();
+          reply.status(rowRes.status).send({ error: text || 'Failed to fetch row' });
+          return;
+        }
+        const row = (await rowRes.json()) as any;
+
+        let projectTitle: string | null = null;
+        if (row?.project_id) {
+          const projectsRes = await fetch(`${BACKEND_URL}/projects`, { headers });
+          if (projectsRes.ok) {
+            const projects = await projectsRes.json();
+            if (Array.isArray(projects)) {
+              const project = projects.find((p: any) => p?.id === row.project_id);
+              if (project?.title) projectTitle = String(project.title);
+            }
           }
         }
+
+        const displayQuery = typeof body?.query === 'string' ? body.query : row?.title || '';
+        const providerQuery = await triageProviderQuery({
+          displayQuery,
+          rowTitle: row?.title,
+          projectTitle,
+          choiceAnswersJson: row?.choice_answers,
+          requestSpecConstraintsJson: row?.request_spec?.constraints,
+        });
+
+        const safeProviderQuery = providerQuery || displayQuery;
+
+        await fetch(`${BACKEND_URL}/rows/${rowId}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ provider_query: safeProviderQuery }),
+        });
+
+        const response = await fetch(`${BACKEND_URL}/rows/${rowId}/search`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ ...body, query: safeProviderQuery }),
+        });
+        const data = await response.json();
+        reply.status(response.status).send(data);
+        return;
       }
 
-      const displayQuery = typeof body?.query === 'string' ? body.query : (row?.title || '');
-      const providerQuery = await triageProviderQuery({
-        displayQuery,
-        rowTitle: row?.title,
-        projectTitle,
-        choiceAnswersJson: row?.choice_answers,
-        requestSpecConstraintsJson: row?.request_spec?.constraints,
-      });
-
-      const safeProviderQuery = providerQuery || displayQuery;
-
-      await fetch(`${BACKEND_URL}/rows/${rowId}`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({ provider_query: safeProviderQuery }),
-      });
-
-      const response = await fetch(`${BACKEND_URL}/rows/${rowId}/search`, {
+      const targetUrl = `${BACKEND_URL}/v1/sourcing/search`;
+      const response = await fetch(targetUrl, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ ...body, query: safeProviderQuery }),
+        body: JSON.stringify(body),
       });
       const data = await response.json();
       reply.status(response.status).send(data);
-      return;
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Failed to fetch from backend' });
     }
-
-    const targetUrl = `${BACKEND_URL}/v1/sourcing/search`;
-
-    const response = await fetch(targetUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    });
-    const data = await response.json();
-    return data;
-  } catch (err) {
-    fastify.log.error(err);
-    reply.status(500).send({ error: 'Failed to fetch from backend' });
-  }
   });
 
   fastify.get('/health', async () => {

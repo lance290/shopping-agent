@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
+import json
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -56,6 +57,53 @@ class RowUpdate(BaseModel):
     choice_answers: Optional[str] = None
     provider_query: Optional[str] = None
     selected_bid_id: Optional[int] = None
+    regenerate_choice_factors: Optional[bool] = None
+
+
+def _default_choice_factors_for_row(row: Row) -> str:
+    title = (getattr(row, "title", "") or "").strip()
+    lowered = title.lower()
+
+    base: list[dict] = [
+        {
+            "name": "condition",
+            "label": "Condition",
+            "type": "select",
+            "options": ["New", "Used", "Refurbished"],
+            "required": False,
+        },
+        {
+            "name": "min_price",
+            "label": "Min Budget ($)",
+            "type": "number",
+            "required": False,
+        },
+        {
+            "name": "max_price",
+            "label": "Max Budget ($)",
+            "type": "number",
+            "required": False,
+        },
+    ]
+
+    if any(k in lowered for k in ("nintendo", "switch", "console", "ps5", "xbox")):
+        base.insert(
+            0,
+            {
+                "name": "edition",
+                "label": "Edition",
+                "type": "select",
+                "options": [
+                    "Standard",
+                    "OLED",
+                    "Lite",
+                    "Bundle",
+                ],
+                "required": False,
+            },
+        )
+
+    return json.dumps(base)
 
 
 @router.post("/rows", response_model=Row)
@@ -89,6 +137,8 @@ async def create_row(
         choice_factors=row.choice_factors,
         choice_answers=row.choice_answers
     )
+    if db_row.choice_factors is None:
+        db_row.choice_factors = _default_choice_factors_for_row(db_row)
     session.add(db_row)
     await session.commit()
     await session.refresh(db_row)
@@ -208,6 +258,7 @@ async def update_row(
     row_data = row_update.dict(exclude_unset=True)
     selected_bid_id = row_data.pop("selected_bid_id", None)
     request_spec_updates = row_data.pop("request_spec", None)
+    regenerate_choice_factors = row_data.pop("regenerate_choice_factors", None)
 
     if selected_bid_id is not None:
         bids_result = await session.exec(select(Bid).where(Bid.row_id == row_id))
@@ -226,6 +277,9 @@ async def update_row(
 
     for key, value in row_data.items():
         setattr(row, key, value)
+
+    if regenerate_choice_factors:
+        row.choice_factors = _default_choice_factors_for_row(row)
         
     if request_spec_updates:
         result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))

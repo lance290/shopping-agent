@@ -2,21 +2,24 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 from sqlmodel.ext.asyncio.session import AsyncSession
+from httpx import AsyncClient
 
-from models import Row, RequestSpec, User, Session as AuthSession
+from models import Row, RequestSpec, User, AuthSession, hash_token
 from routes.rows_search import router
 
 
 @pytest.mark.asyncio
-async def test_user_provided_query_not_truncated(session: AsyncSession, test_user: User):
+async def test_user_provided_query_not_truncated(client: AsyncClient, session: AsyncSession, test_user: User):
     """Test that explicit user queries are not truncated."""
     # Create auth session
     auth_session = AuthSession(
+        email=test_user.email or "test@example.com",
         user_id=test_user.id,
-        session_token="test-token",
-        expires_at=None
+        session_token_hash=hash_token("test-token"),
+        revoked_at=None,
     )
     session.add(auth_session)
+    await session.commit()
 
     # Create a row
     row = Row(
@@ -35,16 +38,12 @@ async def test_user_provided_query_not_truncated(session: AsyncSession, test_use
         mock_repo.return_value.search_all = mock_search
 
         # Mock auth and rate limit
-        with patch("routes.rows_search.get_current_session", return_value=auth_session):
-            with patch("routes.rows_search.check_rate_limit", return_value=True):
-                from fastapi.testclient import TestClient
-                from main import app
-
+        with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+            with patch("routes.rate_limit.check_rate_limit", return_value=True):
                 # Simulate a long user query
                 long_query = "God Country Notre Dame long sleeve t-shirt with special design"
 
-                client = TestClient(app)
-                response = client.post(
+                response = await client.post(
                     f"/rows/{row.id}/search",
                     json={"query": long_query},
                     headers={"authorization": "Bearer test-token"}
@@ -68,13 +67,14 @@ async def test_user_provided_query_not_truncated(session: AsyncSession, test_use
 
 
 @pytest.mark.asyncio
-async def test_constructed_query_with_constraints_limited(session: AsyncSession, test_user: User):
+async def test_constructed_query_with_constraints_limited(client: AsyncClient, session: AsyncSession, test_user: User):
     """Test that auto-constructed queries with constraints are reasonably limited."""
     # Create auth session
     auth_session = AuthSession(
+        email=test_user.email or "test@example.com",
         user_id=test_user.id,
-        session_token="test-token",
-        expires_at=None
+        session_token_hash=hash_token("test-token"),
+        revoked_at=None,
     )
     session.add(auth_session)
 
@@ -103,14 +103,10 @@ async def test_constructed_query_with_constraints_limited(session: AsyncSession,
         mock_repo.return_value.search_all = mock_search
 
         # Mock auth and rate limit
-        with patch("routes.rows_search.get_current_session", return_value=auth_session):
-            with patch("routes.rows_search.check_rate_limit", return_value=True):
-                from fastapi.testclient import TestClient
-                from main import app
-
-                client = TestClient(app)
+        with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+            with patch("routes.rate_limit.check_rate_limit", return_value=True):
                 # No explicit query - will use row.title + constraints + choice_answers
-                response = client.post(
+                response = await client.post(
                     f"/rows/{row.id}/search",
                     json={},
                     headers={"authorization": "Bearer test-token"}
@@ -125,22 +121,24 @@ async def test_constructed_query_with_constraints_limited(session: AsyncSession,
                 assert len(words) <= 12
 
                 # Should NOT contain price info (removed by sanitization)
-                assert "price" not in called_query.lower() or "between" not in called_query.lower()
+                assert "$" not in called_query
 
                 # Should still contain the core item name
                 assert "Notre" in called_query or "Dame" in called_query or "shirt" in called_query
 
 
 @pytest.mark.asyncio
-async def test_short_user_query_preserved(session: AsyncSession, test_user: User):
+async def test_short_user_query_preserved(client: AsyncClient, session: AsyncSession, test_user: User):
     """Test that short user queries are fully preserved."""
     # Create auth session
     auth_session = AuthSession(
+        email=test_user.email or "test@example.com",
         user_id=test_user.id,
-        session_token="test-token",
-        expires_at=None
+        session_token_hash=hash_token("test-token"),
+        revoked_at=None,
     )
     session.add(auth_session)
+    await session.commit()
 
     # Create a row
     row = Row(
@@ -158,15 +156,11 @@ async def test_short_user_query_preserved(session: AsyncSession, test_user: User
         mock_repo.return_value.search_all = mock_search
 
         # Mock auth and rate limit
-        with patch("routes.rows_search.get_current_session", return_value=auth_session):
-            with patch("routes.rows_search.check_rate_limit", return_value=True):
-                from fastapi.testclient import TestClient
-                from main import app
-
+        with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+            with patch("routes.rate_limit.check_rate_limit", return_value=True):
                 short_query = "God Country Notre Dame"
 
-                client = TestClient(app)
-                response = client.post(
+                response = await client.post(
                     f"/rows/{row.id}/search",
                     json={"query": short_query},
                     headers={"authorization": "Bearer test-token"}
@@ -184,15 +178,17 @@ async def test_short_user_query_preserved(session: AsyncSession, test_user: User
 
 
 @pytest.mark.asyncio
-async def test_price_patterns_removed_from_user_query(session: AsyncSession, test_user: User):
+async def test_price_patterns_removed_from_user_query(client: AsyncClient, session: AsyncSession, test_user: User):
     """Test that price patterns are sanitized from user queries."""
     # Create auth session
     auth_session = AuthSession(
+        email=test_user.email or "test@example.com",
         user_id=test_user.id,
-        session_token="test-token",
-        expires_at=None
+        session_token_hash=hash_token("test-token"),
+        revoked_at=None,
     )
     session.add(auth_session)
+    await session.commit()
 
     # Create a row
     row = Row(
@@ -210,16 +206,12 @@ async def test_price_patterns_removed_from_user_query(session: AsyncSession, tes
         mock_repo.return_value.search_all = mock_search
 
         # Mock auth and rate limit
-        with patch("routes.rows_search.get_current_session", return_value=auth_session):
-            with patch("routes.rows_search.check_rate_limit", return_value=True):
-                from fastapi.testclient import TestClient
-                from main import app
-
+        with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+            with patch("routes.rate_limit.check_rate_limit", return_value=True):
                 # User query with price patterns
                 query_with_price = "Notre Dame shirt under $50 (blue)"
 
-                client = TestClient(app)
-                response = client.post(
+                response = await client.post(
                     f"/rows/{row.id}/search",
                     json={"query": query_with_price},
                     headers={"authorization": "Bearer test-token"}

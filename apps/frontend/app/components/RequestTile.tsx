@@ -52,7 +52,9 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
             body: JSON.stringify({ regenerate_choice_factors: true }),
           });
           const freshRows = await fetchRowsFromDb();
-          setRows(freshRows);
+          if (freshRows) {
+            setRows(freshRows);
+          }
         } finally {
           setDidAutoRegenerate(true);
         }
@@ -81,7 +83,9 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
     if (factors.length === 0 && pollCount < 4) {
       timeoutId = setTimeout(async () => {
         const freshRows = await fetchRowsFromDb();
-        setRows(freshRows);
+        if (freshRows) {
+          setRows(freshRows);
+        }
         setPollCount(prev => prev + 1);
       }, 2000);
     }
@@ -99,7 +103,9 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
         body: JSON.stringify({ regenerate_choice_factors: true }),
       });
       const freshRows = await fetchRowsFromDb();
-      setRows(freshRows);
+      if (freshRows) {
+        setRows(freshRows);
+      }
     } finally {
       setIsRefreshing(false);
     }

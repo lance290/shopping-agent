@@ -47,7 +47,9 @@ export default function Home() {
         // Load rows first if not loaded
         if (store.rows.length === 0) {
           const rows = await fetchRowsFromDb();
-          store.setRows(rows);
+          if (rows) {
+            store.setRows(rows);
+          }
         }
 
         // Process all queries (for board sharing with multiple searches)

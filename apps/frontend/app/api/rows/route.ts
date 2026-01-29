@@ -17,12 +17,23 @@ const BFF_URL = normalizeBaseUrl(
 
 const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
 
+const BACKEND_URL = normalizeBaseUrl(
+  process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://127.0.0.1:8000'
+);
+
 function getDevSessionToken(): string | undefined {
   return process.env.DEV_SESSION_TOKEN || process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN;
 }
 
 function getCookieSessionToken(request: NextRequest): string | undefined {
-  return request.cookies.get('sa_session')?.value;
+  const direct = request.cookies.get('sa_session')?.value;
+  if (direct) return direct;
+  const raw = request.headers.get('cookie') || '';
+  const parts = raw.split(';').map((p) => p.trim());
+  const match = parts.find((p) => p.startsWith('sa_session='));
+  if (!match) return undefined;
+  const value = match.slice('sa_session='.length);
+  return value ? decodeURIComponent(value) : undefined;
 }
 
 function isClerkConfigured(): boolean {
@@ -45,23 +56,96 @@ async function getAuthHeader(request: NextRequest): Promise<{ Authorization?: st
   }
 }
 
+async function mintDevSessionToken(): Promise<string | undefined> {
+  try {
+    const devEmail =
+      process.env.NEXT_PUBLIC_DEV_SESSION_EMAIL ||
+      process.env.DEV_SESSION_EMAIL ||
+      'test@example.com';
+    const res = await fetch(`${BACKEND_URL}/test/mint-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: devEmail }),
+    });
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    const token = data?.session_token;
+    return token || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function ensureAuthHeader(
+  request: NextRequest
+): Promise<{ Authorization?: string; mintedToken?: string }> {
+  const authHeader = await getAuthHeader(request);
+  if (authHeader.Authorization) {
+    return { Authorization: authHeader.Authorization };
+  }
+
+  if (!disableClerk || isClerkConfigured()) {
+    return {};
+  }
+
+  const mintedToken = await mintDevSessionToken();
+  if (!mintedToken) {
+    return {};
+  }
+
+  return { Authorization: `Bearer ${mintedToken}`, mintedToken };
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = await getAuthHeader(request);
-    if (!authHeader['Authorization']) {
+    const authHeader = await ensureAuthHeader(request);
+    if (!authHeader.Authorization) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const response = await fetch(`${BFF_URL}/api/rows`, {
+    const hadToken = Boolean(getCookieSessionToken(request) || getDevSessionToken());
+
+    let response = await fetch(`${BFF_URL}/api/rows`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeader,
+        Authorization: authHeader.Authorization,
       },
     });
+
+    if (response.status === 401 && !hadToken) {
+      const mintedToken = await mintDevSessionToken();
+      if (mintedToken) {
+        response = await fetch(`${BFF_URL}/api/rows`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${mintedToken}`,
+          },
+        });
+        const data = await response.json();
+        const out = NextResponse.json(data, { status: response.status });
+        out.cookies.set('sa_session', mintedToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+        });
+        return out;
+      }
+    }
     
     const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    const out = NextResponse.json(data, { status: response.status });
+    if (authHeader.mintedToken) {
+      out.cookies.set('sa_session', authHeader.mintedToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+    }
+    return out;
   } catch (error) {
     console.error('Error fetching rows:', error);
     return NextResponse.json([], { status: 500 });
@@ -70,24 +154,61 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = await getAuthHeader(request);
-    if (!authHeader['Authorization']) {
+    const authHeader = await ensureAuthHeader(request);
+    if (!authHeader.Authorization) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const hadToken = Boolean(getCookieSessionToken(request) || getDevSessionToken());
+
     const body = await request.json();
     
-    const response = await fetch(`${BFF_URL}/api/rows`, {
+    let response = await fetch(`${BFF_URL}/api/rows`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeader,
+        Authorization: authHeader.Authorization,
       },
       body: JSON.stringify(body),
     });
+
+    if (response.status === 401 && !hadToken) {
+      const mintedToken = await mintDevSessionToken();
+      if (mintedToken) {
+        response = await fetch(`${BFF_URL}/api/rows`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${mintedToken}`,
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const out = NextResponse.json(data, { status: response.status });
+          out.cookies.set('sa_session', mintedToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+          });
+          return out;
+        }
+      }
+    }
     
     const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    const out = NextResponse.json(data, { status: response.status });
+    if (authHeader.mintedToken) {
+      out.cookies.set('sa_session', authHeader.mintedToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+    }
+    return out;
   } catch (error) {
     console.error('Error creating row:', error);
     return NextResponse.json({ error: 'Failed to create row' }, { status: 500 });
@@ -96,10 +217,12 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const authHeader = await getAuthHeader(request);
-    if (!authHeader['Authorization']) {
+    const authHeader = await ensureAuthHeader(request);
+    if (!authHeader.Authorization) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const hadToken = Boolean(getCookieSessionToken(request) || getDevSessionToken());
 
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
@@ -108,15 +231,45 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing row ID' }, { status: 400 });
     }
     
-    const response = await fetch(`${BFF_URL}/api/rows/${id}`, {
+    let response = await fetch(`${BFF_URL}/api/rows/${id}`, {
       method: 'DELETE',
       headers: {
-        ...authHeader,
+        Authorization: authHeader.Authorization,
       }
     });
+
+    if (response.status === 401 && !hadToken) {
+      const mintedToken = await mintDevSessionToken();
+      if (mintedToken) {
+        response = await fetch(`${BFF_URL}/api/rows/${id}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${mintedToken}`,
+          },
+        });
+        const data = await response.json();
+        const out = NextResponse.json(data, { status: response.status });
+        out.cookies.set('sa_session', mintedToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+        });
+        return out;
+      }
+    }
     
     const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    const out = NextResponse.json(data, { status: response.status });
+    if (authHeader.mintedToken) {
+      out.cookies.set('sa_session', authHeader.mintedToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+    }
+    return out;
   } catch (error) {
     console.error('Error deleting row:', error);
     return NextResponse.json({ error: 'Failed to delete row' }, { status: 500 });
@@ -125,10 +278,12 @@ export async function DELETE(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const authHeader = await getAuthHeader(request);
-    if (!authHeader['Authorization']) {
+    const authHeader = await ensureAuthHeader(request);
+    if (!authHeader.Authorization) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const hadToken = Boolean(getCookieSessionToken(request) || getDevSessionToken());
 
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
@@ -143,14 +298,37 @@ export async function PATCH(request: NextRequest) {
     const bffUrl = `${BFF_URL}/api/rows/${id}`;
     console.log(`[API] Forwarding to BFF: ${bffUrl}`);
 
-    const response = await fetch(bffUrl, {
+    let response = await fetch(bffUrl, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeader,
+        Authorization: authHeader.Authorization,
       },
       body: JSON.stringify(body),
     });
+
+    if (response.status === 401 && !hadToken) {
+      const mintedToken = await mintDevSessionToken();
+      if (mintedToken) {
+        response = await fetch(bffUrl, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${mintedToken}`,
+          },
+          body: JSON.stringify(body),
+        });
+        const data = await response.json();
+        const out = NextResponse.json(data, { status: response.status });
+        out.cookies.set('sa_session', mintedToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+        });
+        return out;
+      }
+    }
     
     if (!response.ok) {
       console.error(`[API] BFF returned ${response.status} ${response.statusText}`);
@@ -161,7 +339,16 @@ export async function PATCH(request: NextRequest) {
 
     const data = await response.json();
     console.log(`[API] BFF success:`, data);
-    return NextResponse.json(data, { status: response.status });
+    const out = NextResponse.json(data, { status: response.status });
+    if (authHeader.mintedToken) {
+      out.cookies.set('sa_session', authHeader.mintedToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+    }
+    return out;
   } catch (error) {
     console.error('Error updating row:', error);
     return NextResponse.json({ error: 'Failed to update row' }, { status: 500 });

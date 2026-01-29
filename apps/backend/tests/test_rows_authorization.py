@@ -267,7 +267,8 @@ async def test_search_query_sanitizes_long_query(client: AsyncClient, session, m
         headers={"Authorization": f"Bearer {token}"},
     )
     assert search_resp.status_code == 200
-    assert len(captured["query"].split()) <= 8
+    # Explicit user queries should not be truncated; only auto-constructed queries are limited.
+    assert captured["query"] == long_query
 
 
 @pytest.mark.asyncio
@@ -368,3 +369,104 @@ async def test_search_defaults_to_row_title(client: AsyncClient, session, monkey
     )
     assert search_resp.status_code == 200
     assert captured["query"].startswith("Nintendo Switch 2")
+
+
+@pytest.mark.asyncio
+async def test_row_creation_populates_choice_factors_by_default(client: AsyncClient, session):
+    user = User(email="choicefactors-default@example.com")
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    token = generate_session_token()
+    auth_session = AuthSession(
+        email=user.email,
+        user_id=user.id,
+        session_token_hash=hash_token(token),
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    resp = await client.post(
+        "/rows",
+        json={
+            "title": "Nintendo Switch 2",
+            "status": "sourcing",
+            "currency": "USD",
+            "request_spec": {
+                "item_name": "Nintendo Switch 2",
+                "constraints": "{}",
+            },
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    created = resp.json()
+    assert created.get("choice_factors") is not None
+
+    factors = json.loads(created["choice_factors"])
+    assert isinstance(factors, list)
+    assert len(factors) > 0
+
+    names = {f.get("name") for f in factors}
+    assert "condition" in names
+    assert "min_price" in names
+    assert "max_price" in names
+    assert "edition" in names
+
+
+@pytest.mark.asyncio
+async def test_regenerate_choice_factors_repopulates_on_patch(client: AsyncClient, session):
+    user = User(email="choicefactors-regenerate@example.com")
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    token = generate_session_token()
+    auth_session = AuthSession(
+        email=user.email,
+        user_id=user.id,
+        session_token_hash=hash_token(token),
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    resp = await client.post(
+        "/rows",
+        json={
+            "title": "Nintendo Switch 2",
+            "status": "sourcing",
+            "currency": "USD",
+            "request_spec": {
+                "item_name": "Nintendo Switch 2",
+                "constraints": "{}",
+            },
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    row_id = resp.json()["id"]
+
+    clear = await client.patch(
+        f"/rows/{row_id}",
+        json={"choice_factors": "[]"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert clear.status_code == 200
+    assert clear.json().get("choice_factors") == "[]"
+
+    regen = await client.patch(
+        f"/rows/{row_id}",
+        json={"regenerate_choice_factors": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert regen.status_code == 200
+    regenerated = regen.json().get("choice_factors")
+    assert regenerated is not None
+
+    factors = json.loads(regenerated)
+    names = {f.get("name") for f in factors}
+    assert "condition" in names
+    assert "min_price" in names
+    assert "max_price" in names
+    assert "edition" in names

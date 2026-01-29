@@ -1,8 +1,17 @@
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, expect, beforeEach, vi, afterEach } from 'vitest';
 import { useShoppingStore, Offer, Row } from '../store';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import ProcurementBoard from '../components/Board';
+import RequestTile from '../components/RequestTile';
+
+vi.mock('../utils/api', async () => {
+  const actual = await vi.importActual<any>('../utils/api');
+  return {
+    ...actual,
+    fetchRowsFromDb: vi.fn(async () => []),
+  };
+});
 
 describe('ProcurementBoard Display Logic', () => {
   const mockOffers: Offer[] = [
@@ -18,6 +27,10 @@ describe('ProcurementBoard Display Logic', () => {
   beforeEach(() => {
     useShoppingStore.getState().clearSearch();
     useShoppingStore.getState().setRows(mockRows);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   test('displays all rows', () => {
@@ -77,5 +90,36 @@ describe('ProcurementBoard Display Logic', () => {
     const href = links[0].getAttribute('href');
     expect(href).toContain('/api/clickout');
     expect(href).toContain(encodeURIComponent('http://a.com'));
+  });
+
+  test('Options Refresh triggers regenerate_choice_factors PATCH when factors missing', async () => {
+    const fetchSpy = vi.fn(async () => new Response(JSON.stringify({}), { status: 200 }));
+    vi.stubGlobal('fetch', fetchSpy as any);
+
+    const row: Row = {
+      id: 123,
+      title: 'Nintendo Switch 2',
+      status: 'sourcing',
+      budget_max: null,
+      currency: 'USD',
+      choice_factors: undefined,
+      choice_answers: undefined,
+    };
+
+    render(React.createElement(RequestTile, { row }));
+
+    expect(screen.getByText(/Analyzing request/i)).toBeDefined();
+
+    const refresh = screen.getByTitle('Refresh options');
+    fireEvent.click(refresh);
+
+    type FetchCall = [any, any];
+    const calls = fetchSpy.mock.calls as unknown as FetchCall[];
+    const patchCall = calls.find((c) => String(c[0]).includes(`/api/rows?id=${row.id}`));
+    expect(patchCall).toBeDefined();
+
+    const init = patchCall?.[1] as RequestInit | undefined;
+    expect(init?.method).toBe('PATCH');
+    expect(String(init?.body)).toContain('regenerate_choice_factors');
   });
 });

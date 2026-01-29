@@ -33,3 +33,23 @@
 
 ## Tests added to prevent regressions
 - Backend tests assert explicit query bypasses constraints, and constraints are used only when query is omitted: @apps/backend/tests/test_rows_authorization.py.
+
+## Dev UX regressions (do not repeat)
+- **"New Project" failing in local dev**
+  - **Symptom**: Clicking "New Project" fails (often 401s) when no existing `sa_session` cookie/dev token is present.
+  - **Root cause**: Next.js `/api/projects` route returned 401 immediately instead of minting a dev session token on-demand.
+  - **Fix**: `apps/frontend/app/api/projects/route.ts` now uses `ensureAuthHeader()` to mint `/test/mint-session` when Clerk is disabled/unconfigured, sets `sa_session` cookie, then proxies to BFF.
+  - **Regression test**: `apps/frontend/app/tests/chat-board-sync.test.ts` → `Projects API mints dev session token when missing and sets sa_session cookie`.
+
+- **Options panel stuck on "Analyzing request…"**
+  - **Symptom**: Options/Requirements panel never populates; refresh does nothing; user sees perpetual spinner.
+  - **Root cause**: Backend `PATCH /rows/{id}` did not support `regenerate_choice_factors`, and row creation could leave `choice_factors` null.
+  - **Fix**: `apps/backend/routes/rows.py`
+    - default-populates `choice_factors` on `POST /rows` when missing
+    - supports `regenerate_choice_factors` on `PATCH /rows/{id}`
+  - **Regression tests**:
+    - Backend: `apps/backend/tests/test_rows_authorization.py`
+      - `test_row_creation_populates_choice_factors_by_default`
+      - `test_regenerate_choice_factors_repopulates_on_patch`
+    - Frontend: `apps/frontend/app/tests/board-display.test.ts`
+      - `Options Refresh triggers regenerate_choice_factors PATCH when factors missing`

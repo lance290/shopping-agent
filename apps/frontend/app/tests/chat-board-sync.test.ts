@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, expect, beforeEach, vi, afterEach } from 'vitest';
 import { useShoppingStore } from '../store';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
@@ -12,6 +12,11 @@ describe('Chat-Board Synchronization', () => {
       { id: 31, title: 'Montana State shirts under $50', status: 'sourcing', budget_max: 50, currency: 'USD' },
       { id: 32, title: 'Montana State shirts', status: 'sourcing', budget_max: null, currency: 'USD' }
     ]);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   test('Clicking a card updates Zustand source of truth (Step 3a-3b)', () => {
@@ -93,5 +98,84 @@ describe('Chat-Board Synchronization', () => {
     // Check for clickout URL
     expect(link?.getAttribute('href')).toContain('/api/clickout');
     expect(link?.getAttribute('href')).toContain(encodeURIComponent('https://example.com/product/123'));
+  });
+
+  test('Projects API mints dev session token when missing and sets sa_session cookie', async () => {
+    vi.stubEnv('NEXT_PUBLIC_DISABLE_CLERK', '1');
+    vi.stubEnv('NEXT_PUBLIC_BACKEND_URL', 'http://127.0.0.1:8000');
+    vi.stubEnv('NEXT_PUBLIC_BFF_URL', 'http://127.0.0.1:8081');
+    vi.stubEnv('CLERK_SECRET_KEY', '');
+
+    vi.resetModules();
+
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const mockFetch = vi.fn(async (url: any, init?: any) => {
+      calls.push({ url: String(url), init });
+
+      if (String(url).endsWith('/test/mint-session')) {
+        return new Response(JSON.stringify({ session_token: 'minted-token-123' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (String(url).endsWith('/api/projects')) {
+        const auth = init?.headers?.Authorization || init?.headers?.authorization;
+        if (auth !== 'Bearer minted-token-123') {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        return new Response(JSON.stringify({ id: 1, title: 'Zac\u2019s Birthday', created_at: '', updated_at: '' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: 'unexpected fetch' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+
+    vi.stubGlobal('fetch', mockFetch as any);
+
+    const { POST: projectsPost } = await import('../api/projects/route');
+
+    // Minimal NextRequest-shaped mock (NextRequest has cookies.get, Request does not)
+    const headers = new Headers({ 'Content-Type': 'application/json' });
+    const req = {
+      method: 'POST',
+      url: 'http://localhost/api/projects',
+      headers,
+      cookies: {
+        get: (_name: string) => undefined,
+      },
+      json: async () => ({ title: 'Zac\u2019s Birthday' }),
+    } as any;
+
+    const res = await projectsPost(req);
+    expect(res.status).toBe(200);
+
+    const setCookie = res.headers.get('set-cookie') || '';
+    expect(setCookie).toContain('sa_session=');
+    expect(setCookie).toContain('minted-token-123');
+
+    expect(calls.some((c) => c.url.endsWith('/test/mint-session'))).toBe(true);
+    expect(calls.some((c) => c.url.endsWith('/api/projects'))).toBe(true);
+  });
+
+  test('Clicking a project selects it (persists as current project)', () => {
+    const store = useShoppingStore.getState();
+    store.setProjects([{ id: 10, title: 'Zac\u2019s Birthday', created_at: '', updated_at: '' } as any]);
+    store.setTargetProjectId(null);
+
+    render(React.createElement(ProcurementBoard));
+
+    const btn = screen.getByRole('button', { name: 'Zac\u2019s Birthday' });
+    btn.click();
+
+    expect(useShoppingStore.getState().targetProjectId).toBe(10);
   });
 });

@@ -13,6 +13,7 @@ export default function ProcurementBoard() {
   const projects = useShoppingStore(state => state.projects);
   const activeRowId = useShoppingStore(state => state.activeRowId);
   const rowResults = useShoppingStore(state => state.rowResults);
+  const targetProjectId = useShoppingStore(state => state.targetProjectId);
   const setTargetProjectId = useShoppingStore(state => state.setTargetProjectId);
   const setActiveRowId = useShoppingStore(state => state.setActiveRowId);
   const addRow = useShoppingStore(state => state.addRow);
@@ -55,6 +56,7 @@ export default function ProcurementBoard() {
     const newProject = await createProjectInDb(title.trim());
     if (newProject) {
       addProject(newProject);
+      setTargetProjectId(newProject.id);
       showToast(`Project "${newProject.title}" created`);
     } else {
       showToast('Failed to create project', 'error');
@@ -82,26 +84,35 @@ export default function ProcurementBoard() {
     }
   };
 
-  const handleCreateRow = (projectId?: number) => {
-    // Set the target project for the next created row
-    setTargetProjectId(projectId || null);
+  const handleSelectProject = (projectId: number) => {
+    setTargetProjectId(projectId);
 
-    // If the user is explicitly adding to a project, clear the active row so chat creates a new request
-    // rather than refining the currently active (often ungrouped) row.
-    if (projectId) {
-      setActiveRowId(null);
-    }
+    const project = projects.find(p => p.id === projectId);
+    showToast(`Selected "${project?.title || 'project'}"`);
+  };
+
+  const handleAddRequestToProject = (projectId: number) => {
+    // Set the target project for new rows.
+    setTargetProjectId(projectId);
+
+    // Clear the active row so chat creates a new request rather than refining the current row.
+    setActiveRowId(null);
 
     // Just focus the chat input - the chat will create the row when user types
     const chatInput = document.querySelector('input[placeholder*="looking for"], input[placeholder*="Refine"]') as HTMLInputElement | null;
     chatInput?.focus();
 
-    if (projectId) {
-      const project = projects.find(p => p.id === projectId);
-      showToast(`Adding to "${project?.title || 'project'}"...`);
-    } else {
-      showToast('Tell us what you are buying to start a new request.');
-    }
+    const project = projects.find(p => p.id === projectId);
+    showToast(`Adding to "${project?.title || 'project'}"...`);
+  };
+
+  const handleNewRequest = () => {
+    setTargetProjectId(null);
+    setActiveRowId(null);
+
+    const chatInput = document.querySelector('input[placeholder*="looking for"], input[placeholder*="Refine"]') as HTMLInputElement | null;
+    chatInput?.focus();
+    showToast('Tell us what you are buying to start a new request.');
   };
 
   const handleShareBoard = async () => {
@@ -206,7 +217,7 @@ export default function ProcurementBoard() {
           </Button>
           <Button
             size="sm"
-            onClick={() => handleCreateRow()}
+            onClick={handleNewRequest}
             className="flex items-center gap-2"
           >
             <Plus size={16} />
@@ -235,8 +246,11 @@ export default function ProcurementBoard() {
                 <div className="flex items-center gap-3 pb-2 border-b border-warm-grey/50">
                   <button
                     type="button"
-                    onClick={() => handleCreateRow(project.id)}
-                    className="flex items-center gap-2 text-onyx font-medium hover:text-agent-blurple"
+                    onClick={() => handleSelectProject(project.id)}
+                    className={cn(
+                      "flex items-center gap-2 text-onyx font-medium hover:text-agent-blurple",
+                      targetProjectId === project.id ? "text-agent-blurple" : ""
+                    )}
                   >
                     <FolderPlus size={18} className="text-agent-blurple" />
                     {project.title}
@@ -245,7 +259,7 @@ export default function ProcurementBoard() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleCreateRow(project.id)}
+                    onClick={() => handleAddRequestToProject(project.id)}
                     className="h-7 text-xs text-onyx-muted hover:text-agent-blurple"
                   >
                     <Plus size={14} className="mr-1" />

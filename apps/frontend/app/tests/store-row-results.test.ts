@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { useShoppingStore } from '../store';
+import { shouldForceNewRow } from '../store';
 
 describe('Zustand Store - Per-Row Results', () => {
   beforeEach(() => {
@@ -122,6 +123,66 @@ describe('Zustand Store - Per-Row Results', () => {
     expect(state.rows).toHaveLength(4);
     expect(state.rows[0].id).toBe(4); // New row should be first
     expect(state.rows[0].last_engaged_at).toBeDefined(); // Should have engagement timestamp
+  });
+
+  test('shouldForceNewRow keeps price refinements as refinements', () => {
+    expect(
+      shouldForceNewRow({
+        message: 'over $50',
+        activeRowTitle: 'roblox gift cards',
+        aggressiveness: 100,
+      })
+    ).toBe(false);
+  });
+
+  test('shouldForceNewRow treats unrelated topics as new rows when aggressiveness is high', () => {
+    expect(
+      shouldForceNewRow({
+        message: 'bicycles',
+        activeRowTitle: 'roblox gift cards',
+        aggressiveness: 100,
+      })
+    ).toBe(true);
+  });
+
+  test('shouldForceNewRow returns false for low aggressiveness', () => {
+    expect(
+      shouldForceNewRow({
+        message: 'bicycles',
+        activeRowTitle: 'roblox gift cards',
+        aggressiveness: 0,
+      })
+    ).toBe(false);
+  });
+
+  test('shouldForceNewRow returns false for medium aggressiveness', () => {
+    expect(
+      shouldForceNewRow({
+        message: 'bicycles',
+        activeRowTitle: 'roblox gift cards',
+        aggressiveness: 50,
+      })
+    ).toBe(false);
+  });
+
+  test('shouldForceNewRow returns true for high aggressiveness', () => {
+    expect(
+      shouldForceNewRow({
+        message: 'bicycles',
+        activeRowTitle: 'roblox gift cards',
+        aggressiveness: 100,
+      })
+    ).toBe(true);
+  });
+
+  test('shouldForceNewRow returns true for very high aggressiveness', () => {
+    expect(
+      shouldForceNewRow({
+        message: 'bicycles',
+        activeRowTitle: 'roblox gift cards',
+        aggressiveness: 150,
+      })
+    ).toBe(true);
   });
 });
 

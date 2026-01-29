@@ -58,12 +58,33 @@ async function getAuthHeader(request: NextRequest): Promise<{ Authorization?: st
   }
 }
 
+async function ensureAuthHeader(request: NextRequest): Promise<{ Authorization?: string; mintedToken?: string }> {
+  const authHeader = await getAuthHeader(request);
+  if (authHeader.Authorization) {
+    return { Authorization: authHeader.Authorization };
+  }
+
+  if (!disableClerk || isClerkConfigured()) {
+    return {};
+  }
+
+  const mintedToken = await mintDevSessionToken();
+  if (!mintedToken) {
+    return {};
+  }
+  return { Authorization: `Bearer ${mintedToken}`, mintedToken };
+}
+
 async function mintDevSessionToken(): Promise<string | undefined> {
   try {
+    const devEmail =
+      process.env.NEXT_PUBLIC_DEV_SESSION_EMAIL ||
+      process.env.DEV_SESSION_EMAIL ||
+      'test@example.com';
     const res = await fetch(`${BACKEND_URL}/test/mint-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'dev@example.com' }),
+      body: JSON.stringify({ email: devEmail }),
     });
     if (!res.ok) return undefined;
     const data = await res.json();
@@ -76,8 +97,8 @@ async function mintDevSessionToken(): Promise<string | undefined> {
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = await getAuthHeader(request);
-    if (!authHeader['Authorization']) {
+    const authHeader = await ensureAuthHeader(request);
+    if (!authHeader.Authorization) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -85,7 +106,7 @@ export async function GET(request: NextRequest) {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeader,
+        Authorization: authHeader.Authorization,
       },
     });
 
@@ -113,7 +134,16 @@ export async function GET(request: NextRequest) {
     }
     
     const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    const out = NextResponse.json(data, { status: response.status });
+    if (authHeader.mintedToken) {
+      out.cookies.set('sa_session', authHeader.mintedToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+    }
+    return out;
   } catch (error) {
     console.error('Error fetching projects:', error);
     return NextResponse.json([], { status: 500 });
@@ -122,8 +152,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = await getAuthHeader(request);
-    if (!authHeader['Authorization']) {
+    const authHeader = await ensureAuthHeader(request);
+    if (!authHeader.Authorization) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -134,7 +164,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeader,
+        Authorization: authHeader.Authorization,
       },
       body: JSON.stringify(body),
     });
@@ -173,7 +203,16 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    const out = NextResponse.json(data, { status: response.status });
+    if (authHeader.mintedToken) {
+      out.cookies.set('sa_session', authHeader.mintedToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+    }
+    return out;
   } catch (error) {
     console.error('Error creating project:', error);
     return NextResponse.json({ error: 'Failed to create project' }, { status: 500 });
@@ -182,8 +221,8 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const authHeader = await getAuthHeader(request);
-    if (!authHeader['Authorization']) {
+    const authHeader = await ensureAuthHeader(request);
+    if (!authHeader.Authorization) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -197,7 +236,7 @@ export async function DELETE(request: NextRequest) {
     let response = await fetch(`${BFF_URL}/api/projects/${id}`, {
       method: 'DELETE',
       headers: {
-        ...authHeader,
+        Authorization: authHeader.Authorization,
       }
     });
 
@@ -224,7 +263,16 @@ export async function DELETE(request: NextRequest) {
     }
     
     const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    const out = NextResponse.json(data, { status: response.status });
+    if (authHeader.mintedToken) {
+      out.cookies.set('sa_session', authHeader.mintedToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+    }
+    return out;
   } catch (error) {
     console.error('Error deleting project:', error);
     return NextResponse.json({ error: 'Failed to delete project' }, { status: 500 });

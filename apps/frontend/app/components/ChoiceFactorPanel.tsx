@@ -62,7 +62,9 @@ export default function ChoiceFactorPanel() {
       timeoutId = setTimeout(async () => {
         console.log(`[ChoiceFactorPanel] Polling for specs... attempt ${pollCount + 1}`);
         const freshRows = await fetchRowsFromDb();
-        setRows(freshRows);
+        if (freshRows) {
+          setRows(freshRows);
+        }
         setPollCount(prev => prev + 1);
       }, 2000); // Poll every 2s
     }
@@ -83,7 +85,9 @@ export default function ChoiceFactorPanel() {
       });
 
       const freshRows = await fetchRowsFromDb();
-      setRows(freshRows);
+      if (freshRows) {
+        setRows(freshRows);
+      }
     } finally {
       setIsRefreshing(false);
     }
