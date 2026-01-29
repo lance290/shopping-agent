@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Plus, ShoppingBag, Bug, FolderPlus, Trash2 } from 'lucide-react';
+import { Plus, ShoppingBag, Bug, FolderPlus, Trash2, Share2 } from 'lucide-react';
 import { useShoppingStore, Project, Row } from '../store';
 import { createRowInDb, createProjectInDb, deleteProjectFromDb } from '../utils/api';
 import RowStrip from './RowStrip';
@@ -91,16 +91,39 @@ export default function ProcurementBoard() {
     if (projectId) {
       setActiveRowId(null);
     }
-    
+
     // Just focus the chat input - the chat will create the row when user types
     const chatInput = document.querySelector('input[placeholder*="looking for"], input[placeholder*="Refine"]') as HTMLInputElement | null;
     chatInput?.focus();
-    
+
     if (projectId) {
       const project = projects.find(p => p.id === projectId);
       showToast(`Adding to "${project?.title || 'project'}"...`);
     } else {
       showToast('Tell us what you are buying to start a new request.');
+    }
+  };
+
+  const handleShareBoard = async () => {
+    if (rows.length === 0) {
+      showToast('No requests to share', 'error');
+      return;
+    }
+
+    try {
+      // Create a URL with all search queries as parameters
+      const url = new URL(window.location.origin);
+
+      // Add all row titles as 'q' parameters (supporting multiple values)
+      rows.forEach(row => {
+        url.searchParams.append('q', row.title);
+      });
+
+      await navigator.clipboard.writeText(url.toString());
+      showToast(`Board link copied! (${rows.length} request${rows.length !== 1 ? 's' : ''})`);
+    } catch (err) {
+      console.error('Failed to copy board link:', err);
+      showToast('Failed to copy link', 'error');
     }
   };
 
@@ -162,6 +185,15 @@ export default function ProcurementBoard() {
           >
             <Bug size={16} />
             Report Bug
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleShareBoard}
+            className="flex items-center gap-2"
+          >
+            <Share2 size={16} />
+            Share Board
           </Button>
           <Button
             variant="secondary"

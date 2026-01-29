@@ -37,8 +37,8 @@ export default function Home() {
 
   // Handle shared search link (query parameter)
   useEffect(() => {
-    const query = searchParams?.get('q');
-    if (!query || hasHandledQueryRef.current) return;
+    const queries = searchParams?.getAll('q') || [];
+    if (queries.length === 0 || hasHandledQueryRef.current) return;
 
     hasHandledQueryRef.current = true;
 
@@ -50,27 +50,42 @@ export default function Home() {
           store.setRows(rows);
         }
 
-        // Find existing row or create new one
-        let targetRow = store.rows.find((r) => r.title === query);
+        // Process all queries (for board sharing with multiple searches)
+        for (const query of queries) {
+          // Find existing row or create new one
+          let targetRow = store.rows.find((r) => r.title === query);
 
-        if (!targetRow) {
-          const created = await createRowInDb(query, null);
-          if (created) {
-            store.addRow(created);
-            targetRow = created;
+          if (!targetRow) {
+            const created = await createRowInDb(query, null);
+            if (created) {
+              store.addRow(created);
+              targetRow = created;
+            }
+          }
+
+          if (targetRow) {
+            // For single query, set as active; for multiple, just create them
+            if (queries.length === 1) {
+              store.setActiveRowId(targetRow.id);
+              store.setCurrentQuery(query);
+            }
+
+            // Run search if no results exist
+            const existingResults = store.rowResults[targetRow.id];
+            if (!existingResults || existingResults.length === 0) {
+              store.setIsSearching(true);
+              const results = await runSearchApi(query, targetRow.id);
+              store.setRowResults(targetRow.id, results);
+            }
           }
         }
 
-        if (targetRow) {
-          store.setActiveRowId(targetRow.id);
-          store.setCurrentQuery(query);
-
-          // Run search if no results exist
-          const existingResults = store.rowResults[targetRow.id];
-          if (!existingResults || existingResults.length === 0) {
-            store.setIsSearching(true);
-            const results = await runSearchApi(query, targetRow.id);
-            store.setRowResults(targetRow.id, results);
+        // For multiple queries, set the first one as active
+        if (queries.length > 1) {
+          const firstRow = store.rows.find((r) => r.title === queries[0]);
+          if (firstRow) {
+            store.setActiveRowId(firstRow.id);
+            store.setCurrentQuery(queries[0]);
           }
         }
       } catch (err) {
