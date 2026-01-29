@@ -9,8 +9,8 @@ function normalizeBaseUrl(url: string): string {
   return `http://${trimmed}`;
 }
 
-const BFF_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8080'
+const BACKEND_URL = normalizeBaseUrl(
+  process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 );
 
 const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing row_id' }, { status: 400 });
     }
 
-    const response = await fetch(`${BFF_URL}/api/comments?row_id=${rowId}`, {
+    const response = await fetch(`${BACKEND_URL}/comments?row_id=${rowId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     const authHeader = await getAuthHeader(request);
     const body = await request.json();
     
-    const response = await fetch(`${BFF_URL}/api/comments`, {
+    const response = await fetch(`${BACKEND_URL}/comments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
