@@ -537,12 +537,12 @@ class GoogleCustomSearchProvider(SourcingProvider):
             "searchType": "image",  # For product images
             "num": 10,
         }
-        
+
         async with httpx.AsyncClient() as client:
             response = await client.get(self.base_url, params=params)
             response.raise_for_status()
             data = response.json()
-            
+
             results = []
             for item in data.get("items", []):
                 url = normalize_url(item.get("link", ""))
@@ -556,6 +556,107 @@ class GoogleCustomSearchProvider(SourcingProvider):
                     source="google_cse"
                 ))
             return results
+
+
+class TicketmasterProvider(SourcingProvider):
+    """Ticketmaster Discovery API - Event and ticket search"""
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://app.ticketmaster.com/discovery/v2/events.json"
+
+    async def search(self, query: str, **kwargs) -> List[SearchResult]:
+        print(f"[TicketmasterProvider] Searching with query: {query!r}")
+
+        params = {
+            "apikey": self.api_key,
+            "keyword": query,
+            "size": 20,
+            "countryCode": kwargs.get("country_code", "US"),
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                response = await client.get(self.base_url, params=params)
+                response.raise_for_status()
+                data = response.json()
+        except httpx.HTTPStatusError as e:
+            status = getattr(e.response, 'status_code', None)
+            safe_msg = redact_secrets(str(e))
+            print(f"[TicketmasterProvider] HTTP error status={status}: {safe_msg}")
+            return []
+        except Exception as e:
+            safe_msg = redact_secrets(str(e))
+            print(f"[TicketmasterProvider] Error: {safe_msg}")
+            return []
+
+        results = []
+        embedded = data.get("_embedded", {})
+        events = embedded.get("events", [])
+
+        print(f"[TicketmasterProvider] Found {len(events)} events")
+
+        for event in events:
+            try:
+                # Event name
+                title = event.get("name", "Unknown Event")
+
+                # Price range
+                price_ranges = event.get("priceRanges", [])
+                min_price = 0.0
+                currency = "USD"
+                if price_ranges and isinstance(price_ranges, list) and len(price_ranges) > 0:
+                    price_range = price_ranges[0]
+                    min_price = float(price_range.get("min", 0.0))
+                    currency = price_range.get("currency", "USD")
+
+                # URL
+                url = event.get("url", "")
+                if not url:
+                    continue
+
+                # Venue information
+                venues = event.get("_embedded", {}).get("venues", [])
+                venue_name = venues[0].get("name", "Venue TBA") if venues else "Venue TBA"
+
+                # Date information
+                dates = event.get("dates", {})
+                start = dates.get("start", {})
+                local_date = start.get("localDate", "")
+                local_time = start.get("localTime", "")
+                date_str = f"{local_date} {local_time}".strip() if local_date else "Date TBA"
+
+                # Image
+                images = event.get("images", [])
+                image_url = None
+                if images:
+                    # Find the highest resolution image
+                    images_sorted = sorted(images, key=lambda x: x.get("width", 0) * x.get("height", 0), reverse=True)
+                    image_url = images_sorted[0].get("url")
+
+                # Build a descriptive title including venue and date
+                full_title = f"{title} - {venue_name}"
+                if date_str != "Date TBA":
+                    full_title += f" ({date_str})"
+
+                results.append(SearchResult(
+                    title=full_title,
+                    price=min_price,
+                    currency=currency,
+                    merchant="Ticketmaster",
+                    url=url,
+                    merchant_domain="ticketmaster.com",
+                    image_url=image_url,
+                    rating=None,
+                    reviews_count=None,
+                    shipping_info=f"Event: {date_str}" if date_str != "Date TBA" else None,
+                    source="ticketmaster"
+                ))
+            except Exception as e:
+                safe_msg = redact_secrets(str(e))
+                print(f"[TicketmasterProvider] Error parsing event: {safe_msg}")
+                continue
+
+        return results
 
 
 class SourcingRepository:
@@ -607,7 +708,14 @@ class SourcingRepository:
                 client_secret=ebay_client_secret,
                 marketplace_id=ebay_marketplace_id,
             )
-        
+
+        # Ticketmaster Discovery API
+        ticketmaster_key = os.getenv("TICKETMASTER_API_KEY")
+        print(f"[SourcingRepository] TICKETMASTER_API_KEY present: {bool(ticketmaster_key)}")
+        if ticketmaster_key:
+            self.providers["ticketmaster"] = TicketmasterProvider(ticketmaster_key)
+            print(f"[SourcingRepository] Ticketmaster provider initialized")
+
         # Mock provider - FREE fallback for testing, always available
         use_mock_setting = (os.getenv("USE_MOCK_SEARCH", "auto") or "").strip().lower()
         if use_mock_setting in ("1", "true", "yes", "always"):
