@@ -52,7 +52,14 @@ async function getAuthHeader(request: NextRequest): Promise<{ Authorization?: st
   try {
     const { getToken } = await auth();
     const token = await getToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    if (token) {
+      return { Authorization: `Bearer ${token}` };
+    }
+
+    const sessionCookie =
+      request.cookies.get('__session')?.value ||
+      Array.from(request.cookies.getAll()).find((c) => c.name.startsWith('__session_'))?.value;
+    return sessionCookie ? { Authorization: `Bearer ${sessionCookie}` } : {};
   } catch {
     return {};
   }
