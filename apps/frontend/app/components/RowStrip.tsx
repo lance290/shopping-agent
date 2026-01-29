@@ -3,7 +3,7 @@ import { Row, Offer, OfferSortMode, useShoppingStore } from '../store';
 import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import { Archive, RefreshCw, FlaskConical, Undo2, Link2, X } from 'lucide-react';
-import { runSearchApi, selectOfferForRow, toggleLikeApi, fetchLikesApi, createCommentApi, fetchCommentsApi } from '../utils/api';
+import { runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, fetchLikesApi, createCommentApi, fetchCommentsApi } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -28,6 +28,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const sortMode: OfferSortMode = rowOfferSort[row.id] || 'original';
 
   const [cooldownUntil, setCooldownUntil] = useState<number>(0);
+  const [searchErrorMessage, setSearchErrorMessage] = useState<string | null>(null);
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didAutoLoadRef = useRef<boolean>(false);
   const didLoadLikesRef = useRef<boolean>(false);
@@ -80,21 +81,21 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     cooldownTimerRef.current = setTimeout(() => setCooldownUntil(0), 5000);
 
     setIsSearching(true);
+    setSearchErrorMessage(null);
     try {
-      const results = await runSearchApi(
+      const searchResponse = await runSearchApiWithStatus(
         row.title,
         row.id,
         mode === 'rainforest' ? { providers: ['rainforest'] } : undefined
       );
       
-      // Preserve existing likes if we haven't re-fetched them yet, 
-      // but ideally we should merge them. For now, rely on fetchLikes to hydrate.
-      // Or better: re-apply likes from current state? 
-      // Actually, after search, we should probably re-fetch likes to be safe,
-      // or merge with known likes.
-      // Let's re-fetch likes after search to ensure sync.
+      if (searchResponse.userMessage) {
+        setSearchErrorMessage(searchResponse.userMessage);
+      }
+      
+      // Re-fetch likes after search to ensure sync.
       const likes = await fetchLikesApi(row.id);
-      const mergedResults = mergeLikes(results, likes);
+      const mergedResults = mergeLikes(searchResponse.results, likes);
       
       setRowResults(row.id, mergedResults);
     } finally {
@@ -580,11 +581,16 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
                   />
                 ))
               ) : (
-                <div className="flex flex-col items-center justify-center w-64 rounded-2xl border border-dashed border-warm-grey bg-warm-light/60 text-onyx-muted">
+                <div className="flex flex-col items-center justify-center w-64 rounded-2xl border border-dashed border-warm-grey bg-warm-light/60 text-onyx-muted p-4">
                   {row.status === 'sourcing' ? (
                     <>
                       <RefreshCw className="w-6 h-6 animate-spin mb-3 opacity-50" />
                       <span className="text-sm font-medium">Sourcing offers...</span>
+                    </>
+                  ) : searchErrorMessage ? (
+                    <>
+                      <FlaskConical className="w-6 h-6 mb-3 opacity-50" />
+                      <span className="text-sm font-medium text-center">{searchErrorMessage}</span>
                     </>
                   ) : (
                     <>

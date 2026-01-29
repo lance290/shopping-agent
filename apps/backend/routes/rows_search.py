@@ -132,7 +132,9 @@ async def search_row_listings(
         sanitized_query = base_query.strip()
     logger.info(f"[SEARCH DEBUG] base_query={base_query!r}, sanitized_query={sanitized_query!r}")
 
-    results = await get_sourcing_repo().search_all(sanitized_query, providers=body.providers)
+    search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+    results = search_response.results
+    user_message = search_response.user_message
 
     for r in results:
         try:
@@ -228,4 +230,7 @@ async def search_row_listings(
 
     await session.commit()
 
-    return {"results": results}
+    response = {"results": results}
+    if user_message:
+        response["user_message"] = user_message
+    return response

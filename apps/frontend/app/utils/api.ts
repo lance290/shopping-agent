@@ -201,12 +201,27 @@ export const selectOfferForRow = async (rowId: number, bidId: number): Promise<b
   }
 };
 
+export interface SearchApiResponse {
+  results: Offer[];
+  userMessage?: string;
+}
+
 // Helper: Run search
 export const runSearchApi = async (
   query: string,
   rowId?: number | null,
   options?: { providers?: string[] }
 ): Promise<Offer[]> => {
+  const response = await runSearchApiWithStatus(query, rowId, options);
+  return response.results;
+};
+
+// Helper: Run search with status message
+export const runSearchApiWithStatus = async (
+  query: string,
+  rowId?: number | null,
+  options?: { providers?: string[] }
+): Promise<SearchApiResponse> => {
   console.log('[API] Running search:', query, 'for rowId:', rowId);
   try {
     const body: any = rowId ? { query, rowId } : { query };
@@ -221,7 +236,9 @@ export const runSearchApi = async (
     });
     const data = await res.json();
     const rawResults = Array.isArray(data?.results) ? data.results : [];
-    return rawResults.map((r: any) => {
+    const userMessage = typeof data?.user_message === 'string' ? data.user_message : undefined;
+    
+    const results = rawResults.map((r: any) => {
       const price = Number(r?.price);
       const rating = r?.rating === null || r?.rating === undefined ? null : Number(r?.rating);
       const reviewsCount = r?.reviews_count === null || r?.reviews_count === undefined ? null : Number(r?.reviews_count);
@@ -244,9 +261,11 @@ export const runSearchApi = async (
         is_selected: typeof r?.is_selected === 'boolean' ? r.is_selected : undefined,
       } satisfies Offer;
     });
+    
+    return { results, userMessage };
   } catch (err) {
     console.error('[API] Search error:', err);
-    return [];
+    return { results: [] };
   }
 };
 

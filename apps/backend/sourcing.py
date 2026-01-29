@@ -42,6 +42,14 @@ def normalize_url(url: str) -> str:
 # Keeping this alias for backward compatibility
 redact_secrets = redact_secrets_from_text
 
+class ProviderStatus(BaseModel):
+    """Status of a search provider after a search attempt."""
+    name: str
+    status: str  # "ok", "error", "timeout", "exhausted", "rate_limited"
+    result_count: int = 0
+    message: Optional[str] = None
+
+
 class SearchResult(BaseModel):
     title: str
     price: float
@@ -58,6 +66,14 @@ class SearchResult(BaseModel):
     source: str
     bid_id: Optional[int] = None
     is_selected: bool = False
+
+
+class SearchResultWithStatus(BaseModel):
+    """Search results with provider status information."""
+    results: List[SearchResult] = []
+    provider_statuses: List[ProviderStatus] = []
+    all_providers_failed: bool = False
+    user_message: Optional[str] = None
 
 def compute_match_score(result: SearchResult, query: str) -> float:
     """
@@ -617,6 +633,12 @@ class SourcingRepository:
                 self.providers["mock"] = MockShoppingProvider()
 
     async def search_all(self, query: str, **kwargs) -> List[SearchResult]:
+        """Search all providers and return results only (backwards compatible)."""
+        result = await self.search_all_with_status(query, **kwargs)
+        return result.results
+
+    async def search_all_with_status(self, query: str, **kwargs) -> SearchResultWithStatus:
+        """Search all providers and return results with provider status."""
         print(f"[SourcingRepository] search_all called with query: {query}")
         print(f"[SourcingRepository] Available providers: {list(self.providers.keys())}")
 
@@ -634,7 +656,9 @@ class SourcingRepository:
         except Exception:
             PROVIDER_TIMEOUT_SECONDS = 8.0
 
-        async def search_with_timeout(name: str, provider: SourcingProvider) -> List[SearchResult]:
+        provider_statuses: List[ProviderStatus] = []
+
+        async def search_with_timeout(name: str, provider: SourcingProvider) -> tuple[str, List[SearchResult], ProviderStatus]:
             try:
                 print(f"[SourcingRepository] Starting search with provider: {name}")
                 results = await asyncio.wait_for(
@@ -642,13 +666,23 @@ class SourcingRepository:
                     timeout=PROVIDER_TIMEOUT_SECONDS
                 )
                 print(f"[SourcingRepository] Provider {name} returned {len(results)} results")
-                return results
+                status = ProviderStatus(name=name, status="ok", result_count=len(results))
+                return (name, results, status)
             except asyncio.TimeoutError:
                 print(f"[SourcingRepository] Provider {name} timed out after {PROVIDER_TIMEOUT_SECONDS}s")
-                return []
+                status = ProviderStatus(name=name, status="timeout", message="Search timed out")
+                return (name, [], status)
             except Exception as e:
-                print(f"[SourcingRepository] Provider {name} failed: {redact_secrets(str(e))}")
-                return []
+                error_str = redact_secrets(str(e))
+                print(f"[SourcingRepository] Provider {name} failed: {error_str}")
+                # Detect specific error types
+                if "402" in error_str or "Payment Required" in error_str:
+                    status = ProviderStatus(name=name, status="exhausted", message="API quota exhausted")
+                elif "429" in error_str or "Too Many Requests" in error_str:
+                    status = ProviderStatus(name=name, status="rate_limited", message="Rate limit exceeded")
+                else:
+                    status = ProviderStatus(name=name, status="error", message="Search failed")
+                return (name, [], status)
 
         # Run all providers in parallel
         tasks = [
@@ -656,7 +690,12 @@ class SourcingRepository:
             for name, provider in selected_providers.items()
         ]
         
-        results_lists = await asyncio.gather(*tasks)
+        task_results = await asyncio.gather(*tasks)
+        
+        results_lists = []
+        for name, results, status in task_results:
+            results_lists.append(results)
+            provider_statuses.append(status)
         
         all_results = []
         for results in results_lists:
@@ -703,4 +742,24 @@ class SourcingRepository:
         print(f"[SourcingRepository] Total results: {len(all_results)}")
         print(f"[SourcingRepository] Unique results with http(s) url: {len(unique_results)}")
         
-        return unique_results
+        # Determine if all providers failed and generate user message
+        all_failed = all(s.status != "ok" for s in provider_statuses) if provider_statuses else True
+        user_message = None
+        
+        if len(unique_results) == 0:
+            exhausted_count = sum(1 for s in provider_statuses if s.status == "exhausted")
+            rate_limited_count = sum(1 for s in provider_statuses if s.status == "rate_limited")
+            
+            if exhausted_count > 0 and exhausted_count == len(provider_statuses):
+                user_message = "Search providers have exhausted their quota. Please try again later or contact support."
+            elif rate_limited_count > 0:
+                user_message = "Search is temporarily rate-limited. Please wait a moment and try again."
+            elif all_failed:
+                user_message = "Unable to search at this time. Please try again later."
+        
+        return SearchResultWithStatus(
+            results=unique_results,
+            provider_statuses=provider_statuses,
+            all_providers_failed=all_failed,
+            user_message=user_message
+        )
