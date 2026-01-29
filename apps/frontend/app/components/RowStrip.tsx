@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Row, Offer, OfferSortMode, useShoppingStore } from '../store';
 import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
-import { Archive, RefreshCw, FlaskConical, Undo2, Link2 } from 'lucide-react';
+import { Archive, RefreshCw, FlaskConical, Undo2, Link2, X } from 'lucide-react';
 import { runSearchApi, selectOfferForRow, toggleLikeApi, fetchLikesApi, createCommentApi, fetchCommentsApi } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
@@ -503,10 +503,10 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
                 e.stopPropagation();
                 requestDeleteRow(row.id);
               }}
-              className="h-8 w-8 p-0 rounded-lg border border-warm-grey/60 text-warm-light hover:text-status-error"
+              className="h-9 w-9 p-0 rounded-lg border border-warm-grey/60 text-onyx-muted hover:text-status-error hover:border-status-error hover:bg-status-error/10 transition-all"
               title="Archive row"
             >
-              <Archive size={14} className="text-warm-light" />
+              <X size={18} strokeWidth={2.5} className="text-onyx-muted" />
             </Button>
           )}
           
