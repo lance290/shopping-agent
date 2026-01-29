@@ -13,7 +13,7 @@ jobs:
   route-pr:
     name: Route Agent PR
     runs-on: ubuntu-latest
-    if: startsWith(github.actor, 'agent-')
+    if: startsWith(github.actor, 'agent-') || github.actor == 'masseyl'
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

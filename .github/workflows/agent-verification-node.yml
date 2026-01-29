@@ -1,0 +1,163 @@
+name: Agent Verification (Node.js)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  verify:
+    name: Verify (Node.js)
+    runs-on: ubuntu-latest
+    # Agent-Only: Run only on agent-authored PRs
+    if: startsWith(github.actor, 'agent-') || github.actor == 'masseyl'
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect Package Manager
+        id: detect-pm
+        run: |
+          if [ -f "yarn.lock" ]; then
+            echo "manager=yarn" >> $GITHUB_OUTPUT
+            echo "command=install" >> $GITHUB_OUTPUT
+            echo "runner=yarn" >> $GITHUB_OUTPUT
+          elif [ -f "pnpm-lock.yaml" ]; then
+            echo "manager=pnpm" >> $GITHUB_OUTPUT
+            echo "command=install" >> $GITHUB_OUTPUT
+            echo "runner=pnpm" >> $GITHUB_OUTPUT
+          else
+            echo "manager=npm" >> $GITHUB_OUTPUT
+            echo "command=ci" >> $GITHUB_OUTPUT
+            echo "runner=npm" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: ${{ steps.detect-pm.outputs.manager }}
+
+      - name: Install pnpm
+        if: steps.detect-pm.outputs.manager == 'pnpm'
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Install Dependencies
+        id: install
+        run: ${{ steps.detect-pm.outputs.runner }} ${{ steps.detect-pm.outputs.command }}
+
+      - name: Check Scripts
+        id: check-scripts
+        run: |
+          # Use jq to check for script existence in package.json
+          echo "has_build=$(jq -r 'if .scripts.build then "true" else "false" end' package.json)" >> $GITHUB_OUTPUT
+          echo "has_test=$(jq -r 'if .scripts.test then "true" else "false" end' package.json)" >> $GITHUB_OUTPUT
+          echo "has_typecheck=$(jq -r 'if .scripts.typecheck then "true" else "false" end' package.json)" >> $GITHUB_OUTPUT
+          echo "has_lint=$(jq -r 'if .scripts.lint then "true" else "false" end' package.json)" >> $GITHUB_OUTPUT
+
+      - name: Build
+        id: build
+        if: steps.check-scripts.outputs.has_build == 'true'
+        run: ${{ steps.detect-pm.outputs.runner }} run build
+
+      - name: Test
+        id: test
+        if: steps.check-scripts.outputs.has_test == 'true'
+        run: ${{ steps.detect-pm.outputs.runner }} run test
+
+      - name: Typecheck
+        id: typecheck
+        if: steps.check-scripts.outputs.has_typecheck == 'true'
+        run: ${{ steps.detect-pm.outputs.runner }} run typecheck
+
+      - name: Lint
+        id: lint
+        if: steps.check-scripts.outputs.has_lint == 'true'
+        run: ${{ steps.detect-pm.outputs.runner }} run lint
+
+      # --- Reporting ---
+
+      - name: Report Success
+        if: success()
+        run: |
+          # Add verified label, remove failed label (silently fail if not present)
+          gh pr edit ${{ github.event.pull_request.number }} --add-label "agent:verified" || true
+          gh pr edit ${{ github.event.pull_request.number }} --remove-label "agent:verification-failed" || true
+          
+          # Optional: Post a 'clean' comment or just let the label speak?
+          # For now, we only comment on failure to keep noise down, per Plan "compact report" usually implies failure or summary.
+          # The PRD said "pass/fail status per step". Let's do a compact summary comment.
+          
+          cat <<EOF > report.md
+          ### 🛡️ Agent Verification: Passed
+          
+          | Step | Status |
+          |------|--------|
+          | Build | ${{ steps.build.outcome || 'Skipped' }} |
+          | Test | ${{ steps.test.outcome || 'Skipped' }} |
+          | Typecheck | ${{ steps.typecheck.outcome || 'Skipped' }} |
+          | Lint | ${{ steps.lint.outcome || 'Skipped' }} |
+          
+          ✅ **Verified**
+          EOF
+          
+          gh pr comment ${{ github.event.pull_request.number }} --body-file report.md
+
+      - name: Report Failure
+        if: failure()
+        run: |
+          # Check for override label
+          OVERRIDE="${{ contains(github.event.pull_request.labels.*.name, 'agent:verification-override') }}"
+          
+          if [ "$OVERRIDE" == "true" ]; then
+            echo "⚠️ Verification failed but overridden by human label."
+            # We do NOT apply the blocking label.
+            # We still ensure 'agent:verified' is removed to avoid false confidence.
+            gh pr edit ${{ github.event.pull_request.number }} --remove-label "agent:verified" || true
+            
+            cat <<EOF > report.md
+            ### 🛡️ Agent Verification: Failed (Overridden)
+            
+            > **Note**: A human has manually overridden this failure using the \`agent:verification-override\` label. This PR is allowed to merge despite verification errors.
+            
+            | Step | Status |
+            |------|--------|
+            | Install | ${{ steps.install.outcome }} |
+            | Build | ${{ steps.build.outcome || 'Skipped' }} |
+            | Test | ${{ steps.test.outcome || 'Skipped' }} |
+            | Typecheck | ${{ steps.typecheck.outcome || 'Skipped' }} |
+            | Lint | ${{ steps.lint.outcome || 'Skipped' }} |
+            
+            ⚠️ **Verification Failed (Bypassed)**
+            Check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.
+            EOF
+          else
+            # Normal blocking failure
+            gh pr edit ${{ github.event.pull_request.number }} --add-label "agent:verification-failed" || true
+            gh pr edit ${{ github.event.pull_request.number }} --remove-label "agent:verified" || true
+            
+            cat <<EOF > report.md
+            ### 🛡️ Agent Verification: Failed
+            
+            | Step | Status |
+            |------|--------|
+            | Install | ${{ steps.install.outcome }} |
+            | Build | ${{ steps.build.outcome || 'Skipped' }} |
+            | Test | ${{ steps.test.outcome || 'Skipped' }} |
+            | Typecheck | ${{ steps.typecheck.outcome || 'Skipped' }} |
+            | Lint | ${{ steps.lint.outcome || 'Skipped' }} |
+            
+            ❌ **Verification Failed**
+            Check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.
+            EOF
+          fi
+          
+          gh pr comment ${{ github.event.pull_request.number }} --body-file report.md
