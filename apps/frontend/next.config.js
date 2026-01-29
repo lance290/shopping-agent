@@ -27,7 +27,7 @@ const nextConfig = {
   },
   // NOTE: We use Next.js API routes (/app/api/*/route.ts) instead of rewrites.
   // This allows BFF_URL to be read at RUNTIME, not build-time.
-  // See: /app/api/out/route.ts, /app/api/rows/route.ts, etc.
+  // See: /app/api/clickout/route.ts, /app/api/rows/route.ts, etc.
 };
 
 module.exports = nextConfig;

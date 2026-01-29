@@ -91,7 +91,7 @@ describe('Chat-Board Synchronization', () => {
     const link = img.closest('a');
     expect(link).not.toBeNull();
     // Check for clickout URL
-    expect(link?.getAttribute('href')).toContain('/api/out');
+    expect(link?.getAttribute('href')).toContain('/api/clickout');
     expect(link?.getAttribute('href')).toContain(encodeURIComponent('https://example.com/product/123'));
   });
 });
