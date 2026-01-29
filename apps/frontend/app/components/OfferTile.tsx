@@ -39,6 +39,7 @@ export default function OfferTile({
   return (
     <Card
       variant="hover"
+      data-testid="offer-tile"
       className={cn(
         "min-w-[255px] max-w-[255px] h-[450px] flex flex-col relative group",
         "shadow-[0_2px_6px_rgba(0,0,0,0.16)]",

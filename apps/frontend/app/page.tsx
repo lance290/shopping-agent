@@ -1,21 +1,27 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Chat from './components/Chat';
 import ProcurementBoard from './components/Board';
 import ReportBugModal from './components/ReportBugModal';
 import { cn } from '../utils/cn';
+import { useShoppingStore } from './store';
+import { runSearchApi, createRowInDb, fetchRowsFromDb } from './utils/api';
 
 export default function Home() {
   const CHAT_MIN_PX = 360;
   const CHAT_MAX_PX = 700;
   const CHAT_DEFAULT_PX = 450;
 
+  const searchParams = useSearchParams();
+  const store = useShoppingStore();
   const [chatWidthPx, setChatWidthPx] = useState<number>(CHAT_DEFAULT_PX);
   const isDraggingRef = useRef(false);
   const dragStartXRef = useRef<number>(0);
   const dragStartWidthRef = useRef<number>(CHAT_DEFAULT_PX);
   const latestWidthRef = useRef<number>(CHAT_DEFAULT_PX);
+  const hasHandledQueryRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -28,6 +34,54 @@ export default function Home() {
       // ignore
     }
   }, []);
+
+  // Handle shared search link (query parameter)
+  useEffect(() => {
+    const query = searchParams?.get('q');
+    if (!query || hasHandledQueryRef.current) return;
+
+    hasHandledQueryRef.current = true;
+
+    const handleSharedSearch = async () => {
+      try {
+        // Load rows first if not loaded
+        if (store.rows.length === 0) {
+          const rows = await fetchRowsFromDb();
+          store.setRows(rows);
+        }
+
+        // Find existing row or create new one
+        let targetRow = store.rows.find((r) => r.title === query);
+
+        if (!targetRow) {
+          const created = await createRowInDb(query, null);
+          if (created) {
+            store.addRow(created);
+            targetRow = created;
+          }
+        }
+
+        if (targetRow) {
+          store.setActiveRowId(targetRow.id);
+          store.setCurrentQuery(query);
+
+          // Run search if no results exist
+          const existingResults = store.rowResults[targetRow.id];
+          if (!existingResults || existingResults.length === 0) {
+            store.setIsSearching(true);
+            const results = await runSearchApi(query, targetRow.id);
+            store.setRowResults(targetRow.id, results);
+          }
+        }
+      } catch (err) {
+        console.error('[Home] Failed to handle shared search:', err);
+      } finally {
+        store.setIsSearching(false);
+      }
+    };
+
+    handleSharedSearch();
+  }, [searchParams, store]);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {

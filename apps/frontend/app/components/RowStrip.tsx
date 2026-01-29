@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Row, Offer, OfferSortMode, useShoppingStore } from '../store';
 import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
-import { Archive, RefreshCw, FlaskConical, Undo2 } from 'lucide-react';
+import { Archive, RefreshCw, FlaskConical, Undo2, Link2 } from 'lucide-react';
 import { runSearchApi, selectOfferForRow, toggleLikeApi, fetchLikesApi, createCommentApi, fetchCommentsApi } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
@@ -389,6 +389,27 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     onToast?.('Share link ready.', 'success');
   };
 
+  const handleCopySearchLink = async () => {
+    try {
+      if (typeof window === 'undefined') return;
+
+      // Create a shareable URL with the search query
+      const url = new URL(window.location.origin);
+      url.searchParams.set('q', row.title);
+
+      if (navigator?.clipboard) {
+        await navigator.clipboard.writeText(url.toString());
+        onToast?.('Search link copied to clipboard.', 'success');
+        return;
+      }
+
+      onToast?.('Could not copy link.', 'error');
+    } catch (err) {
+      console.error('[RowStrip] Failed to copy search link:', err);
+      onToast?.('Failed to copy link.', 'error');
+    }
+  };
+
   return (
     <div 
       data-testid="row-strip"
@@ -412,6 +433,19 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCopySearchLink();
+            }}
+            className="h-8 w-8 p-0 rounded-lg border border-warm-grey/60 text-onyx-muted hover:text-onyx"
+            title="Copy search link"
+          >
+            <Link2 size={14} />
+          </Button>
+
           <div className="relative group">
             <select
               className="appearance-none pl-3 pr-8 py-1.5 text-xs font-medium border border-warm-grey/60 rounded-lg bg-warm-light text-onyx hover:border-onyx-muted focus:outline-none focus:ring-1 focus:ring-onyx/20 transition-colors cursor-pointer"
