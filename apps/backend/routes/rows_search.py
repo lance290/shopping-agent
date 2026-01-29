@@ -165,10 +165,10 @@ async def search_row_listings(
         )
         results = filtered_results
 
-    # Clear old bids and save new results
+    # Keep existing bids but update/add new search results
+    # This allows search history to persist across searches
     existing_bids = await session.exec(select(Bid).where(Bid.row_id == row_id))
-    for bid in existing_bids.all():
-        await session.delete(bid)
+    existing_bids_map = {bid.item_url: bid for bid in existing_bids.all() if bid.item_url}
 
     for res in results:
         merchant_name = res.merchant or "Unknown"
@@ -181,22 +181,39 @@ async def search_row_listings(
             await session.commit()
             await session.refresh(seller)
 
-        bid = Bid(
-            row_id=row_id,
-            seller_id=seller.id,
-            price=res.price,
-            total_cost=res.price,
-            currency=res.currency,
-            item_title=res.title,
-            item_url=res.url,
-            image_url=res.image_url,
-            source=res.source,
-            is_selected=False,
-        )
-        session.add(bid)
-        await session.flush()
-        res.bid_id = bid.id
-        res.is_selected = bid.is_selected
+        # Check if we already have this bid (by URL) - update instead of creating duplicate
+        existing_bid = existing_bids_map.get(res.url)
+        if existing_bid:
+            # Update existing bid with fresh data
+            existing_bid.price = res.price
+            existing_bid.total_cost = res.price
+            existing_bid.currency = res.currency
+            existing_bid.item_title = res.title
+            existing_bid.image_url = res.image_url
+            existing_bid.source = res.source
+            existing_bid.seller_id = seller.id
+            session.add(existing_bid)
+            await session.flush()
+            res.bid_id = existing_bid.id
+            res.is_selected = existing_bid.is_selected
+        else:
+            # Create new bid for URLs we haven't seen before
+            bid = Bid(
+                row_id=row_id,
+                seller_id=seller.id,
+                price=res.price,
+                total_cost=res.price,
+                currency=res.currency,
+                item_title=res.title,
+                item_url=res.url,
+                image_url=res.image_url,
+                source=res.source,
+                is_selected=False,
+            )
+            session.add(bid)
+            await session.flush()
+            res.bid_id = bid.id
+            res.is_selected = bid.is_selected
 
     row.status = "bids_arriving"
     row.updated_at = datetime.utcnow()
