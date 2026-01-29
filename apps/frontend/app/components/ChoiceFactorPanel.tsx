@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { parseChoiceFactors, parseChoiceAnswers, useShoppingStore } from '../store';
-import { saveChoiceAnswerToDb, fetchRowsFromDb, runSearchApi } from '../utils/api';
+import { saveChoiceAnswerToDb, fetchSingleRowFromDb, runSearchApi } from '../utils/api';
 import { Loader2, Check, AlertCircle, ChevronLeft, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
 
 export default function ChoiceFactorPanel() {
-  const { rows, activeRowId, updateRow, setRows, setRowResults, setIsSearching, isSidebarOpen, setSidebarOpen } = useShoppingStore();
+  const { rows, activeRowId, updateRow, setRowResults, setIsSearching, isSidebarOpen, setSidebarOpen } = useShoppingStore();
   
   const row = rows.find(r => r.id === activeRowId);
   const factors = row ? parseChoiceFactors(row) : [];
@@ -61,16 +61,16 @@ export default function ChoiceFactorPanel() {
     if (isSidebarOpen && row && factors.length === 0 && pollCount < 5) {
       timeoutId = setTimeout(async () => {
         console.log(`[ChoiceFactorPanel] Polling for specs... attempt ${pollCount + 1}`);
-        const freshRows = await fetchRowsFromDb();
-        if (freshRows) {
-          setRows(freshRows);
+        const freshRow = await fetchSingleRowFromDb(row.id);
+        if (freshRow) {
+          updateRow(row.id, freshRow);
         }
         setPollCount(prev => prev + 1);
       }, 2000); // Poll every 2s
     }
 
     return () => clearTimeout(timeoutId);
-  }, [isSidebarOpen, row, factors.length, pollCount, setRows]);
+  }, [isSidebarOpen, row, factors.length, pollCount, updateRow]);
 
   const handleManualRefresh = async () => {
     if (!row) return;
@@ -84,9 +84,9 @@ export default function ChoiceFactorPanel() {
         body: JSON.stringify({ regenerate_choice_factors: true }),
       });
 
-      const freshRows = await fetchRowsFromDb();
-      if (freshRows) {
-        setRows(freshRows);
+      const freshRow = await fetchSingleRowFromDb(row.id);
+      if (freshRow) {
+        updateRow(row.id, freshRow);
       }
     } finally {
       setIsRefreshing(false);

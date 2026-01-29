@@ -280,6 +280,22 @@ export const createRowInDb = async (title: string, projectId?: number | null): P
   return null;
 };
 
+// Helper: Fetch a single row by ID (avoids re-rendering all rows)
+export const fetchSingleRowFromDb = async (rowId: number): Promise<Row | null> => {
+  try {
+    await getOrCreateDevAuthToken();
+    const res = await fetch(`/api/rows?id=${rowId}`);
+    if (res.ok) {
+      const row = await res.json();
+      return row && typeof row === 'object' && !Array.isArray(row) ? row : null;
+    }
+    console.error('[API] fetchSingleRowFromDb failed:', res.status);
+  } catch (err) {
+    console.error('[API] Fetch single row error:', err);
+  }
+  return null;
+};
+
 // Helper: Fetch all rows from DB
 export const fetchRowsFromDb = async (): Promise<Row[] | null> => {
   try {

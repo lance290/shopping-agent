@@ -5,7 +5,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
-import { fetchRowsFromDb, runSearchApi, saveChoiceAnswerToDb } from '../utils/api';
+import { fetchSingleRowFromDb, runSearchApi, saveChoiceAnswerToDb } from '../utils/api';
 
 interface RequestTileProps {
   row: Row;
@@ -19,7 +19,6 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
     updateRow,
     setRowResults,
     setIsSearching,
-    setRows,
   } = useShoppingStore();
   const factors = parseChoiceFactors(row);
   const [localAnswers, setLocalAnswers] = useState<Record<string, any>>({});
@@ -51,9 +50,9 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ regenerate_choice_factors: true }),
           });
-          const freshRows = await fetchRowsFromDb();
-          if (freshRows) {
-            setRows(freshRows);
+          const freshRow = await fetchSingleRowFromDb(row.id);
+          if (freshRow) {
+            updateRow(row.id, freshRow);
           }
         } finally {
           setDidAutoRegenerate(true);
@@ -62,7 +61,7 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
     }
 
     return () => clearTimeout(timeoutId);
-  }, [didAutoRegenerate, row.id, setRows, factors]);
+  }, [didAutoRegenerate, row.id, updateRow, factors]);
 
   useEffect(() => {
     const serverAnswers = parseChoiceAnswers(row);
@@ -82,16 +81,16 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
 
     if (factors.length === 0 && pollCount < 4) {
       timeoutId = setTimeout(async () => {
-        const freshRows = await fetchRowsFromDb();
-        if (freshRows) {
-          setRows(freshRows);
+        const freshRow = await fetchSingleRowFromDb(row.id);
+        if (freshRow) {
+          updateRow(row.id, freshRow);
         }
         setPollCount(prev => prev + 1);
       }, 2000);
     }
 
     return () => clearTimeout(timeoutId);
-  }, [factors.length, pollCount, setRows]);
+  }, [factors.length, pollCount, row.id, updateRow]);
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
@@ -102,9 +101,9 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ regenerate_choice_factors: true }),
       });
-      const freshRows = await fetchRowsFromDb();
-      if (freshRows) {
-        setRows(freshRows);
+      const freshRow = await fetchSingleRowFromDb(row.id);
+      if (freshRow) {
+        updateRow(row.id, freshRow);
       }
     } finally {
       setIsRefreshing(false);

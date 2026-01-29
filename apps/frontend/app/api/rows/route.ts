@@ -107,7 +107,12 @@ export async function GET(request: NextRequest) {
 
     const hadToken = Boolean(getCookieSessionToken(request) || getDevSessionToken());
 
-    let response = await fetch(`${BFF_URL}/api/rows`, {
+    // Support fetching a single row by ID
+    const url = new URL(request.url);
+    const rowId = url.searchParams.get('id');
+    const bffUrl = rowId ? `${BFF_URL}/api/rows/${rowId}` : `${BFF_URL}/api/rows`;
+
+    let response = await fetch(bffUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -118,7 +123,7 @@ export async function GET(request: NextRequest) {
     if (response.status === 401 && !hadToken) {
       const mintedToken = await mintDevSessionToken();
       if (mintedToken) {
-        response = await fetch(`${BFF_URL}/api/rows`, {
+        response = await fetch(bffUrl, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
