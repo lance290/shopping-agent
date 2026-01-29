@@ -33,6 +33,17 @@ def get_clerk_instance() -> str:
         return ""
 
 
+def get_token_issuer(token: str) -> str:
+    try:
+        payload = jwt.decode(token, options={"verify_signature": False, "verify_aud": False})
+        iss = payload.get("iss") if isinstance(payload, dict) else None
+        if isinstance(iss, str) and iss.strip():
+            return iss.strip()
+    except Exception:
+        return ""
+    return ""
+
+
 @lru_cache(maxsize=1)
 def get_jwks_client() -> Optional[PyJWKClient]:
     """Get cached JWKS client for Clerk."""
@@ -52,6 +63,21 @@ def get_jwks_client() -> Optional[PyJWKClient]:
         return None
 
 
+@lru_cache(maxsize=8)
+def get_jwks_client_for_issuer(issuer: str) -> Optional[PyJWKClient]:
+    if not issuer:
+        return None
+    base = issuer.strip()
+    if not (base.startswith("http://") or base.startswith("https://")):
+        base = f"https://{base}"
+    jwks_url = f"{base.rstrip('/')}/.well-known/jwks.json"
+    try:
+        return PyJWKClient(jwks_url)
+    except Exception as e:
+        print(f"[CLERK] Failed to create issuer JWKS client: {e}")
+        return None
+
+
 def verify_clerk_token(token: str) -> Optional[dict]:
     """
     Verify a Clerk JWT token and return the decoded payload.
@@ -61,16 +87,17 @@ def verify_clerk_token(token: str) -> Optional[dict]:
         return None
     
     try:
-        # Try JWKS verification first
+        issuer = get_token_issuer(token)
+        issuer_jwks_client = get_jwks_client_for_issuer(issuer)
+        if issuer_jwks_client:
+            signing_key = issuer_jwks_client.get_signing_key_from_jwt(token)
+            decoded = jwt.decode(token, signing_key.key, algorithms=["RS256"], options={"verify_aud": False})
+            return decoded
+
         jwks_client = get_jwks_client()
         if jwks_client:
             signing_key = jwks_client.get_signing_key_from_jwt(token)
-            decoded = jwt.decode(
-                token,
-                signing_key.key,
-                algorithms=["RS256"],
-                options={"verify_aud": False}  # Clerk doesn't always set audience
-            )
+            decoded = jwt.decode(token, signing_key.key, algorithms=["RS256"], options={"verify_aud": False})
             return decoded
         
         # Fallback: verify with secret key (HS256)
