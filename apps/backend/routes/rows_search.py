@@ -150,12 +150,15 @@ async def search_row_listings(
     if row.choice_answers:
         try:
             answers_obj = json.loads(row.choice_answers)
+            logger.info(f"[SEARCH] choice_answers for row {row_id}: {answers_obj}")
             if answers_obj.get("min_price"):
                 min_price_filter = float(answers_obj["min_price"])
             if answers_obj.get("max_price"):
                 max_price_filter = float(answers_obj["max_price"])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"[SEARCH] Failed to parse choice_answers: {e}")
+    else:
+        logger.info(f"[SEARCH] No choice_answers for row {row_id}")
 
     if min_price_filter is not None or max_price_filter is not None:
         filtered_results = []
@@ -164,7 +167,8 @@ async def search_row_listings(
             if price is None:
                 filtered_results.append(r)
                 continue
-            if min_price_filter is not None and price <= min_price_filter:
+            # Filter: keep items where price >= min AND price <= max
+            if min_price_filter is not None and price < min_price_filter:
                 continue
             if max_price_filter is not None and price > max_price_filter:
                 continue

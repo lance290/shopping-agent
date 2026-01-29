@@ -227,12 +227,19 @@ export default function ChoiceFactorPanel() {
             </div>
           ) : (
             <div className="space-y-6">
-              {factors.map(factor => {
-                const isSaving = savingFields[factor.name];
-                const hasAnswer = localAnswers[factor.name] !== undefined && localAnswers[factor.name] !== '';
+              {factors
+                .filter((factor) => factor.name !== 'max_price') // Handled by min_price price range component
+                .map(factor => {
+                const isSaving = savingFields[factor.name] || (factor.name === 'min_price' && savingFields['max_price']);
+                const hasAnswer = factor.name === 'min_price'
+                  ? (localAnswers.min_price !== undefined && localAnswers.min_price !== '') ||
+                    (localAnswers.max_price !== undefined && localAnswers.max_price !== '')
+                  : localAnswers[factor.name] !== undefined && localAnswers[factor.name] !== '';
                 
                 // Convert snake_case name to Title Case Label
-                const label = factor.name.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                const label = factor.name === 'min_price'
+                  ? 'Price Range ($)'
+                  : factor.name.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                 
                 return (
                   <div key={factor.name} className="group">

@@ -219,15 +219,22 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
             </Button>
           </div>
         ) : (
-          factors.map((factor) => {
-            const isSaving = savingFields[factor.name];
-            const hasAnswer = localAnswers[factor.name] !== undefined && localAnswers[factor.name] !== '';
-            const label = String(factor?.label || '')
-              ? String(factor.label)
-              : factor.name
-                  .split('_')
-                  .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-                  .join(' ');
+          factors
+            .filter((factor) => factor.name !== 'max_price') // Handled by min_price price range component
+            .map((factor) => {
+            const isSaving = savingFields[factor.name] || (factor.name === 'min_price' && savingFields['max_price']);
+            const hasAnswer = factor.name === 'min_price'
+              ? (localAnswers.min_price !== undefined && localAnswers.min_price !== '') ||
+                (localAnswers.max_price !== undefined && localAnswers.max_price !== '')
+              : localAnswers[factor.name] !== undefined && localAnswers[factor.name] !== '';
+            const label = factor.name === 'min_price'
+              ? 'Price Range ($)'
+              : String(factor?.label || '')
+                ? String(factor.label)
+                : factor.name
+                    .split('_')
+                    .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+                    .join(' ');
 
             return (
               <div key={factor.name} className="space-y-2">
