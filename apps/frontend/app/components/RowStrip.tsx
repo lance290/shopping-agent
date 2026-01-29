@@ -105,19 +105,32 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   // Helper to merge likes into offers
   const mergeLikes = (currentOffers: Offer[], likes: any[]): Offer[] => {
     if (!likes || likes.length === 0) return currentOffers;
-    
-    // Create a set of liked bid_ids and offer_urls
-    const likedBidIds = new Set(likes.map(l => l.bid_id).filter(Boolean));
-    const likedUrls = new Set(likes.map(l => l.offer_url).filter(Boolean));
-    
+
+    // Create maps to store both liked status and timestamp
+    const likedBidData = new Map(
+      likes.filter(l => l.bid_id).map(l => [l.bid_id, l.created_at])
+    );
+    const likedUrlData = new Map(
+      likes.filter(l => l.offer_url).map(l => [l.offer_url, l.created_at])
+    );
+
     return currentOffers.map((offer) => {
       const canonical = getCanonicalOfferUrl(offer);
+      let likedAt: string | undefined;
+      let isLiked = false;
+
+      if (offer.bid_id && likedBidData.has(offer.bid_id)) {
+        isLiked = true;
+        likedAt = likedBidData.get(offer.bid_id);
+      } else if (canonical && likedUrlData.has(canonical)) {
+        isLiked = true;
+        likedAt = likedUrlData.get(canonical);
+      }
+
       return {
         ...offer,
-        is_liked: !!(
-          (offer.bid_id && likedBidIds.has(offer.bid_id)) ||
-          (canonical && likedUrls.has(canonical))
-        ),
+        is_liked: isLiked,
+        liked_at: likedAt,
       };
     });
   };
@@ -222,8 +235,18 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     return list
       .map((offer, idx) => ({ offer, idx }))
       .sort((a, b) => {
+        // Liked items come before unliked items
         const likeDiff = Number(Boolean(b.offer.is_liked)) - Number(Boolean(a.offer.is_liked));
         if (likeDiff !== 0) return likeDiff;
+
+        // Among liked items, sort by most recently liked (descending)
+        if (a.offer.is_liked && b.offer.is_liked) {
+          const aTime = a.offer.liked_at ? new Date(a.offer.liked_at).getTime() : 0;
+          const bTime = b.offer.liked_at ? new Date(b.offer.liked_at).getTime() : 0;
+          if (bTime !== aTime) return bTime - aTime; // Most recent first
+        }
+
+        // Otherwise preserve original order
         return a.idx - b.idx;
       })
       .map((entry) => entry.offer);
@@ -246,7 +269,12 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     };
     const filtered = current.filter((like) => !matches(like));
     if (isLiked) {
-      filtered.push({ row_id: rowId, bid_id: bidId, offer_url: offerUrl });
+      filtered.push({
+        row_id: rowId,
+        bid_id: bidId,
+        offer_url: offerUrl,
+        created_at: new Date().toISOString()
+      });
     }
     loadedLikesRef.current = filtered;
   };
@@ -296,22 +324,34 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     // Optimistic update - match by bid_id, canonical URL, or object reference
     const updatedOffers = offers.map((item, idx) => {
       const itemUrl = getCanonicalOfferUrl(item);
-      
+
       // Match by bid_id if available
       if (offerBidId && item.bid_id === offerBidId) {
         console.log('[Like] matched by bid_id at index', idx);
-        return { ...item, is_liked: newIsLiked };
+        return {
+          ...item,
+          is_liked: newIsLiked,
+          liked_at: newIsLiked ? new Date().toISOString() : undefined
+        };
       }
       // Match by canonical URL if no bid_id on clicked offer
       if (!offerBidId && canonicalUrl && itemUrl === canonicalUrl) {
         console.log('[Like] matched by URL at index', idx);
-        return { ...item, is_liked: newIsLiked };
+        return {
+          ...item,
+          is_liked: newIsLiked,
+          liked_at: newIsLiked ? new Date().toISOString() : undefined
+        };
       }
       // Fallback: match by title + price + merchant
       if (!offerBidId && !canonicalUrl) {
         if (item.title === offer.title && item.price === offer.price && item.merchant === offer.merchant) {
           console.log('[Like] matched by title/price/merchant at index', idx);
-          return { ...item, is_liked: newIsLiked };
+          return {
+            ...item,
+            is_liked: newIsLiked,
+            liked_at: newIsLiked ? new Date().toISOString() : undefined
+          };
         }
       }
       return item;
