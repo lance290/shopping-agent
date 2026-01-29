@@ -579,12 +579,10 @@ class SourcingRepository:
         self.providers: Dict[str, SourcingProvider] = {}
         
         # Initialize providers in priority order
-        # SerpAPI - 100 free searches/month
-        serpapi_key = os.getenv("SERPAPI_API_KEY")
-        print(f"[SourcingRepository] SERPAPI_API_KEY present: {bool(serpapi_key)}")
-        if serpapi_key and serpapi_key != "demo":
-            self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
-            print(f"[SourcingRepository] SerpAPI provider initialized")
+        # SerpAPI - DISABLED (registration issues)
+        # serpapi_key = os.getenv("SERPAPI_API_KEY")
+        # if serpapi_key and serpapi_key != "demo":
+        #     self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
         
         # Rainforest API - Amazon search
         rainforest_key = os.getenv("RAINFOREST_API_KEY")
