@@ -13,7 +13,7 @@ fi
 # Run migrations
 echo "[STARTUP] Running database migrations..."
 # Use the full path to ensure we find the executable, though PATH should handle it
-if ! su fastapi -s /bin/sh -c "alembic upgrade head"; then
+if ! su fastapi -s /bin/sh -c "alembic upgrade heads"; then
     echo "[STARTUP] ERROR: Migrations failed!"
     exit 1
 fi
