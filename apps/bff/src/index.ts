@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fs from 'fs';
 import path from 'path';
-import { chatHandler, generateAndSaveChoiceFactors, GEMINI_MODEL_NAME, triageProviderQuery } from './llm';
+import { generateAndSaveChoiceFactors, GEMINI_MODEL_NAME, triageProviderQuery, generateChatPlan } from './llm';
 
 // Manually load .env since we want to avoid dependency issues
 try {
@@ -749,148 +749,213 @@ export function buildApp() {
   }
 
   fastify.post('/api/chat', async (request, reply) => {
-  let headersSent = false;
   try {
-    const { messages, activeRowId, projectId } = request.body as { messages: any[]; activeRowId?: number; projectId?: number };
+    const { messages, activeRowId, projectId } = request.body as {
+      messages: any[];
+      activeRowId?: number;
+      projectId?: number;
+    };
     const authorization = request.headers.authorization;
 
     if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-      headersSent = true;
-      await runDeterministicChatFallback(
-        { messages, activeRowId, projectId, authorization },
-        reply,
-        false
-      );
+      reply.status(500).send({ error: 'LLM not configured' });
       return;
     }
 
-    const result = await chatHandler(messages, authorization, activeRowId, projectId);
-    
-    // Set headers for streaming
     reply.raw.writeHead(200, {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'Transfer-Encoding': 'chunked',
-      'Cache-Control': 'no-cache',
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
     });
-    headersSent = true;
 
-    let wroteAny = false;
-    let finishWasError = false;
-    let finishRawReason: string | undefined;
-    
-    // Use fullStream to capture both text and tool events
-    for await (const part of result.fullStream) {
-      fastify.log.info({ partType: part.type, part }, 'Stream part received');
-      
-      if (part.type === 'text-delta') {
-        if (part.textDelta) {
-          wroteAny = true;
-          reply.raw.write(part.textDelta);
-        }
-      } else if (part.type === 'tool-call') {
-        // Provide feedback when a tool is called
-        // AI SDK uses 'input' not 'args' for tool call parameters
-        const toolPart = part as any;
-        const input = toolPart.input;
-        if (toolPart.toolName === 'createRow') {
-          const itemName = input?.item || 'item';
-          wroteAny = true;
-          reply.raw.write(`\n✅ Adding "${itemName}" to your procurement board...`);
-        } else if (toolPart.toolName === 'updateRow') {
-          const newTitle = input?.title || 'item';
-          const rowId = input?.rowId;
-          wroteAny = true;
-          reply.raw.write(`\n🔄 Updating row #${rowId} to "${newTitle}"...`);
-        } else if (toolPart.toolName === 'searchListings') {
-          const query = input?.query || 'items';
-          wroteAny = true;
-          reply.raw.write(`\n🔍 Searching for "${query}"...`);
-        }
-      } else if (part.type === 'tool-result') {
-        // Provide feedback when tool completes
-        const toolResult = part as any;
-        // AI SDK uses 'output' not 'result' for tool results
-        const output = toolResult.output;
-        fastify.log.info({ toolName: toolResult.toolName, output }, 'Processing tool-result');
+    const writeEvent = (event: string, data: any) => {
+      reply.raw.write(`event: ${event}\n`);
+      reply.raw.write(`data: ${JSON.stringify(data ?? null)}\n\n`);
+    };
 
-        if (output?.status === 'error') {
-          const msg = output?.message || output?.error || 'Tool failed';
-          const code = output?.code ? ` (${output.code})` : '';
-          wroteAny = true;
-          reply.raw.write(`\n⚠️ Error${code}: ${msg}`);
-          continue;
-        }
-        
-        if (toolResult.toolName === 'createRow') {
-          if (output?.status === 'row_created') {
-            wroteAny = true;
-            reply.raw.write(` Done!`);
-          }
-        } else if (toolResult.toolName === 'updateRow') {
-          if (output?.status === 'row_updated') {
-            wroteAny = true;
-            reply.raw.write(` Done!`);
-          }
-        } else if (toolResult.toolName === 'searchListings') {
-          const count = output?.count || 0;
-          fastify.log.info({ count, hasPreview: !!output?.preview }, 'Search results');
-          wroteAny = true;
-          reply.raw.write(` Found ${count} results!`);
-          
-          // Show preview of top results
-          if (output?.preview && output.preview.length > 0) {
-            wroteAny = true;
-            reply.raw.write('\n\nTop matches:');
-            for (const item of output.preview) {
-              reply.raw.write(`\n• ${item.title} - $${item.price} from ${item.merchant}`);
-            }
-          }
-        }
-      } else if (part.type === 'tool-error') {
-        // Handle tool errors
-        const toolError = part as any;
-        fastify.log.error({ toolError }, 'Tool error');
-        wroteAny = true;
-        reply.raw.write(`\n⚠️ Error: ${toolError.error || 'Tool failed'}`);
-      } else if (part.type === 'finish') {
-        const finishPart = part as any;
-        if (finishPart?.finishReason === 'error') {
-          finishWasError = true;
-          finishRawReason = finishPart?.rawFinishReason;
-        }
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (typeof authorization === 'string' && authorization) {
+      headers['Authorization'] = authorization;
+    }
+
+    let activeRowTitle: string | null = null;
+    let projectTitle: string | null = null;
+    if (activeRowId) {
+      const rowRes = await fetchJsonWithTimeoutRetry(
+        `${BACKEND_URL}/rows/${activeRowId}`,
+        { headers },
+        20000,
+        1,
+        500
+      );
+      if (rowRes.ok && typeof rowRes.data?.title === 'string') {
+        activeRowTitle = rowRes.data.title;
+      }
+    }
+    if (projectId) {
+      const projRes = await fetchJsonWithTimeoutRetry(
+        `${BACKEND_URL}/projects/${projectId}`,
+        { headers },
+        20000,
+        1,
+        500
+      );
+      if (projRes.ok && typeof projRes.data?.title === 'string') {
+        projectTitle = projRes.data.title;
       }
     }
 
-    if (!wroteAny) {
-      fastify.log.warn(
-        { wroteAny, finishWasError, finishRawReason },
-        'LLM stream produced no output. Falling back to deterministic flow.'
-      );
-      await runDeterministicChatFallback(
-        { messages, activeRowId, projectId, authorization },
-        reply,
-        true
-      );
-      return;
+    const plan = await generateChatPlan({
+      messages,
+      activeRowId: activeRowId ?? null,
+      projectId: projectId ?? null,
+      activeRowTitle,
+      projectTitle,
+    });
+
+    writeEvent('assistant_message', { text: plan.assistant_message || '' });
+
+    let lastRowId: number | null = activeRowId ?? null;
+    for (const action of plan.actions || []) {
+      if (action.type === 'create_row') {
+        const constraints = action.constraints && typeof action.constraints === 'object' ? action.constraints : {};
+        const title = action.title;
+        writeEvent('action_started', { type: 'create_row', title });
+        const createRes = await fetchJsonWithTimeoutRetry(
+          `${BACKEND_URL}/rows`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              title,
+              status: 'sourcing',
+              project_id: action.project_id ?? projectId ?? undefined,
+              request_spec: {
+                item_name: title,
+                constraints: JSON.stringify(constraints),
+              },
+              choice_answers: JSON.stringify(constraints),
+            }),
+          },
+          20000,
+          1,
+          500
+        );
+        if (!createRes.ok || !createRes.data?.id) {
+          writeEvent('error', { message: createRes.data?.detail || createRes.data?.message || createRes.text || 'Failed to create row' });
+          reply.raw.end();
+          return;
+        }
+        lastRowId = Number(createRes.data.id);
+        writeEvent('row_created', { row: createRes.data });
+
+        if (typeof action.search_query === 'string' && action.search_query.trim().length > 0) {
+          writeEvent('action_started', { type: 'search', row_id: lastRowId, query: action.search_query });
+          const searchRes = await fetchJsonWithTimeoutRetry(
+            `${BACKEND_URL}/rows/${lastRowId}/search`,
+            {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ query: action.search_query, providers: action.providers }),
+            },
+            30000,
+            1,
+            500
+          );
+          if (!searchRes.ok) {
+            writeEvent('error', { message: searchRes.data?.detail || searchRes.data?.message || searchRes.text || 'Search failed' });
+            reply.raw.end();
+            return;
+          }
+          writeEvent('search_results', { row_id: lastRowId, results: searchRes.data?.results || [] });
+        }
+      } else if (action.type === 'update_row') {
+        const constraints = action.constraints && typeof action.constraints === 'object' ? action.constraints : undefined;
+        const updateBody: any = {};
+        if (typeof action.title === 'string' && action.title.trim().length > 0) {
+          updateBody.title = action.title;
+          updateBody.request_spec = {
+            item_name: action.title,
+            constraints: JSON.stringify(constraints || {}),
+          };
+        }
+        if (constraints) {
+          updateBody.choice_answers = JSON.stringify(constraints);
+        }
+
+        writeEvent('action_started', { type: 'update_row', row_id: action.row_id });
+        const updateRes = await fetchJsonWithTimeoutRetry(
+          `${BACKEND_URL}/rows/${action.row_id}`,
+          {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(updateBody),
+          },
+          20000,
+          1,
+          500
+        );
+        if (!updateRes.ok) {
+          writeEvent('error', { message: updateRes.data?.detail || updateRes.data?.message || updateRes.text || 'Failed to update row' });
+          reply.raw.end();
+          return;
+        }
+        lastRowId = action.row_id;
+        writeEvent('row_updated', { row: updateRes.data });
+
+        if (typeof action.search_query === 'string' && action.search_query.trim().length > 0) {
+          writeEvent('action_started', { type: 'search', row_id: lastRowId, query: action.search_query });
+          const searchRes = await fetchJsonWithTimeoutRetry(
+            `${BACKEND_URL}/rows/${lastRowId}/search`,
+            {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ query: action.search_query, providers: action.providers }),
+            },
+            30000,
+            1,
+            500
+          );
+          if (!searchRes.ok) {
+            writeEvent('error', { message: searchRes.data?.detail || searchRes.data?.message || searchRes.text || 'Search failed' });
+            reply.raw.end();
+            return;
+          }
+          writeEvent('search_results', { row_id: lastRowId, results: searchRes.data?.results || [] });
+        }
+      } else if (action.type === 'search') {
+        const rowId = action.row_id;
+        writeEvent('action_started', { type: 'search', row_id: rowId, query: action.query });
+        const searchRes = await fetchJsonWithTimeoutRetry(
+          `${BACKEND_URL}/rows/${rowId}/search`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ query: action.query, providers: action.providers }),
+          },
+          30000,
+          1,
+          500
+        );
+        if (!searchRes.ok) {
+          writeEvent('error', { message: searchRes.data?.detail || searchRes.data?.message || searchRes.text || 'Search failed' });
+          reply.raw.end();
+          return;
+        }
+        lastRowId = rowId;
+        writeEvent('search_results', { row_id: rowId, results: searchRes.data?.results || [] });
+      }
     }
 
-    if (finishWasError) {
-      fastify.log.warn(
-        { finishRawReason },
-        'LLM stream finished with error after writing output.'
-      );
-      reply.raw.write(`\n\n⚠️ Assistant error: ${finishRawReason || 'Unknown error'}`);
-    }
-
+    writeEvent('done', { row_id: lastRowId });
     reply.raw.end();
   } catch (err: any) {
-    fastify.log.error('Chat error', err);
-    if (!headersSent) {
-      reply.status(500).send({ error: 'Chat processing failed' });
-    } else {
-      reply.raw.write('\n\nError: ' + (err.message || 'Something went wrong'));
-      reply.raw.end();
-    }
+    fastify.log.error({ err }, 'Chat error');
+    try {
+      reply.raw.write(`event: error\n`);
+      reply.raw.write(`data: ${JSON.stringify({ message: err?.message || 'Chat processing failed' })}\n\n`);
+    } catch {}
+    reply.raw.end();
   }
 });
 

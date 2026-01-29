@@ -4,8 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
 import Link from 'next/link';
 import { SignedIn, SignedOut, SignOutButton, UserButton } from '@clerk/nextjs';
-import { useShoppingStore, shouldForceNewRow } from '../store';
-import { persistRowToDb, runSearchApi, fetchRowsFromDb, fetchProjectsFromDb, createRowInDb } from '../utils/api';
+import { useShoppingStore } from '../store';
+import { fetchRowsFromDb, fetchProjectsFromDb } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
@@ -63,54 +63,6 @@ export default function Chat() {
     };
     loadData();
   }, []);
-
-  const handleSearchFlow = async (query: string) => {
-    store.setCurrentQuery(query);
-
-    // 1c. Select or create card
-    const currentRows = store.rows;
-    let targetRow = store.selectOrCreateRow(query, currentRows);
-    
-    if (targetRow) {
-      store.setActiveRowId(targetRow.id);
-      if (targetRow.title !== query) {
-        store.updateRow(targetRow.id, { title: query });
-        await persistRowToDb(targetRow.id, query);
-      }
-    } else {
-      // No match found - create a new row explicitly so we can attach it to the selected project.
-      const intendedProjectId = store.targetProjectId;
-      const created = await createRowInDb(query, store.targetProjectId);
-      if (created) {
-        store.addRow(created);
-        store.setActiveRowId(created.id);
-
-        store.setIsSearching(true);
-        const results = await runSearchApi(query, created.id);
-        store.setRowResults(created.id, results);
-        return;
-      }
-
-      // Fallback: if create failed, refresh and attempt to locate an existing row.
-      const freshRows = await fetchRowsFromDb();
-      if (freshRows) {
-        store.setRows(freshRows);
-        targetRow = intendedProjectId
-          ? freshRows.find((r) => r.title === query && r.project_id === intendedProjectId) || null
-          : freshRows.find((r) => r.title === query) || null;
-      }
-
-      if (targetRow) {
-        store.setActiveRowId(targetRow.id);
-      }
-    }
-
-    if (targetRow) {
-      store.setIsSearching(true);
-      const results = await runSearchApi(query, targetRow.id);
-      store.setRowResults(targetRow.id, results);
-    }
-  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,28 +79,9 @@ export default function Chat() {
     setInput('');
     setIsLoading(true);
     const intendedProjectId = store.targetProjectId;
-    const shouldNewRow = shouldForceNewRow({
-      message: queryText,
-      activeRowTitle: activeRow?.title || null,
-      aggressiveness: store.newRowAggressiveness,
-    });
+    const effectiveActiveRowId = store.activeRowId;
 
-    const effectiveActiveRowId = shouldNewRow ? null : store.activeRowId;
-    if (shouldNewRow) {
-      store.setActiveRowId(null);
-    }
-
-    const pickRowFromFresh = (freshRows: any[], query: string) => {
-      const q = query.toLowerCase().trim();
-      const scoped = intendedProjectId
-        ? freshRows.filter((r) => r.project_id === intendedProjectId)
-        : freshRows;
-      const byTitle = scoped.find((r) => r.title?.toLowerCase?.().trim?.() === q);
-      const newestById = [...scoped].sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0];
-      return byTitle || newestById || null;
-    };
-
-    let searchTriggered = false;
+    let assistantMessageId: string | null = null;
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -160,109 +93,131 @@ export default function Chat() {
         }),
       });
       
-      if (!response.ok) throw new Error('Failed to send message');
-      
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let assistantContent = '';
-      let lastProcessedQuery = '';
-      let rowCreationHandled = false;
-      let rowUpdateHandled = false;
+      let sseBuffer = '';
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: '',
       };
+      assistantMessageId = assistantMessage.id;
       setMessages(prev => [...prev, assistantMessage]);
       
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          
+
           const chunk = decoder.decode(value, { stream: true });
-          assistantContent += chunk;
-          
-          const rowMatch = assistantContent.match(/✅ Adding "([^"]+)" to your procurement board/);
-          if (rowMatch && !rowCreationHandled) {
-            rowCreationHandled = true;
-            await new Promise(resolve => setTimeout(resolve, 800));
-            const freshRows = await fetchRowsFromDb();
-            if (freshRows) {
-              store.setRows(freshRows);
+          sseBuffer += chunk;
 
-              const selected = pickRowFromFresh(freshRows, rowMatch[1]);
-              if (selected) {
-                store.setActiveRowId(selected.id);
-                store.setCurrentQuery(selected.title);
+          while (true) {
+            const sepIndex = sseBuffer.indexOf('\n\n');
+            if (sepIndex === -1) break;
+            const frame = sseBuffer.slice(0, sepIndex);
+            sseBuffer = sseBuffer.slice(sepIndex + 2);
+
+            const lines = frame.split('\n');
+            let eventName = 'message';
+            const dataLines: string[] = [];
+            for (const line of lines) {
+              if (line.startsWith('event:')) {
+                eventName = line.slice('event:'.length).trim();
+              } else if (line.startsWith('data:')) {
+                dataLines.push(line.slice('data:'.length).trim());
               }
             }
-          }
-          
-          const updateMatch = assistantContent.match(/🔄 Updating row #(\d+) to "([^"]+)".*Done!/s);
-          if (updateMatch && !rowUpdateHandled) {
-            rowUpdateHandled = true;
-            const updatedRowId = parseInt(updateMatch[1], 10);
-            
-            const freshRows = await fetchRowsFromDb();
-            if (freshRows) {
-              store.setRows(freshRows);
-              store.setActiveRowId(updatedRowId);
+            const dataRaw = dataLines.join('\n');
+            let data: any = null;
+            try {
+              data = dataRaw ? JSON.parse(dataRaw) : null;
+            } catch {
+              data = dataRaw;
             }
-          }
-          
-          const searchMatch = assistantContent.match(/🔍 Searching for "([^"]+)"/);
-          if (searchMatch && searchMatch[1] !== lastProcessedQuery) {
-            lastProcessedQuery = searchMatch[1];
-            searchTriggered = true;
 
-            // Ensure we have a stable active row for this search
-            let rowId = store.activeRowId;
-            if (!rowId) {
-              const freshRows = await fetchRowsFromDb();
-              if (freshRows) {
-                store.setRows(freshRows);
-                const selected = pickRowFromFresh(freshRows, lastProcessedQuery);
-                if (selected) {
-                  rowId = selected.id;
-                  store.setActiveRowId(rowId);
-                }
+            if (eventName === 'assistant_message') {
+              assistantContent = typeof data?.text === 'string' ? data.text : '';
+            } else if (eventName === 'action_started') {
+              if (data?.type === 'search') {
+                store.setIsSearching(true);
               }
+            } else if (eventName === 'row_created') {
+              const row = data?.row;
+              if (row?.id) {
+                const mergedRows = [...store.rows.filter((r) => r.id !== row.id), row].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+                store.setRows(mergedRows);
+                store.setActiveRowId(row.id);
+                store.setCurrentQuery(row.title);
+              }
+            } else if (eventName === 'row_updated') {
+              const row = data?.row;
+              if (row?.id) {
+                const mergedRows = [...store.rows.filter((r) => r.id !== row.id), row].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+                store.setRows(mergedRows);
+                store.setActiveRowId(row.id);
+                store.setCurrentQuery(row.title);
+              }
+            } else if (eventName === 'search_results') {
+              const rowId = data?.row_id;
+              const results = Array.isArray(data?.results) ? data.results : [];
+              if (rowId) {
+                store.setRowResults(rowId, results);
+              }
+              store.setIsSearching(false);
+            } else if (eventName === 'done') {
+              store.setIsSearching(false);
+            } else if (eventName === 'error') {
+              const msg = typeof data?.message === 'string' ? data.message : 'Something went wrong.';
+              assistantContent = msg;
+              store.setIsSearching(false);
             }
 
-            if (rowId) {
-              store.setIsSearching(true);
-              const results = await runSearchApi(lastProcessedQuery, rowId);
-              store.setRowResults(rowId, results);
-            }
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === assistantMessage.id
+                  ? { ...m, content: assistantContent }
+                  : m
+              )
+            );
           }
-          
-          setMessages(prev => 
-            prev.map(m => 
-              m.id === assistantMessage.id 
-                ? { ...m, content: assistantContent }
-                : m
-            )
-          );
+
         }
+      } else {
+        assistantContent = await response.text().catch(() => '');
+      }
+
+      if (!assistantContent.trim()) {
+        assistantContent = 'Sorry, the assistant returned an empty response. Please try again.';
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === assistantMessage.id
+              ? { ...m, content: assistantContent }
+              : m
+          )
+        );
       }
     } catch (error) {
       console.error('Chat error:', error);
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Sorry, something went wrong. Please try again.',
-      }]);
-    } finally {
-      if (!searchTriggered) {
-        const rowId = store.activeRowId;
-        if (rowId && queryText) {
-          store.setIsSearching(true);
-          const results = await runSearchApi(queryText, rowId);
-          store.setRowResults(rowId, results);
-        }
+      const fallbackText = 'Sorry, something went wrong. Please try again.';
+      if (assistantMessageId) {
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === assistantMessageId
+              ? { ...m, content: fallbackText }
+              : m
+          )
+        );
+      } else {
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: fallbackText,
+        }]);
       }
+    } finally {
       setIsLoading(false);
     }
   };
@@ -396,22 +351,6 @@ export default function Chat() {
       </div>
 
       <div className="px-6 py-5 bg-white border-t border-warm-grey">
-        <div className="mb-3">
-          <div className="flex items-center justify-between">
-            <div className="text-[10px] uppercase tracking-[0.16em] text-onyx-muted/80 font-medium">Topic switching</div>
-            <div className="text-[11px] text-onyx-muted">{store.newRowAggressiveness}</div>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={1}
-            value={store.newRowAggressiveness}
-            onChange={(e) => store.setNewRowAggressiveness(Number(e.target.value))}
-            className="w-full"
-            aria-label="Topic switching aggressiveness"
-          />
-        </div>
         <form onSubmit={handleSubmit} className="flex gap-3 items-end">
           <Input
             ref={inputRef}

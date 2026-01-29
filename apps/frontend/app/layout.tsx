@@ -17,6 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
   if (disableClerk) {
     return (
@@ -34,8 +35,16 @@ export default function RootLayout({
     );
   }
 
+  if (!publishableKey) {
+    throw new Error('Missing NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY');
+  }
+
+  console.log(
+    `[clerk] publishableKey prefix=${publishableKey.slice(0, 12)} len=${publishableKey.length}`
+  );
+
   return (
-    <ClerkProvider>
+    <ClerkProvider publishableKey={publishableKey}>
       <html lang="en">
         <body className="font-sans bg-canvas text-onyx">
           <DiagnosticsInit />

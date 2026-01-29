@@ -6,6 +6,130 @@ export const GEMINI_MODEL_NAME = 'gemini-3-flash-preview';
 const model = google(GEMINI_MODEL_NAME);
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
+const chatPlanSchema = z.object({
+  assistant_message: z.string().default(''),
+  actions: z
+    .array(
+      z.discriminatedUnion('type', [
+        z.object({
+          type: z.literal('create_row'),
+          title: z.string(),
+          project_id: z.number().nullable().optional(),
+          constraints: z.record(z.string(), z.any()).optional(),
+          providers: z.array(z.string()).optional(),
+          search_query: z.string().optional(),
+        }),
+        z.object({
+          type: z.literal('update_row'),
+          row_id: z.number(),
+          title: z.string().optional(),
+          constraints: z.record(z.string(), z.any()).optional(),
+          providers: z.array(z.string()).optional(),
+          search_query: z.string().optional(),
+        }),
+        z.object({
+          type: z.literal('search'),
+          row_id: z.number(),
+          query: z.string(),
+          providers: z.array(z.string()).optional(),
+        }),
+      ])
+    )
+    .default([]),
+});
+
+export type ChatPlan = z.infer<typeof chatPlanSchema>;
+
+export async function generateChatPlan(input: {
+  messages: any[];
+  activeRowId?: number | null;
+  projectId?: number | null;
+  activeRowTitle?: string | null;
+  projectTitle?: string | null;
+}): Promise<ChatPlan> {
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    throw new Error('LLM not configured');
+  }
+
+  const lastUserMessage = Array.isArray(input.messages)
+    ? [...input.messages].reverse().find((m: any) => m?.role === 'user')
+    : null;
+
+  const userText =
+    typeof lastUserMessage?.content === 'string'
+      ? lastUserMessage.content
+      : typeof lastUserMessage?.content?.text === 'string'
+        ? lastUserMessage.content.text
+        : '';
+
+  const activeRowId = input.activeRowId ?? null;
+  const activeRowTitle = (input.activeRowTitle || '').trim();
+  const projectTitle = (input.projectTitle || '').trim();
+
+  const prompt = `You are the planner for a shopping/procurement app.
+
+You MUST output a SINGLE JSON object and nothing else.
+
+Inputs:
+- User message: ${JSON.stringify(userText || '')}
+- Active row id: ${activeRowId === null ? 'null' : String(activeRowId)}
+- Active row title (if any): ${JSON.stringify(activeRowTitle)}
+- Project title (if any): ${JSON.stringify(projectTitle)}
+
+Your job:
+- Produce an assistant message for the user.
+- Produce a list of backend actions to execute.
+
+Hard requirements:
+- NO tool-calling. Only output JSON.
+- NO explanations, markdown, or extra text.
+- Always choose exactly one of:
+  - create_row (for new item requests)
+  - update_row (for refinements when active_row_id is present)
+  - search (only if you are NOT changing the row, but want to refresh results)
+
+Rules:
+- If active_row_id is present and the user is refining constraints (price/color/size/etc), use update_row with row_id=active_row_id.
+- For any update_row or create_row, include constraints as a key-value JSON object when the user expressed constraints.
+- If you create_row or update_row, you SHOULD also include either:
+  - search_query (preferred) on that same action, OR
+  - a follow-up search action.
+
+Schema:
+{
+  "assistant_message": string,
+  "actions": [
+    {
+      "type": "create_row",
+      "title": string,
+      "project_id"?: number|null,
+      "constraints"?: object,
+      "providers"?: string[],
+      "search_query"?: string
+    }
+    | {
+      "type": "update_row",
+      "row_id": number,
+      "title"?: string,
+      "constraints"?: object,
+      "providers"?: string[],
+      "search_query"?: string
+    }
+    | {
+      "type": "search",
+      "row_id": number,
+      "query": string,
+      "providers"?: string[]
+    }
+  ]
+}`;
+
+  const { text } = await generateText({ model, prompt });
+  const cleaned = String(text || '').replace(/```json\n?|\n?```/g, '').trim();
+  const parsed = JSON.parse(cleaned);
+  return chatPlanSchema.parse(parsed);
+}
+
 export async function triageProviderQuery(params: {
   displayQuery: string;
   rowTitle?: string | null;

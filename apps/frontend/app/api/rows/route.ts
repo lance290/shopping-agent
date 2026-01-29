@@ -41,19 +41,22 @@ function isClerkConfigured(): boolean {
 }
 
 async function getAuthHeader(request: NextRequest): Promise<{ Authorization?: string }> {
-  if (disableClerk || !isClerkConfigured()) {
-    const token = getCookieSessionToken(request) || getDevSessionToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
+  // When Clerk is enabled, use Clerk token first
+  if (!disableClerk && isClerkConfigured()) {
+    try {
+      const { getToken } = await auth();
+      const token = await getToken();
+      if (token) {
+        return { Authorization: `Bearer ${token}` };
+      }
+    } catch {
+      // Fall through to dev token
+    }
   }
 
-  try {
-    const { getToken } = await auth();
-    const token = await getToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  } catch {
-    const token = getDevSessionToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }
+  // Fallback: dev session token
+  const devToken = getCookieSessionToken(request) || getDevSessionToken();
+  return devToken ? { Authorization: `Bearer ${devToken}` } : {};
 }
 
 async function mintDevSessionToken(): Promise<string | undefined> {
@@ -78,22 +81,21 @@ async function mintDevSessionToken(): Promise<string | undefined> {
 
 async function ensureAuthHeader(
   request: NextRequest
-): Promise<{ Authorization?: string; mintedToken?: string }> {
+): Promise<{ Authorization?: string }> {
   const authHeader = await getAuthHeader(request);
   if (authHeader.Authorization) {
-    return { Authorization: authHeader.Authorization };
+    return authHeader;
   }
 
-  if (!disableClerk || isClerkConfigured()) {
-    return {};
+  // Only mint dev session if Clerk is disabled
+  if (disableClerk) {
+    const mintedToken = await mintDevSessionToken();
+    if (mintedToken) {
+      return { Authorization: `Bearer ${mintedToken}` };
+    }
   }
 
-  const mintedToken = await mintDevSessionToken();
-  if (!mintedToken) {
-    return {};
-  }
-
-  return { Authorization: `Bearer ${mintedToken}`, mintedToken };
+  return {};
 }
 
 export async function GET(request: NextRequest) {
@@ -136,16 +138,7 @@ export async function GET(request: NextRequest) {
     }
     
     const data = await response.json();
-    const out = NextResponse.json(data, { status: response.status });
-    if (authHeader.mintedToken) {
-      out.cookies.set('sa_session', authHeader.mintedToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-      });
-    }
-    return out;
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error fetching rows:', error);
     return NextResponse.json([], { status: 500 });
@@ -199,16 +192,7 @@ export async function POST(request: NextRequest) {
     }
     
     const data = await response.json();
-    const out = NextResponse.json(data, { status: response.status });
-    if (authHeader.mintedToken) {
-      out.cookies.set('sa_session', authHeader.mintedToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-      });
-    }
-    return out;
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error creating row:', error);
     return NextResponse.json({ error: 'Failed to create row' }, { status: 500 });
@@ -260,16 +244,7 @@ export async function DELETE(request: NextRequest) {
     }
     
     const data = await response.json();
-    const out = NextResponse.json(data, { status: response.status });
-    if (authHeader.mintedToken) {
-      out.cookies.set('sa_session', authHeader.mintedToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-      });
-    }
-    return out;
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error deleting row:', error);
     return NextResponse.json({ error: 'Failed to delete row' }, { status: 500 });
@@ -339,16 +314,7 @@ export async function PATCH(request: NextRequest) {
 
     const data = await response.json();
     console.log(`[API] BFF success:`, data);
-    const out = NextResponse.json(data, { status: response.status });
-    if (authHeader.mintedToken) {
-      out.cookies.set('sa_session', authHeader.mintedToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-      });
-    }
-    return out;
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error updating row:', error);
     return NextResponse.json({ error: 'Failed to update row' }, { status: 500 });

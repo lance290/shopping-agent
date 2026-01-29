@@ -53,3 +53,20 @@
       - `test_regenerate_choice_factors_repopulates_on_patch`
     - Frontend: `apps/frontend/app/tests/board-display.test.ts`
       - `Options Refresh triggers regenerate_choice_factors PATCH when factors missing`
+
+## Chat state + response parsing (LLM-only)
+- Previous approach (do not return to): streaming plain text from chat and then having the frontend infer state transitions by parsing assistant text (regex/heuristics).
+  - This is brittle under partial streams, retries, empty output, and LLM tool-call failures.
+- Current approach: **LLM-only JSON plan + SSE events**.
+  - BFF `/api/chat` asks Gemini for a strict JSON plan (no tool-calling) and executes it against the backend.
+  - BFF streams `text/event-stream` events:
+    - `assistant_message` (initial assistant text)
+    - `action_started` (e.g. `{type:"search"}` for UI spinner)
+    - `row_created` / `row_updated` (authoritative row payload)
+    - `search_results` (authoritative results payload)
+    - `done`
+    - `error` (authoritative error payload)
+  - Frontend consumes SSE frames and updates state **only** from events (no regex, no heuristics, no local fallback search).
+- Auth gotcha:
+  - Calling BFF `/api/chat` directly without `Authorization` yields `error: Not authenticated` because the plan execution hits backend `/rows` and `/search`.
+  - The Next.js `/api/chat` proxy injects the proper auth header (Clerk JWT or `sa_session`), so browser traffic should go through that proxy.
