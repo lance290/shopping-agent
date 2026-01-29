@@ -27,7 +27,7 @@ This testing plan covers **every interaction a human user would perform** on the
 | **Bid/Offer display** | ✅ | GET /rows (with bids) | OfferTile.tsx | Suite 1, 2, 3 |
 | **Offer selection** | ✅ | POST /rows/:id/options/:id/select | OfferTile.tsx | Suite 1, 2 |
 | **Choice factors (RFP)** | ✅ | PATCH /rows/:id | ChoiceFactorPanel.tsx | Suite 1, 2 |
-| **Clickout/affiliate** | ✅ | GET /api/out | OfferTile.tsx | Suite 1, 2 |
+| **Clickout/affiliate** | ✅ | GET /api/clickout | OfferTile.tsx | Suite 1, 2 |
 | **Bug reporting** | ✅ | POST /api/bugs | ReportBugModal.tsx | Suite 2 |
 | **Authentication** | ✅ | POST /auth/* | Clerk/Session | Suite 1, 3 |
 | **User data isolation** | ✅ | All endpoints | All | Suite 3 |

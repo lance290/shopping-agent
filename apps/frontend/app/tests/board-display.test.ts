@@ -72,10 +72,10 @@ describe('ProcurementBoard Display Logic', () => {
 
     // Get all links that are NOT the disclosure link
     const links = screen.getAllByRole('link').filter(l => l.getAttribute('href') !== '/disclosure');
-    
-    // Check href format: /api/out?url=...
+
+    // Check href format: /api/clickout?url=...
     const href = links[0].getAttribute('href');
-    expect(href).toContain('/api/out');
+    expect(href).toContain('/api/clickout');
     expect(href).toContain(encodeURIComponent('http://a.com'));
   });
 });
