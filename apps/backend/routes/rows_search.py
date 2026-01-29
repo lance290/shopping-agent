@@ -155,6 +155,10 @@ async def search_row_listings(
                 min_price_filter = float(answers_obj["min_price"])
             if answers_obj.get("max_price"):
                 max_price_filter = float(answers_obj["max_price"])
+            # Swap if inverted (min > max)
+            if min_price_filter is not None and max_price_filter is not None and min_price_filter > max_price_filter:
+                logger.warning(f"[SEARCH] Inverted price range detected (min={min_price_filter} > max={max_price_filter}), swapping")
+                min_price_filter, max_price_filter = max_price_filter, min_price_filter
         except Exception as e:
             logger.error(f"[SEARCH] Failed to parse choice_answers: {e}")
     else:

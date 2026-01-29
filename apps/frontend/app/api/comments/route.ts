@@ -9,8 +9,8 @@ function normalizeBaseUrl(url: string): string {
   return `http://${trimmed}`;
 }
 
-const BACKEND_URL = normalizeBaseUrl(
-  process.env.BACKEND_URL || 'http://127.0.0.1:8000'
+const BFF_URL = normalizeBaseUrl(
+  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
 );
 
 const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
@@ -25,7 +25,7 @@ async function mintDevSessionToken(): Promise<string | undefined> {
       process.env.NEXT_PUBLIC_DEV_SESSION_EMAIL ||
       process.env.DEV_SESSION_EMAIL ||
       'test@example.com';
-    const res = await fetch(`${BACKEND_URL}/test/mint-session`, {
+    const res = await fetch(`${BFF_URL}/api/test/mint-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: devEmail }),
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing row_id' }, { status: 400 });
     }
 
-    const response = await fetch(`${BACKEND_URL}/comments?row_id=${rowId}`, {
+    const response = await fetch(`${BFF_URL}/api/comments?row_id=${rowId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     }
     const body = await request.json();
     
-    const response = await fetch(`${BACKEND_URL}/comments`, {
+    const response = await fetch(`${BFF_URL}/api/comments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
