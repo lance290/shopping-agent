@@ -49,6 +49,42 @@ async function fetchJsonWithTimeout(
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isRetryableFetchError(err: unknown): boolean {
+  if (!err) return false;
+  const name = (err as any)?.name;
+  if (name === 'AbortError') return true;
+  const message = (err as any)?.message;
+  if (typeof message === 'string' && message.toLowerCase().includes('fetch failed')) return true;
+  if (typeof message === 'string' && message.toLowerCase().includes('connect timeout')) return true;
+  return false;
+}
+
+async function fetchJsonWithTimeoutRetry(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  retries: number,
+  retryDelayMs: number
+): Promise<{ ok: boolean; status: number; data: any; text: string }> {
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fetchJsonWithTimeout(url, init, timeoutMs);
+    } catch (err) {
+      lastErr = err;
+      if (attempt >= retries || !isRetryableFetchError(err)) {
+        throw err;
+      }
+      await sleep(retryDelayMs);
+    }
+  }
+  throw lastErr;
+}
+
 function buildBasicChoiceFactors(itemName: string): Array<{
   name: string;
   label: string;
@@ -412,6 +448,306 @@ export function buildApp() {
     return { message: 'Hello from Fastify!' };
   });
 
+  async function runDeterministicChatFallback(
+    input: {
+      messages: any[];
+      activeRowId?: number;
+      projectId?: number;
+      authorization?: unknown;
+    },
+    reply: any,
+    headersAlreadySent: boolean
+  ) {
+    if (!headersAlreadySent) {
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+        'Cache-Control': 'no-cache',
+      });
+    }
+
+    const { messages, activeRowId, projectId, authorization } = input;
+
+    const lastUserMessage = Array.isArray(messages)
+      ? [...messages].reverse().find((m: any) => m?.role === 'user')
+      : null;
+
+    const userText =
+      typeof lastUserMessage?.content === 'string'
+        ? lastUserMessage.content
+        : typeof lastUserMessage?.content?.text === 'string'
+          ? lastUserMessage.content.text
+          : '';
+
+    const rawQuery = userText.trim();
+    if (!rawQuery) {
+      reply.raw.write('No query provided.');
+      reply.raw.end();
+      return;
+    }
+
+    const { normalized: normalizedQuery, isRefinement } = normalizeRefinementText(rawQuery);
+    const query = normalizedQuery;
+
+    const parsePriceConstraint = (text: string): { min?: number; max?: number; remaining: string } => {
+      const raw = (text || '').trim();
+      const numberMatches = raw.match(/\$?\s*(\d+(?:\.\d+)?)/g) || [];
+      const nums = numberMatches
+        .map((m) => Number(String(m).replace(/[^0-9.]/g, '')))
+        .filter((n) => Number.isFinite(n));
+
+      let min: number | undefined;
+      let max: number | undefined;
+
+      const lower = raw.toLowerCase();
+      if (nums.length >= 2 && /\b(to|-)\b/.test(lower)) {
+        min = Math.min(nums[0], nums[1]);
+        max = Math.max(nums[0], nums[1]);
+      } else if (nums.length >= 1) {
+        const n = nums[0];
+        if (/(\bover\b|\babove\b|\bmore\b|\bminimum\b|\bat\s*least\b)/i.test(lower)) {
+          min = n;
+        } else if (/(\bunder\b|\bbelow\b|\bless\b|\bmaximum\b|\bat\s*most\b)/i.test(lower)) {
+          max = n;
+        } else {
+          max = n;
+        }
+      }
+
+      const remaining = raw
+        .replace(/\$\s*\d+(?:\.\d+)?/g, '')
+        .replace(/\b(over|under|below|above|more|less|at\s+least|at\s+most)\b/gi, '')
+        .replace(/\b(to)\b/gi, '')
+        .replace(/[-–—]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      return { min, max, remaining };
+    };
+
+    const priceParsed = parsePriceConstraint(query);
+    const hasPriceConstraint = priceParsed.min != null || priceParsed.max != null;
+    const queryToUse = priceParsed.remaining || '';
+    const isPriceOnly = hasPriceConstraint && !queryToUse;
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+    const normalizedAuth = Array.isArray(authorization)
+      ? authorization[0]
+      : authorization;
+
+    let authHeaderValue = typeof normalizedAuth === 'string' ? normalizedAuth : '';
+
+    if (!authHeaderValue) {
+      const devEmail =
+        process.env.DEV_SESSION_EMAIL ||
+        process.env.NEXT_PUBLIC_DEV_SESSION_EMAIL ||
+        'test@example.com';
+
+      const minted = await fetchJsonWithTimeout(
+        `${BACKEND_URL}/test/mint-session`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: devEmail }),
+        },
+        8000
+      );
+
+      const token = minted.data?.session_token;
+      if (minted.ok && typeof token === 'string' && token.length > 0) {
+        authHeaderValue = `Bearer ${token}`;
+      }
+    }
+
+    if (authHeaderValue) {
+      headers['Authorization'] = authHeaderValue;
+    }
+
+    let rowId: number | undefined = activeRowId;
+    let existingRowTitle: string | undefined;
+
+    if (rowId && hasPriceConstraint) {
+      const existingRowRes = await fetchJsonWithTimeout(
+        `${BACKEND_URL}/rows/${rowId}`,
+        { headers },
+        8000
+      );
+
+      if (existingRowRes.status === 404) {
+        rowId = undefined;
+      } else if (existingRowRes.ok) {
+        if (typeof existingRowRes.data?.title === 'string') {
+          existingRowTitle = existingRowRes.data.title;
+        }
+        let existingAnswers: Record<string, any> = {};
+        const rawAnswers = existingRowRes.data?.choice_answers;
+        if (rawAnswers) {
+          try {
+            existingAnswers = JSON.parse(rawAnswers);
+          } catch {
+            existingAnswers = {};
+          }
+        }
+        if (priceParsed.min != null) {
+          existingAnswers.min_price = priceParsed.min;
+        }
+        if (priceParsed.max != null) {
+          existingAnswers.max_price = priceParsed.max;
+        }
+
+        reply.raw.write(`\n🔧 Updating price filter...`);
+        const patchRes = await fetchJsonWithTimeout(
+          `${BACKEND_URL}/rows/${rowId}`,
+          {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({
+              choice_answers: JSON.stringify(existingAnswers),
+              ...(isRefinement && queryToUse
+                ? {
+                    title: queryToUse,
+                    request_spec: {
+                      item_name: queryToUse,
+                    },
+                  }
+                : {}),
+            }),
+          },
+          15000
+        );
+        if (!patchRes.ok && patchRes.status === 404) {
+          rowId = undefined;
+        } else {
+          reply.raw.write(' Done!');
+        }
+      }
+    }
+
+    if (rowId && isRefinement && query) {
+      if (!isPriceOnly) {
+        const nextTitle = hasPriceConstraint && queryToUse ? queryToUse : query;
+        reply.raw.write(`\n🔄 Updating row #${rowId} to "${nextTitle}"...`);
+        const updateRes = await fetchJsonWithTimeout(
+          `${BACKEND_URL}/rows/${rowId}`,
+          {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({
+              title: nextTitle,
+              request_spec: {
+                item_name: nextTitle,
+              },
+            }),
+          },
+          15000
+        );
+        if (updateRes.status === 404) {
+          rowId = undefined;
+        } else {
+          reply.raw.write(' Done!');
+        }
+      }
+    }
+
+    if (!rowId) {
+      if (isPriceOnly) {
+        reply.raw.write(`\n⚠️ Price filter requires an active request. Try selecting a request first.`);
+        reply.raw.end();
+        return;
+      }
+
+      const createTitle = hasPriceConstraint && queryToUse ? queryToUse : query;
+      reply.raw.write(`\n✅ Adding "${createTitle}" to your procurement board...`);
+
+      const createResult = await fetchJsonWithTimeout(
+        `${BACKEND_URL}/rows`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            title: createTitle,
+            status: 'sourcing',
+            project_id: projectId,
+            request_spec: {
+              item_name: createTitle,
+              constraints: JSON.stringify({}),
+            },
+            choice_answers: JSON.stringify({
+              ...(priceParsed.min != null ? { min_price: priceParsed.min } : {}),
+              ...(priceParsed.max != null ? { max_price: priceParsed.max } : {}),
+            }),
+          }),
+        },
+        15000
+      );
+
+      if (!createResult.ok) {
+        const msg =
+          createResult.data?.detail ||
+          createResult.data?.message ||
+          createResult.text ||
+          'Backend request failed';
+        reply.raw.write(`\n⚠️ Error (${createResult.status}): ${msg}`);
+        reply.raw.end();
+        return;
+      }
+
+      rowId = createResult.data?.id;
+      if (!rowId) {
+        reply.raw.write(`\n⚠️ Error: Backend returned unexpected response for createRow`);
+        reply.raw.end();
+        return;
+      }
+
+      saveChoiceFactorsToBackend(rowId, buildBasicChoiceFactors(createTitle), authHeaderValue).catch((err) => {
+        fastify.log.error({ err, rowId }, 'Failed to save fallback choice_factors');
+      });
+
+      reply.raw.write(' Done!');
+    }
+
+    const searchLabel = hasPriceConstraint && queryToUse ? queryToUse : (isPriceOnly ? 'your request' : query);
+    reply.raw.write(`\n🔍 Searching for "${searchLabel}"...`);
+
+    const searchBody = isPriceOnly && existingRowTitle
+      ? { query: existingRowTitle }
+      : (hasPriceConstraint && !queryToUse
+          ? {}
+          : { query: hasPriceConstraint && queryToUse ? queryToUse : query });
+
+    const searchResult = await fetchJsonWithTimeout(
+      `${BACKEND_URL}/rows/${rowId}/search`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(searchBody),
+      },
+      30000
+    );
+
+    if (searchResult.status == 404) {
+      reply.raw.write(`\n⚠️ Error (404): Row not found`);
+      reply.raw.end();
+      return;
+    }
+
+    if (!searchResult.ok) {
+      const msg =
+        searchResult.data?.detail ||
+        searchResult.data?.message ||
+        searchResult.text ||
+        'Backend request failed';
+      reply.raw.write(`\n⚠️ Error (${searchResult.status}): ${msg}`);
+      reply.raw.end();
+      return;
+    }
+
+    const count = Array.isArray(searchResult.data?.results) ? searchResult.data.results.length : 0;
+    reply.raw.write(` Found ${count} results!`);
+    reply.raw.end();
+  }
+
   fastify.post('/api/chat', async (request, reply) => {
   let headersSent = false;
   try {
@@ -419,136 +755,12 @@ export function buildApp() {
     const authorization = request.headers.authorization;
 
     if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-      reply.raw.writeHead(200, {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Transfer-Encoding': 'chunked',
-        'Cache-Control': 'no-cache',
-      });
       headersSent = true;
-
-      const lastUserMessage = Array.isArray(messages)
-        ? [...messages].reverse().find((m: any) => m?.role === 'user')
-        : null;
-
-      const userText =
-        typeof lastUserMessage?.content === 'string'
-          ? lastUserMessage.content
-          : typeof lastUserMessage?.content?.text === 'string'
-            ? lastUserMessage.content.text
-            : '';
-
-      const rawQuery = userText.trim();
-      if (!rawQuery) {
-        reply.raw.write('No query provided.');
-        reply.raw.end();
-        return;
-      }
-
-      const { normalized: normalizedQuery, isRefinement } = normalizeRefinementText(rawQuery);
-      const query = normalizedQuery;
-
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (authorization) {
-        headers['Authorization'] = authorization as string;
-      }
-
-      let rowId: number | undefined = activeRowId;
-
-      // If we have an active row and the user is refining, update the existing row title/spec
-      // so backend search uses the updated row.title/spec.item_name.
-      if (rowId && isRefinement && query) {
-        reply.raw.write(`\n🔄 Updating row #${rowId} to "${query}"...`);
-        await fetchJsonWithTimeout(
-          `${BACKEND_URL}/rows/${rowId}`,
-          {
-            method: 'PATCH',
-            headers,
-            body: JSON.stringify({
-              title: query,
-              request_spec: {
-                item_name: query,
-              },
-            }),
-          },
-          15000
-        );
-        reply.raw.write(' Done!');
-      }
-      if (!rowId) {
-        reply.raw.write(`\n✅ Adding "${query}" to your procurement board...`);
-
-        const createResult = await fetchJsonWithTimeout(
-          `${BACKEND_URL}/rows`,
-          {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              title: query,
-              status: 'sourcing',
-              project_id: projectId,
-              request_spec: {
-                item_name: query,
-                constraints: JSON.stringify({}),
-              },
-              choice_answers: JSON.stringify({}),
-            }),
-          },
-          15000
-        );
-
-        if (!createResult.ok) {
-          const msg =
-            createResult.data?.detail ||
-            createResult.data?.message ||
-            createResult.text ||
-            'Backend request failed';
-          reply.raw.write(`\n⚠️ Error (${createResult.status}): ${msg}`);
-          reply.raw.end();
-          return;
-        }
-
-        rowId = createResult.data?.id;
-        if (!rowId) {
-          reply.raw.write(`\n⚠️ Error: Backend returned unexpected response for createRow`);
-          reply.raw.end();
-          return;
-        }
-
-        // Persist deterministic fallback choice factors so the UI can render Options.
-        // Fire-and-forget to avoid delaying search.
-        saveChoiceFactorsToBackend(rowId, buildBasicChoiceFactors(query), authorization as string | undefined).catch((err) => {
-          fastify.log.error({ err, rowId }, 'Failed to save fallback choice_factors');
-        });
-
-        reply.raw.write(' Done!');
-      }
-
-      reply.raw.write(`\n🔍 Searching for "${query}"...`);
-
-      const searchResult = await fetchJsonWithTimeout(
-        `${BACKEND_URL}/rows/${rowId}/search`,
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ query }),
-        },
-        30000
+      await runDeterministicChatFallback(
+        { messages, activeRowId, projectId, authorization },
+        reply,
+        false
       );
-
-      if (!searchResult.ok) {
-        const msg =
-          searchResult.data?.detail ||
-          searchResult.data?.message ||
-          searchResult.text ||
-          'Backend request failed';
-        reply.raw.write(`\n⚠️ Error (${searchResult.status}): ${msg}`);
-        reply.raw.end();
-        return;
-      }
-
-      const count = Array.isArray(searchResult.data?.results) ? searchResult.data.results.length : 0;
-      reply.raw.write(` Found ${count} results!`);
-      reply.raw.end();
       return;
     }
 
@@ -561,6 +773,10 @@ export function buildApp() {
       'Cache-Control': 'no-cache',
     });
     headersSent = true;
+
+    let wroteAny = false;
+    let finishWasError = false;
+    let finishRawReason: string | undefined;
     
     // Use fullStream to capture both text and tool events
     for await (const part of result.fullStream) {
@@ -568,6 +784,7 @@ export function buildApp() {
       
       if (part.type === 'text-delta') {
         if (part.textDelta) {
+          wroteAny = true;
           reply.raw.write(part.textDelta);
         }
       } else if (part.type === 'tool-call') {
@@ -577,13 +794,16 @@ export function buildApp() {
         const input = toolPart.input;
         if (toolPart.toolName === 'createRow') {
           const itemName = input?.item || 'item';
+          wroteAny = true;
           reply.raw.write(`\n✅ Adding "${itemName}" to your procurement board...`);
         } else if (toolPart.toolName === 'updateRow') {
           const newTitle = input?.title || 'item';
           const rowId = input?.rowId;
+          wroteAny = true;
           reply.raw.write(`\n🔄 Updating row #${rowId} to "${newTitle}"...`);
         } else if (toolPart.toolName === 'searchListings') {
           const query = input?.query || 'items';
+          wroteAny = true;
           reply.raw.write(`\n🔍 Searching for "${query}"...`);
         }
       } else if (part.type === 'tool-result') {
@@ -596,25 +816,30 @@ export function buildApp() {
         if (output?.status === 'error') {
           const msg = output?.message || output?.error || 'Tool failed';
           const code = output?.code ? ` (${output.code})` : '';
+          wroteAny = true;
           reply.raw.write(`\n⚠️ Error${code}: ${msg}`);
           continue;
         }
         
         if (toolResult.toolName === 'createRow') {
           if (output?.status === 'row_created') {
+            wroteAny = true;
             reply.raw.write(` Done!`);
           }
         } else if (toolResult.toolName === 'updateRow') {
           if (output?.status === 'row_updated') {
+            wroteAny = true;
             reply.raw.write(` Done!`);
           }
         } else if (toolResult.toolName === 'searchListings') {
           const count = output?.count || 0;
           fastify.log.info({ count, hasPreview: !!output?.preview }, 'Search results');
+          wroteAny = true;
           reply.raw.write(` Found ${count} results!`);
           
           // Show preview of top results
           if (output?.preview && output.preview.length > 0) {
+            wroteAny = true;
             reply.raw.write('\n\nTop matches:');
             for (const item of output.preview) {
               reply.raw.write(`\n• ${item.title} - $${item.price} from ${item.merchant}`);
@@ -625,10 +850,38 @@ export function buildApp() {
         // Handle tool errors
         const toolError = part as any;
         fastify.log.error({ toolError }, 'Tool error');
+        wroteAny = true;
         reply.raw.write(`\n⚠️ Error: ${toolError.error || 'Tool failed'}`);
+      } else if (part.type === 'finish') {
+        const finishPart = part as any;
+        if (finishPart?.finishReason === 'error') {
+          finishWasError = true;
+          finishRawReason = finishPart?.rawFinishReason;
+        }
       }
     }
-    
+
+    if (!wroteAny) {
+      fastify.log.warn(
+        { wroteAny, finishWasError, finishRawReason },
+        'LLM stream produced no output. Falling back to deterministic flow.'
+      );
+      await runDeterministicChatFallback(
+        { messages, activeRowId, projectId, authorization },
+        reply,
+        true
+      );
+      return;
+    }
+
+    if (finishWasError) {
+      fastify.log.warn(
+        { finishRawReason },
+        'LLM stream finished with error after writing output.'
+      );
+      reply.raw.write(`\n\n⚠️ Assistant error: ${finishRawReason || 'Unknown error'}`);
+    }
+
     reply.raw.end();
   } catch (err: any) {
     fastify.log.error('Chat error', err);
@@ -649,10 +902,12 @@ export function buildApp() {
       headers['Authorization'] = request.headers.authorization;
     }
 
-    const result = await fetchJsonWithTimeout(
+    const result = await fetchJsonWithTimeoutRetry(
       `${BACKEND_URL}/rows`,
       { headers },
-      8000
+      20000,
+      1,
+      500
     );
 
     if (result.status === 401) {
@@ -872,10 +1127,12 @@ export function buildApp() {
       headers['Authorization'] = request.headers.authorization;
     }
 
-    const result = await fetchJsonWithTimeout(
+    const result = await fetchJsonWithTimeoutRetry(
       `${BACKEND_URL}/projects`,
       { headers },
-      8000
+      20000,
+      1,
+      500
     );
 
     if (result.status === 401) {

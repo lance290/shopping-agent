@@ -87,6 +87,42 @@ async function fetchJsonWithTimeout(
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isRetryableFetchError(err: unknown): boolean {
+  if (!err) return false;
+  const name = (err as any)?.name;
+  if (name === 'AbortError') return true;
+  const message = (err as any)?.message;
+  if (typeof message === 'string' && message.toLowerCase().includes('fetch failed')) return true;
+  if (typeof message === 'string' && message.toLowerCase().includes('connect timeout')) return true;
+  return false;
+}
+
+async function fetchJsonWithTimeoutRetry(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  retries: number,
+  retryDelayMs: number
+): Promise<{ ok: boolean; status: number; data: any; text: string }> {
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fetchJsonWithTimeout(url, init, timeoutMs);
+    } catch (err) {
+      lastErr = err;
+      if (attempt >= retries || !isRetryableFetchError(err)) {
+        throw err;
+      }
+      await sleep(retryDelayMs);
+    }
+  }
+  throw lastErr;
+}
+
 const constraintValueSchema = z.union([
   z.string(),
   z.number(),
@@ -165,14 +201,16 @@ Return ONLY the JSON array, no explanation.`;
       headers['Authorization'] = authorization;
     }
     
-    await fetchJsonWithTimeout(
+    await fetchJsonWithTimeoutRetry(
       `${BACKEND_URL}/rows/${rowId}`,
       {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ choice_factors: JSON.stringify(factors) }),
       },
-      15000
+      20000,
+      1,
+      500
     );
     
     return factors;
@@ -258,7 +296,7 @@ ${activeRowInstruction}`,
               headers['Authorization'] = authorization;
             }
             
-            const result = await fetchJsonWithTimeout(
+            const result = await fetchJsonWithTimeoutRetry(
               `${BACKEND_URL}/rows`,
               {
                 method: 'POST',
@@ -274,7 +312,9 @@ ${activeRowInstruction}`,
                   choice_answers: JSON.stringify(normalizedConstraints)
                 }),
               },
-              15000
+              20000,
+              1,
+              500
             );
 
             if (!result.ok) {
@@ -307,14 +347,16 @@ ${activeRowInstruction}`,
               searchHeaders['Authorization'] = authorization;
             }
             
-            const searchResult = await fetchJsonWithTimeout(
+            const searchResult = await fetchJsonWithTimeoutRetry(
               `${BACKEND_URL}/rows/${data.id}/search`,
               {
                 method: 'POST',
                 headers: searchHeaders,
                 body: JSON.stringify({ query: input.item }),
               },
-              30000
+              30000,
+              1,
+              500
             );
             
             const searchCount = searchResult.ok && searchResult.data?.results 
@@ -365,14 +407,16 @@ ${activeRowInstruction}`,
               updateBody.choice_answers = JSON.stringify(normalizedConstraints);
             }
 
-            const result = await fetchJsonWithTimeout(
+            const result = await fetchJsonWithTimeoutRetry(
               `${BACKEND_URL}/rows/${input.rowId}`,
               {
                 method: 'PATCH',
                 headers,
                 body: JSON.stringify(updateBody),
               },
-              15000
+              20000,
+              1,
+              500
             );
 
             if (!result.ok) {
@@ -403,25 +447,27 @@ ${activeRowInstruction}`,
               headers['Authorization'] = authorization;
             }
 
-            const result = await fetchJsonWithTimeout(
+            const searchResult = await fetchJsonWithTimeoutRetry(
               `${BACKEND_URL}/rows/${input.rowId}/search`,
               {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({ query: input.query }),
               },
-              30000
+              30000,
+              1,
+              500
             );
 
-            if (!result.ok) {
+            if (!searchResult.ok) {
               return {
                 status: 'error',
-                code: result.status,
-                message: result.data?.message || result.text || 'Backend request failed',
+                code: searchResult.status,
+                message: searchResult.data?.message || searchResult.text || 'Backend request failed',
               };
             }
 
-            return result.data;
+            return searchResult.data;
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
             return { status: 'error', message: msg };
