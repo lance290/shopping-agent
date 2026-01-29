@@ -42,16 +42,19 @@ function isClerkConfigured(): boolean {
 async function getAuthHeader(request: NextRequest): Promise<{ Authorization?: string }> {
   const devToken = getCookieSessionToken(request) || getDevSessionToken();
   if (devToken) {
+    console.log(`[API/projects] Using dev token`);
     return { Authorization: `Bearer ${devToken}` };
   }
 
   if (disableClerk || !isClerkConfigured()) {
+    console.log(`[API/projects] Clerk disabled or not configured`);
     return {};
   }
 
   try {
     const { getToken } = await auth();
     const token = await getToken();
+    console.log(`[API/projects] auth().getToken() returned: ${token ? 'token present' : 'null'}`);
     if (token) {
       return { Authorization: `Bearer ${token}` };
     }
@@ -59,8 +62,10 @@ async function getAuthHeader(request: NextRequest): Promise<{ Authorization?: st
     const sessionCookie =
       request.cookies.get('__session')?.value ||
       Array.from(request.cookies.getAll()).find((c) => c.name.startsWith('__session_'))?.value;
+    console.log(`[API/projects] Fallback to __session cookie: ${sessionCookie ? 'found' : 'not found'}`);
     return sessionCookie ? { Authorization: `Bearer ${sessionCookie}` } : {};
-  } catch {
+  } catch (err) {
+    console.error(`[API/projects] getAuthHeader error:`, err);
     return {};
   }
 }
@@ -160,12 +165,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const authHeader = await ensureAuthHeader(request);
+    console.log(`[API/projects] POST authHeader present: ${!!authHeader.Authorization}, BFF_URL: ${BFF_URL}`);
     if (!authHeader.Authorization) {
+      console.error(`[API/projects] No auth header - disableClerk: ${disableClerk}, isClerkConfigured: ${isClerkConfigured()}`);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    console.log(`[API] Creating project with title: ${body.title} via BFF: ${BFF_URL}`);
+    console.log(`[API/projects] Creating project with title: ${body.title}`);
     
     let response = await fetch(`${BFF_URL}/api/projects`, {
       method: 'POST',
@@ -205,8 +212,8 @@ export async function POST(request: NextRequest) {
     
     if (!response.ok) {
       const text = await response.text();
-      console.error(`[API] BFF project creation failed: ${response.status}`, text);
-      return NextResponse.json({ error: 'BFF failed' }, { status: response.status });
+      console.error(`[API/projects] BFF failed: status=${response.status}, body=${text}`);
+      return NextResponse.json({ error: text || 'BFF failed' }, { status: response.status });
     }
 
     const data = await response.json();
