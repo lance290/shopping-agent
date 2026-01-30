@@ -398,7 +398,9 @@ export function buildApp() {
           }
         }
 
-        const displayQuery = typeof body?.query === 'string' ? body.query : row?.title || '';
+        const clientProvidedQuery =
+          typeof body?.query === 'string' && body.query.trim().length > 0;
+        const displayQuery = clientProvidedQuery ? body.query : row?.title || '';
         const providerQuery = await triageProviderQuery({
           displayQuery,
           rowTitle: row?.title,
@@ -415,10 +417,18 @@ export function buildApp() {
           body: JSON.stringify({ provider_query: safeProviderQuery }),
         });
 
+        const searchBody: any = {};
+        if (Array.isArray(body?.providers) && body.providers.length > 0) {
+          searchBody.providers = body.providers;
+        }
+        if (clientProvidedQuery) {
+          searchBody.query = safeProviderQuery;
+        }
+
         const response = await fetch(`${BACKEND_URL}/rows/${rowId}/search`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ ...body, query: safeProviderQuery }),
+          body: JSON.stringify(searchBody),
         });
         const data = await response.json();
         reply.status(response.status).send(data);
