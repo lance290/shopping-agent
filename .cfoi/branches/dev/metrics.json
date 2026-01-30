@@ -201,24 +201,54 @@
         "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
         "regressions": null,
         "timestamp": "2026-01-30T17:24:41.079557+00:00"
+      },
+      {
+        "type": "test",
+        "status": "pass",
+        "command": "pytest",
+        "log": ".cfoi/branches/dev/test-results/tests-20260130T174113Z.log",
+        "timestamp": "2026-01-30T17:41:35.873270+00:00"
+      },
+      {
+        "type": "coverage",
+        "status": "pass",
+        "command": "pytest --cov",
+        "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
+        "regressions": null,
+        "timestamp": "2026-01-30T17:42:03.079453+00:00"
+      },
+      {
+        "type": "test",
+        "status": "pass",
+        "command": "pytest",
+        "log": ".cfoi/branches/dev/test-results/tests-20260130T185912Z.log",
+        "timestamp": "2026-01-30T18:59:29.518365+00:00"
+      },
+      {
+        "type": "coverage",
+        "status": "pass",
+        "command": "pytest --cov",
+        "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
+        "regressions": null,
+        "timestamp": "2026-01-30T18:59:46.877008+00:00"
       }
     ],
-    "lastTestRun": "2026-01-30T17:24:26.192963+00:00",
-    "lastCoverageRun": "2026-01-30T17:24:41.079557+00:00"
+    "lastTestRun": "2026-01-30T18:59:29.518365+00:00",
+    "lastCoverageRun": "2026-01-30T18:59:46.877008+00:00"
   },
   "evidence": {
     "tests": {
       "status": "pass",
       "command": "pytest",
-      "log": ".cfoi/branches/dev/test-results/tests-20260130T172410Z.log",
-      "timestamp": "2026-01-30T17:24:26.192963+00:00"
+      "log": ".cfoi/branches/dev/test-results/tests-20260130T185912Z.log",
+      "timestamp": "2026-01-30T18:59:29.518365+00:00"
     },
     "coverage": {
       "status": "pass",
       "command": "pytest --cov",
       "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
       "regressions": null,
-      "timestamp": "2026-01-30T17:24:41.079557+00:00",
+      "timestamp": "2026-01-30T18:59:46.877008+00:00",
       "metrics": {
         "lines": 52.48,
         "branches": null

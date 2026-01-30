@@ -1,7 +1,7 @@
 """Rows search routes - sourcing/search for procurement rows."""
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import datetime
 import re
 import json
@@ -30,6 +30,19 @@ def get_sourcing_repo():
 class RowSearchRequest(BaseModel):
     query: Optional[str] = None
     providers: Optional[List[str]] = None
+    search_intent: Optional[Any] = None
+    provider_query_map: Optional[Any] = None
+
+
+def _serialize_json_payload(payload: Optional[Any]) -> Optional[str]:
+    if payload is None:
+        return None
+    if isinstance(payload, str):
+        return payload
+    try:
+        return json.dumps(payload)
+    except TypeError:
+        return json.dumps(payload, default=str)
 
 
 class SearchResponse(BaseModel):
@@ -113,6 +126,13 @@ async def search_row_listings(
     if not sanitized_query:
         sanitized_query = base_query.strip()
     logger.info(f"[SEARCH DEBUG] base_query={base_query!r}, sanitized_query={sanitized_query!r}")
+
+    if body.search_intent is not None or body.provider_query_map is not None:
+        row.search_intent = _serialize_json_payload(body.search_intent)
+        row.provider_query_map = _serialize_json_payload(body.provider_query_map)
+        row.updated_at = datetime.utcnow()
+        session.add(row)
+        await session.commit()
 
     search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
     results = search_response.results

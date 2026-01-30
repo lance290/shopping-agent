@@ -27,7 +27,7 @@
       "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-001/manual.md",
       "automated_command": "pytest apps/backend/tests/test_sourcing_models.py",
       "sign_off": "Lance",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "task-002",
@@ -56,7 +56,7 @@
       "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-002/manual.md",
       "automated_command": "pytest apps/backend/tests/test_sourcing_utils.py",
       "sign_off": "Lance",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "task-003",
@@ -86,7 +86,7 @@
       "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-003/manual.md",
       "automated_command": "pytest apps/backend/tests/test_migrations_search_architecture_v2.py",
       "sign_off": "Lance",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "task-004",
@@ -117,7 +117,7 @@
       "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-004/manual.md",
       "automated_command": "pnpm --filter apps/bff test intent",
       "sign_off": "Lance",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "task-005",
@@ -146,7 +146,7 @@
       "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-005/manual.md",
       "automated_command": "pytest apps/backend/tests/test_rows_search_intent.py",
       "sign_off": "Lance",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "task-006",
