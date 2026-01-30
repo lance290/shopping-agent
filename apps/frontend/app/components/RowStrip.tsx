@@ -3,7 +3,7 @@ import { Row, Offer, OfferSortMode, useShoppingStore } from '../store';
 import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import { Archive, RefreshCw, FlaskConical, Undo2, Link2, X } from 'lucide-react';
-import { runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, fetchLikesApi, createCommentApi, fetchCommentsApi } from '../utils/api';
+import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, fetchLikesApi, createCommentApi, fetchCommentsApi } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -84,7 +84,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     setSearchErrorMessage(null);
     try {
       const searchResponse = await runSearchApiWithStatus(
-        row.title,
+        null,
         row.id,
         mode === 'rainforest' ? { providers: ['rainforest'] } : undefined
       );
@@ -98,6 +98,11 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       const mergedResults = mergeLikes(searchResponse.results, likes);
       
       setRowResults(row.id, mergedResults);
+
+      const freshRow = await fetchSingleRowFromDb(row.id);
+      if (freshRow) {
+        updateRow(row.id, freshRow);
+      }
     } finally {
       setIsSearching(false);
     }

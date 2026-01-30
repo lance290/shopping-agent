@@ -7,7 +7,7 @@ import ProcurementBoard from './components/Board';
 import ReportBugModal from './components/ReportBugModal';
 import { cn } from '../utils/cn';
 import { useShoppingStore } from './store';
-import { runSearchApi, createRowInDb, fetchRowsFromDb } from './utils/api';
+import { fetchSingleRowFromDb, runSearchApiWithStatus, createRowInDb, fetchRowsFromDb } from './utils/api';
 
 export default function Home() {
   const CHAT_MIN_PX = 360;
@@ -76,8 +76,12 @@ export default function Home() {
             const existingResults = store.rowResults[targetRow.id];
             if (!existingResults || existingResults.length === 0) {
               store.setIsSearching(true);
-              const results = await runSearchApi(query, targetRow.id);
-              store.setRowResults(targetRow.id, results);
+              const res = await runSearchApiWithStatus(null, targetRow.id);
+              store.setRowResults(targetRow.id, res.results);
+              const freshRow = await fetchSingleRowFromDb(targetRow.id);
+              if (freshRow) {
+                store.updateRow(targetRow.id, freshRow);
+              }
             }
           }
         }

@@ -218,13 +218,16 @@ export const runSearchApi = async (
 
 // Helper: Run search with status message
 export const runSearchApiWithStatus = async (
-  query: string,
+  query: string | null | undefined,
   rowId?: number | null,
   options?: { providers?: string[] }
 ): Promise<SearchApiResponse> => {
-  console.log('[API] Running search:', query, 'for rowId:', rowId);
+  console.log('[API] Running search:', query ?? '(auto)', 'for rowId:', rowId);
   try {
-    const body: any = rowId ? { query, rowId } : { query };
+    const body: any = rowId ? { rowId } : {};
+    if (typeof query === 'string' && query.trim().length > 0) {
+      body.query = query;
+    }
     if (options?.providers && options.providers.length > 0) {
       body.providers = options.providers;
     }

@@ -64,7 +64,7 @@ async def search_row_listings(
     spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
     spec = spec_result.first()
 
-    base_query = body.query or row.title or (spec.item_name if spec else "")
+    base_query = body.query or row.provider_query or row.title or (spec.item_name if spec else "")
     user_provided_query = bool(body.query)  # Track if query was explicitly provided by user
     logger.info(
         f"[SEARCH DEBUG] body.query={body.query!r}, row.title={row.title!r}, base_query={base_query!r}"

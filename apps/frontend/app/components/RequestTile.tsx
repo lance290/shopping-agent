@@ -5,7 +5,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
-import { fetchSingleRowFromDb, runSearchApi, saveChoiceAnswerToDb } from '../utils/api';
+import { fetchSingleRowFromDb, runSearchApiWithStatus, saveChoiceAnswerToDb } from '../utils/api';
 
 interface RequestTileProps {
   row: Row;
@@ -125,8 +125,12 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
     if (success) {
       updateRow(row.id, { choice_answers: JSON.stringify(newAnswers) });
       setIsSearching(true);
-      const results = await runSearchApi(row.title, row.id);
-      setRowResults(row.id, results);
+      const res = await runSearchApiWithStatus(null, row.id);
+      setRowResults(row.id, res.results);
+      const freshRow = await fetchSingleRowFromDb(row.id);
+      if (freshRow) {
+        updateRow(row.id, freshRow);
+      }
       setIsSearching(false);
     }
 

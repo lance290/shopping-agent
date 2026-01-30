@@ -546,7 +546,6 @@ class GoogleCustomSearchProvider(SourcingProvider):
         self.base_url = "https://www.googleapis.com/customsearch/v1"
 
     async def search(self, query: str, **kwargs) -> List[SearchResult]:
-        # Add "buy" or "price" to encourage shopping results
         search_query = f"{query} buy price"
         print(f"[GoogleCSE] Searching: {search_query}")
         
@@ -568,7 +567,6 @@ class GoogleCustomSearchProvider(SourcingProvider):
                 results = []
                 for item in data.get("items", []):
                     url = normalize_url(item.get("link", ""))
-                    # Try to get image from pagemap
                     image_url = None
                     pagemap = item.get("pagemap", {})
                     if pagemap.get("cse_image"):
@@ -578,7 +576,7 @@ class GoogleCustomSearchProvider(SourcingProvider):
                     
                     results.append(SearchResult(
                         title=item.get("title", "Unknown"),
-                        price=0.0,  # Google CSE doesn't return prices
+                        price=0.0,
                         merchant=extract_merchant_domain(url) or "Web",
                         url=url,
                         merchant_domain=extract_merchant_domain(url),

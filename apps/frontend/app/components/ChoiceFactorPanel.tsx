@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { parseChoiceFactors, parseChoiceAnswers, useShoppingStore } from '../store';
-import { saveChoiceAnswerToDb, fetchSingleRowFromDb, runSearchApi } from '../utils/api';
+import { saveChoiceAnswerToDb, fetchSingleRowFromDb, runSearchApiWithStatus } from '../utils/api';
 import { Loader2, Check, AlertCircle, ChevronLeft, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -116,8 +116,12 @@ export default function ChoiceFactorPanel() {
 
       // 4. Refresh results for this row
       setIsSearching(true);
-      const results = await runSearchApi(row.title, row.id);
-      setRowResults(row.id, results);
+      const res = await runSearchApiWithStatus(null, row.id);
+      setRowResults(row.id, res.results);
+      const freshRow = await fetchSingleRowFromDb(row.id);
+      if (freshRow) {
+        updateRow(row.id, freshRow);
+      }
     }
     
     // 5. Clear saving state
