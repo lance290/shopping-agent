@@ -602,10 +602,10 @@ class SourcingRepository:
         #     self.providers["valueserp"] = ValueSerpProvider(valueserp_key)
         
         # Google Custom Search - 100 free/day
-        # google_key = os.getenv("GOOGLE_CSE_API_KEY")
-        # google_cx = os.getenv("GOOGLE_CSE_CX")
-        # if google_key and google_cx:
-        #     self.providers["google_cse"] = GoogleCustomSearchProvider(google_key, google_cx)
+        google_key = os.getenv("GOOGLE_CSE_API_KEY")
+        google_cx = os.getenv("GOOGLE_CSE_CX")
+        if google_key and google_cx:
+            self.providers["google_cse"] = GoogleCustomSearchProvider(google_key, google_cx)
         
         # SearchAPI (original)
         # searchapi_key = os.getenv("SEARCHAPI_API_KEY")
