@@ -10,6 +10,8 @@ import time
 import base64
 
 from utils.security import redact_secrets_from_text
+from sourcing.executors import run_provider_with_status
+from sourcing.models import NormalizedResult, ProviderStatusSnapshot
 
 
 def extract_merchant_domain(url: str) -> str:
@@ -42,14 +44,6 @@ def normalize_url(url: str) -> str:
 # Keeping this alias for backward compatibility
 redact_secrets = redact_secrets_from_text
 
-class ProviderStatus(BaseModel):
-    """Status of a search provider after a search attempt."""
-    name: str
-    status: str  # "ok", "error", "timeout", "exhausted", "rate_limited"
-    result_count: int = 0
-    message: Optional[str] = None
-
-
 class SearchResult(BaseModel):
     title: str
     price: float
@@ -71,7 +65,8 @@ class SearchResult(BaseModel):
 class SearchResultWithStatus(BaseModel):
     """Search results with provider status information."""
     results: List[SearchResult] = []
-    provider_statuses: List[ProviderStatus] = []
+    normalized_results: List[NormalizedResult] = []
+    provider_statuses: List[ProviderStatusSnapshot] = []
     all_providers_failed: bool = False
     user_message: Optional[str] = None
 
@@ -655,6 +650,8 @@ class SourcingRepository:
         print(f"[SourcingRepository] search_all called with query: {query}")
         print(f"[SourcingRepository] Available providers: {list(self.providers.keys())}")
 
+        from sourcing.normalizers import normalize_results_for_provider
+
         providers_filter = kwargs.pop("providers", None)
         selected_providers: Dict[str, SourcingProvider] = self.providers
         if providers_filter:
@@ -669,33 +666,32 @@ class SourcingRepository:
         except Exception:
             PROVIDER_TIMEOUT_SECONDS = 8.0
 
-        provider_statuses: List[ProviderStatus] = []
+        provider_statuses: List[ProviderStatusSnapshot] = []
+        normalized_results: List[NormalizedResult] = []
 
-        async def search_with_timeout(name: str, provider: SourcingProvider) -> tuple[str, List[SearchResult], ProviderStatus]:
-            try:
-                print(f"[SourcingRepository] Starting search with provider: {name}")
-                results = await asyncio.wait_for(
-                    provider.search(query, **kwargs),
-                    timeout=PROVIDER_TIMEOUT_SECONDS
-                )
-                print(f"[SourcingRepository] Provider {name} returned {len(results)} results")
-                status = ProviderStatus(name=name, status="ok", result_count=len(results))
-                return (name, results, status)
-            except asyncio.TimeoutError:
-                print(f"[SourcingRepository] Provider {name} timed out after {PROVIDER_TIMEOUT_SECONDS}s")
-                status = ProviderStatus(name=name, status="timeout", message="Search timed out")
-                return (name, [], status)
-            except Exception as e:
-                error_str = redact_secrets(str(e))
-                print(f"[SourcingRepository] Provider {name} failed: {error_str}")
-                # Detect specific error types
+        async def search_with_timeout(
+            name: str, provider: SourcingProvider
+        ) -> tuple[str, List[SearchResult], ProviderStatusSnapshot]:
+            print(f"[SourcingRepository] Starting search with provider: {name}")
+            results, status = await run_provider_with_status(
+                name,
+                provider,
+                query,
+                timeout_seconds=PROVIDER_TIMEOUT_SECONDS,
+                **kwargs,
+            )
+            if status.status != "ok":
+                error_str = redact_secrets(status.message or "")
                 if "402" in error_str or "Payment Required" in error_str:
-                    status = ProviderStatus(name=name, status="exhausted", message="API quota exhausted")
+                    status.status = "exhausted"
+                    status.message = "API quota exhausted"
                 elif "429" in error_str or "Too Many Requests" in error_str:
-                    status = ProviderStatus(name=name, status="rate_limited", message="Rate limit exceeded")
-                else:
-                    status = ProviderStatus(name=name, status="error", message="Search failed")
-                return (name, [], status)
+                    status.status = "rate_limited"
+                    status.message = "Rate limit exceeded"
+                elif status.status == "error":
+                    status.message = "Search failed"
+            print(f"[SourcingRepository] Provider {name} returned {len(results)} results")
+            return (name, results, status)
 
         # Run all providers in parallel
         tasks = [
@@ -709,6 +705,7 @@ class SourcingRepository:
         for name, results, status in task_results:
             results_lists.append(results)
             provider_statuses.append(status)
+            normalized_results.extend(normalize_results_for_provider(name, results))
         
         all_results = []
         for results in results_lists:
@@ -772,6 +769,7 @@ class SourcingRepository:
         
         return SearchResultWithStatus(
             results=unique_results,
+            normalized_results=normalized_results,
             provider_statuses=provider_statuses,
             all_providers_failed=all_failed,
             user_message=user_message

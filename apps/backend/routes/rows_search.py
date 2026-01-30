@@ -16,6 +16,7 @@ from sourcing import (
     SourcingRepository,
     SearchResult,
     SearchIntent,
+    ProviderStatusSnapshot,
     build_provider_query_map,
     available_provider_ids,
 )
@@ -70,6 +71,7 @@ def _parse_intent_payload(payload: Optional[Any]) -> Optional[SearchIntent]:
 
 class SearchResponse(BaseModel):
     results: List[SearchResult]
+    provider_statuses: List[ProviderStatusSnapshot]
 
 
 @router.post("/rows/{row_id}/search", response_model=SearchResponse)
@@ -165,8 +167,11 @@ async def search_row_listings(
         session.add(row)
         await session.commit()
 
-    search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+    search_response = await get_sourcing_repo().search_all_with_status(
+        sanitized_query, providers=body.providers
+    )
     results = search_response.results
+    provider_statuses = getattr(search_response, "provider_statuses", [])
     user_message = search_response.user_message
 
     for r in results:
@@ -279,7 +284,4 @@ async def search_row_listings(
 
     await session.commit()
 
-    response = {"results": results}
-    if user_message:
-        response["user_message"] = user_message
-    return response
+    return SearchResponse(results=results, provider_statuses=provider_statuses)

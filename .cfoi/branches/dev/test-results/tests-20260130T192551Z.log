@@ -17,11 +17,88 @@ apps/backend/tests/test_project_hierarchy.py .                           [ 40%]
 apps/backend/tests/test_provider_adapters.py ..                          [ 43%]
 apps/backend/tests/test_rows_authorization.py ........                   [ 56%]
 apps/backend/tests/test_rows_search.py ....                              [ 63%]
-apps/backend/tests/test_rows_search_intent.py .                          [ 65%]
+apps/backend/tests/test_rows_search_intent.py F                          [ 65%]
 apps/backend/tests/test_security_utils.py ...........                    [ 83%]
 apps/backend/tests/test_sourcing_models.py ....                          [ 90%]
 apps/backend/tests/test_sourcing_utils.py ......                         [100%]
 
+=================================== FAILURES ===================================
+__________ test_search_persists_search_intent_and_provider_query_map ___________
+
+client = <httpx.AsyncClient object at 0x126307be0>
+session = <sqlalchemy.orm.session.AsyncSession object at 0x1262e73d0>
+
+    @pytest.mark.asyncio
+    async def test_search_persists_search_intent_and_provider_query_map(
+        client: AsyncClient, session: AsyncSession
+    ):
+        user = User(email="intent@example.com")
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+    
+        token = "intent-token"
+        auth_session = AuthSession(
+            email=user.email,
+            user_id=user.id,
+            session_token_hash=hash_token(token),
+            revoked_at=None,
+        )
+        session.add(auth_session)
+        await session.commit()
+    
+        row = Row(user_id=user.id, title="Running shoes", status="sourcing")
+        session.add(row)
+        await session.commit()
+        await session.refresh(row)
+    
+        intent_payload = {
+            "product_category": "running_shoes",
+            "taxonomy_version": "1.0",
+            "keywords": ["running", "shoes"],
+            "max_price": 80,
+        }
+        provider_query_map = {
+            "queries": {
+                "rainforest": {"provider_id": "rainforest", "query": "running shoes"}
+            }
+        }
+    
+        with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+            mock_search = AsyncMock(
+                return_value=SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
+            )
+            mock_repo.return_value.search_all_with_status = mock_search
+    
+            response = await client.post(
+                f"/rows/{row.id}/search",
+                json={
+                    "query": "running shoes",
+                    "search_intent": intent_payload,
+                    "provider_query_map": provider_query_map,
+                },
+                headers={"authorization": f"Bearer {token}"},
+            )
+    
+        assert response.status_code == 200
+    
+        persisted = await session.get(Row, row.id)
+        assert persisted is not None
+>       assert json.loads(persisted.search_intent or "{}") == intent_payload
+E       AssertionError: assert {'brand': Non...ce': 0.0, ...} == {'keywords': ...rsion': '1.0'}
+E         
+E         Omitting 4 identical items, use -vv to show
+E         Left contains 11 more items:
+E         {'brand': None,
+E          'category_path': [],
+E          'condition': None,
+E          'confidence': 0.0,...
+E         
+E         ...Full output truncated (8 lines hidden), use '-vv' to show
+
+apps/backend/tests/test_rows_search_intent.py:67: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[CLERK] No verification method available
 =============================== warnings summary ===============================
 ../../../Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/formparsers.py:10
   /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/formparsers.py:10: PendingDeprecationWarning: Please use `import python_multipart` instead.
@@ -62,4 +139,6 @@ apps/backend/tests/test_rows_authorization.py::test_regenerate_choice_factors_re
     row_data = row_update.dict(exclude_unset=True)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================= 60 passed, 8 warnings in 16.06s ========================
+=========================== short test summary info ============================
+FAILED apps/backend/tests/test_rows_search_intent.py::test_search_persists_search_intent_and_provider_query_map
+================== 1 failed, 59 passed, 8 warnings in 25.05s ===================
