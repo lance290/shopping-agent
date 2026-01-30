@@ -12,7 +12,13 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import Row, RequestSpec, Bid, Seller
-from sourcing import SourcingRepository, SearchResult
+from sourcing import (
+    SourcingRepository,
+    SearchResult,
+    SearchIntent,
+    build_provider_query_map,
+    available_provider_ids,
+)
 
 router = APIRouter(tags=["rows"])
 logger = logging.getLogger(__name__)
@@ -43,6 +49,23 @@ def _serialize_json_payload(payload: Optional[Any]) -> Optional[str]:
         return json.dumps(payload)
     except TypeError:
         return json.dumps(payload, default=str)
+
+
+def _parse_intent_payload(payload: Optional[Any]) -> Optional[SearchIntent]:
+    if payload is None:
+        return None
+    if isinstance(payload, SearchIntent):
+        return payload
+    data = payload
+    if isinstance(payload, str):
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError:
+            return None
+    try:
+        return SearchIntent.model_validate(data)
+    except Exception:
+        return None
 
 
 class SearchResponse(BaseModel):
@@ -128,8 +151,16 @@ async def search_row_listings(
     logger.info(f"[SEARCH DEBUG] base_query={base_query!r}, sanitized_query={sanitized_query!r}")
 
     if body.search_intent is not None or body.provider_query_map is not None:
-        row.search_intent = _serialize_json_payload(body.search_intent)
-        row.provider_query_map = _serialize_json_payload(body.provider_query_map)
+        parsed_intent = _parse_intent_payload(body.search_intent)
+        row.search_intent = _serialize_json_payload(
+            parsed_intent.model_dump() if parsed_intent else body.search_intent
+        )
+        if body.provider_query_map is not None:
+            row.provider_query_map = _serialize_json_payload(body.provider_query_map)
+        elif parsed_intent:
+            provider_ids = body.providers or available_provider_ids()
+            query_map = build_provider_query_map(parsed_intent, provider_ids)
+            row.provider_query_map = _serialize_json_payload(query_map.model_dump())
         row.updated_at = datetime.utcnow()
         session.add(row)
         await session.commit()

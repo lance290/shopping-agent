@@ -177,7 +177,7 @@
       "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-006/manual.md",
       "automated_command": "pytest apps/backend/tests/test_provider_adapters.py",
       "sign_off": "Lance",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "task-007",
