@@ -20,6 +20,7 @@ from sourcing import (
     build_provider_query_map,
     available_provider_ids,
 )
+from sourcing.service import SourcingService
 
 router = APIRouter(tags=["rows"])
 logger = logging.getLogger(__name__)
@@ -167,20 +168,48 @@ async def search_row_listings(
         session.add(row)
         await session.commit()
 
-    search_response = await get_sourcing_repo().search_all_with_status(
-        sanitized_query, providers=body.providers
-    )
-    results = search_response.results
-    provider_statuses = getattr(search_response, "provider_statuses", [])
-    user_message = search_response.user_message
+    # Initialize SourcingService
+    sourcing_service = SourcingService(session, get_sourcing_repo())
 
-    for r in results:
-        try:
-            if getattr(r, "click_url", "") and "row_id=" not in str(r.click_url):
-                joiner = "&" if "?" in str(r.click_url) else "?"
-                r.click_url = f"{r.click_url}{joiner}row_id={row_id}"
-        except Exception:
-            pass
+    # Execute search and persist results as Bids
+    bids, provider_statuses = await sourcing_service.search_and_persist(
+        row_id=row_id,
+        query=sanitized_query,
+        providers=body.providers,
+    )
+
+    # Convert Bids back to SearchResults for response compatibility and UI filtering
+    results: List[SearchResult] = []
+    for bid in bids:
+        # Construct click_url with row_id tracking
+        click_url = bid.item_url or ""
+        if click_url:
+            try:
+                if "row_id=" not in click_url:
+                    joiner = "&" if "?" in click_url else "?"
+                    click_url = f"{click_url}{joiner}row_id={row_id}"
+            except Exception:
+                pass
+
+        results.append(
+            SearchResult(
+                title=bid.item_title,
+                price=bid.price,
+                currency=bid.currency,
+                merchant=bid.seller.name if bid.seller else "Unknown",
+                url=bid.item_url or "",
+                merchant_domain=bid.seller.domain if bid.seller else "",
+                click_url=click_url,
+                image_url=bid.image_url,
+                source=bid.source,
+                bid_id=bid.id,
+                is_selected=bid.is_selected,
+                # Optional fields that might be missing in Bid but exist in SearchResult
+                shipping_info=None, # Bid has shipping_cost (float), SearchResult has shipping_info (str)
+                rating=None, 
+                reviews_count=None,
+            )
+        )
 
     # Filter results by price constraints from choice_answers
     min_price_filter = None
@@ -221,63 +250,6 @@ async def search_row_listings(
         )
         results = filtered_results
 
-    # Keep existing bids but update/add new search results
-    # This allows search history to persist across searches
-    existing_bids = await session.exec(select(Bid).where(Bid.row_id == row_id))
-    existing_bids_list = existing_bids.all()
-    existing_bids_map = {bid.item_url: bid for bid in existing_bids_list if bid.item_url}
-    logger.info(f"[SEARCH] Row {row_id}: {len(existing_bids_list)} existing bids, {len(results)} new results to process")
-
-    new_bids_created = 0
-    bids_updated = 0
-    for res in results:
-        merchant_name = res.merchant or "Unknown"
-        seller_res = await session.exec(select(Seller).where(Seller.name == merchant_name))
-        seller = seller_res.first()
-
-        if not seller:
-            seller = Seller(name=merchant_name, domain=res.merchant_domain)
-            session.add(seller)
-            await session.commit()
-            await session.refresh(seller)
-
-        # Check if we already have this bid (by URL) - update instead of creating duplicate
-        existing_bid = existing_bids_map.get(res.url)
-        if existing_bid:
-            # Update existing bid with fresh data
-            existing_bid.price = res.price
-            existing_bid.total_cost = res.price
-            existing_bid.currency = res.currency
-            existing_bid.item_title = res.title
-            existing_bid.image_url = res.image_url
-            existing_bid.source = res.source
-            existing_bid.seller_id = seller.id
-            session.add(existing_bid)
-            await session.flush()
-            res.bid_id = existing_bid.id
-            res.is_selected = existing_bid.is_selected
-            bids_updated += 1
-        else:
-            # Create new bid for URLs we haven't seen before
-            bid = Bid(
-                row_id=row_id,
-                seller_id=seller.id,
-                price=res.price,
-                total_cost=res.price,
-                currency=res.currency,
-                item_title=res.title,
-                item_url=res.url,
-                image_url=res.image_url,
-                source=res.source,
-                is_selected=False,
-            )
-            session.add(bid)
-            await session.flush()
-            res.bid_id = bid.id
-            res.is_selected = bid.is_selected
-            new_bids_created += 1
-
-    logger.info(f"[SEARCH] Row {row_id}: created {new_bids_created} new bids, updated {bids_updated} existing bids")
     row.status = "bids_arriving"
     row.updated_at = datetime.utcnow()
     session.add(row)

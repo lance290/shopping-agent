@@ -4,22 +4,21 @@ rootdir: /Volumes/PivotNorth/Shopping Agent
 plugins: asyncio-1.3.0, anyio-3.7.1, cov-7.0.0
 asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
 DEBUG: DATABASE_URL starts with: postgresql+asyn...
-collected 66 items
+collected 63 items
 
-apps/backend/tests/test_affiliate.py .......                             [ 10%]
+apps/backend/tests/test_affiliate.py .......                             [ 11%]
 apps/backend/tests/test_auth_session_user_id.py .                        [ 12%]
-apps/backend/tests/test_clickout_redirect.py ...                         [ 16%]
-apps/backend/tests/test_dependencies.py ........                         [ 28%]
-apps/backend/tests/test_e2e_mint_endpoint.py .                           [ 30%]
-apps/backend/tests/test_executors_normalizers.py ...                     [ 34%]
-apps/backend/tests/test_likes.py .                                       [ 36%]
-apps/backend/tests/test_migrations_search_architecture_v2.py ..          [ 39%]
-apps/backend/tests/test_project_hierarchy.py .                           [ 40%]
-apps/backend/tests/test_provider_adapters.py ..                          [ 43%]
-apps/backend/tests/test_rows_authorization.py ........                   [ 56%]
-apps/backend/tests/test_rows_search.py ....                              [ 62%]
-apps/backend/tests/test_rows_search_intent.py .                          [ 63%]
-apps/backend/tests/test_rows_search_persistence.py ...                   [ 68%]
+apps/backend/tests/test_clickout_redirect.py ...                         [ 17%]
+apps/backend/tests/test_dependencies.py ........                         [ 30%]
+apps/backend/tests/test_e2e_mint_endpoint.py .                           [ 31%]
+apps/backend/tests/test_executors_normalizers.py ...                     [ 36%]
+apps/backend/tests/test_likes.py .                                       [ 38%]
+apps/backend/tests/test_migrations_search_architecture_v2.py ..          [ 41%]
+apps/backend/tests/test_project_hierarchy.py .                           [ 42%]
+apps/backend/tests/test_provider_adapters.py ..                          [ 46%]
+apps/backend/tests/test_rows_authorization.py ........                   [ 58%]
+apps/backend/tests/test_rows_search.py ....                              [ 65%]
+apps/backend/tests/test_rows_search_intent.py .                          [ 66%]
 apps/backend/tests/test_security_utils.py ...........                    [ 84%]
 apps/backend/tests/test_sourcing_models.py ....                          [ 90%]
 apps/backend/tests/test_sourcing_utils.py ......                         [100%]
@@ -88,7 +87,7 @@ apps/backend/routes/likes.py                                     117     78    3
 apps/backend/routes/projects.py                                   43     24    44%
 apps/backend/routes/rate_limit.py                                 15      1    93%
 apps/backend/routes/rows.py                                      180    101    44%
-apps/backend/routes/rows_search.py                               163    115    29%
+apps/backend/routes/rows_search.py                               196    148    24%
 apps/backend/routes/webhooks.py                                   70     50    29%
 apps/backend/sourcing/__init__.py                                  5      0   100%
 apps/backend/sourcing/adapters/__init__.py                        17      1    94%
@@ -104,7 +103,6 @@ apps/backend/sourcing/normalizers/__init__.py                     34      9    7
 apps/backend/sourcing/normalizers/google_cse.py                    7      1    86%
 apps/backend/sourcing/normalizers/rainforest.py                    7      0   100%
 apps/backend/sourcing/repository.py                              436    363    17%
-apps/backend/sourcing/service.py                                  81      4    95%
 apps/backend/sourcing/taxonomy.py                                 19      2    89%
 apps/backend/sourcing/utils/__init__.py                            3      0   100%
 apps/backend/sourcing/utils/currency.py                           51      6    88%
@@ -124,12 +122,11 @@ apps/backend/tests/test_provider_adapters.py                      19      0   10
 apps/backend/tests/test_rows_authorization.py                    225     55    76%
 apps/backend/tests/test_rows_search.py                           105     31    70%
 apps/backend/tests/test_rows_search_intent.py                     35     14    60%
-apps/backend/tests/test_rows_search_persistence.py                68     45    34%
 apps/backend/tests/test_security_utils.py                         67      0   100%
 apps/backend/tests/test_sourcing_models.py                        27      0   100%
 apps/backend/tests/test_sourcing_utils.py                         25      0   100%
 apps/backend/utils/__init__.py                                     0      0   100%
 apps/backend/utils/security.py                                    19      0   100%
 ----------------------------------------------------------------------------------
-TOTAL                                                           3770   1531    59%
-======================= 66 passed, 8 warnings in 42.18s ========================
+TOTAL                                                           3654   1515    59%
+======================= 63 passed, 8 warnings in 34.94s ========================
