@@ -186,8 +186,12 @@ async def search_row_listings(
     # Keep existing bids but update/add new search results
     # This allows search history to persist across searches
     existing_bids = await session.exec(select(Bid).where(Bid.row_id == row_id))
-    existing_bids_map = {bid.item_url: bid for bid in existing_bids.all() if bid.item_url}
+    existing_bids_list = existing_bids.all()
+    existing_bids_map = {bid.item_url: bid for bid in existing_bids_list if bid.item_url}
+    logger.info(f"[SEARCH] Row {row_id}: {len(existing_bids_list)} existing bids, {len(results)} new results to process")
 
+    new_bids_created = 0
+    bids_updated = 0
     for res in results:
         merchant_name = res.merchant or "Unknown"
         seller_res = await session.exec(select(Seller).where(Seller.name == merchant_name))
@@ -214,6 +218,7 @@ async def search_row_listings(
             await session.flush()
             res.bid_id = existing_bid.id
             res.is_selected = existing_bid.is_selected
+            bids_updated += 1
         else:
             # Create new bid for URLs we haven't seen before
             bid = Bid(
@@ -232,7 +237,9 @@ async def search_row_listings(
             await session.flush()
             res.bid_id = bid.id
             res.is_selected = bid.is_selected
+            new_bids_created += 1
 
+    logger.info(f"[SEARCH] Row {row_id}: created {new_bids_created} new bids, updated {bids_updated} existing bids")
     row.status = "bids_arriving"
     row.updated_at = datetime.utcnow()
     session.add(row)
