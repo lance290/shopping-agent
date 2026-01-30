@@ -546,32 +546,52 @@ class GoogleCustomSearchProvider(SourcingProvider):
         self.base_url = "https://www.googleapis.com/customsearch/v1"
 
     async def search(self, query: str, **kwargs) -> List[SearchResult]:
+        # Add "buy" or "price" to encourage shopping results
+        search_query = f"{query} buy price"
+        print(f"[GoogleCSE] Searching: {search_query}")
+        
         params = {
             "key": self.api_key,
             "cx": self.cx,
-            "q": query,
-            "searchType": "image",  # For product images
+            "q": search_query,
             "num": 10,
         }
         
-        async with httpx.AsyncClient() as client:
-            response = await client.get(self.base_url, params=params)
-            response.raise_for_status()
-            data = response.json()
-            
-            results = []
-            for item in data.get("items", []):
-                url = normalize_url(item.get("link", ""))
-                results.append(SearchResult(
-                    title=item.get("title", "Unknown"),
-                    price=0.0,  # Google CSE doesn't return prices
-                    merchant="Google Search",
-                    url=url,
-                    merchant_domain=extract_merchant_domain(url),
-                    image_url=item.get("link"),
-                    source="google_cse"
-                ))
-            return results
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(self.base_url, params=params)
+                response.raise_for_status()
+                data = response.json()
+                
+                print(f"[GoogleCSE] Got {len(data.get('items', []))} results")
+                
+                results = []
+                for item in data.get("items", []):
+                    url = normalize_url(item.get("link", ""))
+                    # Try to get image from pagemap
+                    image_url = None
+                    pagemap = item.get("pagemap", {})
+                    if pagemap.get("cse_image"):
+                        image_url = pagemap["cse_image"][0].get("src")
+                    elif pagemap.get("cse_thumbnail"):
+                        image_url = pagemap["cse_thumbnail"][0].get("src")
+                    
+                    results.append(SearchResult(
+                        title=item.get("title", "Unknown"),
+                        price=0.0,  # Google CSE doesn't return prices
+                        merchant=extract_merchant_domain(url) or "Web",
+                        url=url,
+                        merchant_domain=extract_merchant_domain(url),
+                        image_url=image_url,
+                        source="google_cse"
+                    ))
+                return results
+        except httpx.HTTPStatusError as e:
+            print(f"[GoogleCSE] HTTP error: {e.response.status_code} - {e.response.text[:200]}")
+            return []
+        except Exception as e:
+            print(f"[GoogleCSE] Error: {e}")
+            return []
 
 
 class SourcingRepository:
