@@ -168,7 +168,8 @@ async def search_row_listings(
         filtered_results = []
         for r in results:
             price = getattr(r, "price", None)
-            if price is None:
+            # Keep items with unknown price (None or 0) - don't filter them out
+            if price is None or price == 0:
                 filtered_results.append(r)
                 continue
             # Filter: keep items where price >= min AND price <= max
