@@ -60,4 +60,4 @@ apps/backend/tests/test_rows_authorization.py::test_regenerate_choice_factors_re
     row_data = row_update.dict(exclude_unset=True)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================= 57 passed, 8 warnings in 14.19s ========================
+======================= 57 passed, 8 warnings in 12.92s ========================

@@ -1,0 +1,301 @@
+{
+  "version": 1,
+  "effort": "refactor-search-architecture-v2",
+  "created": "2026-01-30T05:05:27Z",
+  "tasks": [
+    {
+      "id": "task-001",
+      "description": "Scaffold sourcing models and dataclasses for SearchIntent pipeline",
+      "e2e_flow": "Run backend unit tests that instantiate SearchIntent/ProviderQuery/NormalizedResult and confirm JSON serialization succeeds.",
+      "manual_verification": [
+        "Run: cd apps/backend && pytest tests/test_sourcing_models.py",
+        "Verify tests pass and dataclasses serialize with required fields",
+        "Document sample SearchIntent JSON in proof manual"
+      ],
+      "files": [
+        "apps/backend/sourcing/__init__.py",
+        "apps/backend/sourcing/models.py",
+        "apps/backend/tests/test_sourcing_models.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_sourcing_models.py"
+      ],
+      "dependencies": [],
+      "estimated_minutes": 35,
+      "error_budget": 3,
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-001/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-001/manual.md",
+      "automated_command": "pytest apps/backend/tests/test_sourcing_models.py",
+      "sign_off": "Lance",
+      "status": "pending"
+    },
+    {
+      "id": "task-002",
+      "description": "Implement canonical URL + currency normalization utilities",
+      "e2e_flow": "Execute unit tests that canonicalize sample URLs and convert foreign currency prices; verify outputs stored for aggregator.",
+      "manual_verification": [
+        "Run: cd apps/backend && pytest tests/test_sourcing_utils.py",
+        "Inspect test log to confirm canonical URLs strip tracking params and FX conversion works",
+        "Capture CLI output in manual proof"
+      ],
+      "files": [
+        "apps/backend/sourcing/utils/__init__.py",
+        "apps/backend/sourcing/utils/url.py",
+        "apps/backend/sourcing/utils/currency.py",
+        "apps/backend/tests/test_sourcing_utils.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_sourcing_utils.py"
+      ],
+      "dependencies": [
+        "task-001"
+      ],
+      "estimated_minutes": 40,
+      "error_budget": 3,
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-002/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-002/manual.md",
+      "automated_command": "pytest apps/backend/tests/test_sourcing_utils.py",
+      "sign_off": "Lance",
+      "status": "pending"
+    },
+    {
+      "id": "task-003",
+      "description": "Add DB migrations for search_intent, provider_query_map, and bid metadata",
+      "e2e_flow": "Apply Alembic upgrade and confirm new columns exist in rows/bids tables.",
+      "manual_verification": [
+        "Run: cd apps/backend && alembic upgrade head",
+        "Connect to Postgres and \\d rows; ensure search_intent/provider_query_map columns exist",
+        "Document schema diff screenshot in manual proof"
+      ],
+      "files": [
+        "apps/backend/alembic/versions/*_search_architecture_v2.py",
+        "apps/backend/models.py",
+        "apps/backend/database.py",
+        "apps/backend/tests/test_migrations_search_architecture_v2.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_migrations_search_architecture_v2.py"
+      ],
+      "dependencies": [
+        "task-001",
+        "task-002"
+      ],
+      "estimated_minutes": 40,
+      "error_budget": 3,
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-003/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-003/manual.md",
+      "automated_command": "pytest apps/backend/tests/test_migrations_search_architecture_v2.py",
+      "sign_off": "Lance",
+      "status": "pending"
+    },
+    {
+      "id": "task-004",
+      "description": "Implement BFF intent extraction service (LLM + fallback) and pass search_intent to backend",
+      "e2e_flow": "POST /api/search with a row containing price constraints and confirm payload includes structured search_intent JSON.",
+      "manual_verification": [
+        "Start BFF (pnpm dev) and backend",
+        "Run curl POST http://localhost:8080/api/search with sample row; capture network request body",
+        "Verify response echoes search_intent and attach screenshot"
+      ],
+      "files": [
+        "apps/bff/src/intent/index.ts",
+        "apps/bff/src/index.ts",
+        "apps/bff/src/types.ts",
+        "apps/bff/test/intent.test.ts"
+      ],
+      "tests_to_write": [
+        "apps/bff/test/intent.test.ts"
+      ],
+      "dependencies": [
+        "task-001",
+        "task-002",
+        "task-003"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-004/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-004/manual.md",
+      "automated_command": "pnpm --filter apps/bff test intent",
+      "sign_off": "Lance",
+      "status": "pending"
+    },
+    {
+      "id": "task-005",
+      "description": "Persist search_intent and provider_query_map on backend rows",
+      "e2e_flow": "Run /rows/{id}/search and confirm DB row stores search_intent JSON plus provider_query_map with adapters output.",
+      "manual_verification": [
+        "Run curl POST http://localhost:8000/rows/1/search",
+        "Query Postgres: SELECT search_intent, provider_query_map FROM rows WHERE id=1",
+        "Capture DB output screenshot"
+      ],
+      "files": [
+        "apps/backend/routes/rows.py",
+        "apps/backend/routes/rows_search.py",
+        "apps/backend/tests/test_rows_search_intent.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_rows_search_intent.py"
+      ],
+      "dependencies": [
+        "task-003",
+        "task-004"
+      ],
+      "estimated_minutes": 40,
+      "error_budget": 3,
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-005/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-005/manual.md",
+      "automated_command": "pytest apps/backend/tests/test_rows_search_intent.py",
+      "sign_off": "Lance",
+      "status": "pending"
+    },
+    {
+      "id": "task-006",
+      "description": "Implement provider query adapters and taxonomy mapping",
+      "e2e_flow": "Trigger search with category-specific input and confirm provider_query_map stores adapter outputs per provider.",
+      "manual_verification": [
+        "Invoke POST /rows/{id}/search with category + price constraints",
+        "Inspect provider_query_map JSON for rainforest/google entries",
+        "Attach log snippet to manual proof"
+      ],
+      "files": [
+        "apps/backend/sourcing/adapters/__init__.py",
+        "apps/backend/sourcing/adapters/base.py",
+        "apps/backend/sourcing/adapters/rainforest.py",
+        "apps/backend/sourcing/adapters/google_cse.py",
+        "apps/backend/sourcing/taxonomy.py",
+        "apps/backend/tests/test_provider_adapters.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_provider_adapters.py"
+      ],
+      "dependencies": [
+        "task-005"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-006/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-006/manual.md",
+      "automated_command": "pytest apps/backend/tests/test_provider_adapters.py",
+      "sign_off": "Lance",
+      "status": "pending"
+    },
+    {
+      "id": "task-007",
+      "description": "Split provider executors and normalizers with status instrumentation",
+      "e2e_flow": "Run search hitting mock + rainforest providers and confirm response includes provider_status entries with latencies and normalized fields.",
+      "manual_verification": [
+        "Set USE_MOCK_SEARCH=true and run search",
+        "Inspect JSON response provider_status list for ok/timeout cases",
+        "Record response snippet in manual proof"
+      ],
+      "files": [
+        "apps/backend/sourcing/executors/__init__.py",
+        "apps/backend/sourcing/executors/rainforest.py",
+        "apps/backend/sourcing/executors/google_cse.py",
+        "apps/backend/sourcing/normalizers/__init__.py",
+        "apps/backend/sourcing/normalizers/rainforest.py",
+        "apps/backend/tests/test_executors_normalizers.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_executors_normalizers.py"
+      ],
+      "dependencies": [
+        "task-006"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-007/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-007/manual.md",
+      "automated_command": "pytest apps/backend/tests/test_executors_normalizers.py",
+      "sign_off": "Lance",
+      "status": "pending"
+    },
+    {
+      "id": "task-008",
+      "description": "Implement result aggregator + canonical bid persistence",
+      "e2e_flow": "Run search twice and verify bids table upserts by canonical_url while response returns ranked scores + provider_stats.",
+      "manual_verification": [
+        "Run curl POST /rows/{id}/search twice",
+        "Check bids table count remains stable and existing rows updated",
+        "Capture before/after screenshot of bids rows"
+      ],
+      "files": [
+        "apps/backend/sourcing/service.py",
+        "apps/backend/routes/rows_search.py",
+        "apps/backend/tests/test_rows_search_persistence.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_rows_search_persistence.py"
+      ],
+      "dependencies": [
+        "task-007"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-008/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-008/manual.md",
+      "automated_command": "pytest apps/backend/tests/test_rows_search_persistence.py",
+      "sign_off": "Lance",
+      "status": "pending"
+    },
+    {
+      "id": "task-009",
+      "description": "Wire provider stats and scores through BFF + minimal frontend UI",
+      "e2e_flow": "Search from UI and verify provider status badges render with partial/failure messaging.",
+      "manual_verification": [
+        "Start frontend + BFF",
+        "Perform search in UI; verify provider stats appear in results list",
+        "Capture screenshot of UI for manual proof"
+      ],
+      "files": [
+        "apps/bff/src/index.ts",
+        "apps/frontend/app/store.ts",
+        "apps/frontend/app/components/ResultsList.tsx",
+        "apps/frontend/app/components/ProviderStatusBadge.tsx",
+        "apps/frontend/tests/results-provider-status.test.tsx"
+      ],
+      "tests_to_write": [
+        "apps/frontend/tests/results-provider-status.test.tsx"
+      ],
+      "dependencies": [
+        "task-008"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-009/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-009/manual.md",
+      "automated_command": "pnpm --filter apps/frontend test provider-status",
+      "sign_off": "Lance",
+      "status": "pending"
+    },
+    {
+      "id": "task-010",
+      "description": "Add observability, regression tests, and feature flag rollout",
+      "e2e_flow": "Toggle USE_NEW_SOURCING_ARCHITECTURE flag and verify metrics dashboard captures DoD KPIs while old path remains fallback.",
+      "manual_verification": [
+        "Export Prometheus metrics and verify new counters exist",
+        "Flip feature flag off/on and ensure searches route accordingly",
+        "Attach metrics screenshot"
+      ],
+      "files": [
+        "apps/backend/config/feature_flags.py",
+        "apps/backend/metrics/search_architecture.py",
+        "apps/backend/tests/test_feature_flag_search_arch.py",
+        "docs/prd/search-architecture-v2/PRD.md"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_feature_flag_search_arch.py"
+      ],
+      "dependencies": [
+        "task-009"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-010/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/task-010/manual.md",
+      "automated_command": "pytest apps/backend/tests/test_feature_flag_search_arch.py",
+      "sign_off": "Lance",
+      "status": "pending"
+    }
+  ]
+}

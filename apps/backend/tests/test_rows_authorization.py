@@ -12,6 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from main import app
 from database import get_session
 from models import hash_token, generate_session_token
+from sourcing import SearchResultWithStatus
 import routes.rows_search as rows_search_module
 
 @pytest.mark.asyncio
@@ -147,12 +148,11 @@ async def test_search_query_uses_explicit_query_when_provided(client: AsyncClien
 
     captured = {}
 
-    async def fake_search_all(self, query: str, **kwargs):
+    async def fake_search_all_with_status(self, query: str, **kwargs):
         captured["query"] = query
-        return []
+        return SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
 
-    # Patch the sourcing repo in the search module
-    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all_with_status': fake_search_all_with_status})()
 
     search_resp = await client.post(
         f"/rows/{row_id}/search",
@@ -200,12 +200,11 @@ async def test_search_query_uses_constraints_when_query_missing(client: AsyncCli
 
     captured = {}
 
-    async def fake_search_all(self, query: str, **kwargs):
+    async def fake_search_all_with_status(self, query: str, **kwargs):
         captured["query"] = query
-        return []
+        return SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
 
-    # Patch the sourcing repo in the search module
-    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all_with_status': fake_search_all_with_status})()
 
     search_resp = await client.post(
         f"/rows/{row_id}/search",
@@ -253,12 +252,11 @@ async def test_search_query_sanitizes_long_query(client: AsyncClient, session, m
 
     captured = {}
 
-    async def fake_search_all(self, query: str, **kwargs):
+    async def fake_search_all_with_status(self, query: str, **kwargs):
         captured["query"] = query
-        return []
+        return SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
 
-    # Patch the sourcing repo in the search module
-    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all_with_status': fake_search_all_with_status})()
 
     long_query = "one two three four five six seven eight nine ten eleven"
     search_resp = await client.post(
@@ -355,12 +353,11 @@ async def test_search_defaults_to_row_title(client: AsyncClient, session, monkey
 
     captured = {}
 
-    async def fake_search_all(self, query: str, **kwargs):
+    async def fake_search_all_with_status(self, query: str, **kwargs):
         captured["query"] = query
-        return []
+        return SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
 
-    # Patch the sourcing repo in the search module
-    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all_with_status': fake_search_all_with_status})()
 
     search_resp = await client.post(
         f"/rows/{row_id}/search",

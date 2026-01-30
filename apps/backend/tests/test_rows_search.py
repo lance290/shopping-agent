@@ -5,6 +5,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from httpx import AsyncClient
 
 from models import Row, RequestSpec, User, AuthSession, hash_token
+from sourcing import SearchResultWithStatus
 from routes.rows_search import router
 
 
@@ -34,8 +35,10 @@ async def test_user_provided_query_not_truncated(client: AsyncClient, session: A
 
     # Mock the sourcing repository
     with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
-        mock_search = AsyncMock(return_value=[])
-        mock_repo.return_value.search_all = mock_search
+        mock_search = AsyncMock(
+            return_value=SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
+        )
+        mock_repo.return_value.search_all_with_status = mock_search
 
         # Mock auth and rate limit
         with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
@@ -99,8 +102,10 @@ async def test_constructed_query_with_constraints_limited(client: AsyncClient, s
 
     # Mock the sourcing repository
     with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
-        mock_search = AsyncMock(return_value=[])
-        mock_repo.return_value.search_all = mock_search
+        mock_search = AsyncMock(
+            return_value=SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
+        )
+        mock_repo.return_value.search_all_with_status = mock_search
 
         # Mock auth and rate limit
         with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
@@ -152,8 +157,10 @@ async def test_short_user_query_preserved(client: AsyncClient, session: AsyncSes
 
     # Mock the sourcing repository
     with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
-        mock_search = AsyncMock(return_value=[])
-        mock_repo.return_value.search_all = mock_search
+        mock_search = AsyncMock(
+            return_value=SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
+        )
+        mock_repo.return_value.search_all_with_status = mock_search
 
         # Mock auth and rate limit
         with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
@@ -202,8 +209,10 @@ async def test_price_patterns_removed_from_user_query(client: AsyncClient, sessi
 
     # Mock the sourcing repository
     with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
-        mock_search = AsyncMock(return_value=[])
-        mock_repo.return_value.search_all = mock_search
+        mock_search = AsyncMock(
+            return_value=SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
+        )
+        mock_repo.return_value.search_all_with_status = mock_search
 
         # Mock auth and rate limit
         with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):

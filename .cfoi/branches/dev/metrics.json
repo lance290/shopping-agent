@@ -156,25 +156,73 @@
         "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
         "regressions": null,
         "timestamp": "2026-01-23T06:11:44.016276+00:00"
+      },
+      {
+        "type": "test",
+        "status": "fail",
+        "command": "pytest",
+        "log": ".cfoi/branches/dev/test-results/tests-20260130T051520Z.log",
+        "timestamp": "2026-01-30T05:15:38.826627+00:00"
+      },
+      {
+        "type": "coverage",
+        "status": "fail",
+        "command": "pytest --cov",
+        "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
+        "regressions": null,
+        "timestamp": "2026-01-30T05:15:59.031009+00:00"
+      },
+      {
+        "type": "test",
+        "status": "pass",
+        "command": "pytest",
+        "log": ".cfoi/branches/dev/test-results/tests-20260130T160613Z.log",
+        "timestamp": "2026-01-30T16:06:28.195640+00:00"
+      },
+      {
+        "type": "coverage",
+        "status": "pass",
+        "command": "pytest --cov",
+        "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
+        "regressions": null,
+        "timestamp": "2026-01-30T16:06:42.462906+00:00"
+      },
+      {
+        "type": "test",
+        "status": "pass",
+        "command": "pytest",
+        "log": ".cfoi/branches/dev/test-results/tests-20260130T172410Z.log",
+        "timestamp": "2026-01-30T17:24:26.192963+00:00"
+      },
+      {
+        "type": "coverage",
+        "status": "pass",
+        "command": "pytest --cov",
+        "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
+        "regressions": null,
+        "timestamp": "2026-01-30T17:24:41.079557+00:00"
       }
     ],
-    "lastTestRun": "2026-01-23T06:11:41.419787+00:00",
-    "lastCoverageRun": "2026-01-23T06:11:44.016276+00:00"
+    "lastTestRun": "2026-01-30T17:24:26.192963+00:00",
+    "lastCoverageRun": "2026-01-30T17:24:41.079557+00:00"
   },
   "evidence": {
     "tests": {
       "status": "pass",
-      "command": "cd apps/backend && uv run pytest",
-      "log": ".cfoi/branches/dev/test-results/tests-20260123T061140Z.log",
-      "timestamp": "2026-01-23T06:11:41.419787+00:00"
+      "command": "pytest",
+      "log": ".cfoi/branches/dev/test-results/tests-20260130T172410Z.log",
+      "timestamp": "2026-01-30T17:24:26.192963+00:00"
     },
     "coverage": {
       "status": "pass",
-      "command": "cd apps/backend && uv run pytest --cov",
+      "command": "pytest --cov",
       "summary": ".cfoi/branches/dev/coverage/latest-summary.json",
       "regressions": null,
-      "timestamp": "2026-01-23T06:11:44.016276+00:00",
-      "metrics": null
+      "timestamp": "2026-01-30T17:24:41.079557+00:00",
+      "metrics": {
+        "lines": 52.48,
+        "branches": null
+      }
     },
     "manual": {}
   }

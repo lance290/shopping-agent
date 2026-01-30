@@ -1,0 +1,1826 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.10.11, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Volumes/PivotNorth/Shopping Agent
+plugins: asyncio-1.3.0, anyio-3.7.1, cov-7.0.0
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+DEBUG: DATABASE_URL starts with: postgresql+asyn...
+collected 45 items
+
+apps/backend/tests/test_affiliate.py .......                             [ 15%]
+apps/backend/tests/test_auth_session_user_id.py .                        [ 17%]
+apps/backend/tests/test_clickout_redirect.py ...                         [ 24%]
+apps/backend/tests/test_dependencies.py ........                         [ 42%]
+apps/backend/tests/test_e2e_mint_endpoint.py .                           [ 44%]
+apps/backend/tests/test_likes.py .                                       [ 46%]
+apps/backend/tests/test_project_hierarchy.py .                           [ 48%]
+apps/backend/tests/test_rows_authorization.py .FFF.F..                   [ 66%]
+apps/backend/tests/test_rows_search.py FFFF                              [ 75%]
+apps/backend/tests/test_security_utils.py ...........                    [100%]
+
+=================================== FAILURES ===================================
+_____________ test_search_query_uses_explicit_query_when_provided ______________
+
+client = <httpx.AsyncClient object at 0x1156d5390>
+session = <sqlalchemy.orm.session.AsyncSession object at 0x11553e4d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1155bbac0>
+
+    @pytest.mark.asyncio
+    async def test_search_query_uses_explicit_query_when_provided(client: AsyncClient, session, monkeypatch):
+        user = User(email="searcher@example.com")
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+    
+        token = generate_session_token()
+        auth_session = AuthSession(
+            email=user.email,
+            user_id=user.id,
+            session_token_hash=hash_token(token),
+        )
+        session.add(auth_session)
+        await session.commit()
+    
+        row_data = {
+            "title": "Roblox gift cards",
+            "status": "sourcing",
+            "currency": "USD",
+            "choice_answers": json.dumps({"quantity": 3, "is_gift": True}),
+            "request_spec": {
+                "item_name": "Roblox gift cards",
+                "constraints": json.dumps({"card_value": "$100"}),
+            },
+        }
+    
+        resp = await client.post(
+            "/rows",
+            json=row_data,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        row_id = resp.json()["id"]
+    
+        captured = {}
+    
+        async def fake_search_all(self, query: str, **kwargs):
+            captured["query"] = query
+            return []
+    
+        # Patch the sourcing repo in the search module
+        rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+    
+>       search_resp = await client.post(
+            f"/rows/{row_id}/search",
+            json={"query": "Roblox gift cards"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+apps/backend/tests/test_rows_authorization.py:157: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1848: in post
+    return await self.request(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1530: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1617: in send
+    response = await self._send_handling_auth(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1645: in _send_handling_auth
+    response = await self._send_handling_redirects(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1682: in _send_handling_redirects
+    response = await self._send_single_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1719: in _send_single_request
+    response = await transport.handle_async_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_transports/asgi.py:162: in handle_async_request
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/applications.py:1106: in __call__
+    await super().__call__(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/applications.py:122: in __call__
+    await self.middleware_stack(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:184: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:162: in __call__
+    await self.app(scope, receive, _send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py:83: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:79: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:68: in __call__
+    await self.app(scope, receive, sender)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:20: in __call__
+    raise e
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:17: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:718: in __call__
+    await route.handle(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:276: in handle
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:66: in app
+    response = await func(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:274: in app
+    raw_response = await run_endpoint_function(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:191: in run_endpoint_function
+    return await dependant.call(**values)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+row_id = 1, body = RowSearchRequest(query='Roblox gift cards', providers=None)
+authorization = 'Bearer mOc88Wij1greY6CLLjgA_DXSk9alNqBQT95NpjvJ4fM'
+session = <sqlalchemy.orm.session.AsyncSession object at 0x11553e4d0>
+
+    @router.post("/rows/{row_id}/search", response_model=SearchResponse)
+    async def search_row_listings(
+        row_id: int,
+        body: RowSearchRequest,
+        authorization: Optional[str] = Header(None),
+        session: AsyncSession = Depends(get_session)
+    ):
+        from routes.auth import get_current_session
+        from routes.rate_limit import check_rate_limit
+    
+        auth_session = await get_current_session(authorization, session)
+        if not auth_session:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+    
+        rate_key = f"search:{auth_session.user_id}"
+        if not check_rate_limit(rate_key, "search"):
+            raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    
+        result = await session.exec(
+            select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        )
+        row = result.first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Row not found")
+    
+        spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
+        spec = spec_result.first()
+    
+        base_query = body.query or row.provider_query or row.title or (spec.item_name if spec else "")
+        user_provided_query = bool(body.query)  # Track if query was explicitly provided by user
+        logger.info(
+            f"[SEARCH DEBUG] body.query={body.query!r}, row.title={row.title!r}, base_query={base_query!r}"
+        )
+    
+        if not body.query:
+            if spec and spec.constraints:
+                try:
+                    constraints_obj = json.loads(spec.constraints)
+                    constraint_parts = []
+                    for k, v in constraints_obj.items():
+                        constraint_parts.append(f"{k}: {v}")
+                    if constraint_parts:
+                        base_query = base_query + " " + " ".join(constraint_parts)
+                except Exception:
+                    pass
+    
+            if row.choice_answers:
+                try:
+                    answers_obj = json.loads(row.choice_answers)
+                    answer_parts = []
+    
+                    for k, v in answers_obj.items():
+                        if k in ("min_price", "max_price"):
+                            continue
+                        if v and str(v).lower() != "not answered":
+                            answer_parts.append(f"{k} {v}")
+                    if answer_parts:
+                        base_query = base_query + " " + " ".join(answer_parts)
+                except Exception:
+                    pass
+    
+        # Sanitize: remove price patterns that confuse Amazon search
+        clean_query = re.sub(r"\$\d+", "", base_query)
+        clean_query = re.sub(
+            r"\b(over|under|below|above)\s*\$?\d+\b", "", clean_query, flags=re.IGNORECASE
+        )
+        sanitized_query = " ".join(clean_query.replace("(", " ").replace(")", " ").split())
+    
+        # Only truncate if query was NOT explicitly provided by user
+        # When user provides explicit search query, preserve it fully (after sanitization)
+        if not user_provided_query:
+            # For auto-constructed queries (with constraints/answers), limit to 12 words to keep focused
+            sanitized_query = " ".join(sanitized_query.split()[:12]).strip()
+    
+        if not sanitized_query:
+            sanitized_query = base_query.strip()
+        logger.info(f"[SEARCH DEBUG] base_query={base_query!r}, sanitized_query={sanitized_query!r}")
+    
+>       search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+E       AttributeError: 'MockRepo' object has no attribute 'search_all_with_status'
+
+apps/backend/routes/rows_search.py:117: AttributeError
+----------------------------- Captured stdout call -----------------------------
+[CLERK] No verification method available
+[CLERK] No verification method available
+[ERROR ERR-20260130051550-4655089024] Unhandled exception:
+----------------------------- Captured stderr call -----------------------------
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py", line 83, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 274, in app
+    raw_response = await run_endpoint_function(
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Volumes/PivotNorth/Shopping Agent/apps/backend/routes/rows_search.py", line 117, in search_row_listings
+    search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+AttributeError: 'MockRepo' object has no attribute 'search_all_with_status'
+____________ test_search_query_uses_constraints_when_query_missing _____________
+
+client = <httpx.AsyncClient object at 0x116db5630>
+session = <sqlalchemy.orm.session.AsyncSession object at 0x116db5390>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x116db4e50>
+
+    @pytest.mark.asyncio
+    async def test_search_query_uses_constraints_when_query_missing(client: AsyncClient, session, monkeypatch):
+        user = User(email="constraints@example.com")
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+    
+        token = generate_session_token()
+        auth_session = AuthSession(
+            email=user.email,
+            user_id=user.id,
+            session_token_hash=hash_token(token),
+        )
+        session.add(auth_session)
+        await session.commit()
+    
+        row_data = {
+            "title": "Roblox gift cards",
+            "status": "sourcing",
+            "currency": "USD",
+            "choice_answers": json.dumps({"quantity": 3, "is_gift": True}),
+            "request_spec": {
+                "item_name": "Roblox gift cards",
+                "constraints": json.dumps({"card_value": "$100"}),
+            },
+        }
+    
+        resp = await client.post(
+            "/rows",
+            json=row_data,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        row_id = resp.json()["id"]
+    
+        captured = {}
+    
+        async def fake_search_all(self, query: str, **kwargs):
+            captured["query"] = query
+            return []
+    
+        # Patch the sourcing repo in the search module
+        rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+    
+>       search_resp = await client.post(
+            f"/rows/{row_id}/search",
+            json={},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+apps/backend/tests/test_rows_authorization.py:210: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1848: in post
+    return await self.request(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1530: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1617: in send
+    response = await self._send_handling_auth(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1645: in _send_handling_auth
+    response = await self._send_handling_redirects(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1682: in _send_handling_redirects
+    response = await self._send_single_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1719: in _send_single_request
+    response = await transport.handle_async_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_transports/asgi.py:162: in handle_async_request
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/applications.py:1106: in __call__
+    await super().__call__(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/applications.py:122: in __call__
+    await self.middleware_stack(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:184: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:162: in __call__
+    await self.app(scope, receive, _send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py:83: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:79: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:68: in __call__
+    await self.app(scope, receive, sender)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:20: in __call__
+    raise e
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:17: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:718: in __call__
+    await route.handle(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:276: in handle
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:66: in app
+    response = await func(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:274: in app
+    raw_response = await run_endpoint_function(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:191: in run_endpoint_function
+    return await dependant.call(**values)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+row_id = 1, body = RowSearchRequest(query=None, providers=None)
+authorization = 'Bearer boG0wm_fxf9LWMaAcFDewpRuaAFwAv0n8ltt8mwFNQc'
+session = <sqlalchemy.orm.session.AsyncSession object at 0x116db5390>
+
+    @router.post("/rows/{row_id}/search", response_model=SearchResponse)
+    async def search_row_listings(
+        row_id: int,
+        body: RowSearchRequest,
+        authorization: Optional[str] = Header(None),
+        session: AsyncSession = Depends(get_session)
+    ):
+        from routes.auth import get_current_session
+        from routes.rate_limit import check_rate_limit
+    
+        auth_session = await get_current_session(authorization, session)
+        if not auth_session:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+    
+        rate_key = f"search:{auth_session.user_id}"
+        if not check_rate_limit(rate_key, "search"):
+            raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    
+        result = await session.exec(
+            select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        )
+        row = result.first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Row not found")
+    
+        spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
+        spec = spec_result.first()
+    
+        base_query = body.query or row.provider_query or row.title or (spec.item_name if spec else "")
+        user_provided_query = bool(body.query)  # Track if query was explicitly provided by user
+        logger.info(
+            f"[SEARCH DEBUG] body.query={body.query!r}, row.title={row.title!r}, base_query={base_query!r}"
+        )
+    
+        if not body.query:
+            if spec and spec.constraints:
+                try:
+                    constraints_obj = json.loads(spec.constraints)
+                    constraint_parts = []
+                    for k, v in constraints_obj.items():
+                        constraint_parts.append(f"{k}: {v}")
+                    if constraint_parts:
+                        base_query = base_query + " " + " ".join(constraint_parts)
+                except Exception:
+                    pass
+    
+            if row.choice_answers:
+                try:
+                    answers_obj = json.loads(row.choice_answers)
+                    answer_parts = []
+    
+                    for k, v in answers_obj.items():
+                        if k in ("min_price", "max_price"):
+                            continue
+                        if v and str(v).lower() != "not answered":
+                            answer_parts.append(f"{k} {v}")
+                    if answer_parts:
+                        base_query = base_query + " " + " ".join(answer_parts)
+                except Exception:
+                    pass
+    
+        # Sanitize: remove price patterns that confuse Amazon search
+        clean_query = re.sub(r"\$\d+", "", base_query)
+        clean_query = re.sub(
+            r"\b(over|under|below|above)\s*\$?\d+\b", "", clean_query, flags=re.IGNORECASE
+        )
+        sanitized_query = " ".join(clean_query.replace("(", " ").replace(")", " ").split())
+    
+        # Only truncate if query was NOT explicitly provided by user
+        # When user provides explicit search query, preserve it fully (after sanitization)
+        if not user_provided_query:
+            # For auto-constructed queries (with constraints/answers), limit to 12 words to keep focused
+            sanitized_query = " ".join(sanitized_query.split()[:12]).strip()
+    
+        if not sanitized_query:
+            sanitized_query = base_query.strip()
+        logger.info(f"[SEARCH DEBUG] base_query={base_query!r}, sanitized_query={sanitized_query!r}")
+    
+>       search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+E       AttributeError: 'MockRepo' object has no attribute 'search_all_with_status'
+
+apps/backend/routes/rows_search.py:117: AttributeError
+----------------------------- Captured stdout call -----------------------------
+[CLERK] No verification method available
+[CLERK] No verification method available
+[ERROR ERR-20260130051551-4674367648] Unhandled exception:
+----------------------------- Captured stderr call -----------------------------
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py", line 83, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 274, in app
+    raw_response = await run_endpoint_function(
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Volumes/PivotNorth/Shopping Agent/apps/backend/routes/rows_search.py", line 117, in search_row_listings
+    search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+AttributeError: 'MockRepo' object has no attribute 'search_all_with_status'
+____________________ test_search_query_sanitizes_long_query ____________________
+
+client = <httpx.AsyncClient object at 0x116eb8dc0>
+session = <sqlalchemy.orm.session.AsyncSession object at 0x116eb8250>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x116eb8490>
+
+    @pytest.mark.asyncio
+    async def test_search_query_sanitizes_long_query(client: AsyncClient, session, monkeypatch):
+        user = User(email="sanitize@example.com")
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+    
+        token = generate_session_token()
+        auth_session = AuthSession(
+            email=user.email,
+            user_id=user.id,
+            session_token_hash=hash_token(token),
+        )
+        session.add(auth_session)
+        await session.commit()
+    
+        row_data = {
+            "title": "Long Query Row",
+            "status": "sourcing",
+            "currency": "USD",
+            "request_spec": {
+                "item_name": "Long Query Row",
+                "constraints": "{}",
+            },
+        }
+    
+        resp = await client.post(
+            "/rows",
+            json=row_data,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        row_id = resp.json()["id"]
+    
+        captured = {}
+    
+        async def fake_search_all(self, query: str, **kwargs):
+            captured["query"] = query
+            return []
+    
+        # Patch the sourcing repo in the search module
+        rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+    
+        long_query = "one two three four five six seven eight nine ten eleven"
+>       search_resp = await client.post(
+            f"/rows/{row_id}/search",
+            json={"query": long_query},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+apps/backend/tests/test_rows_authorization.py:264: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1848: in post
+    return await self.request(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1530: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1617: in send
+    response = await self._send_handling_auth(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1645: in _send_handling_auth
+    response = await self._send_handling_redirects(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1682: in _send_handling_redirects
+    response = await self._send_single_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1719: in _send_single_request
+    response = await transport.handle_async_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_transports/asgi.py:162: in handle_async_request
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/applications.py:1106: in __call__
+    await super().__call__(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/applications.py:122: in __call__
+    await self.middleware_stack(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:184: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:162: in __call__
+    await self.app(scope, receive, _send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py:83: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:79: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:68: in __call__
+    await self.app(scope, receive, sender)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:20: in __call__
+    raise e
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:17: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:718: in __call__
+    await route.handle(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:276: in handle
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:66: in app
+    response = await func(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:274: in app
+    raw_response = await run_endpoint_function(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:191: in run_endpoint_function
+    return await dependant.call(**values)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+row_id = 1
+body = RowSearchRequest(query='one two three four five six seven eight nine ten eleven', providers=None)
+authorization = 'Bearer rb4uYv0T7ptKlCwazC_y0HMquIhwZSo7wfDyGQE7Rz8'
+session = <sqlalchemy.orm.session.AsyncSession object at 0x116eb8250>
+
+    @router.post("/rows/{row_id}/search", response_model=SearchResponse)
+    async def search_row_listings(
+        row_id: int,
+        body: RowSearchRequest,
+        authorization: Optional[str] = Header(None),
+        session: AsyncSession = Depends(get_session)
+    ):
+        from routes.auth import get_current_session
+        from routes.rate_limit import check_rate_limit
+    
+        auth_session = await get_current_session(authorization, session)
+        if not auth_session:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+    
+        rate_key = f"search:{auth_session.user_id}"
+        if not check_rate_limit(rate_key, "search"):
+            raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    
+        result = await session.exec(
+            select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        )
+        row = result.first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Row not found")
+    
+        spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
+        spec = spec_result.first()
+    
+        base_query = body.query or row.provider_query or row.title or (spec.item_name if spec else "")
+        user_provided_query = bool(body.query)  # Track if query was explicitly provided by user
+        logger.info(
+            f"[SEARCH DEBUG] body.query={body.query!r}, row.title={row.title!r}, base_query={base_query!r}"
+        )
+    
+        if not body.query:
+            if spec and spec.constraints:
+                try:
+                    constraints_obj = json.loads(spec.constraints)
+                    constraint_parts = []
+                    for k, v in constraints_obj.items():
+                        constraint_parts.append(f"{k}: {v}")
+                    if constraint_parts:
+                        base_query = base_query + " " + " ".join(constraint_parts)
+                except Exception:
+                    pass
+    
+            if row.choice_answers:
+                try:
+                    answers_obj = json.loads(row.choice_answers)
+                    answer_parts = []
+    
+                    for k, v in answers_obj.items():
+                        if k in ("min_price", "max_price"):
+                            continue
+                        if v and str(v).lower() != "not answered":
+                            answer_parts.append(f"{k} {v}")
+                    if answer_parts:
+                        base_query = base_query + " " + " ".join(answer_parts)
+                except Exception:
+                    pass
+    
+        # Sanitize: remove price patterns that confuse Amazon search
+        clean_query = re.sub(r"\$\d+", "", base_query)
+        clean_query = re.sub(
+            r"\b(over|under|below|above)\s*\$?\d+\b", "", clean_query, flags=re.IGNORECASE
+        )
+        sanitized_query = " ".join(clean_query.replace("(", " ").replace(")", " ").split())
+    
+        # Only truncate if query was NOT explicitly provided by user
+        # When user provides explicit search query, preserve it fully (after sanitization)
+        if not user_provided_query:
+            # For auto-constructed queries (with constraints/answers), limit to 12 words to keep focused
+            sanitized_query = " ".join(sanitized_query.split()[:12]).strip()
+    
+        if not sanitized_query:
+            sanitized_query = base_query.strip()
+        logger.info(f"[SEARCH DEBUG] base_query={base_query!r}, sanitized_query={sanitized_query!r}")
+    
+>       search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+E       AttributeError: 'MockRepo' object has no attribute 'search_all_with_status'
+
+apps/backend/routes/rows_search.py:117: AttributeError
+----------------------------- Captured stdout call -----------------------------
+[CLERK] No verification method available
+[CLERK] No verification method available
+[ERROR ERR-20260130051552-4654541280] Unhandled exception:
+----------------------------- Captured stderr call -----------------------------
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py", line 83, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 274, in app
+    raw_response = await run_endpoint_function(
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Volumes/PivotNorth/Shopping Agent/apps/backend/routes/rows_search.py", line 117, in search_row_listings
+    search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+AttributeError: 'MockRepo' object has no attribute 'search_all_with_status'
+______________________ test_search_defaults_to_row_title _______________________
+
+client = <httpx.AsyncClient object at 0x11567a110>
+session = <sqlalchemy.orm.session.AsyncSession object at 0x11567a7d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x116eb8370>
+
+    @pytest.mark.asyncio
+    async def test_search_defaults_to_row_title(client: AsyncClient, session, monkeypatch):
+        user = User(email="defaults@example.com")
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+    
+        token = generate_session_token()
+        auth_session = AuthSession(
+            email=user.email,
+            user_id=user.id,
+            session_token_hash=hash_token(token),
+        )
+        session.add(auth_session)
+        await session.commit()
+    
+        row_data = {
+            "title": "Nintendo Switch 2",
+            "status": "sourcing",
+            "currency": "USD",
+            "request_spec": {
+                "item_name": "Nintendo Switch 2",
+                "constraints": "{}",
+            },
+        }
+    
+        resp = await client.post(
+            "/rows",
+            json=row_data,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        row_id = resp.json()["id"]
+    
+        captured = {}
+    
+        async def fake_search_all(self, query: str, **kwargs):
+            captured["query"] = query
+            return []
+    
+        # Patch the sourcing repo in the search module
+        rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all': fake_search_all})()
+    
+>       search_resp = await client.post(
+            f"/rows/{row_id}/search",
+            json={},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+apps/backend/tests/test_rows_authorization.py:365: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1848: in post
+    return await self.request(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1530: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1617: in send
+    response = await self._send_handling_auth(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1645: in _send_handling_auth
+    response = await self._send_handling_redirects(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1682: in _send_handling_redirects
+    response = await self._send_single_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1719: in _send_single_request
+    response = await transport.handle_async_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_transports/asgi.py:162: in handle_async_request
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/applications.py:1106: in __call__
+    await super().__call__(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/applications.py:122: in __call__
+    await self.middleware_stack(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:184: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:162: in __call__
+    await self.app(scope, receive, _send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py:83: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:79: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:68: in __call__
+    await self.app(scope, receive, sender)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:20: in __call__
+    raise e
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:17: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:718: in __call__
+    await route.handle(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:276: in handle
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:66: in app
+    response = await func(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:274: in app
+    raw_response = await run_endpoint_function(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:191: in run_endpoint_function
+    return await dependant.call(**values)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+row_id = 1, body = RowSearchRequest(query=None, providers=None)
+authorization = 'Bearer hs_xnNJZijaucOwWNROOELwVplJB58mZgLzhPX56Fkw'
+session = <sqlalchemy.orm.session.AsyncSession object at 0x11567a7d0>
+
+    @router.post("/rows/{row_id}/search", response_model=SearchResponse)
+    async def search_row_listings(
+        row_id: int,
+        body: RowSearchRequest,
+        authorization: Optional[str] = Header(None),
+        session: AsyncSession = Depends(get_session)
+    ):
+        from routes.auth import get_current_session
+        from routes.rate_limit import check_rate_limit
+    
+        auth_session = await get_current_session(authorization, session)
+        if not auth_session:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+    
+        rate_key = f"search:{auth_session.user_id}"
+        if not check_rate_limit(rate_key, "search"):
+            raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    
+        result = await session.exec(
+            select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        )
+        row = result.first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Row not found")
+    
+        spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
+        spec = spec_result.first()
+    
+        base_query = body.query or row.provider_query or row.title or (spec.item_name if spec else "")
+        user_provided_query = bool(body.query)  # Track if query was explicitly provided by user
+        logger.info(
+            f"[SEARCH DEBUG] body.query={body.query!r}, row.title={row.title!r}, base_query={base_query!r}"
+        )
+    
+        if not body.query:
+            if spec and spec.constraints:
+                try:
+                    constraints_obj = json.loads(spec.constraints)
+                    constraint_parts = []
+                    for k, v in constraints_obj.items():
+                        constraint_parts.append(f"{k}: {v}")
+                    if constraint_parts:
+                        base_query = base_query + " " + " ".join(constraint_parts)
+                except Exception:
+                    pass
+    
+            if row.choice_answers:
+                try:
+                    answers_obj = json.loads(row.choice_answers)
+                    answer_parts = []
+    
+                    for k, v in answers_obj.items():
+                        if k in ("min_price", "max_price"):
+                            continue
+                        if v and str(v).lower() != "not answered":
+                            answer_parts.append(f"{k} {v}")
+                    if answer_parts:
+                        base_query = base_query + " " + " ".join(answer_parts)
+                except Exception:
+                    pass
+    
+        # Sanitize: remove price patterns that confuse Amazon search
+        clean_query = re.sub(r"\$\d+", "", base_query)
+        clean_query = re.sub(
+            r"\b(over|under|below|above)\s*\$?\d+\b", "", clean_query, flags=re.IGNORECASE
+        )
+        sanitized_query = " ".join(clean_query.replace("(", " ").replace(")", " ").split())
+    
+        # Only truncate if query was NOT explicitly provided by user
+        # When user provides explicit search query, preserve it fully (after sanitization)
+        if not user_provided_query:
+            # For auto-constructed queries (with constraints/answers), limit to 12 words to keep focused
+            sanitized_query = " ".join(sanitized_query.split()[:12]).strip()
+    
+        if not sanitized_query:
+            sanitized_query = base_query.strip()
+        logger.info(f"[SEARCH DEBUG] base_query={base_query!r}, sanitized_query={sanitized_query!r}")
+    
+>       search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+E       AttributeError: 'MockRepo' object has no attribute 'search_all_with_status'
+
+apps/backend/routes/rows_search.py:117: AttributeError
+----------------------------- Captured stdout call -----------------------------
+[CLERK] No verification method available
+[CLERK] No verification method available
+[ERROR ERR-20260130051553-4654145280] Unhandled exception:
+----------------------------- Captured stderr call -----------------------------
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py", line 83, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 274, in app
+    raw_response = await run_endpoint_function(
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Volumes/PivotNorth/Shopping Agent/apps/backend/routes/rows_search.py", line 117, in search_row_listings
+    search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+AttributeError: 'MockRepo' object has no attribute 'search_all_with_status'
+____________________ test_user_provided_query_not_truncated ____________________
+
+client = <httpx.AsyncClient object at 0x116b0c340>
+session = <sqlalchemy.orm.session.AsyncSession object at 0x116bc9cf0>
+test_user = User(id=1, phone_number=None, is_admin=False, created_at=datetime.datetime(2026, 1, 30, 5, 15, 55, 668626), email='test@example.com', clerk_user_id=None)
+
+    @pytest.mark.asyncio
+    async def test_user_provided_query_not_truncated(client: AsyncClient, session: AsyncSession, test_user: User):
+        """Test that explicit user queries are not truncated."""
+        # Create auth session
+        auth_session = AuthSession(
+            email=test_user.email or "test@example.com",
+            user_id=test_user.id,
+            session_token_hash=hash_token("test-token"),
+            revoked_at=None,
+        )
+        session.add(auth_session)
+        await session.commit()
+    
+        # Create a row
+        row = Row(
+            user_id=test_user.id,
+            title="Short title",
+            status="draft",
+            choice_answers='{"min_price": "10", "max_price": "100"}'
+        )
+        session.add(row)
+        await session.commit()
+        await session.refresh(row)
+    
+        # Mock the sourcing repository
+        with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+            mock_search = AsyncMock(return_value=[])
+            mock_repo.return_value.search_all = mock_search
+    
+            # Mock auth and rate limit
+            with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+                with patch("routes.rate_limit.check_rate_limit", return_value=True):
+                    # Simulate a long user query
+                    long_query = "God Country Notre Dame long sleeve t-shirt with special design"
+    
+>                   response = await client.post(
+                        f"/rows/{row.id}/search",
+                        json={"query": long_query},
+                        headers={"authorization": "Bearer test-token"}
+                    )
+
+apps/backend/tests/test_rows_search.py:46: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1848: in post
+    return await self.request(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1530: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1617: in send
+    response = await self._send_handling_auth(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1645: in _send_handling_auth
+    response = await self._send_handling_redirects(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1682: in _send_handling_redirects
+    response = await self._send_single_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1719: in _send_single_request
+    response = await transport.handle_async_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_transports/asgi.py:162: in handle_async_request
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/applications.py:1106: in __call__
+    await super().__call__(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/applications.py:122: in __call__
+    await self.middleware_stack(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:184: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:162: in __call__
+    await self.app(scope, receive, _send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py:83: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:79: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:68: in __call__
+    await self.app(scope, receive, sender)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:20: in __call__
+    raise e
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:17: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:718: in __call__
+    await route.handle(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:276: in handle
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:66: in app
+    response = await func(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:274: in app
+    raw_response = await run_endpoint_function(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:191: in run_endpoint_function
+    return await dependant.call(**values)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+row_id = 1
+body = RowSearchRequest(query='God Country Notre Dame long sleeve t-shirt with special design', providers=None)
+authorization = 'Bearer test-token'
+session = <sqlalchemy.orm.session.AsyncSession object at 0x116bc9cf0>
+
+    @router.post("/rows/{row_id}/search", response_model=SearchResponse)
+    async def search_row_listings(
+        row_id: int,
+        body: RowSearchRequest,
+        authorization: Optional[str] = Header(None),
+        session: AsyncSession = Depends(get_session)
+    ):
+        from routes.auth import get_current_session
+        from routes.rate_limit import check_rate_limit
+    
+        auth_session = await get_current_session(authorization, session)
+        if not auth_session:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+    
+        rate_key = f"search:{auth_session.user_id}"
+        if not check_rate_limit(rate_key, "search"):
+            raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    
+        result = await session.exec(
+            select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        )
+        row = result.first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Row not found")
+    
+        spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
+        spec = spec_result.first()
+    
+        base_query = body.query or row.provider_query or row.title or (spec.item_name if spec else "")
+        user_provided_query = bool(body.query)  # Track if query was explicitly provided by user
+        logger.info(
+            f"[SEARCH DEBUG] body.query={body.query!r}, row.title={row.title!r}, base_query={base_query!r}"
+        )
+    
+        if not body.query:
+            if spec and spec.constraints:
+                try:
+                    constraints_obj = json.loads(spec.constraints)
+                    constraint_parts = []
+                    for k, v in constraints_obj.items():
+                        constraint_parts.append(f"{k}: {v}")
+                    if constraint_parts:
+                        base_query = base_query + " " + " ".join(constraint_parts)
+                except Exception:
+                    pass
+    
+            if row.choice_answers:
+                try:
+                    answers_obj = json.loads(row.choice_answers)
+                    answer_parts = []
+    
+                    for k, v in answers_obj.items():
+                        if k in ("min_price", "max_price"):
+                            continue
+                        if v and str(v).lower() != "not answered":
+                            answer_parts.append(f"{k} {v}")
+                    if answer_parts:
+                        base_query = base_query + " " + " ".join(answer_parts)
+                except Exception:
+                    pass
+    
+        # Sanitize: remove price patterns that confuse Amazon search
+        clean_query = re.sub(r"\$\d+", "", base_query)
+        clean_query = re.sub(
+            r"\b(over|under|below|above)\s*\$?\d+\b", "", clean_query, flags=re.IGNORECASE
+        )
+        sanitized_query = " ".join(clean_query.replace("(", " ").replace(")", " ").split())
+    
+        # Only truncate if query was NOT explicitly provided by user
+        # When user provides explicit search query, preserve it fully (after sanitization)
+        if not user_provided_query:
+            # For auto-constructed queries (with constraints/answers), limit to 12 words to keep focused
+            sanitized_query = " ".join(sanitized_query.split()[:12]).strip()
+    
+        if not sanitized_query:
+            sanitized_query = base_query.strip()
+        logger.info(f"[SEARCH DEBUG] base_query={base_query!r}, sanitized_query={sanitized_query!r}")
+    
+>       search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+E       TypeError: object MagicMock can't be used in 'await' expression
+
+apps/backend/routes/rows_search.py:117: TypeError
+----------------------------- Captured stdout call -----------------------------
+[ERROR ERR-20260130051555-4677847856] Unhandled exception:
+----------------------------- Captured stderr call -----------------------------
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py", line 83, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 274, in app
+    raw_response = await run_endpoint_function(
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Volumes/PivotNorth/Shopping Agent/apps/backend/routes/rows_search.py", line 117, in search_row_listings
+    search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+TypeError: object MagicMock can't be used in 'await' expression
+_______________ test_constructed_query_with_constraints_limited ________________
+
+client = <httpx.AsyncClient object at 0x116fc8160>
+session = <sqlalchemy.orm.session.AsyncSession object at 0x116edcbe0>
+test_user = User(id=1, phone_number=None, is_admin=False, created_at=datetime.datetime(2026, 1, 30, 5, 15, 56, 500548), email='test@example.com', clerk_user_id=None)
+
+    @pytest.mark.asyncio
+    async def test_constructed_query_with_constraints_limited(client: AsyncClient, session: AsyncSession, test_user: User):
+        """Test that auto-constructed queries with constraints are reasonably limited."""
+        # Create auth session
+        auth_session = AuthSession(
+            email=test_user.email or "test@example.com",
+            user_id=test_user.id,
+            session_token_hash=hash_token("test-token"),
+            revoked_at=None,
+        )
+        session.add(auth_session)
+    
+        # Create a row with spec and choice answers
+        row = Row(
+            user_id=test_user.id,
+            title="Notre Dame shirt",
+            status="draft",
+            choice_answers='{"min_price": "10", "max_price": "100", "size": "XL", "color": "blue"}'
+        )
+        session.add(row)
+        await session.commit()
+        await session.refresh(row)
+    
+        spec = RequestSpec(
+            row_id=row.id,
+            item_name="Notre Dame shirt",
+            constraints='{"material": "cotton", "style": "long sleeve"}'
+        )
+        session.add(spec)
+        await session.commit()
+    
+        # Mock the sourcing repository
+        with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+            mock_search = AsyncMock(return_value=[])
+            mock_repo.return_value.search_all = mock_search
+    
+            # Mock auth and rate limit
+            with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+                with patch("routes.rate_limit.check_rate_limit", return_value=True):
+                    # No explicit query - will use row.title + constraints + choice_answers
+>                   response = await client.post(
+                        f"/rows/{row.id}/search",
+                        json={},
+                        headers={"authorization": "Bearer test-token"}
+                    )
+
+apps/backend/tests/test_rows_search.py:109: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1848: in post
+    return await self.request(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1530: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1617: in send
+    response = await self._send_handling_auth(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1645: in _send_handling_auth
+    response = await self._send_handling_redirects(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1682: in _send_handling_redirects
+    response = await self._send_single_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1719: in _send_single_request
+    response = await transport.handle_async_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_transports/asgi.py:162: in handle_async_request
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/applications.py:1106: in __call__
+    await super().__call__(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/applications.py:122: in __call__
+    await self.middleware_stack(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:184: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:162: in __call__
+    await self.app(scope, receive, _send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py:83: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:79: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:68: in __call__
+    await self.app(scope, receive, sender)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:20: in __call__
+    raise e
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:17: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:718: in __call__
+    await route.handle(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:276: in handle
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:66: in app
+    response = await func(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:274: in app
+    raw_response = await run_endpoint_function(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:191: in run_endpoint_function
+    return await dependant.call(**values)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+row_id = 1, body = RowSearchRequest(query=None, providers=None)
+authorization = 'Bearer test-token'
+session = <sqlalchemy.orm.session.AsyncSession object at 0x116edcbe0>
+
+    @router.post("/rows/{row_id}/search", response_model=SearchResponse)
+    async def search_row_listings(
+        row_id: int,
+        body: RowSearchRequest,
+        authorization: Optional[str] = Header(None),
+        session: AsyncSession = Depends(get_session)
+    ):
+        from routes.auth import get_current_session
+        from routes.rate_limit import check_rate_limit
+    
+        auth_session = await get_current_session(authorization, session)
+        if not auth_session:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+    
+        rate_key = f"search:{auth_session.user_id}"
+        if not check_rate_limit(rate_key, "search"):
+            raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    
+        result = await session.exec(
+            select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        )
+        row = result.first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Row not found")
+    
+        spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
+        spec = spec_result.first()
+    
+        base_query = body.query or row.provider_query or row.title or (spec.item_name if spec else "")
+        user_provided_query = bool(body.query)  # Track if query was explicitly provided by user
+        logger.info(
+            f"[SEARCH DEBUG] body.query={body.query!r}, row.title={row.title!r}, base_query={base_query!r}"
+        )
+    
+        if not body.query:
+            if spec and spec.constraints:
+                try:
+                    constraints_obj = json.loads(spec.constraints)
+                    constraint_parts = []
+                    for k, v in constraints_obj.items():
+                        constraint_parts.append(f"{k}: {v}")
+                    if constraint_parts:
+                        base_query = base_query + " " + " ".join(constraint_parts)
+                except Exception:
+                    pass
+    
+            if row.choice_answers:
+                try:
+                    answers_obj = json.loads(row.choice_answers)
+                    answer_parts = []
+    
+                    for k, v in answers_obj.items():
+                        if k in ("min_price", "max_price"):
+                            continue
+                        if v and str(v).lower() != "not answered":
+                            answer_parts.append(f"{k} {v}")
+                    if answer_parts:
+                        base_query = base_query + " " + " ".join(answer_parts)
+                except Exception:
+                    pass
+    
+        # Sanitize: remove price patterns that confuse Amazon search
+        clean_query = re.sub(r"\$\d+", "", base_query)
+        clean_query = re.sub(
+            r"\b(over|under|below|above)\s*\$?\d+\b", "", clean_query, flags=re.IGNORECASE
+        )
+        sanitized_query = " ".join(clean_query.replace("(", " ").replace(")", " ").split())
+    
+        # Only truncate if query was NOT explicitly provided by user
+        # When user provides explicit search query, preserve it fully (after sanitization)
+        if not user_provided_query:
+            # For auto-constructed queries (with constraints/answers), limit to 12 words to keep focused
+            sanitized_query = " ".join(sanitized_query.split()[:12]).strip()
+    
+        if not sanitized_query:
+            sanitized_query = base_query.strip()
+        logger.info(f"[SEARCH DEBUG] base_query={base_query!r}, sanitized_query={sanitized_query!r}")
+    
+>       search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+E       TypeError: object MagicMock can't be used in 'await' expression
+
+apps/backend/routes/rows_search.py:117: TypeError
+----------------------------- Captured stdout call -----------------------------
+[ERROR ERR-20260130051556-4673645008] Unhandled exception:
+----------------------------- Captured stderr call -----------------------------
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py", line 83, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 274, in app
+    raw_response = await run_endpoint_function(
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Volumes/PivotNorth/Shopping Agent/apps/backend/routes/rows_search.py", line 117, in search_row_listings
+    search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+TypeError: object MagicMock can't be used in 'await' expression
+_______________________ test_short_user_query_preserved ________________________
+
+client = <httpx.AsyncClient object at 0x116d8ae00>
+session = <sqlalchemy.orm.session.AsyncSession object at 0x116d8b4f0>
+test_user = User(id=1, phone_number=None, is_admin=False, created_at=datetime.datetime(2026, 1, 30, 5, 15, 57, 310895), email='test@example.com', clerk_user_id=None)
+
+    @pytest.mark.asyncio
+    async def test_short_user_query_preserved(client: AsyncClient, session: AsyncSession, test_user: User):
+        """Test that short user queries are fully preserved."""
+        # Create auth session
+        auth_session = AuthSession(
+            email=test_user.email or "test@example.com",
+            user_id=test_user.id,
+            session_token_hash=hash_token("test-token"),
+            revoked_at=None,
+        )
+        session.add(auth_session)
+        await session.commit()
+    
+        # Create a row
+        row = Row(
+            user_id=test_user.id,
+            title="Test",
+            status="draft"
+        )
+        session.add(row)
+        await session.commit()
+        await session.refresh(row)
+    
+        # Mock the sourcing repository
+        with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+            mock_search = AsyncMock(return_value=[])
+            mock_repo.return_value.search_all = mock_search
+    
+            # Mock auth and rate limit
+            with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+                with patch("routes.rate_limit.check_rate_limit", return_value=True):
+                    short_query = "God Country Notre Dame"
+    
+>                   response = await client.post(
+                        f"/rows/{row.id}/search",
+                        json={"query": short_query},
+                        headers={"authorization": "Bearer test-token"}
+                    )
+
+apps/backend/tests/test_rows_search.py:163: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1848: in post
+    return await self.request(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1530: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1617: in send
+    response = await self._send_handling_auth(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1645: in _send_handling_auth
+    response = await self._send_handling_redirects(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1682: in _send_handling_redirects
+    response = await self._send_single_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1719: in _send_single_request
+    response = await transport.handle_async_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_transports/asgi.py:162: in handle_async_request
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/applications.py:1106: in __call__
+    await super().__call__(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/applications.py:122: in __call__
+    await self.middleware_stack(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:184: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:162: in __call__
+    await self.app(scope, receive, _send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py:83: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:79: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:68: in __call__
+    await self.app(scope, receive, sender)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:20: in __call__
+    raise e
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:17: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:718: in __call__
+    await route.handle(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:276: in handle
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:66: in app
+    response = await func(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:274: in app
+    raw_response = await run_endpoint_function(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:191: in run_endpoint_function
+    return await dependant.call(**values)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+row_id = 1
+body = RowSearchRequest(query='God Country Notre Dame', providers=None)
+authorization = 'Bearer test-token'
+session = <sqlalchemy.orm.session.AsyncSession object at 0x116d8b4f0>
+
+    @router.post("/rows/{row_id}/search", response_model=SearchResponse)
+    async def search_row_listings(
+        row_id: int,
+        body: RowSearchRequest,
+        authorization: Optional[str] = Header(None),
+        session: AsyncSession = Depends(get_session)
+    ):
+        from routes.auth import get_current_session
+        from routes.rate_limit import check_rate_limit
+    
+        auth_session = await get_current_session(authorization, session)
+        if not auth_session:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+    
+        rate_key = f"search:{auth_session.user_id}"
+        if not check_rate_limit(rate_key, "search"):
+            raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    
+        result = await session.exec(
+            select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        )
+        row = result.first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Row not found")
+    
+        spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
+        spec = spec_result.first()
+    
+        base_query = body.query or row.provider_query or row.title or (spec.item_name if spec else "")
+        user_provided_query = bool(body.query)  # Track if query was explicitly provided by user
+        logger.info(
+            f"[SEARCH DEBUG] body.query={body.query!r}, row.title={row.title!r}, base_query={base_query!r}"
+        )
+    
+        if not body.query:
+            if spec and spec.constraints:
+                try:
+                    constraints_obj = json.loads(spec.constraints)
+                    constraint_parts = []
+                    for k, v in constraints_obj.items():
+                        constraint_parts.append(f"{k}: {v}")
+                    if constraint_parts:
+                        base_query = base_query + " " + " ".join(constraint_parts)
+                except Exception:
+                    pass
+    
+            if row.choice_answers:
+                try:
+                    answers_obj = json.loads(row.choice_answers)
+                    answer_parts = []
+    
+                    for k, v in answers_obj.items():
+                        if k in ("min_price", "max_price"):
+                            continue
+                        if v and str(v).lower() != "not answered":
+                            answer_parts.append(f"{k} {v}")
+                    if answer_parts:
+                        base_query = base_query + " " + " ".join(answer_parts)
+                except Exception:
+                    pass
+    
+        # Sanitize: remove price patterns that confuse Amazon search
+        clean_query = re.sub(r"\$\d+", "", base_query)
+        clean_query = re.sub(
+            r"\b(over|under|below|above)\s*\$?\d+\b", "", clean_query, flags=re.IGNORECASE
+        )
+        sanitized_query = " ".join(clean_query.replace("(", " ").replace(")", " ").split())
+    
+        # Only truncate if query was NOT explicitly provided by user
+        # When user provides explicit search query, preserve it fully (after sanitization)
+        if not user_provided_query:
+            # For auto-constructed queries (with constraints/answers), limit to 12 words to keep focused
+            sanitized_query = " ".join(sanitized_query.split()[:12]).strip()
+    
+        if not sanitized_query:
+            sanitized_query = base_query.strip()
+        logger.info(f"[SEARCH DEBUG] base_query={base_query!r}, sanitized_query={sanitized_query!r}")
+    
+>       search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+E       TypeError: object MagicMock can't be used in 'await' expression
+
+apps/backend/routes/rows_search.py:117: TypeError
+----------------------------- Captured stdout call -----------------------------
+[ERROR ERR-20260130051557-4636050832] Unhandled exception:
+----------------------------- Captured stderr call -----------------------------
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py", line 83, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 274, in app
+    raw_response = await run_endpoint_function(
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Volumes/PivotNorth/Shopping Agent/apps/backend/routes/rows_search.py", line 117, in search_row_listings
+    search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+TypeError: object MagicMock can't be used in 'await' expression
+_________________ test_price_patterns_removed_from_user_query __________________
+
+client = <httpx.AsyncClient object at 0x116c2d4e0>
+session = <sqlalchemy.orm.session.AsyncSession object at 0x116c2f190>
+test_user = User(id=1, phone_number=None, is_admin=False, created_at=datetime.datetime(2026, 1, 30, 5, 15, 57, 999328), email='test@example.com', clerk_user_id=None)
+
+    @pytest.mark.asyncio
+    async def test_price_patterns_removed_from_user_query(client: AsyncClient, session: AsyncSession, test_user: User):
+        """Test that price patterns are sanitized from user queries."""
+        # Create auth session
+        auth_session = AuthSession(
+            email=test_user.email or "test@example.com",
+            user_id=test_user.id,
+            session_token_hash=hash_token("test-token"),
+            revoked_at=None,
+        )
+        session.add(auth_session)
+        await session.commit()
+    
+        # Create a row
+        row = Row(
+            user_id=test_user.id,
+            title="Test",
+            status="draft"
+        )
+        session.add(row)
+        await session.commit()
+        await session.refresh(row)
+    
+        # Mock the sourcing repository
+        with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+            mock_search = AsyncMock(return_value=[])
+            mock_repo.return_value.search_all = mock_search
+    
+            # Mock auth and rate limit
+            with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+                with patch("routes.rate_limit.check_rate_limit", return_value=True):
+                    # User query with price patterns
+                    query_with_price = "Notre Dame shirt under $50 (blue)"
+    
+>                   response = await client.post(
+                        f"/rows/{row.id}/search",
+                        json={"query": query_with_price},
+                        headers={"authorization": "Bearer test-token"}
+                    )
+
+apps/backend/tests/test_rows_search.py:214: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1848: in post
+    return await self.request(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1530: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1617: in send
+    response = await self._send_handling_auth(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1645: in _send_handling_auth
+    response = await self._send_handling_redirects(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1682: in _send_handling_redirects
+    response = await self._send_single_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_client.py:1719: in _send_single_request
+    response = await transport.handle_async_request(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/httpx/_transports/asgi.py:162: in handle_async_request
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/applications.py:1106: in __call__
+    await super().__call__(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/applications.py:122: in __call__
+    await self.middleware_stack(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:184: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py:162: in __call__
+    await self.app(scope, receive, _send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py:83: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:79: in __call__
+    raise exc
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py:68: in __call__
+    await self.app(scope, receive, sender)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:20: in __call__
+    raise e
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py:17: in __call__
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:718: in __call__
+    await route.handle(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:276: in handle
+    await self.app(scope, receive, send)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py:66: in app
+    response = await func(request)
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:274: in app
+    raw_response = await run_endpoint_function(
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py:191: in run_endpoint_function
+    return await dependant.call(**values)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+row_id = 1
+body = RowSearchRequest(query='Notre Dame shirt under $50 (blue)', providers=None)
+authorization = 'Bearer test-token'
+session = <sqlalchemy.orm.session.AsyncSession object at 0x116c2f190>
+
+    @router.post("/rows/{row_id}/search", response_model=SearchResponse)
+    async def search_row_listings(
+        row_id: int,
+        body: RowSearchRequest,
+        authorization: Optional[str] = Header(None),
+        session: AsyncSession = Depends(get_session)
+    ):
+        from routes.auth import get_current_session
+        from routes.rate_limit import check_rate_limit
+    
+        auth_session = await get_current_session(authorization, session)
+        if not auth_session:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+    
+        rate_key = f"search:{auth_session.user_id}"
+        if not check_rate_limit(rate_key, "search"):
+            raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    
+        result = await session.exec(
+            select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        )
+        row = result.first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Row not found")
+    
+        spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
+        spec = spec_result.first()
+    
+        base_query = body.query or row.provider_query or row.title or (spec.item_name if spec else "")
+        user_provided_query = bool(body.query)  # Track if query was explicitly provided by user
+        logger.info(
+            f"[SEARCH DEBUG] body.query={body.query!r}, row.title={row.title!r}, base_query={base_query!r}"
+        )
+    
+        if not body.query:
+            if spec and spec.constraints:
+                try:
+                    constraints_obj = json.loads(spec.constraints)
+                    constraint_parts = []
+                    for k, v in constraints_obj.items():
+                        constraint_parts.append(f"{k}: {v}")
+                    if constraint_parts:
+                        base_query = base_query + " " + " ".join(constraint_parts)
+                except Exception:
+                    pass
+    
+            if row.choice_answers:
+                try:
+                    answers_obj = json.loads(row.choice_answers)
+                    answer_parts = []
+    
+                    for k, v in answers_obj.items():
+                        if k in ("min_price", "max_price"):
+                            continue
+                        if v and str(v).lower() != "not answered":
+                            answer_parts.append(f"{k} {v}")
+                    if answer_parts:
+                        base_query = base_query + " " + " ".join(answer_parts)
+                except Exception:
+                    pass
+    
+        # Sanitize: remove price patterns that confuse Amazon search
+        clean_query = re.sub(r"\$\d+", "", base_query)
+        clean_query = re.sub(
+            r"\b(over|under|below|above)\s*\$?\d+\b", "", clean_query, flags=re.IGNORECASE
+        )
+        sanitized_query = " ".join(clean_query.replace("(", " ").replace(")", " ").split())
+    
+        # Only truncate if query was NOT explicitly provided by user
+        # When user provides explicit search query, preserve it fully (after sanitization)
+        if not user_provided_query:
+            # For auto-constructed queries (with constraints/answers), limit to 12 words to keep focused
+            sanitized_query = " ".join(sanitized_query.split()[:12]).strip()
+    
+        if not sanitized_query:
+            sanitized_query = base_query.strip()
+        logger.info(f"[SEARCH DEBUG] base_query={base_query!r}, sanitized_query={sanitized_query!r}")
+    
+>       search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+E       TypeError: object MagicMock can't be used in 'await' expression
+
+apps/backend/routes/rows_search.py:117: TypeError
+----------------------------- Captured stdout call -----------------------------
+[ERROR ERR-20260130051558-4680877216] Unhandled exception:
+----------------------------- Captured stderr call -----------------------------
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/cors.py", line 83, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 274, in app
+    raw_response = await run_endpoint_function(
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Volumes/PivotNorth/Shopping Agent/apps/backend/routes/rows_search.py", line 117, in search_row_listings
+    search_response = await get_sourcing_repo().search_all_with_status(sanitized_query, providers=body.providers)
+TypeError: object MagicMock can't be used in 'await' expression
+=============================== warnings summary ===============================
+../../../Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/formparsers.py:10
+  /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/starlette/formparsers.py:10: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+apps/backend/main.py:210
+  /Volumes/PivotNorth/Shopping Agent/apps/backend/main.py:210: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+../../../Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/applications.py:4547
+../../../Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/applications.py:4547
+  /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/fastapi/applications.py:4547: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+apps/backend/main.py:221
+  /Volumes/PivotNorth/Shopping Agent/apps/backend/main.py:221: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+apps/backend/tests/test_rows_authorization.py::test_provider_query_persists_on_row
+apps/backend/tests/test_rows_authorization.py::test_regenerate_choice_factors_repopulates_on_patch
+apps/backend/tests/test_rows_authorization.py::test_regenerate_choice_factors_repopulates_on_patch
+  /Volumes/PivotNorth/Shopping Agent/apps/backend/routes/rows.py:258: PydanticDeprecatedSince20: The `dict` method is deprecated; use `model_dump` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    row_data = row_update.dict(exclude_unset=True)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+______________ coverage: platform darwin, python 3.10.11-final-0 _______________
+
+Name                                              Stmts   Miss  Cover
+---------------------------------------------------------------------
+apps/backend/affiliate.py                           159     24    85%
+apps/backend/audit.py                                25      7    72%
+apps/backend/clerk_auth.py                           90     49    46%
+apps/backend/database.py                             28     11    61%
+apps/backend/dependencies.py                         40     11    72%
+apps/backend/diagnostics_utils.py                    57     48    16%
+apps/backend/github_client.py                        51     31    39%
+apps/backend/main.py                                115     30    74%
+apps/backend/models.py                              163      1    99%
+apps/backend/routes/__init__.py                       0      0   100%
+apps/backend/routes/admin.py                         69     40    42%
+apps/backend/routes/auth.py                         142     82    42%
+apps/backend/routes/bugs.py                         140    108    23%
+apps/backend/routes/clickout.py                      46      8    83%
+apps/backend/routes/comments.py                      53     26    51%
+apps/backend/routes/likes.py                        117     78    33%
+apps/backend/routes/projects.py                      43     24    44%
+apps/backend/routes/rate_limit.py                    15      1    93%
+apps/backend/routes/rows.py                         180    101    44%
+apps/backend/routes/rows_search.py                  159    127    20%
+apps/backend/routes/webhooks.py                      70     50    29%
+apps/backend/sourcing.py                            440    365    17%
+apps/backend/storage.py                              74     52    30%
+apps/backend/tests/conftest.py                       40      4    90%
+apps/backend/tests/test_affiliate.py                 57      0   100%
+apps/backend/tests/test_auth_session_user_id.py      33      1    97%
+apps/backend/tests/test_clickout_redirect.py         29      7    76%
+apps/backend/tests/test_dependencies.py              65     19    71%
+apps/backend/tests/test_e2e_mint_endpoint.py         22      0   100%
+apps/backend/tests/test_likes.py                     29      0   100%
+apps/backend/tests/test_project_hierarchy.py         53      7    87%
+apps/backend/tests/test_rows_authorization.py       224     73    67%
+apps/backend/tests/test_rows_search.py              104     64    38%
+apps/backend/tests/test_security_utils.py            67      0   100%
+apps/backend/utils/__init__.py                        0      0   100%
+apps/backend/utils/security.py                       19      0   100%
+---------------------------------------------------------------------
+TOTAL                                              3018   1449    52%
+=========================== short test summary info ============================
+FAILED apps/backend/tests/test_rows_authorization.py::test_search_query_uses_explicit_query_when_provided
+FAILED apps/backend/tests/test_rows_authorization.py::test_search_query_uses_constraints_when_query_missing
+FAILED apps/backend/tests/test_rows_authorization.py::test_search_query_sanitizes_long_query
+FAILED apps/backend/tests/test_rows_authorization.py::test_search_defaults_to_row_title
+FAILED apps/backend/tests/test_rows_search.py::test_user_provided_query_not_truncated
+FAILED apps/backend/tests/test_rows_search.py::test_constructed_query_with_constraints_limited
+FAILED apps/backend/tests/test_rows_search.py::test_short_user_query_preserved
+FAILED apps/backend/tests/test_rows_search.py::test_price_patterns_removed_from_user_query
+================== 8 failed, 37 passed, 8 warnings in 19.31s ===================

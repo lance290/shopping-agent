@@ -1,0 +1,84 @@
+{
+  "type": "refactor",
+  "name": "search-architecture-v2",
+  "description": "Implement a more robust and flexible architecture to deal with multiple sellers and search engines",
+  "created": "2026-01-30T04:25:09Z",
+  "status": "in-progress",
+  "priority": 11,
+  "parent": null,
+  "definition_of_done": {
+    "version": 1,
+    "status": "active",
+    "thresholds": [
+      {
+        "description": "Search success rate >= 90% (searches returning >=1 result)",
+        "metric": "search_success_rate",
+        "target": 0.9,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "Price filter accuracy >= 95% (results respect min/max)",
+        "metric": "price_filter_accuracy",
+        "target": 0.95,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "Persistence reliability = 100% (rerun & reload preserves bids)",
+        "metric": "persistence_reliability",
+        "target": 1.0,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "Provider status transparency (provider stats + user message always present)",
+        "metric": "provider_status_reporting",
+        "target": 1.0,
+        "evidence_required": "measured",
+        "type": "threshold"
+      }
+    ],
+    "signals": [
+      {
+        "description": "Structured intent extraction accuracy validated",
+        "metric": "intent_extraction_accuracy",
+        "target": 1,
+        "weight": 0.4,
+        "evidence_required": "measured",
+        "type": "signal"
+      },
+      {
+        "description": "Provider adapters active (provider_query_map populated per provider)",
+        "metric": "provider_adapter_activation",
+        "target": 1,
+        "weight": 0.3,
+        "evidence_required": "measured",
+        "type": "signal"
+      },
+      {
+        "description": "Bid metadata complete (canonical URL + source payload stored)",
+        "metric": "bid_metadata_complete",
+        "target": 1,
+        "weight": 0.2,
+        "evidence_required": "measured",
+        "type": "signal"
+      },
+      {
+        "description": "Search latency p95 <= 12s with partial results",
+        "metric": "search_latency_p95",
+        "target": 12,
+        "weight": 0.1,
+        "evidence_required": "measured",
+        "type": "signal"
+      }
+    ],
+    "confidence": "measured",
+    "approval": {
+      "by": "Lance",
+      "timestamp": "2026-01-30T04:48:59Z",
+      "change_reason": "initial approval",
+      "change_type": "clarify"
+    }
+  }
+}

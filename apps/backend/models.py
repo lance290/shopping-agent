@@ -34,6 +34,10 @@ class RowBase(SQLModel):
     choice_answers: Optional[str] = None  # JSON object of factor_name -> answer
     provider_query: Optional[str] = None
 
+    # Search Architecture v2
+    search_intent: Optional[str] = None  # JSON of SearchIntent
+    provider_query_map: Optional[str] = None  # JSON of ProviderQueryMap
+
 class RequestSpecBase(SQLModel):
     item_name: str
     constraints: str  # JSON string for MVP simplicity
@@ -97,6 +101,12 @@ class Bid(SQLModel, table=True):
     item_url: Optional[str] = None
     image_url: Optional[str] = None
     
+    # Search Architecture v2
+    canonical_url: Optional[str] = None
+    source_payload: Optional[str] = None  # JSON of raw provider data
+    search_intent_version: Optional[str] = None
+    normalized_at: Optional[datetime] = None
+
     eta_days: Optional[int] = None
     return_policy: Optional[str] = None
     condition: str = "new"

@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import fs from 'fs';
 import path from 'path';
 import { generateAndSaveChoiceFactors, GEMINI_MODEL_NAME, triageProviderQuery, generateChatPlan } from './llm';
+import { extractSearchIntent } from './intent';
 
 // Manually load .env since we want to avoid dependency issues
 try {
@@ -410,6 +411,13 @@ export function buildApp() {
         });
 
         const safeProviderQuery = providerQuery || displayQuery;
+        const intentResult = await extractSearchIntent({
+          displayQuery,
+          rowTitle: row?.title,
+          projectTitle,
+          choiceAnswersJson: row?.choice_answers,
+          requestSpecConstraintsJson: row?.request_spec?.constraints,
+        });
 
         await fetch(`${BACKEND_URL}/rows/${rowId}`, {
           method: 'PATCH',
@@ -417,7 +425,9 @@ export function buildApp() {
           body: JSON.stringify({ provider_query: safeProviderQuery }),
         });
 
-        const searchBody: any = {};
+        const searchBody: any = {
+          search_intent: intentResult.search_intent,
+        };
         if (Array.isArray(body?.providers) && body.providers.length > 0) {
           searchBody.providers = body.providers;
         }
@@ -431,18 +441,34 @@ export function buildApp() {
           body: JSON.stringify(searchBody),
         });
         const data = await response.json();
-        reply.status(response.status).send(data);
+        const responseBody =
+          data && typeof data === 'object'
+            ? { ...data, search_intent: intentResult.search_intent }
+            : { results: data, search_intent: intentResult.search_intent };
+        reply.status(response.status).send(responseBody);
         return;
       }
 
       const targetUrl = `${BACKEND_URL}/v1/sourcing/search`;
+      const intentResult = await extractSearchIntent({
+        displayQuery: typeof body?.query === 'string' ? body.query : '',
+        rowTitle: typeof body?.query === 'string' ? body.query : '',
+        projectTitle: null,
+        choiceAnswersJson: body?.choice_answers,
+        requestSpecConstraintsJson: body?.request_spec?.constraints,
+      });
+
       const response = await fetch(targetUrl, {
         method: 'POST',
         headers,
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, search_intent: intentResult.search_intent }),
       });
       const data = await response.json();
-      reply.status(response.status).send(data);
+      const responseBody =
+        data && typeof data === 'object'
+          ? { ...data, search_intent: intentResult.search_intent }
+          : { results: data, search_intent: intentResult.search_intent };
+      reply.status(response.status).send(responseBody);
     } catch (err) {
       fastify.log.error(err);
       reply.status(500).send({ error: 'Failed to fetch from backend' });
