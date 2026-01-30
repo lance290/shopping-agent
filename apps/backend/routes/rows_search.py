@@ -87,24 +87,6 @@ async def search_row_listings(
                 answers_obj = json.loads(row.choice_answers)
                 answer_parts = []
 
-                def _to_num(v):
-                    if v is None or v == "":
-                        return None
-                    try:
-                        return float(v)
-                    except Exception:
-                        return None
-
-                min_price = _to_num(answers_obj.get("min_price"))
-                max_price = _to_num(answers_obj.get("max_price"))
-                if min_price is not None or max_price is not None:
-                    if min_price is not None and max_price is not None:
-                        answer_parts.append(f"price between {min_price} and {max_price}")
-                    elif max_price is not None:
-                        answer_parts.append(f"price under {max_price}")
-                    else:
-                        answer_parts.append(f"price over {min_price}")
-
                 for k, v in answers_obj.items():
                     if k in ("min_price", "max_price"):
                         continue
