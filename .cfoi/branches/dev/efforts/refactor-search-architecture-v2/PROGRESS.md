@@ -3,10 +3,10 @@
 > **Purpose**: Quick context loading for fresh sessions. Read this FIRST.
 
 ## Current State
-- **Status**: 🏗️ Implementation in Progress
-- **Current task**: task-010 (pending - feature flag + observability)
-- **Last working commit**: ccb0c87
-- **App status**: Green (Streaming search verified)
+- **Status**: ✅ COMPLETE
+- **Current task**: All tasks completed
+- **Last working commit**: 3455921
+- **App status**: Green (Observability verified)
 
 ## Quick Start
 ```bash
@@ -28,7 +28,7 @@ cd apps/frontend && pnpm dev
 | task-007 | Split executors/normalizers with status instrumentation | ✅ completed |
 | task-008 | Result aggregator + canonical bid persistence | ✅ completed |
 | task-009 | Wire provider stats through BFF + minimal frontend | ✅ completed |
-| task-010 | Observability, regression tests, feature flag rollout | ⬜ pending |
+| task-010 | Observability (no feature flag per user) | ✅ completed |
 
 ## Definition of Done (DoD)
 - **Status**: Active (v1)
