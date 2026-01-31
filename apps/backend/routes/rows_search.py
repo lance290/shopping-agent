@@ -233,11 +233,16 @@ async def search_row_listings(
 
     if min_price_filter is not None or max_price_filter is not None:
         filtered_results = []
+        # Sources that don't provide price data - allow through without price filtering
+        non_shopping_sources = {"google_cse"}
         for r in results:
-            price = getattr(r, "price", None)
-            # Keep items with unknown price (None or 0) - don't filter them out
-            if price is None or price == 0:
+            source = getattr(r, "source", None)
+            # Allow non-shopping sources through (they don't have price data)
+            if source in non_shopping_sources:
                 filtered_results.append(r)
+                continue
+            price = getattr(r, "price", None)
+            if price is None or price == 0:
                 continue
             # Filter: keep items where price >= min AND price <= max
             if min_price_filter is not None and price < min_price_filter:

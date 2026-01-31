@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Row, Offer, OfferSortMode, useShoppingStore } from '../store';
 import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
+import ProviderStatusBadge from './ProviderStatusBadge';
 import { Archive, RefreshCw, FlaskConical, Undo2, Link2, X } from 'lucide-react';
 import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, fetchLikesApi, createCommentApi, fetchCommentsApi } from '../utils/api';
 import { Button } from '../../components/ui/Button';
@@ -20,12 +21,14 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const pendingRowDelete = useShoppingStore(state => state.pendingRowDelete);
   const undoDeleteRow = useShoppingStore(state => state.undoDeleteRow);
   const rowOfferSort = useShoppingStore(state => state.rowOfferSort);
+  const rowProviderStatuses = useShoppingStore(state => state.rowProviderStatuses);
   const setRowOfferSort = useShoppingStore(state => state.setRowOfferSort);
   const setIsSearching = useShoppingStore(state => state.setIsSearching);
   const setRowResults = useShoppingStore(state => state.setRowResults);
   const updateRow = useShoppingStore(state => state.updateRow);
   const isPendingArchive = pendingRowDelete?.row.id === row.id;
   const sortMode: OfferSortMode = rowOfferSort[row.id] || 'original';
+  const providerStatuses = rowProviderStatuses[row.id];
 
   const [cooldownUntil, setCooldownUntil] = useState<number>(0);
   const [searchErrorMessage, setSearchErrorMessage] = useState<string | null>(null);
@@ -73,7 +76,11 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   };
 
   const refresh = async (mode: 'all' | 'rainforest') => {
-    if (!canRefresh()) return;
+    console.log('[RowStrip] refresh() called, mode:', mode, 'canRefresh:', canRefresh(), 'cooldownUntil:', cooldownUntil, 'now:', Date.now());
+    if (!canRefresh()) {
+      console.log('[RowStrip] refresh blocked by cooldown');
+      return;
+    }
 
     const until = Date.now() + 5000;
     setCooldownUntil(until);
@@ -82,12 +89,14 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
     setIsSearching(true);
     setSearchErrorMessage(null);
+    console.log('[RowStrip] calling runSearchApiWithStatus for row:', row.id);
     try {
       const searchResponse = await runSearchApiWithStatus(
         null,
         row.id,
         mode === 'rainforest' ? { providers: ['rainforest'] } : undefined
       );
+      console.log('[RowStrip] searchResponse:', searchResponse.results.length, 'results, userMessage:', searchResponse.userMessage);
       
       if (searchResponse.userMessage) {
         setSearchErrorMessage(searchResponse.userMessage);
@@ -97,7 +106,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       const likes = await fetchLikesApi(row.id);
       const mergedResults = mergeLikes(searchResponse.results, likes);
       
-      setRowResults(row.id, mergedResults);
+      setRowResults(row.id, mergedResults, searchResponse.providerStatuses);
 
       const freshRow = await fetchSingleRowFromDb(row.id);
       if (freshRow) {
@@ -478,6 +487,16 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
             {row.status === 'closed' ? 'selected' : row.status}
           </span>
         </div>
+
+        {/* Provider Status Badges */}
+        {providerStatuses && providerStatuses.length > 0 && (
+          <div className="flex-1 flex items-center justify-end px-4 gap-2 overflow-hidden opacity-80 hover:opacity-100 transition-opacity">
+            {providerStatuses.map((status, idx) => (
+              <ProviderStatusBadge key={status.provider_id + idx} status={status} />
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center gap-2">
           <Button
             size="sm"

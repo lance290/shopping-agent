@@ -108,9 +108,18 @@ export async function GET(request: NextRequest) {
         Authorization: authHeader.Authorization,
       },
     });
-    
+
+    if (response.status === 404) {
+      return NextResponse.json([], { status: 200 });
+    }
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      return NextResponse.json({ error: text || 'Failed to fetch comments' }, { status: response.status });
+    }
+
     const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    return NextResponse.json(data, { status: 200 });
   } catch (error) {
     console.error('Error fetching comments:', error);
     return NextResponse.json([], { status: 500 });
@@ -133,9 +142,18 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify(body),
     });
-    
+
+    if (response.status === 404) {
+      return NextResponse.json({ error: 'Comments not implemented' }, { status: 501 });
+    }
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      return NextResponse.json({ error: text || 'Failed to create comment' }, { status: response.status });
+    }
+
     const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    return NextResponse.json(data, { status: 200 });
   } catch (error) {
     console.error('Error creating comment:', error);
     return NextResponse.json({ error: 'Failed to create comment' }, { status: 500 });

@@ -17,6 +17,42 @@ router = APIRouter(tags=["rows"])
 router.include_router(rows_search_router)
 
 
+def filter_bids_by_price(row: Row) -> List:
+    """Filter row.bids based on choice_answers min_price/max_price."""
+    if not row.bids:
+        return []
+    
+    min_price = None
+    max_price = None
+    
+    if row.choice_answers:
+        try:
+            answers = json.loads(row.choice_answers) if isinstance(row.choice_answers, str) else row.choice_answers
+            if answers.get("min_price"):
+                min_price = float(answers["min_price"])
+            if answers.get("max_price"):
+                max_price = float(answers["max_price"])
+        except Exception:
+            pass
+    
+    if min_price is None and max_price is None:
+        return list(row.bids)
+    
+    filtered = []
+    for bid in row.bids:
+        price = bid.price
+        if price is None:
+            filtered.append(bid)
+            continue
+        if min_price is not None and price < min_price:
+            continue
+        if max_price is not None and price > max_price:
+            continue
+        filtered.append(bid)
+    
+    return filtered
+
+
 class SellerRead(BaseModel):
     id: int
     name: str
@@ -177,7 +213,13 @@ async def read_rows(
         .options(selectinload(Row.bids).joinedload(Bid.seller))
         .order_by(Row.updated_at.desc())
     )
-    return result.all()
+    rows = result.all()
+    
+    # Apply price filters from choice_answers to each row's bids
+    for row in rows:
+        row.bids = filter_bids_by_price(row)
+    
+    return rows
 
 
 @router.get("/rows/{row_id}", response_model=RowReadWithBids)
@@ -201,6 +243,10 @@ async def read_row(
     
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
+    
+    # Apply price filter from choice_answers
+    row.bids = filter_bids_by_price(row)
+    
     return row
 
 

@@ -3,7 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 
 export const dynamic = 'force-dynamic';
 
-const BFF_URL = process.env.BFF_URL || 'http://localhost:8080';
+const BFF_URL = process.env.BFF_URL || 'http://localhost:8081';
 
 const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
 

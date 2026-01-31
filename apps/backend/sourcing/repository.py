@@ -390,14 +390,66 @@ class RainforestAPIProvider(SourcingProvider):
         self.api_key = api_key
         self.base_url = "https://api.rainforestapi.com/request"
 
+    def _parse_price_to_float(self, price_info) -> float:
+        if price_info is None:
+            return 0.0
+
+        value = None
+        raw = None
+
+        if isinstance(price_info, dict):
+            value = price_info.get("value")
+            raw = price_info.get("raw")
+        else:
+            value = price_info
+
+        candidates = [value, raw]
+        for c in candidates:
+            if c is None:
+                continue
+            if isinstance(c, (int, float)):
+                try:
+                    return float(c)
+                except Exception:
+                    continue
+            if isinstance(c, str):
+                s = c.strip()
+                if not s:
+                    continue
+                # Extract first numeric component (handles "$1,299.99", "1,299", "USD 1299", "$500 - $800")
+                m = re.search(r"(\d[\d,]*\.?\d*)", s)
+                if not m:
+                    continue
+                num = m.group(1).replace(",", "")
+                try:
+                    return float(num)
+                except Exception:
+                    continue
+
+        return 0.0
+
     async def search(self, query: str, **kwargs) -> List[SearchResult]:
         print(f"[RainforestAPIProvider] Searching with query: {query!r}")
+
+        min_price = kwargs.get("min_price")
+        max_price = kwargs.get("max_price")
+
         params = {
             "api_key": self.api_key,
             "type": "search",
             "amazon_domain": "amazon.com",
             "search_term": query,
         }
+
+        # Best-effort: pass through price constraints if supported by Rainforest.
+        # Even if upstream ignores these, we also enforce constraints locally below.
+        try:
+            if min_price is not None:
+                params["min_price"] = float(min_price)
+            if max_price is not None:
+                params["max_price"] = float(max_price)
+        except Exception:
+            pass
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             data = None
@@ -414,7 +466,7 @@ class RainforestAPIProvider(SourcingProvider):
                         status = None
                     safe_msg = redact_secrets(str(e))
                     print(f"[RainforestAPIProvider] HTTP error status={status}: {safe_msg}")
-                    return []
+                    raise
                 data = response.json()
 
                 request_info = data.get("request_info") if isinstance(data, dict) else None
@@ -460,6 +512,15 @@ class RainforestAPIProvider(SourcingProvider):
                         "amazon_domain": "amazon.com",
                         "search_term": fallback_query,
                     }
+
+                    try:
+                        if min_price is not None:
+                            params["min_price"] = float(min_price)
+                        if max_price is not None:
+                            params["max_price"] = float(max_price)
+                    except Exception:
+                        pass
+
                     try:
                         async with httpx.AsyncClient(timeout=10.0) as client:
                             response = await client.get(self.base_url, params=params)
@@ -473,19 +534,48 @@ class RainforestAPIProvider(SourcingProvider):
                             status = None
                         safe_msg = redact_secrets(str(e))
                         print(f"[RainforestAPIProvider] HTTP error status={status}: {safe_msg}")
-                        return []
+                        raise
                     search_results = data.get("search_results") if isinstance(data, dict) else None
 
             results = []
+            dropped_price = 0
+            dropped_constraints = 0
             for item in (search_results or [])[:20]:
-                price_info = item.get("price", {})
-                price = price_info.get("value", 0) if isinstance(price_info, dict) else 0
+                price_info = item.get("price")
+                if price_info is None:
+                    prices_obj = item.get("prices")
+                    if isinstance(prices_obj, dict):
+                        for key in (
+                            "current_price",
+                            "buybox_price",
+                            "price",
+                            "current",
+                            "main_price",
+                            "list_price",
+                        ):
+                            if key in prices_obj:
+                                price_info = prices_obj.get(key)
+                                break
+                price_f = self._parse_price_to_float(price_info)
+
+                # Drop unknown/0 priced items; they cause $0.00 tiles and bypass min_price.
+                if price_f <= 0:
+                    dropped_price += 1
+                    continue
+
+                # Enforce constraints locally regardless of upstream support.
+                if min_price is not None and price_f < float(min_price):
+                    dropped_constraints += 1
+                    continue
+                if max_price is not None and price_f > float(max_price):
+                    dropped_constraints += 1
+                    continue
                 
                 url = normalize_url(item.get("link", ""))
                 
                 results.append(SearchResult(
                     title=item.get("title", "Unknown"),
-                    price=float(price) if price else 0.0,
+                    price=price_f,
                     merchant="Amazon",
                     url=url,
                     merchant_domain=extract_merchant_domain(url),
@@ -495,7 +585,102 @@ class RainforestAPIProvider(SourcingProvider):
                     shipping_info=item.get("delivery", {}).get("tagline"),
                     source="rainforest_amazon"
                 ))
+
+            if (not results) and search_results:
+                try:
+                    sample = (search_results or [])[0]
+                    sample_price = sample.get("price") if isinstance(sample, dict) else None
+                    print(
+                        f"[RainforestAPIProvider] Filtered all results (raw={len(search_results)}, "
+                        f"dropped_price={dropped_price}, dropped_constraints={dropped_constraints}). "
+                        f"Sample price={sample_price}"
+                    )
+                except Exception:
+                    pass
             return results
+
+
+class ScaleSerpProvider(SourcingProvider):
+    """Scale SERP API - Google Shopping results (same company as Rainforest)"""
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://api.scaleserp.com/search"
+
+    async def search(self, query: str, **kwargs) -> List[SearchResult]:
+        print(f"[ScaleSerpProvider] Searching Google Shopping: {query!r}")
+        
+        min_price = kwargs.get("min_price")
+        max_price = kwargs.get("max_price")
+        
+        params = {
+            "api_key": self.api_key,
+            "q": query,
+            "search_type": "shopping",
+            "location": "United States",
+        }
+        
+        if min_price is not None:
+            params["shopping_price_min"] = int(min_price)
+        if max_price is not None:
+            params["shopping_price_max"] = int(max_price)
+        
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(self.base_url, params=params)
+                response.raise_for_status()
+                data = response.json()
+                
+                shopping_results = data.get("shopping_results", [])
+                print(f"[ScaleSerpProvider] Got {len(shopping_results)} results")
+                
+                # Debug: log first result structure
+                if shopping_results:
+                    print(f"[ScaleSerpProvider] Sample result keys: {list(shopping_results[0].keys())}")
+                    print(f"[ScaleSerpProvider] Sample result: {shopping_results[0]}")
+                
+                results = []
+                for item in shopping_results:
+                    price = 0.0
+                    # Try multiple price fields
+                    price_raw = item.get("price") or item.get("extracted_price") or item.get("price_raw")
+                    if price_raw:
+                        if isinstance(price_raw, (int, float)):
+                            price = float(price_raw)
+                        else:
+                            # Parse "$1,299.00" format
+                            match = re.search(r"(\d[\d,]*\.?\d*)", str(price_raw))
+                            if match:
+                                try:
+                                    price = float(match.group(1).replace(",", ""))
+                                except:
+                                    pass
+                    
+                    # Try multiple URL fields
+                    url = item.get("link") or item.get("url") or item.get("product_link") or ""
+                    url = normalize_url(url) if url else ""
+                    
+                    # Try multiple image fields
+                    image_url = item.get("thumbnail") or item.get("image") or item.get("image_url")
+                    
+                    results.append(SearchResult(
+                        title=item.get("title", "Unknown"),
+                        price=price,
+                        currency="USD",
+                        merchant=item.get("source") or item.get("merchant") or "Google Shopping",
+                        url=url,
+                        merchant_domain=extract_merchant_domain(url) if url else "",
+                        image_url=image_url,
+                        rating=item.get("rating"),
+                        reviews_count=item.get("reviews") or item.get("reviews_count"),
+                        source="google_shopping"
+                    ))
+                return results
+        except httpx.HTTPStatusError as e:
+            print(f"[ScaleSerpProvider] HTTP error: {e.response.status_code}")
+            raise
+        except Exception as e:
+            print(f"[ScaleSerpProvider] Error: {e}")
+            raise
 
 
 class MockShoppingProvider(SourcingProvider):
@@ -607,6 +792,23 @@ class SourcingRepository:
         )
         if rainforest_present:
             self.providers["rainforest"] = RainforestAPIProvider(rainforest_key)
+
+        serpapi_key = os.getenv("SERPAPI_API_KEY")
+        if serpapi_key and serpapi_key != "demo":
+            self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
+
+        valueserp_key = os.getenv("VALUESERP_API_KEY")
+        if valueserp_key and valueserp_key != "demo":
+            self.providers["valueserp"] = ValueSerpProvider(valueserp_key)
+
+        searchapi_key = os.getenv("SEARCHAPI_API_KEY")
+        if searchapi_key and searchapi_key != "demo":
+            self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
+        
+        # Scale SERP - Google Shopping (same company as Rainforest)
+        scaleserp_key = os.getenv("SCALESERP_API_KEY")
+        if scaleserp_key and scaleserp_key != "demo":
+            self.providers["google_shopping"] = ScaleSerpProvider(scaleserp_key)
         
         # Other providers DISABLED - using only Rainforest for now
         # ValueSerp - cheap alternative

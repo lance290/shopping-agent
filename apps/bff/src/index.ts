@@ -910,7 +910,7 @@ export function buildApp() {
             reply.raw.end();
             return;
           }
-          writeEvent('search_results', { row_id: lastRowId, results: searchRes.data?.results || [] });
+          writeEvent('search_results', { row_id: lastRowId, results: searchRes.data?.results || [], provider_statuses: searchRes.data?.provider_statuses });
         }
       } else if (action.type === 'update_row') {
         const constraints = action.constraints && typeof action.constraints === 'object' ? action.constraints : undefined;
@@ -972,7 +972,7 @@ export function buildApp() {
             reply.raw.end();
             return;
           }
-          writeEvent('search_results', { row_id: lastRowId, results: searchRes.data?.results || [] });
+          writeEvent('search_results', { row_id: lastRowId, results: searchRes.data?.results || [], provider_statuses: searchRes.data?.provider_statuses });
         }
       } else if (action.type === 'search') {
         const rowId = action.row_id;
@@ -994,7 +994,7 @@ export function buildApp() {
           return;
         }
         lastRowId = rowId;
-        writeEvent('search_results', { row_id: rowId, results: searchRes.data?.results || [] });
+        writeEvent('search_results', { row_id: rowId, results: searchRes.data?.results || [], provider_statuses: searchRes.data?.provider_statuses });
       }
     }
 

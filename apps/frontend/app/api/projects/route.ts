@@ -12,7 +12,7 @@ function normalizeBaseUrl(url: string): string {
 }
 
 const BFF_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8080'
+  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
 );
 const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
 
@@ -40,34 +40,32 @@ function isClerkConfigured(): boolean {
 }
 
 async function getAuthHeader(request: NextRequest): Promise<{ Authorization?: string }> {
+  // When Clerk is configured, ONLY use Clerk - no fallback to avoid conflicts
+  if (!disableClerk && isClerkConfigured()) {
+    try {
+      const { getToken } = await auth();
+      const token = await getToken();
+      if (token) {
+        console.log(`[API/projects] Using Clerk JWT`);
+        return { Authorization: `Bearer ${token}` };
+      }
+      console.log(`[API/projects] Clerk configured but no token available`);
+      return {};
+    } catch (err) {
+      console.error(`[API/projects] Clerk auth error:`, err);
+      return {};
+    }
+  }
+
+  // Only use dev token when Clerk is explicitly disabled
   const devToken = getCookieSessionToken(request) || getDevSessionToken();
   if (devToken) {
-    console.log(`[API/projects] Using dev token`);
+    console.log(`[API/projects] Using dev token (Clerk disabled)`);
     return { Authorization: `Bearer ${devToken}` };
   }
 
-  if (disableClerk || !isClerkConfigured()) {
-    console.log(`[API/projects] Clerk disabled or not configured`);
-    return {};
-  }
-
-  try {
-    const { getToken } = await auth();
-    const token = await getToken();
-    console.log(`[API/projects] auth().getToken() returned: ${token ? 'token present' : 'null'}`);
-    if (token) {
-      return { Authorization: `Bearer ${token}` };
-    }
-
-    const sessionCookie =
-      request.cookies.get('__session')?.value ||
-      Array.from(request.cookies.getAll()).find((c) => c.name.startsWith('__session_'))?.value;
-    console.log(`[API/projects] Fallback to __session cookie: ${sessionCookie ? 'found' : 'not found'}`);
-    return sessionCookie ? { Authorization: `Bearer ${sessionCookie}` } : {};
-  } catch (err) {
-    console.error(`[API/projects] getAuthHeader error:`, err);
-    return {};
-  }
+  console.log(`[API/projects] No auth available`);
+  return {};
 }
 
 async function ensureAuthHeader(request: NextRequest): Promise<{ Authorization?: string; mintedToken?: string }> {
@@ -122,8 +120,8 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // If the dev token is stale (not in DB), mint a fresh dev session and retry once.
-    if (response.status === 401) {
+    // Only retry with dev token when Clerk is disabled
+    if (response.status === 401 && (disableClerk || !isClerkConfigured())) {
       const mintedToken = await mintDevSessionToken();
       if (mintedToken) {
         response = await fetch(`${BFF_URL}/api/projects`, {
@@ -146,16 +144,7 @@ export async function GET(request: NextRequest) {
     }
     
     const data = await response.json();
-    const out = NextResponse.json(data, { status: response.status });
-    if (authHeader.mintedToken) {
-      out.cookies.set('sa_session', authHeader.mintedToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-      });
-    }
-    return out;
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error fetching projects:', error);
     return NextResponse.json([], { status: 500 });

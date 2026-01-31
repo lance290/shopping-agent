@@ -3,11 +3,22 @@ Clerk JWT verification for backend authentication.
 Verifies JWTs issued by Clerk using their JWKS endpoint.
 """
 import os
+import ssl
 import httpx
 import jwt
 from jwt import PyJWKClient
 from typing import Optional
 from functools import lru_cache
+
+# Ensure dotenv is loaded before reading env vars
+from dotenv import load_dotenv
+load_dotenv()
+
+try:
+    import certifi
+    SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+except ImportError:
+    SSL_CONTEXT = ssl.create_default_context()
 
 CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY", "")
 CLERK_PUBLISHABLE_KEY = os.getenv("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "")
@@ -57,7 +68,7 @@ def get_jwks_client() -> Optional[PyJWKClient]:
     print(f"[CLERK] Using JWKS URL: {jwks_url}")
     
     try:
-        return PyJWKClient(jwks_url)
+        return PyJWKClient(jwks_url, ssl_context=SSL_CONTEXT)
     except Exception as e:
         print(f"[CLERK] Failed to create JWKS client: {e}")
         return None
@@ -72,7 +83,7 @@ def get_jwks_client_for_issuer(issuer: str) -> Optional[PyJWKClient]:
         base = f"https://{base}"
     jwks_url = f"{base.rstrip('/')}/.well-known/jwks.json"
     try:
-        return PyJWKClient(jwks_url)
+        return PyJWKClient(jwks_url, ssl_context=SSL_CONTEXT)
     except Exception as e:
         print(f"[CLERK] Failed to create issuer JWKS client: {e}")
         return None

@@ -22,6 +22,16 @@ export interface Offer {
   comment_preview?: string;
 }
 
+export type ProviderStatusType = 'ok' | 'error' | 'timeout' | 'exhausted' | 'rate_limited';
+
+export interface ProviderStatusSnapshot {
+  provider_id: string;
+  status: ProviderStatusType;
+  result_count: number;
+  latency_ms?: number;
+  message?: string;
+}
+
 export interface Bid {
   id: number;
   price: number;
@@ -125,6 +135,7 @@ interface ShoppingState {
   projects: Project[];            // All projects
   searchResults: Offer[];         // Current search results (legacy view)
   rowResults: Record<number, Offer[]>; // Per-row cached results
+  rowProviderStatuses: Record<number, ProviderStatusSnapshot[]>; // Per-row provider statuses
   rowOfferSort: Record<number, OfferSortMode>; // Per-row UI sort mode
   isSearching: boolean;           // Loading state for search
   cardClickQuery: string | null;  // Query from card click (triggers chat append)
@@ -142,7 +153,7 @@ interface ShoppingState {
   updateRow: (id: number, updates: Partial<Row>) => void;
   removeRow: (id: number) => void;
   setSearchResults: (results: Offer[]) => void;
-  setRowResults: (rowId: number, results: Offer[]) => void;
+  setRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[]) => void;
   clearRowResults: (rowId: number) => void;
   setRowOfferSort: (rowId: number, sort: OfferSortMode) => void;
   setIsSearching: (searching: boolean) => void;
@@ -175,6 +186,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   projects: [],
   searchResults: [],
   rowResults: {},
+  rowProviderStatuses: {},
   rowOfferSort: {},
   isSearching: false,
   cardClickQuery: null,
@@ -214,10 +226,12 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
         const id = existingPending.row.id;
         const nextRows = s.rows.filter(r => r.id !== id);
         const { [id]: _, ...restResults } = s.rowResults;
+        const { [id]: __, ...restStatuses } = s.rowProviderStatuses;
         const nextActive = s.activeRowId === id ? null : s.activeRowId;
         return {
           rows: nextRows,
           rowResults: restResults,
+          rowProviderStatuses: restStatuses,
           activeRowId: nextActive,
           pendingRowDelete: null,
         };
@@ -245,10 +259,12 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       set((s) => {
         const nextRows = s.rows.filter(r => r.id !== rowId);
         const { [rowId]: _, ...restResults } = s.rowResults;
+        const { [rowId]: __, ...restStatuses } = s.rowProviderStatuses;
         const nextActive = s.activeRowId === rowId ? null : s.activeRowId;
         return {
           rows: nextRows,
           rowResults: restResults,
+          rowProviderStatuses: restStatuses,
           activeRowId: nextActive,
           pendingRowDelete: null,
         };
@@ -293,7 +309,14 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
 
     // Automatically hydrate rowResults from persisted bids
     // IMPORTANT: Merge bids with existing rowResults to preserve search results
-    const newRowResults = { ...state.rowResults };
+    const rowIds = new Set(orderedRows.map((row) => row.id));
+    const prunedRowResults = Object.fromEntries(
+      Object.entries(state.rowResults).filter(([id]) => rowIds.has(Number(id)))
+    ) as Record<number, Offer[]>;
+    const newRowResults = { ...prunedRowResults };
+    const prunedProviderStatuses = Object.fromEntries(
+      Object.entries(state.rowProviderStatuses).filter(([id]) => rowIds.has(Number(id)))
+    ) as Record<number, ProviderStatusSnapshot[]>;
     orderedRows.forEach(row => {
       if (row.bids && row.bids.length > 0) {
         const bidsAsOffers = row.bids.map(mapBidToOffer);
@@ -326,12 +349,14 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       }
     });
 
-    return { rows: orderedRows, rowResults: newRowResults };
+    return { rows: orderedRows, rowResults: newRowResults, rowProviderStatuses: prunedProviderStatuses };
   }),
   addRow: (row) => set((state) => {
     const newRow = { ...row, last_engaged_at: Date.now() };
+    const { [newRow.id]: _, ...restResults } = state.rowResults;
+    const { [newRow.id]: __, ...restStatuses } = state.rowProviderStatuses;
     // Add new row at the beginning (most recent)
-    return { rows: [newRow, ...state.rows] };
+    return { rows: [newRow, ...state.rows], rowResults: restResults, rowProviderStatuses: restStatuses };
   }),
   updateRow: (id, updates) => set((state) => ({
     rows: state.rows.map((row) => (row.id === id ? { ...row, ...updates } : row)),
@@ -341,13 +366,15 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     activeRowId: state.activeRowId === id ? null : state.activeRowId,
   })),
   setSearchResults: (results) => set({ searchResults: results, isSearching: false }),
-  setRowResults: (rowId, results) => set((state) => ({
+  setRowResults: (rowId, results, providerStatuses) => set((state) => ({
     rowResults: { ...state.rowResults, [rowId]: results },
+    rowProviderStatuses: providerStatuses ? { ...state.rowProviderStatuses, [rowId]: providerStatuses } : state.rowProviderStatuses,
     isSearching: false,
   })),
   clearRowResults: (rowId) => set((state) => {
     const { [rowId]: _, ...rest } = state.rowResults;
-    return { rowResults: rest };
+    const { [rowId]: __, ...restStatuses } = state.rowProviderStatuses;
+    return { rowResults: rest, rowProviderStatuses: restStatuses };
   }),
   setRowOfferSort: (rowId, sort) => set((state) => {
     if (sort === 'original') {

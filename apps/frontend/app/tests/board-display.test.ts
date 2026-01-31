@@ -122,4 +122,60 @@ describe('ProcurementBoard Display Logic', () => {
     expect(init?.method).toBe('PATCH');
     expect(String(init?.body)).toContain('regenerate_choice_factors');
   });
+
+  test('Options Refresh triggers search after regenerating factors', async () => {
+    const fetchSpy = vi.fn(async (url: string) => {
+      if (url.includes('/api/rows')) {
+        return new Response(JSON.stringify({}), { status: 200 });
+      }
+      if (url.includes('/api/search')) {
+        return new Response(JSON.stringify({ results: [], providerStatuses: [] }), { status: 200 });
+      }
+      return new Response(JSON.stringify({}), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchSpy as any);
+
+    const row: Row = {
+      id: 456,
+      title: 'Bianchi bicycle',
+      status: 'sourcing',
+      budget_max: 5000,
+      currency: 'USD',
+      choice_factors: { brand: { options: ['Bianchi'] } },
+      choice_answers: { brand: 'Bianchi', min_price: 500 },
+    };
+
+    render(React.createElement(RequestTile, { row }));
+
+    const refresh = screen.getByTitle('Refresh options');
+    fireEvent.click(refresh);
+
+    // Wait for async operations
+    await vi.waitFor(() => {
+      type FetchCall = [string, RequestInit?];
+      const calls = fetchSpy.mock.calls as unknown as FetchCall[];
+      const searchCall = calls.find((c) => String(c[0]).includes('/api/search'));
+      expect(searchCall).toBeDefined();
+    }, { timeout: 1000 });
+  });
+
+  test('Options card displays price range from choice_answers', () => {
+    const row: Row = {
+      id: 789,
+      title: 'Road Bike',
+      status: 'sourcing',
+      budget_max: null,
+      currency: 'USD',
+      choice_factors: { 
+        min_price: { type: 'number', label: 'Min Price' },
+        max_price: { type: 'number', label: 'Max Price' },
+      },
+      choice_answers: { min_price: 500, max_price: 2000 },
+    };
+
+    render(React.createElement(RequestTile, { row }));
+
+    // Should display the price values
+    expect(screen.getByDisplayValue('500')).toBeDefined();
+  });
 });

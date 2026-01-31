@@ -73,6 +73,10 @@ async def get_current_session(
     
     token = authorization[7:]
     
+    # Debug: log token info
+    token_parts = token.split('.') if token else []
+    print(f"[AUTH DEBUG] Token length: {len(token)}, parts: {len(token_parts)}, first 50 chars: {token[:50] if token else 'empty'}")
+    
     # First, try Clerk JWT verification
     clerk_user_id = get_clerk_user_id(token)
     if clerk_user_id:

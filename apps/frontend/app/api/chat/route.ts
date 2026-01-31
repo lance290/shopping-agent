@@ -10,7 +10,7 @@ function normalizeBaseUrl(url: string): string {
 }
 
 const BFF_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8080'
+  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
 );
 
 const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';

@@ -58,6 +58,16 @@ cd apps/frontend && pnpm dev
 - Initialized tracking files (metrics.json, proof stubs)
 - Next: Run /implement to start task-001
 
+### 2026-01-30 21:45 - Session (Task-009 wiring + FE test setup)
+- Completed: FE test setup for jest-dom matchers (Vitest) and fixed ProviderStatusBadge tests
+- Completed: Frontend store wiring for provider status snapshots (row-scoped)
+- Completed: UI wiring for provider status badges on row header
+- Completed: BFF `/api/chat` SSE `search_results` event now includes `provider_statuses` from backend `/rows/:id/search`
+- Completed: Frontend `Chat.tsx` SSE handler consumes `provider_statuses` and calls `store.setRowResults(rowId, results, providerStatuses)`
+- Runtime ports (local): backend `8000`, frontend `3003`, BFF `8081` (PORT is set in `apps/bff/.env`)
+- Note: `metrics.json` was expected by workflow but was not found at repo root during compaction
+- Next: Manual verification in UI (search + confirm badges render + partial failure states), then add manual proof for task-009
+
 ## How to Use This File
 
 **At session start:**
@@ -70,4 +80,4 @@ cd apps/frontend && pnpm dev
 2. Add session entry with what was accomplished
 3. Note any blockers or next steps
 
-**⚠️ IMPORTANT**: Keep this file updated!**
+ **⚠️ IMPORTANT**: Keep this file updated!**

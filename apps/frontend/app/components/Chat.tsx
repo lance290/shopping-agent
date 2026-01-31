@@ -163,8 +163,9 @@ export default function Chat() {
             } else if (eventName === 'search_results') {
               const rowId = data?.row_id;
               const results = Array.isArray(data?.results) ? data.results : [];
+              const providerStatuses = Array.isArray(data?.provider_statuses) ? data.provider_statuses : undefined;
               if (rowId) {
-                store.setRowResults(rowId, results);
+                store.setRowResults(rowId, results, providerStatuses);
               }
               store.setIsSearching(false);
             } else if (eventName === 'done') {

@@ -93,20 +93,35 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
   }, [factors.length, pollCount, row.id, updateRow]);
 
   const handleManualRefresh = async () => {
+    console.log('[RequestTile] handleManualRefresh called for row:', row.id);
     setIsRefreshing(true);
+    setIsSearching(true);
     setPollCount(0);
     try {
+      console.log('[RequestTile] Regenerating choice factors...');
       await fetch(`/api/rows?id=${row.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ regenerate_choice_factors: true }),
       });
+      
+      // Also trigger a search to refresh offers
+      console.log('[RequestTile] Triggering search...');
+      const searchResponse = await runSearchApiWithStatus(null, row.id);
+      console.log('[RequestTile] Search response:', searchResponse.results?.length, 'results');
+      if (searchResponse.results) {
+        setRowResults(row.id, searchResponse.results, searchResponse.providerStatuses);
+      }
+      
       const freshRow = await fetchSingleRowFromDb(row.id);
       if (freshRow) {
         updateRow(row.id, freshRow);
       }
+    } catch (err) {
+      console.error('[RequestTile] handleManualRefresh error:', err);
     } finally {
       setIsRefreshing(false);
+      setIsSearching(false);
     }
   };
 
@@ -126,7 +141,7 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
       updateRow(row.id, { choice_answers: JSON.stringify(newAnswers) });
       setIsSearching(true);
       const res = await runSearchApiWithStatus(null, row.id);
-      setRowResults(row.id, res.results);
+      setRowResults(row.id, res.results, res.providerStatuses);
       const freshRow = await fetchSingleRowFromDb(row.id);
       if (freshRow) {
         updateRow(row.id, freshRow);

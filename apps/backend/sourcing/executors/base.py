@@ -43,13 +43,15 @@ async def run_provider_with_status(
             message="Search timed out",
         )
         return [], status
-    except Exception:
+    except Exception as e:
         elapsed_ms = int((time.monotonic() - started) * 1000)
+        error_msg = str(e)
+        print(f"[{provider_id}] Search error: {type(e).__name__}: {error_msg}")
         status = ProviderStatusSnapshot(
             provider_id=provider_id,
             status="error",
             result_count=0,
             latency_ms=elapsed_ms,
-            message="Search failed",
+            message=f"Search failed: {error_msg[:100]}",
         )
         return [], status

@@ -117,7 +117,7 @@ export default function ChoiceFactorPanel() {
       // 4. Refresh results for this row
       setIsSearching(true);
       const res = await runSearchApiWithStatus(null, row.id);
-      setRowResults(row.id, res.results);
+      setRowResults(row.id, res.results, res.providerStatuses);
       const freshRow = await fetchSingleRowFromDb(row.id);
       if (freshRow) {
         updateRow(row.id, freshRow);

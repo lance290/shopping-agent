@@ -77,7 +77,7 @@ export default function Home() {
             if (!existingResults || existingResults.length === 0) {
               store.setIsSearching(true);
               const res = await runSearchApiWithStatus(null, targetRow.id);
-              store.setRowResults(targetRow.id, res.results);
+              store.setRowResults(targetRow.id, res.results, res.providerStatuses);
               const freshRow = await fetchSingleRowFromDb(targetRow.id);
               if (freshRow) {
                 store.updateRow(targetRow.id, freshRow);

@@ -6,11 +6,28 @@
 - Backend sanitizes queries to <= 8 words before provider calls. Keep this in place to avoid long constraint strings.
 - **CRITICAL**: Price patterns like "$50", "over $50", "under $100" MUST be stripped from search queries before sending to Rainforest/Amazon. Amazon interprets these as filters, not search terms, causing completely wrong results (e.g., "Roblox Gift Cards over $50" returns "over 50" fitness books instead of gift cards). The backend now removes these patterns in `main.py` search sanitization.
 
+## Price filtering (Jan 2026 fix)
+- **min_price/max_price** stored in `row.choice_answers` and `row.search_intent`
+- Backend extracts price constraints in `sourcing/service.py` `_extract_price_constraints()`
+- Price filtering happens in two places (keep in sync):
+  - `sourcing/service.py` lines 104-128
+  - `routes/rows_search.py` lines 234-256
+- **Non-shopping sources bypass price filtering**: `google_cse` added to `non_shopping_sources` set since it doesn't return prices
+- Results with `price=0` or `price=None` are filtered out (shopping sources must have valid prices)
+- **Options card refresh button** now triggers search via `runSearchApiWithStatus()` in `RequestTile.tsx` `handleManualRefresh()`
+
 ## Provider gotchas
 - SerpAPI and SearchAPI keys can 429 quickly. When they 429, results are empty.
 - Rainforest can return `request_info success=true` with 0 results; retries only help when the query is clean.
+- **Rainforest searches Amazon only** - won't find specialty brands like Bianchi bicycles that Amazon doesn't carry.
 - Google CSE only works if both `GOOGLE_CSE_API_KEY` and `GOOGLE_CSE_CX` are set.
+- **Google CSE is NOT a shopping API** - it doesn't return prices. Results bypass price filtering via `non_shopping_sources` set.
+- **Scale SERP (Google Shopping)** - Added Jan 2026. Uses `SCALESERP_API_KEY` from Traject Data (same account as Rainforest). Returns actual Google Shopping results with prices, images, merchant info.
+  - Timeout: 15s (slower than other providers)
+  - Supports `shopping_price_min` and `shopping_price_max` params
+  - Image URLs are Google's encrypted thumbnails - may not persist well
 - Mocks are disabled by explicit user request.
+- **Provider timeout** set via `SOURCING_PROVIDER_TIMEOUT_SECONDS` env var (default 8s, increased to 15s for Scale SERP).
 
 ## Likes persistence gotcha (do not repeat)
 - Do NOT call backend `/likes` directly from the frontend. It bypasses the Next.js auth proxy and can 404 due to mismatched tokens/row ownership. Always use `/api/likes`.

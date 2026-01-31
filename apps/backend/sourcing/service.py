@@ -1,11 +1,12 @@
 """Sourcing service for orchestrating search and result persistence."""
 
+import json
 import logging
 from datetime import datetime
 from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import selectinload
-from sqlmodel import select
+from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models import Bid, Row, Seller
@@ -19,6 +20,37 @@ class SourcingService:
     def __init__(self, session: AsyncSession, sourcing_repo: SourcingRepository):
         self.session = session
         self.repo = sourcing_repo
+
+    def _extract_price_constraints(self, row: Row) -> tuple[Optional[float], Optional[float]]:
+        min_price: Optional[float] = None
+        max_price: Optional[float] = None
+
+        if row.search_intent:
+            try:
+                payload = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
+                if isinstance(payload, dict):
+                    if payload.get("min_price") is not None:
+                        min_price = float(payload["min_price"])
+                    if payload.get("max_price") is not None:
+                        max_price = float(payload["max_price"])
+            except Exception:
+                pass
+
+        if (min_price is None and max_price is None) and row.choice_answers:
+            try:
+                answers = json.loads(row.choice_answers) if isinstance(row.choice_answers, str) else row.choice_answers
+                if isinstance(answers, dict):
+                    if answers.get("min_price") not in (None, ""):
+                        min_price = float(answers["min_price"])
+                    if answers.get("max_price") not in (None, ""):
+                        max_price = float(answers["max_price"])
+            except Exception:
+                pass
+
+        if min_price is not None and max_price is not None and min_price > max_price:
+            min_price, max_price = max_price, min_price
+
+        return min_price, max_price
 
     async def search_and_persist(
         self,
@@ -37,8 +69,30 @@ class SourcingService:
         Returns:
             Tuple of (persisted_bids, provider_statuses)
         """
+        # 0. Load row to extract constraints.
+        row_stmt = select(Row).where(Row.id == row_id)
+        row_res = await self.session.exec(row_stmt)
+        row = row_res.first()
+        min_price, max_price = self._extract_price_constraints(row) if row else (None, None)
+
+        if row and (min_price is not None or max_price is not None):
+            cond = Bid.price <= 0
+            if min_price is not None:
+                cond = cond | (Bid.price < min_price)
+            if max_price is not None:
+                cond = cond | (Bid.price > max_price)
+
+            await self.session.exec(delete(Bid).where(Bid.row_id == row_id, cond))
+            await self.session.commit()
+
         # 1. Execute Search
-        search_response = await self.repo.search_all_with_status(query, providers=providers)
+        search_response = await self.repo.search_all_with_status(
+            query,
+            providers=providers,
+            min_price=min_price,
+            max_price=max_price,
+        )
+
         normalized_results = search_response.normalized_results
         provider_statuses = search_response.provider_statuses
         
@@ -46,6 +100,32 @@ class SourcingService:
         if not normalized_results and search_response.results:
             # Fallback logic if needed, or rely on repo to handle normalization
             pass
+
+        if min_price is not None or max_price is not None:
+            filtered: List[NormalizedResult] = []
+            # Sources that don't provide price data - allow through without price filtering
+            non_shopping_sources = {"google_cse"}
+            dropped_zero = 0
+            dropped_min = 0
+            dropped_max = 0
+            for res in normalized_results:
+                # Allow non-shopping sources through (they don't have price data)
+                if res.source in non_shopping_sources:
+                    filtered.append(res)
+                    continue
+                price = res.price
+                if price is None or price <= 0:
+                    dropped_zero += 1
+                    continue
+                if min_price is not None and price < min_price:
+                    dropped_min += 1
+                    continue
+                if max_price is not None and price > max_price:
+                    dropped_max += 1
+                    continue
+                filtered.append(res)
+            logger.info(f"[SourcingService] Price filter: {len(normalized_results)} -> {len(filtered)} (dropped: zero={dropped_zero}, min={dropped_min}, max={dropped_max})")
+            normalized_results = filtered
 
         logger.info(
             f"[SourcingService] Row {row_id}: Got {len(normalized_results)} normalized results from {len(provider_statuses)} providers"

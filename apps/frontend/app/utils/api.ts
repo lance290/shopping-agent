@@ -1,4 +1,4 @@
-import { Row, Offer, Project } from '../store';
+import { Row, Offer, Project, ProviderStatusSnapshot } from '../store';
 
 const DEV_SESSION_STORAGE_KEY = 'sa_session_token';
 
@@ -134,6 +134,9 @@ export const createCommentApi = async (
       body: JSON.stringify({ row_id: rowId, body, bid_id: bidId, offer_url: offerUrl, visibility: 'private' }),
     });
     if (!res.ok) {
+      if (res.status === 404) {
+        return null;
+      }
       console.error('[API] createComment failed:', res.status);
       return null;
     }
@@ -148,6 +151,9 @@ export const fetchCommentsApi = async (rowId: number): Promise<CommentDto[]> => 
   try {
     const res = await fetch(`/api/comments?row_id=${rowId}`);
     if (!res.ok) {
+      if (res.status === 404) {
+        return [];
+      }
       console.error('[API] fetchComments failed:', res.status);
       return [];
     }
@@ -203,6 +209,7 @@ export const selectOfferForRow = async (rowId: number, bidId: number): Promise<b
 
 export interface SearchApiResponse {
   results: Offer[];
+  providerStatuses?: ProviderStatusSnapshot[];
   userMessage?: string;
 }
 
@@ -240,6 +247,7 @@ export const runSearchApiWithStatus = async (
     const data = await res.json();
     const rawResults = Array.isArray(data?.results) ? data.results : [];
     const userMessage = typeof data?.user_message === 'string' ? data.user_message : undefined;
+    const providerStatuses = Array.isArray(data?.provider_statuses) ? data.provider_statuses : undefined;
     
     const results = rawResults.map((r: any) => {
       const price = Number(r?.price);
@@ -265,7 +273,7 @@ export const runSearchApiWithStatus = async (
       } satisfies Offer;
     });
     
-    return { results, userMessage };
+    return { results, userMessage, providerStatuses };
   } catch (err) {
     console.error('[API] Search error:', err);
     return { results: [] };

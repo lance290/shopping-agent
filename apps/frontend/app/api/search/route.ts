@@ -10,13 +10,32 @@ function normalizeBaseUrl(url: string): string {
 }
 
 const BFF_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8080'
+  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
 );
 
 const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
 
+function isClerkConfigured(): boolean {
+  return Boolean(process.env.CLERK_SECRET_KEY);
+}
+
 async function getAuthHeader(request: NextRequest): Promise<{ Authorization?: string }> {
-  // Always check for dev session token first (cookie or env)
+  // When Clerk is configured, ONLY use Clerk - no fallback to avoid conflicts
+  if (!disableClerk && isClerkConfigured()) {
+    try {
+      const { getToken } = await auth();
+      const token = await getToken();
+      if (token) {
+        return { Authorization: `Bearer ${token}` };
+      }
+      return {};
+    } catch (e) {
+      console.error('[search] Clerk auth error:', e);
+      return {};
+    }
+  }
+
+  // Only use dev token when Clerk is disabled
   const devToken =
     request.cookies.get('sa_session')?.value ||
     process.env.DEV_SESSION_TOKEN ||
@@ -24,19 +43,6 @@ async function getAuthHeader(request: NextRequest): Promise<{ Authorization?: st
   
   if (devToken) {
     return { Authorization: `Bearer ${devToken}` };
-  }
-
-  // Fall back to Clerk if no dev token
-  if (!disableClerk) {
-    try {
-      const { getToken } = await auth();
-      const token = await getToken();
-      if (token) {
-        return { Authorization: `Bearer ${token}` };
-      }
-    } catch (e) {
-      console.error('[search] Clerk auth error:', e);
-    }
   }
 
   return {};
