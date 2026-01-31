@@ -12,6 +12,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from models import Bid, Row, Seller
 from sourcing.models import NormalizedResult, ProviderStatusSnapshot
 from sourcing.repository import SourcingRepository
+from sourcing.metrics import get_metrics_collector, log_search_start
 
 logger = logging.getLogger(__name__)
 
@@ -85,16 +86,30 @@ class SourcingService:
             await self.session.exec(delete(Bid).where(Bid.row_id == row_id, cond))
             await self.session.commit()
 
-        # 1. Execute Search
-        search_response = await self.repo.search_all_with_status(
-            query,
-            providers=providers,
-            min_price=min_price,
-            max_price=max_price,
-        )
+        # 1. Execute Search with metrics tracking
+        metrics = get_metrics_collector()
+        log_search_start(row_id, query, providers or [])
+        
+        with metrics.track_search(row_id=row_id, query=query):
+            search_response = await self.repo.search_all_with_status(
+                query,
+                providers=providers,
+                min_price=min_price,
+                max_price=max_price,
+            )
 
-        normalized_results = search_response.normalized_results
-        provider_statuses = search_response.provider_statuses
+            normalized_results = search_response.normalized_results
+            provider_statuses = search_response.provider_statuses
+            
+            # Record provider metrics
+            for status in provider_statuses:
+                metrics.record_provider(
+                    provider_id=status.provider_id,
+                    status=status.status,
+                    result_count=status.result_count,
+                    latency_ms=status.latency_ms or 0,
+                    error_message=status.message
+                )
         
         # If no normalized results (e.g. legacy providers only), fallback to normalizing raw results
         if not normalized_results and search_response.results:
@@ -125,7 +140,18 @@ class SourcingService:
                     continue
                 filtered.append(res)
             logger.info(f"[SourcingService] Price filter: {len(normalized_results)} -> {len(filtered)} (dropped: zero={dropped_zero}, min={dropped_min}, max={dropped_max})")
+            price_dropped = dropped_zero + dropped_min + dropped_max
+            metrics.record_price_filter(applied=True, dropped=price_dropped)
             normalized_results = filtered
+        else:
+            metrics.record_price_filter(applied=False, dropped=0)
+
+        # Record result counts
+        metrics.record_results(
+            total=len(search_response.results),
+            unique=len(search_response.normalized_results),
+            filtered=len(normalized_results)
+        )
 
         logger.info(
             f"[SourcingService] Row {row_id}: Got {len(normalized_results)} normalized results from {len(provider_statuses)} providers"
@@ -133,6 +159,10 @@ class SourcingService:
 
         # 2. Persist Results
         bids = await self._persist_results(row_id, normalized_results)
+        
+        # Record persistence metrics
+        new_count = sum(1 for b in bids if not any(eb.id == b.id for eb in []))
+        metrics.record_persistence(created=len(bids), updated=0)
 
         return bids, provider_statuses
 

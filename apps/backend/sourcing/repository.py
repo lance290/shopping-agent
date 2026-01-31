@@ -12,6 +12,7 @@ import base64
 from utils.security import redact_secrets_from_text
 from sourcing.executors import run_provider_with_status
 from sourcing.models import NormalizedResult, ProviderStatusSnapshot
+from sourcing.metrics import log_provider_result
 
 
 def extract_merchant_domain(url: str) -> str:
@@ -1019,6 +1020,7 @@ class SourcingRepository:
                 elif status.status == "error":
                     status.message = "Search failed"
             print(f"[SourcingRepository] [STREAM] Provider {name} returned {len(results)} results")
+            log_provider_result(name, status.status, len(results), status.latency_ms or 0)
             return (name, results, status)
 
         # Create tasks with provider name tracking
