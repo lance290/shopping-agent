@@ -4,9 +4,9 @@
 
 ## Current State
 - **Status**: 🏗️ Implementation in Progress
-- **Current task**: task-004 (pending)
-- **Last working commit**: da22cd6
-- **App status**: Green (Baseline verified)
+- **Current task**: task-010 (pending - feature flag + observability)
+- **Last working commit**: ccb0c87
+- **App status**: Green (Streaming search verified)
 
 ## Quick Start
 ```bash
@@ -22,12 +22,12 @@ cd apps/frontend && pnpm dev
 | task-001 | Scaffold sourcing models and dataclasses | ✅ completed |
 | task-002 | Implement canonical URL + currency utils | ✅ completed |
 | task-003 | Add DB migrations for search_intent/bid metadata | ✅ completed |
-| task-004 | BFF intent extraction service (LLM + fallback) | ⬜ pending |
-| task-005 | Persist search_intent and provider_query_map | ⬜ pending |
-| task-006 | Provider query adapters and taxonomy mapping | ⬜ pending |
-| task-007 | Split executors/normalizers with status instrumentation | ⬜ pending |
-| task-008 | Result aggregator + canonical bid persistence | ⬜ pending |
-| task-009 | Wire provider stats through BFF + minimal frontend | ⬜ pending |
+| task-004 | BFF intent extraction service (LLM + fallback) | ✅ completed |
+| task-005 | Persist search_intent and provider_query_map | ✅ completed |
+| task-006 | Provider query adapters and taxonomy mapping | ✅ completed |
+| task-007 | Split executors/normalizers with status instrumentation | ✅ completed |
+| task-008 | Result aggregator + canonical bid persistence | ✅ completed |
+| task-009 | Wire provider stats through BFF + minimal frontend | ✅ completed |
 | task-010 | Observability, regression tests, feature flag rollout | ⬜ pending |
 
 ## Definition of Done (DoD)
