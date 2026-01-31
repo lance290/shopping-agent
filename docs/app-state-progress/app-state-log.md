@@ -29,6 +29,22 @@
 - Mocks are disabled by explicit user request.
 - **Provider timeout** set via `SOURCING_PROVIDER_TIMEOUT_SECONDS` env var (default 8s, increased to 15s for Scale SERP).
 
+## Performance Issues (Jan 2026 - INVESTIGATE)
+- **Search results are slow** - user reports feeling like it's not working
+- Google Shopping and Amazon are fast natively, so bottleneck is in our implementation
+- Potential causes to investigate:
+  - Sequential provider calls instead of parallel?
+  - Database persistence overhead during search?
+  - BFF -> Backend -> Provider chain latency?
+  - Too many providers being queried (5+ at once)?
+  - Network/API key throttling?
+- Current observed latencies:
+  - Rainforest: 4-8 seconds (often timeouts)
+  - Scale SERP (Google Shopping): 7-8 seconds
+  - SerpAPI/SearchAPI: rate limited (429)
+  - Google CSE: ~500ms (but returns 0 results)
+- **TODO**: Profile the search pipeline, consider provider prioritization or parallel execution
+
 ## Likes persistence gotcha (do not repeat)
 - Do NOT call backend `/likes` directly from the frontend. It bypasses the Next.js auth proxy and can 404 due to mismatched tokens/row ownership. Always use `/api/likes`.
 - **CRITICAL**: The Next.js `/api/likes` route MUST proxy to the **BACKEND** (port 8000), NOT the BFF (port 8081). The BFF does NOT have likes endpoints. This has been broken multiple times by routing to BFF_URL instead of BACKEND_URL.

@@ -976,3 +976,102 @@ class SourcingRepository:
             all_providers_failed=all_failed,
             user_message=user_message
         )
+
+    async def search_streaming(self, query: str, **kwargs):
+        """
+        Stream search results as each provider completes.
+        Yields (provider_name, results, status, providers_remaining) tuples.
+        """
+        print(f"[SourcingRepository] search_streaming called with query: {query}")
+
+        from sourcing.normalizers import normalize_results_for_provider
+
+        providers_filter = kwargs.pop("providers", None)
+        selected_providers: Dict[str, SourcingProvider] = self.providers
+        if providers_filter:
+            allow = {str(p).strip() for p in providers_filter if str(p).strip()}
+            selected_providers = {k: v for k, v in self.providers.items() if k in allow}
+
+        try:
+            PROVIDER_TIMEOUT_SECONDS = float(os.getenv("SOURCING_PROVIDER_TIMEOUT_SECONDS", "8.0"))
+        except Exception:
+            PROVIDER_TIMEOUT_SECONDS = 8.0
+
+        async def search_with_timeout(
+            name: str, provider: SourcingProvider
+        ) -> tuple[str, List[SearchResult], ProviderStatusSnapshot]:
+            print(f"[SourcingRepository] [STREAM] Starting provider: {name}")
+            results, status = await run_provider_with_status(
+                name,
+                provider,
+                query,
+                timeout_seconds=PROVIDER_TIMEOUT_SECONDS,
+                **kwargs,
+            )
+            if status.status != "ok":
+                error_str = redact_secrets(status.message or "")
+                if "402" in error_str or "Payment Required" in error_str:
+                    status.status = "exhausted"
+                    status.message = "API quota exhausted"
+                elif "429" in error_str or "Too Many Requests" in error_str:
+                    status.status = "rate_limited"
+                    status.message = "Rate limit exceeded"
+                elif status.status == "error":
+                    status.message = "Search failed"
+            print(f"[SourcingRepository] [STREAM] Provider {name} returned {len(results)} results")
+            return (name, results, status)
+
+        # Create tasks with provider name tracking
+        tasks = {
+            asyncio.create_task(search_with_timeout(name, provider)): name
+            for name, provider in selected_providers.items()
+        }
+        
+        total_providers = len(tasks)
+        completed_count = 0
+        seen_urls = set()
+
+        # Yield results as each provider completes
+        for coro in asyncio.as_completed(tasks.keys()):
+            try:
+                name, results, status = await coro
+                completed_count += 1
+                providers_remaining = total_providers - completed_count
+                
+                # Filter and dedupe results
+                unique_results = []
+                for r in results:
+                    url = normalize_url(getattr(r, 'url', ''))
+                    if url[:4] != 'http':
+                        continue
+                    url_key = url.lower().rstrip('/')
+                    if url_key not in seen_urls:
+                        seen_urls.add(url_key)
+                        # Add merchant_domain if missing
+                        if not getattr(r, "merchant_domain", ""):
+                            r.merchant_domain = extract_merchant_domain(r.url)
+                        # Score the result
+                        r.match_score = compute_match_score(r, query)
+                        unique_results.append(r)
+                
+                # Sort this batch by score
+                unique_results.sort(key=lambda r: r.match_score, reverse=True)
+                
+                yield (name, unique_results, status, providers_remaining)
+                
+            except Exception as e:
+                completed_count += 1
+                providers_remaining = total_providers - completed_count
+                # Find which provider failed
+                failed_name = "unknown"
+                for task, task_name in tasks.items():
+                    if task.done() and task.exception():
+                        failed_name = task_name
+                        break
+                status = ProviderStatusSnapshot(
+                    provider_id=failed_name,
+                    status="error",
+                    result_count=0,
+                    message=str(e)[:100]
+                )
+                yield (failed_name, [], status, providers_remaining)

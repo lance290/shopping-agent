@@ -1,7 +1,8 @@
 """Rows search routes - sourcing/search for procurement rows."""
 from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Optional, List, Any
+from typing import Optional, List, Any, AsyncGenerator
 from datetime import datetime
 import re
 import json
@@ -262,3 +263,159 @@ async def search_row_listings(
     await session.commit()
 
     return SearchResponse(results=results, provider_statuses=provider_statuses)
+
+
+@router.post("/rows/{row_id}/search/stream")
+async def search_row_listings_stream(
+    row_id: int,
+    body: RowSearchRequest,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Stream search results as each provider completes.
+    Returns SSE events with partial results and a 'more_incoming' flag.
+    """
+    from routes.auth import get_current_session
+    from routes.rate_limit import check_rate_limit
+
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    rate_key = f"search:{auth_session.user_id}"
+    if not check_rate_limit(rate_key, "search"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    result = await session.exec(
+        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
+    spec = spec_result.first()
+
+    # Build query (same logic as non-streaming endpoint)
+    base_query = body.query or row.provider_query or row.title or (spec.item_name if spec else "")
+    user_provided_query = bool(body.query)
+
+    if not body.query:
+        if spec and spec.constraints:
+            try:
+                constraints_obj = json.loads(spec.constraints)
+                constraint_parts = []
+                for k, v in constraints_obj.items():
+                    constraint_parts.append(f"{k}: {v}")
+                if constraint_parts:
+                    base_query = base_query + " " + " ".join(constraint_parts)
+            except Exception:
+                pass
+
+        if row.choice_answers:
+            try:
+                answers_obj = json.loads(row.choice_answers)
+                answer_parts = []
+                for k, v in answers_obj.items():
+                    if k in ("min_price", "max_price"):
+                        continue
+                    if v and str(v).lower() != "not answered":
+                        answer_parts.append(f"{k} {v}")
+                if answer_parts:
+                    base_query = base_query + " " + " ".join(answer_parts)
+            except Exception:
+                pass
+
+    clean_query = re.sub(r"\$\d+", "", base_query)
+    clean_query = re.sub(
+        r"\b(over|under|below|above)\s*\$?\d+\b", "", clean_query, flags=re.IGNORECASE
+    )
+    sanitized_query = " ".join(clean_query.replace("(", " ").replace(")", " ").split())
+
+    if not user_provided_query:
+        sanitized_query = " ".join(sanitized_query.split()[:12]).strip()
+
+    if not sanitized_query:
+        sanitized_query = base_query.strip()
+
+    # Get price filters
+    min_price_filter = None
+    max_price_filter = None
+    if row.choice_answers:
+        try:
+            answers_obj = json.loads(row.choice_answers)
+            if answers_obj.get("min_price"):
+                min_price_filter = float(answers_obj["min_price"])
+            if answers_obj.get("max_price"):
+                max_price_filter = float(answers_obj["max_price"])
+            if min_price_filter is not None and max_price_filter is not None and min_price_filter > max_price_filter:
+                min_price_filter, max_price_filter = max_price_filter, min_price_filter
+        except Exception:
+            pass
+
+    sourcing_repo = get_sourcing_repo()
+
+    async def generate_sse() -> AsyncGenerator[str, None]:
+        """Generate SSE events as each provider completes."""
+        all_results: List[SearchResult] = []
+        all_statuses: List[ProviderStatusSnapshot] = []
+        non_shopping_sources = {"google_cse"}
+
+        async for provider_name, results, status, providers_remaining in sourcing_repo.search_streaming(
+            sanitized_query,
+            providers=body.providers,
+            min_price=min_price_filter,
+            max_price=max_price_filter,
+        ):
+            all_statuses.append(status)
+            
+            # Convert and filter results
+            filtered_batch = []
+            for r in results:
+                source = getattr(r, "source", None)
+                # Allow non-shopping sources through
+                if source in non_shopping_sources:
+                    filtered_batch.append(r)
+                    continue
+                price = getattr(r, "price", None)
+                if price is None or price == 0:
+                    continue
+                if min_price_filter is not None and price < min_price_filter:
+                    continue
+                if max_price_filter is not None and price > max_price_filter:
+                    continue
+                filtered_batch.append(r)
+            
+            all_results.extend(filtered_batch)
+            
+            # Build SSE event
+            event_data = {
+                "provider": provider_name,
+                "results": [r.model_dump() for r in filtered_batch],
+                "status": status.model_dump(),
+                "providers_remaining": providers_remaining,
+                "more_incoming": providers_remaining > 0,
+                "total_results_so_far": len(all_results),
+            }
+            
+            yield f"data: {json.dumps(event_data)}\n\n"
+        
+        # Final event with complete status
+        final_event = {
+            "event": "complete",
+            "total_results": len(all_results),
+            "provider_statuses": [s.model_dump() for s in all_statuses],
+            "more_incoming": False,
+        }
+        yield f"data: {json.dumps(final_event)}\n\n"
+
+    return StreamingResponse(
+        generate_sse(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )

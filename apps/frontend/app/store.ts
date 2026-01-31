@@ -137,6 +137,7 @@ interface ShoppingState {
   rowResults: Record<number, Offer[]>; // Per-row cached results
   rowProviderStatuses: Record<number, ProviderStatusSnapshot[]>; // Per-row provider statuses
   rowOfferSort: Record<number, OfferSortMode>; // Per-row UI sort mode
+  moreResultsIncoming: Record<number, boolean>; // Per-row flag for streaming results
   isSearching: boolean;           // Loading state for search
   cardClickQuery: string | null;  // Query from card click (triggers chat append)
   
@@ -153,7 +154,8 @@ interface ShoppingState {
   updateRow: (id: number, updates: Partial<Row>) => void;
   removeRow: (id: number) => void;
   setSearchResults: (results: Offer[]) => void;
-  setRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[]) => void;
+  setRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[], moreIncoming?: boolean) => void;
+  appendRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[], moreIncoming?: boolean) => void;
   clearRowResults: (rowId: number) => void;
   setRowOfferSort: (rowId: number, sort: OfferSortMode) => void;
   setIsSearching: (searching: boolean) => void;
@@ -188,6 +190,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   rowResults: {},
   rowProviderStatuses: {},
   rowOfferSort: {},
+  moreResultsIncoming: {},
   isSearching: false,
   cardClickQuery: null,
   isSidebarOpen: false, // Default closed
@@ -366,11 +369,27 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     activeRowId: state.activeRowId === id ? null : state.activeRowId,
   })),
   setSearchResults: (results) => set({ searchResults: results, isSearching: false }),
-  setRowResults: (rowId, results, providerStatuses) => set((state) => ({
+  setRowResults: (rowId, results, providerStatuses, moreIncoming = false) => set((state) => ({
     rowResults: { ...state.rowResults, [rowId]: results },
     rowProviderStatuses: providerStatuses ? { ...state.rowProviderStatuses, [rowId]: providerStatuses } : state.rowProviderStatuses,
-    isSearching: false,
+    moreResultsIncoming: { ...state.moreResultsIncoming, [rowId]: moreIncoming },
+    isSearching: moreIncoming, // Keep searching state while more results incoming
   })),
+  appendRowResults: (rowId, results, providerStatuses, moreIncoming = false) => set((state) => {
+    const existingResults = state.rowResults[rowId] || [];
+    const existingStatuses = state.rowProviderStatuses[rowId] || [];
+    // Dedupe by URL
+    const seenUrls = new Set(existingResults.map(r => r.url));
+    const newResults = results.filter(r => !seenUrls.has(r.url));
+    return {
+      rowResults: { ...state.rowResults, [rowId]: [...existingResults, ...newResults] },
+      rowProviderStatuses: providerStatuses 
+        ? { ...state.rowProviderStatuses, [rowId]: [...existingStatuses, ...providerStatuses] }
+        : state.rowProviderStatuses,
+      moreResultsIncoming: { ...state.moreResultsIncoming, [rowId]: moreIncoming },
+      isSearching: moreIncoming,
+    };
+  }),
   clearRowResults: (rowId) => set((state) => {
     const { [rowId]: _, ...rest } = state.rowResults;
     const { [rowId]: __, ...restStatuses } = state.rowProviderStatuses;

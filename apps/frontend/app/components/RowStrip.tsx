@@ -22,6 +22,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const undoDeleteRow = useShoppingStore(state => state.undoDeleteRow);
   const rowOfferSort = useShoppingStore(state => state.rowOfferSort);
   const rowProviderStatuses = useShoppingStore(state => state.rowProviderStatuses);
+  const moreResultsIncoming = useShoppingStore(state => state.moreResultsIncoming);
   const setRowOfferSort = useShoppingStore(state => state.setRowOfferSort);
   const setIsSearching = useShoppingStore(state => state.setIsSearching);
   const setRowResults = useShoppingStore(state => state.setRowResults);
@@ -29,6 +30,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const isPendingArchive = pendingRowDelete?.row.id === row.id;
   const sortMode: OfferSortMode = rowOfferSort[row.id] || 'original';
   const providerStatuses = rowProviderStatuses[row.id];
+  const hasMoreIncoming = moreResultsIncoming[row.id] ?? false;
 
   const [cooldownUntil, setCooldownUntil] = useState<number>(0);
   const [searchErrorMessage, setSearchErrorMessage] = useState<string | null>(null);
@@ -222,9 +224,14 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     }
   }, [isActive, row.id, offers, setRowResults]);
 
+  const isSearching = useShoppingStore(state => state.isSearching);
+  
   useEffect(() => {
     if (!isActive) return;
     if (didAutoLoadRef.current) return;
+    // Don't auto-refresh if Chat is already streaming results
+    const streamingInProgress = isSearching || (moreResultsIncoming[row.id] ?? false);
+    if (streamingInProgress) return;
     if (Array.isArray(offers) && offers.length > 0) {
         // If we have offers but haven't loaded likes yet, ensure we do (handled above)
         return;
@@ -232,7 +239,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
     didAutoLoadRef.current = true;
     refresh('all');
-  }, [isActive, row.id]);
+  }, [isActive, row.id, isSearching, moreResultsIncoming]);
 
   const sortOffers = (list: Offer[]) => {
     if (!list || list.length === 0) return [];
@@ -578,21 +585,31 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
           <div className="flex-1 overflow-x-auto scrollbar-hide">
             <div className="flex gap-6 min-h-[450px] pr-2">
               {sortedOffers && sortedOffers.length > 0 ? (
-                sortedOffers.map((offer, idx) => (
-                  <OfferTile
-                    key={getOfferKey(offer, idx)}
-                    offer={offer}
-                    index={idx}
-                    rowId={row.id}
-                    onSelect={handleSelectOffer}
-                    onToggleLike={handleToggleLike}
-                    onComment={handleComment}
-                    onShare={handleShare}
-                  />
-                ))
+                <>
+                  {sortedOffers.map((offer, idx) => (
+                    <OfferTile
+                      key={getOfferKey(offer, idx)}
+                      offer={offer}
+                      index={idx}
+                      rowId={row.id}
+                      onSelect={handleSelectOffer}
+                      onToggleLike={handleToggleLike}
+                      onComment={handleComment}
+                      onShare={handleShare}
+                    />
+                  ))}
+                  {/* More incoming indicator */}
+                  {hasMoreIncoming && (
+                    <div className="flex flex-col items-center justify-center w-48 shrink-0 rounded-2xl border-2 border-dashed border-agent-blurple/40 bg-agent-blurple/5 text-agent-blurple p-4 animate-pulse">
+                      <RefreshCw className="w-6 h-6 animate-spin mb-3" />
+                      <span className="text-sm font-semibold">More incoming...</span>
+                      <span className="text-xs opacity-70 mt-1">Searching providers</span>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center w-64 rounded-2xl border border-dashed border-warm-grey bg-warm-light/60 text-onyx-muted p-4">
-                  {row.status === 'sourcing' ? (
+                  {row.status === 'sourcing' || hasMoreIncoming ? (
                     <>
                       <RefreshCw className="w-6 h-6 animate-spin mb-3 opacity-50" />
                       <span className="text-sm font-medium">Sourcing offers...</span>

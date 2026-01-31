@@ -86,6 +86,92 @@ async function fetchJsonWithTimeoutRetry(
   throw lastErr;
 }
 
+/**
+ * Stream search results from backend, calling onResults for each batch.
+ * Returns accumulated results and statuses when complete.
+ */
+async function streamSearchResults(
+  rowId: number,
+  searchBody: { query?: string; providers?: string[] },
+  headers: Record<string, string>,
+  onResults: (data: {
+    provider: string;
+    results: any[];
+    status: any;
+    more_incoming: boolean;
+    total_results_so_far: number;
+  }) => void
+): Promise<{ results: any[]; provider_statuses: any[] }> {
+  const url = `${BACKEND_URL}/rows/${rowId}/search/stream`;
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(searchBody),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Search stream failed: ${response.status} ${text}`);
+  }
+
+  const allResults: any[] = [];
+  const allStatuses: any[] = [];
+  
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('No response body reader');
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    
+    // Parse SSE events from buffer
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          
+          if (data.event === 'complete') {
+            // Final event - use accumulated statuses
+            return { results: allResults, provider_statuses: data.provider_statuses || allStatuses };
+          }
+          
+          // Incremental results from a provider
+          if (data.results) {
+            allResults.push(...data.results);
+          }
+          if (data.status) {
+            allStatuses.push(data.status);
+          }
+          
+          // Notify caller of this batch
+          onResults({
+            provider: data.provider,
+            results: data.results || [],
+            status: data.status,
+            more_incoming: data.more_incoming ?? false,
+            total_results_so_far: data.total_results_so_far || allResults.length,
+          });
+        } catch (e) {
+          // Ignore parse errors for incomplete data
+        }
+      }
+    }
+  }
+
+  return { results: allResults, provider_statuses: allStatuses };
+}
+
 function buildBasicChoiceFactors(itemName: string): Array<{
   name: string;
   label: string;
@@ -894,23 +980,28 @@ export function buildApp() {
 
         if (typeof action.search_query === 'string' && action.search_query.trim().length > 0) {
           writeEvent('action_started', { type: 'search', row_id: lastRowId, query: action.search_query });
-          const searchRes = await fetchJsonWithTimeoutRetry(
-            `${BACKEND_URL}/rows/${lastRowId}/search`,
-            {
-              method: 'POST',
+          try {
+            await streamSearchResults(
+              lastRowId,
+              { query: action.search_query, providers: action.providers },
               headers,
-              body: JSON.stringify({ query: action.search_query, providers: action.providers }),
-            },
-            30000,
-            1,
-            500
-          );
-          if (!searchRes.ok) {
-            writeEvent('error', { message: searchRes.data?.detail || searchRes.data?.message || searchRes.text || 'Search failed' });
+              (batch) => {
+                // Emit incremental results with more_incoming flag
+                writeEvent('search_results', {
+                  row_id: lastRowId,
+                  results: batch.results,
+                  provider_statuses: [batch.status],
+                  more_incoming: batch.more_incoming,
+                  provider: batch.provider,
+                });
+              }
+            );
+            // No final event needed - last batch already has more_incoming: false
+          } catch (err: any) {
+            writeEvent('error', { message: err?.message || 'Search failed' });
             reply.raw.end();
             return;
           }
-          writeEvent('search_results', { row_id: lastRowId, results: searchRes.data?.results || [], provider_statuses: searchRes.data?.provider_statuses });
         }
       } else if (action.type === 'update_row') {
         const constraints = action.constraints && typeof action.constraints === 'object' ? action.constraints : undefined;
@@ -956,45 +1047,53 @@ export function buildApp() {
 
         if (typeof action.search_query === 'string' && action.search_query.trim().length > 0) {
           writeEvent('action_started', { type: 'search', row_id: lastRowId, query: action.search_query });
-          const searchRes = await fetchJsonWithTimeoutRetry(
-            `${BACKEND_URL}/rows/${lastRowId}/search`,
-            {
-              method: 'POST',
+          try {
+            await streamSearchResults(
+              lastRowId,
+              { query: action.search_query, providers: action.providers },
               headers,
-              body: JSON.stringify({ query: action.search_query, providers: action.providers }),
-            },
-            30000,
-            1,
-            500
-          );
-          if (!searchRes.ok) {
-            writeEvent('error', { message: searchRes.data?.detail || searchRes.data?.message || searchRes.text || 'Search failed' });
+              (batch) => {
+                writeEvent('search_results', {
+                  row_id: lastRowId,
+                  results: batch.results,
+                  provider_statuses: [batch.status],
+                  more_incoming: batch.more_incoming,
+                  provider: batch.provider,
+                });
+              }
+            );
+            // No final event needed - last batch already has more_incoming: false
+          } catch (err: any) {
+            writeEvent('error', { message: err?.message || 'Search failed' });
             reply.raw.end();
             return;
           }
-          writeEvent('search_results', { row_id: lastRowId, results: searchRes.data?.results || [], provider_statuses: searchRes.data?.provider_statuses });
         }
       } else if (action.type === 'search') {
         const rowId = action.row_id;
         writeEvent('action_started', { type: 'search', row_id: rowId, query: action.query });
-        const searchRes = await fetchJsonWithTimeoutRetry(
-          `${BACKEND_URL}/rows/${rowId}/search`,
-          {
-            method: 'POST',
+        try {
+          await streamSearchResults(
+            rowId,
+            { query: action.query, providers: action.providers },
             headers,
-            body: JSON.stringify({ query: action.query, providers: action.providers }),
-          },
-          30000,
-          1,
-          500
-        );
-        if (!searchRes.ok) {
-          writeEvent('error', { message: searchRes.data?.detail || searchRes.data?.message || searchRes.text || 'Search failed' });
+            (batch) => {
+              writeEvent('search_results', {
+                row_id: rowId,
+                results: batch.results,
+                provider_statuses: [batch.status],
+                more_incoming: batch.more_incoming,
+                provider: batch.provider,
+              });
+            }
+          );
+          lastRowId = rowId;
+          // No final event needed - last batch already has more_incoming: false
+        } catch (err: any) {
+          writeEvent('error', { message: err?.message || 'Search failed' });
           reply.raw.end();
           return;
         }
-        lastRowId = rowId;
-        writeEvent('search_results', { row_id: rowId, results: searchRes.data?.results || [], provider_statuses: searchRes.data?.provider_statuses });
       }
     }
 

@@ -143,6 +143,11 @@ export default function Chat() {
             } else if (eventName === 'action_started') {
               if (data?.type === 'search') {
                 store.setIsSearching(true);
+                // Clear previous results when starting a new search
+                const searchRowId = data?.row_id;
+                if (searchRowId) {
+                  store.setRowResults(searchRowId, [], undefined, true);
+                }
               }
             } else if (eventName === 'row_created') {
               const row = data?.row;
@@ -164,10 +169,21 @@ export default function Chat() {
               const rowId = data?.row_id;
               const results = Array.isArray(data?.results) ? data.results : [];
               const providerStatuses = Array.isArray(data?.provider_statuses) ? data.provider_statuses : undefined;
+              const moreIncoming = data?.more_incoming ?? false;
+              const provider = data?.provider;
+              
               if (rowId) {
-                store.setRowResults(rowId, results, providerStatuses);
+                if (provider) {
+                  // Streaming: append results from this provider
+                  store.appendRowResults(rowId, results, providerStatuses, moreIncoming);
+                } else {
+                  // Non-streaming fallback: replace all
+                  store.setRowResults(rowId, results, providerStatuses, moreIncoming);
+                }
               }
-              store.setIsSearching(false);
+              if (!moreIncoming) {
+                store.setIsSearching(false);
+              }
             } else if (eventName === 'done') {
               store.setIsSearching(false);
             } else if (eventName === 'error') {

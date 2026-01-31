@@ -141,8 +141,8 @@ describe('ProcurementBoard Display Logic', () => {
       status: 'sourcing',
       budget_max: 5000,
       currency: 'USD',
-      choice_factors: { brand: { options: ['Bianchi'] } },
-      choice_answers: { brand: 'Bianchi', min_price: 500 },
+      choice_factors: JSON.stringify({ brand: { options: ['Bianchi'] } }),
+      choice_answers: JSON.stringify({ brand: 'Bianchi', min_price: 500 }),
     };
 
     render(React.createElement(RequestTile, { row }));
@@ -166,11 +166,11 @@ describe('ProcurementBoard Display Logic', () => {
       status: 'sourcing',
       budget_max: null,
       currency: 'USD',
-      choice_factors: { 
+      choice_factors: JSON.stringify({ 
         min_price: { type: 'number', label: 'Min Price' },
         max_price: { type: 'number', label: 'Max Price' },
-      },
-      choice_answers: { min_price: 500, max_price: 2000 },
+      }),
+      choice_answers: JSON.stringify({ min_price: 500, max_price: 2000 }),
     };
 
     render(React.createElement(RequestTile, { row }));
