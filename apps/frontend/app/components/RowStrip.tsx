@@ -514,20 +514,6 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
             </div>
           </div>
 
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              refresh('all');
-            }}
-            disabled={!canRefresh()}
-            className="h-8 w-8 p-0 rounded-lg border border-warm-grey/60 text-onyx-muted hover:text-onyx"
-            title="Refresh offers"
-          >
-            <RefreshCw size={14} className={!canRefresh() ? "opacity-50" : ""} />
-          </Button>
-
           {isPendingArchive ? (
             <Button
               size="sm"
