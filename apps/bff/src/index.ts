@@ -1645,6 +1645,88 @@ export function buildApp() {
     }
   });
 
+  // Outreach Proxy
+  fastify.post('/api/outreach/rows/:rowId/trigger', async (request, reply) => {
+    try {
+      const { rowId } = request.params as { rowId: string };
+      const response = await fetch(`${BACKEND_URL}/outreach/rows/${rowId}/trigger`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request.body),
+      });
+      const data = await response.json();
+      reply.status(response.status).send(data);
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Failed to trigger outreach' });
+    }
+  });
+
+  fastify.get('/api/outreach/rows/:rowId/status', async (request, reply) => {
+    try {
+      const { rowId } = request.params as { rowId: string };
+      const response = await fetch(`${BACKEND_URL}/outreach/rows/${rowId}/status`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      reply.status(response.status).send(data);
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Failed to get outreach status' });
+    }
+  });
+
+  // Quotes Proxy (for seller quote intake - no auth required)
+  fastify.get('/api/quotes/form/:token', async (request, reply) => {
+    try {
+      const { token } = request.params as { token: string };
+      const response = await fetch(`${BACKEND_URL}/quotes/form/${token}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      reply.status(response.status).send(data);
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Failed to load quote form' });
+    }
+  });
+
+  fastify.post('/api/quotes/submit/:token', async (request, reply) => {
+    try {
+      const { token } = request.params as { token: string };
+      const response = await fetch(`${BACKEND_URL}/quotes/submit/${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request.body),
+      });
+      const data = await response.json();
+      reply.status(response.status).send(data);
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Failed to submit quote' });
+    }
+  });
+
+  fastify.post('/api/quotes/:quoteId/select', async (request, reply) => {
+    try {
+      const { quoteId } = request.params as { quoteId: string };
+      const query = request.query as Record<string, string>;
+      const params = new URLSearchParams(query).toString();
+      const url = `${BACKEND_URL}/quotes/${quoteId}/select${params ? '?' + params : ''}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      reply.status(response.status).send(data);
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Failed to select quote' });
+    }
+  });
+
   return fastify;
 }
 

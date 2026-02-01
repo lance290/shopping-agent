@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const BFF_URL = process.env.BFF_URL || process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8080';
 
 export async function POST(
   request: NextRequest,
@@ -15,7 +15,7 @@ export async function POST(
     if (body.buyer_name) queryParams.set('buyer_name', body.buyer_name);
     if (body.buyer_phone) queryParams.set('buyer_phone', body.buyer_phone);
     
-    const url = `${BACKEND_URL}/quotes/${quoteId}/select${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const url = `${BFF_URL}/api/quotes/${quoteId}/select${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
     
     const res = await fetch(url, {
       method: 'POST',

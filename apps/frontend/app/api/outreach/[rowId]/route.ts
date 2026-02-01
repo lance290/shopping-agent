@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const BFF_URL = process.env.BFF_URL || process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8080';
 
 // Trigger outreach
 export async function POST(
@@ -11,7 +11,7 @@ export async function POST(
     const { rowId } = await params;
     const body = await request.json();
     
-    const res = await fetch(`${BACKEND_URL}/outreach/rows/${rowId}/trigger`, {
+    const res = await fetch(`${BFF_URL}/api/outreach/rows/${rowId}/trigger`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -43,7 +43,7 @@ export async function GET(
   try {
     const { rowId } = await params;
     
-    const res = await fetch(`${BACKEND_URL}/outreach/rows/${rowId}/status`, {
+    const res = await fetch(`${BFF_URL}/api/outreach/rows/${rowId}/status`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
