@@ -1,0 +1,334 @@
+"""
+Quote routes for seller quote submission.
+Handles magic link validation and quote-to-bid conversion.
+"""
+from datetime import datetime
+from typing import Optional, List
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlmodel import select
+
+from models import (
+    Row, SellerQuote, OutreachEvent, Bid, DealHandoff, User,
+)
+from database import get_session
+from services.email import send_handoff_buyer_email, send_handoff_seller_email
+
+router = APIRouter(prefix="/quotes", tags=["quotes"])
+
+
+class QuoteFormData(BaseModel):
+    """Data shown on quote form (read-only context)."""
+    row_id: int
+    row_title: str
+    buyer_request: str
+    choice_factors: List[dict]
+    seller_email: str
+    seller_company: Optional[str]
+    expires_at: Optional[str]
+
+
+class QuoteSubmission(BaseModel):
+    """Seller's quote submission."""
+    price: float
+    currency: str = "USD"
+    description: str
+    aircraft_type: Optional[str] = None  # For private jet demo
+    includes_catering: Optional[bool] = None
+    availability_confirmed: bool = True
+    contact_name: Optional[str] = None
+    contact_phone: Optional[str] = None
+    answers: Optional[dict] = None  # Generic choice factor answers
+
+
+class QuoteResponse(BaseModel):
+    quote_id: int
+    status: str
+    message: str
+
+
+@router.get("/form/{token}", response_model=QuoteFormData)
+async def get_quote_form(token: str, session=Depends(get_session)):
+    """
+    Get quote form data by magic link token.
+    Returns context for the quote submission form.
+    """
+    # Find the seller quote by token
+    result = await session.execute(
+        select(SellerQuote).where(SellerQuote.token == token)
+    )
+    quote = result.scalar_one_or_none()
+    
+    if not quote:
+        raise HTTPException(status_code=404, detail="Invalid or expired link")
+    
+    # Check expiration
+    if quote.token_expires_at and quote.token_expires_at < datetime.utcnow():
+        raise HTTPException(status_code=410, detail="This link has expired")
+    
+    # Check if already submitted
+    if quote.status == "submitted":
+        raise HTTPException(status_code=400, detail="Quote already submitted")
+    
+    # Get the row for context
+    result = await session.execute(select(Row).where(Row.id == quote.row_id))
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    # Parse choice factors if available
+    choice_factors = []
+    if row.choice_factors:
+        import json
+        try:
+            choice_factors = json.loads(row.choice_factors)
+        except:
+            pass
+    
+    # For demo, add private jet specific factors if not present
+    if not choice_factors and "jet" in row.title.lower():
+        choice_factors = [
+            {"name": "aircraft_type", "label": "Aircraft Type", "type": "text"},
+            {"name": "includes_catering", "label": "Includes Catering?", "type": "boolean"},
+            {"name": "availability", "label": "Availability Confirmed", "type": "boolean"},
+        ]
+    
+    return QuoteFormData(
+        row_id=row.id,
+        row_title=row.title,
+        buyer_request=row.title,  # Could be more detailed
+        choice_factors=choice_factors,
+        seller_email=quote.seller_email,
+        seller_company=quote.seller_company,
+        expires_at=quote.token_expires_at.isoformat() if quote.token_expires_at else None,
+    )
+
+
+@router.post("/submit/{token}", response_model=QuoteResponse)
+async def submit_quote(
+    token: str,
+    submission: QuoteSubmission,
+    session=Depends(get_session),
+):
+    """
+    Submit a quote via magic link.
+    Creates a Bid from the quote.
+    """
+    # Find the seller quote by token
+    result = await session.execute(
+        select(SellerQuote).where(SellerQuote.token == token)
+    )
+    quote = result.scalar_one_or_none()
+    
+    if not quote:
+        raise HTTPException(status_code=404, detail="Invalid or expired link")
+    
+    # Check expiration
+    if quote.token_expires_at and quote.token_expires_at < datetime.utcnow():
+        raise HTTPException(status_code=410, detail="This link has expired")
+    
+    # Check if already submitted
+    if quote.status == "submitted":
+        raise HTTPException(status_code=400, detail="Quote already submitted")
+    
+    # Update quote with submission data
+    quote.price = submission.price
+    quote.currency = submission.currency
+    quote.description = submission.description
+    quote.status = "submitted"
+    quote.submitted_at = datetime.utcnow()
+    
+    # Update contact info if provided
+    if submission.contact_name:
+        quote.seller_name = submission.contact_name
+    if submission.contact_phone:
+        quote.seller_phone = submission.contact_phone
+    
+    # Store answers as JSON
+    import json
+    answers = submission.answers or {}
+    if submission.aircraft_type:
+        answers["aircraft_type"] = submission.aircraft_type
+    if submission.includes_catering is not None:
+        answers["includes_catering"] = submission.includes_catering
+    quote.answers = json.dumps(answers)
+    
+    # Create a Bid from the quote
+    bid = Bid(
+        row_id=quote.row_id,
+        price=submission.price,
+        shipping_cost=0.0,
+        total_cost=submission.price,
+        currency=submission.currency,
+        item_title=f"Quote from {quote.seller_company or quote.seller_name}",
+        item_url=None,
+        image_url=None,
+        source="seller_quote",
+        condition="service",
+        # Store provenance linking to quote
+        provenance=json.dumps({
+            "type": "seller_quote",
+            "quote_id": quote.id,
+            "seller_company": quote.seller_company,
+            "seller_email": quote.seller_email,
+            "description": submission.description,
+            "answers": answers,
+        }),
+    )
+    session.add(bid)
+    await session.flush()  # Get bid.id
+    
+    # Link bid to quote
+    quote.bid_id = bid.id
+    
+    # Update outreach event
+    result = await session.execute(
+        select(OutreachEvent).where(OutreachEvent.quote_token == token)
+    )
+    event = result.scalar_one_or_none()
+    if event:
+        event.quote_submitted_at = datetime.utcnow()
+    
+    await session.commit()
+    
+    return QuoteResponse(
+        quote_id=quote.id,
+        status="submitted",
+        message="Quote submitted successfully! The buyer will be notified.",
+    )
+
+
+@router.get("/{quote_id}")
+async def get_quote(quote_id: int, session=Depends(get_session)):
+    """Get a quote by ID."""
+    result = await session.execute(
+        select(SellerQuote).where(SellerQuote.id == quote_id)
+    )
+    quote = result.scalar_one_or_none()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quote not found")
+    
+    return {
+        "id": quote.id,
+        "row_id": quote.row_id,
+        "seller_email": quote.seller_email,
+        "seller_name": quote.seller_name,
+        "seller_company": quote.seller_company,
+        "price": quote.price,
+        "currency": quote.currency,
+        "description": quote.description,
+        "status": quote.status,
+        "submitted_at": quote.submitted_at,
+    }
+
+
+@router.post("/{quote_id}/select")
+async def select_quote(
+    quote_id: int,
+    buyer_name: Optional[str] = None,
+    buyer_phone: Optional[str] = None,
+    session=Depends(get_session),
+):
+    """
+    Buyer selects a quote - triggers email handoff.
+    """
+    # Get quote
+    result = await session.execute(
+        select(SellerQuote).where(SellerQuote.id == quote_id)
+    )
+    quote = result.scalar_one_or_none()
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quote not found")
+    
+    if quote.status != "submitted":
+        raise HTTPException(status_code=400, detail="Quote not yet submitted")
+    
+    # Get row for buyer info
+    result = await session.execute(select(Row).where(Row.id == quote.row_id))
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+    
+    # Get buyer user
+    result = await session.execute(select(User).where(User.id == row.user_id))
+    buyer = result.scalar_one_or_none()
+    
+    buyer_email = buyer.email if buyer else "demo@buyanything.ai"
+    
+    # Update quote status
+    quote.status = "accepted"
+    
+    # Create deal handoff
+    handoff = DealHandoff(
+        row_id=quote.row_id,
+        quote_id=quote.id,
+        buyer_user_id=buyer.id if buyer else 1,
+        buyer_email=buyer_email,
+        buyer_name=buyer_name,
+        buyer_phone=buyer_phone,
+        deal_value=quote.price,
+        currency=quote.currency,
+        status="introduced",
+    )
+    session.add(handoff)
+    
+    # Update row status
+    row.status = "closed"
+    
+    await session.commit()
+    await session.refresh(handoff)
+    
+    # Send handoff emails
+    import json
+    description = quote.description or ""
+    if quote.answers:
+        try:
+            answers = json.loads(quote.answers)
+            if answers.get("aircraft_type"):
+                description = f"Aircraft: {answers['aircraft_type']}. {description}"
+        except:
+            pass
+    
+    # Email to buyer
+    buyer_result = await send_handoff_buyer_email(
+        buyer_email=buyer_email,
+        buyer_name=buyer_name,
+        seller_name=quote.seller_name or "Sales Team",
+        seller_company=quote.seller_company or "Vendor",
+        seller_email=quote.seller_email,
+        seller_phone=quote.seller_phone,
+        request_summary=row.title,
+        quote_price=quote.price,
+        quote_description=description,
+    )
+    if buyer_result.success:
+        handoff.buyer_email_sent_at = datetime.utcnow()
+    
+    # Email to seller
+    seller_result = await send_handoff_seller_email(
+        seller_email=quote.seller_email,
+        seller_name=quote.seller_name,
+        seller_company=quote.seller_company or "Vendor",
+        buyer_name=buyer_name,
+        buyer_email=buyer_email,
+        buyer_phone=buyer_phone,
+        request_summary=row.title,
+        quote_price=quote.price,
+    )
+    if seller_result.success:
+        handoff.seller_email_sent_at = datetime.utcnow()
+    
+    await session.commit()
+    
+    return {
+        "status": "success",
+        "message": "Quote selected! Introduction emails sent.",
+        "handoff_id": handoff.id,
+        "deal_value": quote.price,
+        "seller_company": quote.seller_company,
+        "seller_email": quote.seller_email,
+        "emails_sent": {
+            "buyer": buyer_result.success,
+            "seller": seller_result.success,
+        },
+    }

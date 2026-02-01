@@ -1,0 +1,95 @@
+{
+  "effort": "phase2-tile-provenance",
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Add provenance field to search response",
+      "description": "Extend bid response to include provenance data: matched_features (dict), intent_match_score (float 0-1), price_match (enum)",
+      "status": "pending",
+      "files": [
+        "apps/backend/sourcing/service.py",
+        "apps/backend/sourcing/repository.py",
+        "apps/backend/models.py"
+      ],
+      "acceptance_criteria": [
+        "Bid response includes provenance field",
+        "provenance.matched_features populated from SearchIntent",
+        "provenance.price_match indicates within/below/above budget"
+      ]
+    },
+    {
+      "id": "task-002",
+      "title": "Create TileDetailPanel component",
+      "description": "Slide-out panel showing tile details: image, title, price, merchant, rating, description",
+      "status": "pending",
+      "files": [
+        "apps/frontend/components/TileDetailPanel.tsx"
+      ],
+      "acceptance_criteria": [
+        "Panel slides in from right",
+        "Shows all bid fields",
+        "Close button and Escape key close panel",
+        "Click outside closes panel"
+      ]
+    },
+    {
+      "id": "task-003",
+      "title": "Add 'Why Recommended' section to panel",
+      "description": "Display matched choice factors and intent match score in human-readable format",
+      "status": "pending",
+      "files": [
+        "apps/frontend/components/TileDetailPanel.tsx"
+      ],
+      "acceptance_criteria": [
+        "Shows matched features as key-value pairs",
+        "Shows price match status",
+        "Fallback message if no features matched"
+      ]
+    },
+    {
+      "id": "task-004",
+      "title": "Wire up tile click to panel",
+      "description": "Add click handler to tiles in RowStrip, track selected tile in store, render panel",
+      "status": "pending",
+      "files": [
+        "apps/frontend/components/RowStrip.tsx",
+        "apps/frontend/app/store.ts"
+      ],
+      "acceptance_criteria": [
+        "Clicking tile sets selectedTile in store",
+        "Panel renders when selectedTile is set",
+        "Only one panel open at a time"
+      ]
+    },
+    {
+      "id": "task-005",
+      "title": "Add action buttons to panel",
+      "description": "Like, Comment, Select buttons in panel footer",
+      "status": "pending",
+      "files": [
+        "apps/frontend/components/TileDetailPanel.tsx"
+      ],
+      "acceptance_criteria": [
+        "Like button toggles like state",
+        "Comment button opens comment input",
+        "Select button marks tile as selected"
+      ]
+    },
+    {
+      "id": "task-006",
+      "title": "Accessibility and tests",
+      "description": "Ensure keyboard navigation, screen reader support, add component tests",
+      "status": "pending",
+      "files": [
+        "apps/frontend/components/TileDetailPanel.tsx",
+        "apps/frontend/components/__tests__/TileDetailPanel.test.tsx"
+      ],
+      "acceptance_criteria": [
+        "Focus trapped in panel when open",
+        "Escape closes panel",
+        "ARIA labels present",
+        "Tests pass"
+      ]
+    }
+  ]
+}

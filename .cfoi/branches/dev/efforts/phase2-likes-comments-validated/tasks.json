@@ -1,0 +1,301 @@
+```json
+{
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Create BidLike and BidComment database models",
+      "description": "Create SQLAlchemy models for likes and comments in app/models/. BidLike should have user_id (foreign key to users table), bid_id (foreign key to rows table), created_at with unique constraint on (user_id, bid_id). BidComment should have user_id (foreign key to users table), bid_id (foreign key to rows table), content (max 1000 chars), created_at.",
+      "status": "pending",
+      "files": ["app/models/bid_interactions.py", "app/models/__init__.py"],
+      "acceptance_criteria": [
+        "BidLike model has foreign key constraints to both users and rows tables",
+        "BidComment model has foreign key constraints to both users and rows tables", 
+        "Unique composite constraint on (user_id, bid_id) for BidLike",
+        "BidComment has 1000 character limit on content field",
+        "Models follow existing SQLAlchemy patterns in codebase"
+      ]
+    },
+    {
+      "id": "task-001-5",
+      "title": "Define cascade relationships for User model interactions",
+      "description": "Update User model to include relationships to BidLike and BidComment models with proper cascade delete behavior. When a user is deleted, their likes and comments should be cascade deleted. When a bid (row) is deleted, associated likes and comments should be cascade deleted.",
+      "status": "pending",
+      "dependencies": ["task-001"],
+      "files": ["app/models/user.py", "app/models/row.py"],
+      "acceptance_criteria": [
+        "User model has relationship to likes and comments with cascade delete",
+        "Row model has relationship to likes and comments with cascade delete",
+        "Deleting a user removes all their likes and comments",
+        "Deleting a bid removes all associated likes and comments",
+        "Relationships follow existing SQLAlchemy relationship patterns"
+      ]
+    },
+    {
+      "id": "task-002",
+      "title": "Create Alembic migration for interaction tables",
+      "description": "Generate Alembic migration to create bid_likes and bid_comments tables with proper indexes: unique composite on (user_id, bid_id) for likes, bid_id index on both tables, user_id index on comments table.",
+      "status": "pending",
+      "dependencies": ["task-001-5"],
+      "files": ["alembic/versions/add_bid_interactions.py"],
+      "acceptance_criteria": [
+        "Migration creates both tables with correct schema and foreign key constraints",
+        "Indexes are created for query optimization",
+        "Migration runs without errors on clean database",
+        "Rollback migration works correctly"
+      ]
+    },
+    {
+      "id": "task-002-5",
+      "title": "Test cascade delete behavior for interaction models",
+      "description": "Create integration tests to verify that cascade delete behavior works correctly when users or bids are deleted, ensuring associated likes and comments are properly removed from the database.",
+      "status": "pending",
+      "dependencies": ["task-002"],
+      "files": ["tests/integration/test_cascade_deletes.py"],
+      "acceptance_criteria": [
+        "Test that deleting a user removes all their likes and comments",
+        "Test that deleting a bid removes all associated likes and comments",
+        "Verify foreign key constraints are properly enforced",
+        "Test database integrity after cascade deletes",
+        "Tests pass with real database transactions"
+      ]
+    },
+    {
+      "id": "task-003",
+      "title": "Implement XSS sanitization utility",
+      "description": "Create utility function in app/utils/sanitization.py for sanitizing comment content to prevent XSS attacks. Use bleach library or similar to clean HTML and malicious scripts from user input.",
+      "status": "pending",
+      "dependencies": ["task-002"],
+      "files": ["app/utils/sanitization.py", "requirements.txt"],
+      "acceptance_criteria": [
+        "Sanitization function removes script tags and malicious HTML",
+        "Preserves safe formatting like line breaks",
+        "Handles empty and None input gracefully",
+        "Add bleach or equivalent XSS prevention library to requirements",
+        "Unit tests for various XSS attack vectors"
+      ]
+    },
+    {
+      "id": "task-004",
+      "title": "Implement likes API endpoints",
+      "description": "Create FastAPI routes in app/api/likes.py for POST /api/bids/{bid_id}/likes (toggle like) and DELETE /api/bids/{bid_id}/likes (remove like). Use existing @require_auth decorator and follow authentication patterns from existing routes. Include router instance for import by main router.",
+      "status": "pending",
+      "dependencies": ["task-002-5"],
+      "files": ["app/api/likes.py"],
+      "acceptance_criteria": [
+        "POST endpoint toggles like state for authenticated user",
+        "DELETE endpoint removes like for authenticated user",
+        "Returns 404 for non-existent bids matching existing API patterns",
+        "Returns 401 for unauthenticated users using existing error format",
+        "Handles duplicate like attempts gracefully (idempotent)",
+        "Returns appropriate HTTP status codes (200/201/404/401)",
+        "Uses existing Clerk authentication patterns",
+        "Creates APIRouter instance with proper prefix and tags for import"
+      ]
+    },
+    {
+      "id": "task-005",
+      "title": "Implement comments API endpoints", 
+      "description": "Create FastAPI routes in app/api/comments.py for POST /api/bids/{bid_id}/comments (create comment), DELETE /api/comments/{comment_id} (delete own comment), following existing authentication and validation patterns. Use XSS sanitization utility on comment content.",
+      "status": "pending",
+      "dependencies": ["task-003", "task-002-5"],
+      "files": ["app/api/comments.py"],
+      "acceptance_criteria": [
+        "POST endpoint creates comment with user attribution",
+        "DELETE endpoint only allows deletion of own comments",
+        "Returns 403 for unauthorized deletion attempts using existing error format",
+        "Returns 404 for non-existent bids/comments matching existing patterns",
+        "Content validation (max 1000 characters) with 400 error response",
+        "XSS prevention through content sanitization using utility function",
+        "Proper error handling and HTTP status codes",
+        "Creates APIRouter instance with proper prefix and tags for import"
+      ]
+    },
+    {
+      "id": "task-006",
+      "title": "Establish performance baseline metrics",
+      "description": "Create performance testing infrastructure and establish baseline metrics for search functionality and API response times before adding interaction features. Measure search response time, memory usage, and database query counts.",
+      "status": "pending",
+      "dependencies": ["task-005"],
+      "files": ["tests/performance/baseline_metrics.test.ts", "tests/performance/utils.ts"],
+      "acceptance_criteria": [
+        "Performance testing framework setup with consistent test environment",
+        "Baseline search response time metrics recorded",
+        "Memory usage baseline established for search operations",
+        "Database query count baseline for search recorded",
+        "Performance test utilities created for consistent measurement",
+        "Baseline results documented for comparison"
+      ]
+    },
+    {
+      "id": "task-007",
+      "title": "Implement batch interactions endpoint",
+      "description": "Create POST /api/bids/interactions endpoint in app/api/interactions.py that accepts array of bid_ids and returns aggregated likes and comments data for efficient batch loading. Include router instance for import by main router.",
+      "status": "pending",
+      "dependencies": ["task-006"],
+      "files": ["app/api/interactions.py"],
+      "acceptance_criteria": [
+        "Accepts array of bid_ids in request body",
+        "Returns likes count and user's like status per bid",
+        "Returns comments with user info per bid",
+        "Efficient database queries (avoid N+1 problem)",
+        "Handles empty bid_ids array gracefully",
+        "Returns 400 for invalid bid_ids format using existing error patterns",
+        "Creates APIRouter instance with proper prefix and tags for import"
+      ]
+    },
+    {
+      "id": "task-008",
+      "title": "Register new API routes in main router",
+      "description": "Add the new interaction endpoints to the main FastAPI router configuration, following existing patterns for route registration. Import and include the router instances from likes, comments, and interactions modules.",
+      "status": "pending",
+      "dependencies": ["task-004", "task-005", "task-007"],
+      "files": ["app/main.py"],
+      "acceptance_criteria": [
+        "All new endpoints are accessible via API",
+        "Route registration follows existing patterns",
+        "No conflicts with existing routes",
+        "API documentation auto-generated correctly",
+        "Router imports follow existing module import patterns"
+      ]
+    },
+    {
+      "id": "task-008-5",
+      "title": "Validate API error format consistency",
+      "description": "Create integration tests to verify that all new interaction endpoints return error responses in formats consistent with existing API patterns, including 400, 401, 403, and 404 errors.",
+      "status": "pending",
+      "dependencies": ["task-008"],
+      "files": ["tests/integration/test_interaction_errors.py"],
+      "acceptance_criteria": [
+        "All 400 errors return consistent validation error format",
+        "All 401 errors return consistent authentication error format", 
+        "All 403 errors return consistent authorization error format",
+        "All 404 errors return consistent not found error format",
+        "Error formats match existing API endpoint patterns exactly",
+        "Tests cover all new endpoints and error scenarios"
+      ]
+    },
+    {
+      "id": "task-009",
+      "title": "Create interaction API client functions",
+      "description": "Add API client functions in lib/api/ for likes and comments operations, following existing API client patterns with proper error handling and TypeScript types.",
+      "status": "pending",
+      "dependencies": ["task-008"],
+      "files": ["lib/api/interactions.ts"],
+      "acceptance_criteria": [
+        "Functions for toggle like, add comment, delete comment, batch load",
+        "Proper TypeScript interfaces for request/response",
+        "Error handling matching existing API client patterns",
+        "Consistent with existing API client architecture"
+      ]
+    },
+    {
+      "id": "task-010",
+      "title": "Analyze existing Zustand persistence patterns",
+      "description": "Examine current Zustand store persistence implementation to understand localStorage structure and hydration patterns. Document findings to ensure interactions state integration follows existing patterns exactly.",
+      "status": "pending",
+      "dependencies": ["task-009"],
+      "files": ["docs/zustand_persistence_analysis.md"],
+      "acceptance_criteria": [
+        "Current localStorage structure documented",
+        "Existing hydration patterns analyzed",
+        "Persistence middleware configuration understood",
+        "Integration approach defined that matches existing patterns",
+        "Potential conflicts with interactions data identified"
+      ]
+    },
+    {
+      "id": "task-011",
+      "title": "Extend Zustand store with interactions state",
+      "description": "Add interactions state management to existing Zustand store, following patterns documented in persistence analysis. Include optimistic updates for likes and ensure proper integration with existing localStorage structure.",
+      "status": "pending",
+      "dependencies": ["task-010"],
+      "files": ["lib/store/useStore.ts"],
+      "acceptance_criteria": [
+        "Interactions state integrated with existing store structure following documented patterns",
+        "Optimistic like updates with rollback on failure",
+        "Interactions data stored using same persistence approach as existing data",
+        "Batch loading function for multiple bid interactions",
+        "State hydration includes interactions data when loading persisted searches",
+        "Interactions state cleared when search results are cleared",
+        "localStorage integration matches existing persistence patterns exactly"
+      ]
+    },
+    {
+      "id": "task-012",
+      "title": "Create BidLikeButton component",
+      "description": "Create reusable like button component in components/ that integrates with Zustand store, shows like count and user's like status, with optimistic UI updates.",
+      "status": "pending",
+      "dependencies": ["task-011"],
+      "files": ["components/BidLikeButton.tsx"],
+      "acceptance_criteria": [
+        "Heart icon with filled/outline states",
+        "Shows like count",
+        "Immediate visual feedback on click",
+        "Accessible with proper aria-pressed state",
+        "Matches existing component styling patterns"
+      ]
+    },
+    {
+      "id": "task-013",
+      "title": "Create BidCommentSection component",
+      "description": "Create comment section component with comment list, add comment form, and delete functionality for own comments. Follow existing form and list component patterns.",
+      "status": "pending",
+      "dependencies": ["task-011"],
+      "files": ["components/BidCommentSection.tsx"],
+      "acceptance_criteria": [
+        "Displays existing comments with user info and timestamps",
+        "Add comment form with 1000 character limit",
+        "Delete button only shown for own comments",
+        "Proper form validation and error handling",
+        "Matches existing component styling"
+      ]
+    },
+    {
+      "id": "task-014",
+      "title": "Integrate interactions into BidRow component",
+      "description": "Modify existing BidRow component to include like button and comment section, with proper loading states and error handling.",
+      "status": "pending",
+      "dependencies": ["task-012", "task-013"],
+      "files": ["components/BidRow.tsx"],
+      "acceptance_criteria": [
+        "Like button appears in appropriate location",
+        "Comment section toggles open/closed",
+        "Loading states for interaction data",
+        "Graceful fallback when interactions fail to load",
+        "No impact on existing BidRow functionality"
+      ]
+    },
+    {
+      "id": "task-015",
+      "title": "Implement batch interaction loading in search flow",
+      "description": "Add batch interaction loading after search results are loaded, ensuring it doesn't block core search functionality and follows existing async patterns.",
+      "status": "pending",
+      "dependencies": ["task-014"],
+      "files": ["lib/hooks/useSearch.ts", "components/SearchResults.tsx"],
+      "acceptance_criteria": [
+        "Interactions load after search results display",
+        "Search performance unaffected by interaction loading",
+        "Timeout fallbacks prevent blocking UI",
+        "Loading states communicate interaction data status",
+        "Works with existing search pagination"
+      ]
+    },
+    {
+      "id": "task-016",
+      "title": "Validate interaction performance impact",
+      "description": "Measure and validate that interaction loading does not negatively impact search performance using baseline metrics established earlier. Verify interaction features maintain acceptable performance thresholds.",
+      "status": "pending",
+      "dependencies": ["task-015"],
+      "files": ["tests/performance/interaction_performance.test.ts"],
+      "acceptance_criteria": [
+        "Search response time remains within baseline thresholds with interactions enabled",
+        "Batch interaction loading completes within 2 seconds for 50 bids",
+        "Memory usage increase from interaction state remains under 5MB compared to baseline",
+        "Performance degradation compared to baseline is under 10%",
+        "Performance tests pass in CI/CD pipeline",
+        "Documentation updated with performance characteristics and comparison to baseline"
+      ]
+    }
+  ]
+}
+```

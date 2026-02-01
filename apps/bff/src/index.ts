@@ -1094,6 +1094,42 @@ export function buildApp() {
           reply.raw.end();
           return;
         }
+      } else if (action.type === 'vendor_outreach') {
+        const rowId = action.row_id;
+        const category = action.category;
+        writeEvent('action_started', { type: 'vendor_outreach', row_id: rowId, category });
+        writeEvent('status', { message: `🔍 Finding ${category} vendors...` });
+        try {
+          // Trigger vendor outreach via backend
+          const outreachResult = await fetchJsonWithTimeoutRetry(
+            `${BACKEND_URL}/outreach/rows/${rowId}/trigger`,
+            {
+              method: 'POST',
+              headers: { ...headers, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ category, vendor_limit: 5 }),
+            },
+            30000,
+            1,
+            500
+          );
+          
+          if (outreachResult.ok) {
+            const data = outreachResult.data;
+            writeEvent('outreach_triggered', {
+              row_id: rowId,
+              vendors_contacted: data.vendors_contacted,
+              category,
+            });
+            writeEvent('status', { message: `✉️ Contacted ${data.vendors_contacted} vendors. Waiting for quotes...` });
+          } else {
+            writeEvent('error', { message: outreachResult.data?.detail || 'Failed to trigger outreach' });
+          }
+          lastRowId = rowId;
+        } catch (err: any) {
+          writeEvent('error', { message: err?.message || 'Vendor outreach failed' });
+          reply.raw.end();
+          return;
+        }
       }
     }
 
@@ -1495,6 +1531,119 @@ export function buildApp() {
     reply.status(500).send({ error: 'Failed to logout' });
   }
 });
+
+  // ============== LIKES ROUTES ==============
+  fastify.post('/api/likes', async (request, reply) => {
+    try {
+      const authHeader = request.headers.authorization;
+      const response = await fetch(`${BACKEND_URL}/likes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authHeader ? { Authorization: authHeader } : {}),
+        },
+        body: JSON.stringify(request.body),
+      });
+      const data = await response.json();
+      reply.status(response.status).send(data);
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Failed to create like' });
+    }
+  });
+
+  fastify.delete('/api/likes', async (request, reply) => {
+    try {
+      const { row_id, bid_id, offer_url } = request.query as { row_id?: string; bid_id?: string; offer_url?: string };
+      const authHeader = request.headers.authorization;
+      const params = new URLSearchParams();
+      if (row_id) params.set('row_id', row_id);
+      if (bid_id) params.set('bid_id', bid_id);
+      if (offer_url) params.set('offer_url', offer_url);
+      const response = await fetch(`${BACKEND_URL}/likes?${params.toString()}`, {
+        method: 'DELETE',
+        headers: authHeader ? { Authorization: authHeader } : {},
+      });
+      const data = await response.json();
+      reply.status(response.status).send(data);
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Failed to delete like' });
+    }
+  });
+
+  fastify.get('/api/likes', async (request, reply) => {
+    try {
+      const { row_id, bid_id } = request.query as { row_id?: string; bid_id?: string };
+      const authHeader = request.headers.authorization;
+      const params = new URLSearchParams();
+      if (row_id) params.set('row_id', row_id);
+      if (bid_id) params.set('bid_id', bid_id);
+      const response = await fetch(`${BACKEND_URL}/likes?${params.toString()}`, {
+        headers: authHeader ? { Authorization: authHeader } : {},
+      });
+      const data = await response.json();
+      reply.status(response.status).send(data);
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Failed to fetch likes' });
+    }
+  });
+
+  // ============== COMMENTS ROUTES ==============
+  fastify.post('/api/comments', async (request, reply) => {
+    try {
+      const authHeader = request.headers.authorization;
+      const response = await fetch(`${BACKEND_URL}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authHeader ? { Authorization: authHeader } : {}),
+        },
+        body: JSON.stringify(request.body),
+      });
+      const data = await response.json();
+      reply.status(response.status).send(data);
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Failed to create comment' });
+    }
+  });
+
+  fastify.get('/api/comments', async (request, reply) => {
+    try {
+      const { row_id, bid_id } = request.query as { row_id?: string; bid_id?: string };
+      const authHeader = request.headers.authorization;
+      const params = new URLSearchParams();
+      if (row_id) params.set('row_id', row_id);
+      if (bid_id) params.set('bid_id', bid_id);
+      const url = `${BACKEND_URL}/comments?${params.toString()}`;
+      const response = await fetch(url, {
+        headers: authHeader ? { Authorization: authHeader } : {},
+      });
+      const data = await response.json();
+      reply.status(response.status).send(data);
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Failed to fetch comments' });
+    }
+  });
+
+  fastify.delete('/api/comments/:commentId', async (request, reply) => {
+    try {
+      const { commentId } = request.params as { commentId: string };
+      const authHeader = request.headers.authorization;
+      const response = await fetch(`${BACKEND_URL}/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: authHeader ? { Authorization: authHeader } : {},
+      });
+      const data = await response.json();
+      reply.status(response.status).send(data);
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Failed to delete comment' });
+    }
+  });
 
   return fastify;
 }

@@ -1,0 +1,320 @@
+{
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Create ShareLink database model",
+      "description": "Create the ShareLink SQLModel with all required fields, indexes, and relationships. Add ShareSearchEvent model for tracking search events from shares.",
+      "status": "pending",
+      "files": [
+        "apps/backend/app/models/share_link.py"
+      ],
+      "acceptance_criteria": [
+        "ShareLink model has id, token, resource_type, resource_id, created_by, created_at, access_count, unique_visitors, search_initiated_count, search_success_count, signup_conversion_count fields",
+        "ShareSearchEvent model tracks share_token, session_id, user_id, search_query, search_success, created_at",
+        "ShareLink.created_by foreign key relationship to User.id",
+        "ShareSearchEvent.share_token foreign key relationship to ShareLink.token",
+        "Proper indexes and foreign key relationships defined",
+        "Models follow existing SQLModel patterns from other models"
+      ]
+    },
+    {
+      "id": "task-002",
+      "title": "Add database migration for share tables",
+      "description": "Create Alembic migration to add ShareLink and ShareSearchEvent tables with proper foreign key constraints.",
+      "status": "pending",
+      "files": [
+        "apps/backend/alembic/versions/add_share_link_tables.py"
+      ],
+      "acceptance_criteria": [
+        "Migration creates ShareLink table with all fields and indexes",
+        "Migration creates ShareSearchEvent table",
+        "Foreign key constraints properly defined for ShareLink.created_by and ShareSearchEvent.share_token",
+        "Migration runs without errors on clean database"
+      ]
+    },
+    {
+      "id": "task-003",
+      "title": "Extend existing auth patterns for anonymous share access",
+      "description": "Extend existing session-based auth patterns in core/auth.py to handle anonymous share viewer sessions while maintaining current auth structure.",
+      "status": "pending",
+      "files": [
+        "apps/backend/app/core/auth.py"
+      ],
+      "acceptance_criteria": [
+        "get_session_context extended to return share context including is_anonymous_share flag",
+        "create_temp_session function added for temporary sessions for anonymous share viewers",
+        "Integration maintains compatibility with existing auth patterns",
+        "Share session handling follows existing authentication patterns"
+      ]
+    },
+    {
+      "id": "task-004",
+      "title": "Create share access utilities",
+      "description": "Implement utilities in core/ to block anonymous share viewers from interactions while allowing read access, following existing backend structure.",
+      "status": "pending",
+      "files": [
+        "apps/backend/app/core/share_utils.py"
+      ],
+      "acceptance_criteria": [
+        "requires_interaction_auth decorator blocks anonymous share viewers from interactions",
+        "track_search_from_share decorator captures share attribution",
+        "Utilities integrate with extended auth patterns in core/auth.py",
+        "Proper error responses for blocked interactions"
+      ]
+    },
+    {
+      "id": "task-005",
+      "title": "Create share service layer",
+      "description": "Implement ShareService class to handle share link creation, resolution, and metrics tracking. Include token generation and validation logic.",
+      "status": "pending",
+      "files": [
+        "apps/backend/app/services/share_service.py"
+      ],
+      "acceptance_criteria": [
+        "create_share_link generates unique 32-character tokens",
+        "resolve_share_link validates and returns share content",
+        "track_share_access increments counters and handles unique visitors",
+        "get_share_metrics returns analytics data for dashboards",
+        "Proper error handling for invalid tokens"
+      ]
+    },
+    {
+      "id": "task-006",
+      "title": "Create shares API routes",
+      "description": "Implement FastAPI routes for share creation, resolution, and content access. Follow existing route patterns from other modules.",
+      "status": "pending",
+      "files": [
+        "apps/backend/app/routes/shares.py"
+      ],
+      "acceptance_criteria": [
+        "POST /api/shares creates share links (authenticated users only)",
+        "GET /api/shares/{token} resolves share links publicly",
+        "GET /api/shares/{token}/content returns read-only content",
+        "Routes integrate with extended auth patterns and share utilities",
+        "Proper HTTP status codes and error responses"
+      ]
+    },
+    {
+      "id": "task-007",
+      "title": "Extend search routes with share tracking",
+      "description": "Add share tracking decorators to all search routes (rows_search.py, general search endpoints) to track search events initiated from shared content.",
+      "status": "pending",
+      "files": [
+        "apps/backend/app/routes/rows_search.py",
+        "apps/backend/app/routes/search.py"
+      ],
+      "acceptance_criteria": [
+        "Import and apply track_search_from_share decorator to all search endpoints",
+        "Existing search routes unchanged functionally",
+        "ShareSearchEvent records created for searches from shares across all search types",
+        "Search success criteria applied consistently across all search routes"
+      ]
+    },
+    {
+      "id": "task-008",
+      "title": "Create search enhancement service",
+      "description": "Implement SearchEnhancementService to generate search suggestions from shared content and calculate share-driven search success metrics.",
+      "status": "pending",
+      "files": [
+        "apps/backend/app/services/search_enhancement.py"
+      ],
+      "acceptance_criteria": [
+        "get_shared_content_search_suggestions analyzes shared content for high-success queries",
+        "calculate_share_search_metrics compares baseline vs share-driven success rates",
+        "Integration with existing search success criteria",
+        "Service methods return structured data for frontend consumption"
+      ]
+    },
+    {
+      "id": "task-009",
+      "title": "Register shares routes in main app",
+      "description": "Add the shares router to the main FastAPI application and ensure proper startup/shutdown handling.",
+      "status": "pending",
+      "files": [
+        "apps/backend/app/main.py"
+      ],
+      "acceptance_criteria": [
+        "Shares router imported and included in app",
+        "Routes accessible at /api/shares/*",
+        "No conflicts with existing routes"
+      ]
+    },
+    {
+      "id": "task-010",
+      "title": "Update backend signup flow with referral attribution",
+      "description": "Modify existing auth routes to capture referral_share_token during signup for conversion tracking, ensuring compatibility with existing Clerk integration.",
+      "status": "pending",
+      "files": [
+        "apps/backend/app/routes/auth.py"
+      ],
+      "acceptance_criteria": [
+        "Signup endpoint accepts referral_share_token parameter",
+        "User model populated with signup_source and referral_share_token while maintaining Clerk compatibility",
+        "ShareLink.signup_conversion_count incremented on successful referrals",
+        "Existing Clerk-based signup flow unchanged for direct signups"
+      ]
+    },
+    {
+      "id": "task-011",
+      "title": "Add user referral fields migration",
+      "description": "Create Alembic migration to add referral_share_token and signup_source fields to User model, ensuring compatibility with existing Clerk user management.",
+      "status": "pending",
+      "files": [
+        "apps/backend/alembic/versions/add_user_referral_fields.py",
+        "apps/backend/app/models/user.py"
+      ],
+      "acceptance_criteria": [
+        "Migration adds referral_share_token and signup_source to User table",
+        "User model updated with new fields that work alongside existing Clerk integration",
+        "Migration runs without errors on existing databases with Clerk users",
+        "New fields don't interfere with existing Clerk user sync processes"
+      ]
+    },
+    {
+      "id": "task-012",
+      "title": "Update ClickoutEvent model for share attribution",
+      "description": "Extend existing ClickoutEvent model to track affiliate clicks from shared content for proper attribution.",
+      "status": "pending",
+      "files": [
+        "apps/backend/app/models/clickout_event.py",
+        "apps/backend/alembic/versions/add_clickout_share_fields.py"
+      ],
+      "acceptance_criteria": [
+        "ClickoutEvent model includes share_token field",
+        "ClickoutEvent model includes referral_user_id field",
+        "Migration adds new fields to existing clickout_events table",
+        "Existing clickout functionality unaffected"
+      ]
+    },
+    {
+      "id": "task-013",
+      "title": "Create ShareButton component with store integration",
+      "description": "Build reusable ShareButton component with copy-to-clipboard functionality following existing Button patterns and integrating with Zustand store.",
+      "status": "pending",
+      "files": [
+        "apps/frontend/app/components/ShareButton.tsx"
+      ],
+      "acceptance_criteria": [
+        "Component accepts resource_type and resource_id props",
+        "Calls share creation API and copies link to clipboard",
+        "Shows toast confirmation on successful copy",
+        "Follows existing Button component styling patterns",
+        "Integrates with Zustand store for share state management",
+        "Includes proper loading and error states"
+      ]
+    },
+    {
+      "id": "task-014",
+      "title": "Create ReadOnlyBanner component",
+      "description": "Build banner component to indicate read-only mode for anonymous share viewers, following existing component patterns and integrating with Zustand store.",
+      "status": "pending",
+      "files": [
+        "apps/frontend/app/components/ReadOnlyBanner.tsx"
+      ],
+      "acceptance_criteria": [
+        "Displays clear read-only messaging",
+        "Includes signup/login call-to-action",
+        "Follows existing component styling",
+        "Integrates with Zustand store for share context",
+        "Responsive design for mobile/desktop"
+      ]
+    },
+    {
+      "id": "task-015",
+      "title": "Create useShareContext hook with store integration",
+      "description": "Implement React hook to manage share context state, integrating with existing Zustand store patterns and session management.",
+      "status": "pending",
+      "files": [
+        "apps/frontend/app/hooks/useShareContext.ts"
+      ],
+      "acceptance_criteria": [
+        "Hook detects anonymous share viewing state",
+        "Returns canInteract flag based on auth status",
+        "Integrates with existing Zustand store patterns for state management",
+        "Provides shareToken and sessionId from URL/session",
+        "Maintains compatibility with existing useSession patterns"
+      ]
+    },
+    {
+      "id": "task-016",
+      "title": "Create ShareSearchSuggestions component with store integration",
+      "description": "Build component to show optimized search queries for shared content to improve search success rates, integrating with Zustand store.",
+      "status": "pending",
+      "files": [
+        "apps/frontend/app/components/ShareSearchSuggestions.tsx"
+      ],
+      "acceptance_criteria": [
+        "Fetches suggestions from SearchEnhancementService",
+        "Displays clickable suggestion pills",
+        "Integrates with existing search input components and Zustand store",
+        "Shows loading state while fetching suggestions",
+        "Manages suggestion state through Zustand store"
+      ]
+    },
+    {
+      "id": "task-017",
+      "title": "Create public share page with store integration",
+      "description": "Build /share/[token] page for public share viewing with anonymous access and read-only functionality, integrating with Zustand store.",
+      "status": "pending",
+      "files": [
+        "apps/frontend/app/share/[token]/page.tsx"
+      ],
+      "acceptance_criteria": [
+        "Page resolves share token and displays content",
+        "Shows ReadOnlyBanner for anonymous users",
+        "Displays shared project/row/tile appropriately",
+        "Handles invalid tokens with graceful 404",
+        "Integrates with Zustand store for share context management",
+        "Responsive design matching existing pages"
+      ]
+    },
+    {
+      "id": "task-018",
+      "title": "Add ShareButton to existing project pages with store integration",
+      "description": "Integrate ShareButton component into existing project, row, and tile views for authenticated users, coordinating with Zustand store.",
+      "status": "pending",
+      "files": [
+        "apps/frontend/app/page.tsx"
+      ],
+      "acceptance_criteria": [
+        "ShareButton appears on project views for authenticated users",
+        "ShareButton appears on individual rows when appropriate",
+        "ShareButton appears on tile detail views",
+        "Buttons positioned consistently with existing UI patterns",
+        "Share state managed through Zustand store coordination"
+      ]
+    },
+    {
+      "id": "task-019",
+      "title": "Create share metrics dashboard with store integration",
+      "description": "Build analytics page showing share performance and search success impact metrics, integrating with Zustand store for state management.",
+      "status": "pending",
+      "files": [
+        "apps/frontend/app/metrics/search-shares/page.tsx"
+      ],
+      "acceptance_criteria": [
+        "Dashboard shows share creation and access metrics",
+        "Displays search success rate improvements from shared content",
+        "Shows conversion rates and referral attribution",
+        "Charts/visualizations follow existing metrics page patterns",
+        "Metrics state managed through Zustand store patterns"
+      ]
+    },
+    {
+      "id": "task-020",
+      "title": "Update frontend signup flow with referral attribution and store integration",
+      "description": "Modify existing frontend signup components to capture and pass referral_share_token from URL parameters to the backend, integrating with Zustand store.",
+      "status": "pending",
+      "files": [
+        "apps/frontend/app/components/auth/SignupForm.tsx"
+      ],
+      "acceptance_criteria": [
+        "SignupForm extracts referral_share_token from URL parameters",
+        "Referral token passed to signup API endpoint",
+        "Existing signup form functionality unchanged",
+        "URL parameter handling follows existing patterns",
+        "Referral state managed through Zustand store integration"
+      ]
+    }
+  ]
+}

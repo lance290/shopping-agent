@@ -24,6 +24,7 @@ from audit import audit_log
 # Import routers
 from routes.auth import router as auth_router
 from routes.rows import router as rows_router
+from routes.bids import router as bids_router
 from routes.projects import router as projects_router
 from routes.likes import router as likes_router
 from routes.comments import router as comments_router
@@ -31,6 +32,9 @@ from routes.bugs import router as bugs_router
 from routes.webhooks import router as webhooks_router
 from routes.clickout import router as clickout_router
 from routes.admin import router as admin_router
+from routes.shares import router as shares_router
+from routes.outreach import router as outreach_router
+from routes.quotes import router as quotes_router
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
@@ -91,6 +95,7 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_ROOT)), name="uploads")
 # Include routers
 app.include_router(auth_router)
 app.include_router(rows_router)
+app.include_router(bids_router)
 app.include_router(projects_router)
 app.include_router(likes_router)
 app.include_router(comments_router)
@@ -98,6 +103,9 @@ app.include_router(bugs_router)
 app.include_router(webhooks_router)
 app.include_router(clickout_router)
 app.include_router(admin_router)
+app.include_router(shares_router)
+app.include_router(outreach_router)
+app.include_router(quotes_router)
 
 # Lazy init sourcing repository
 _sourcing_repo = None

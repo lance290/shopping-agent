@@ -1,7 +1,7 @@
 """Likes routes - like/unlike offers."""
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from sqlalchemy import func
 import logging
@@ -195,3 +195,70 @@ async def get_like_counts(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get like counts: {str(e)}")
+
+
+@router.post("/likes/{bid_id}/toggle")
+async def toggle_like(
+    bid_id: int,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+) -> Dict[str, Any]:
+    """Toggle like on a bid. Returns liked status and updated counts."""
+    from routes.auth import get_current_session
+    from models import Bid
+
+    try:
+        auth_session = await get_current_session(authorization, session)
+        if not auth_session:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        # Verify bid exists and get row_id
+        bid = await session.get(Bid, bid_id)
+        if not bid:
+            raise HTTPException(status_code=404, detail="Bid not found")
+
+        # Verify user has access to the row
+        row = await session.get(Row, bid.row_id)
+        if not row or row.user_id != auth_session.user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Check if already liked
+        query = select(Like).where(
+            Like.user_id == auth_session.user_id,
+            Like.bid_id == bid_id
+        )
+        result = await session.exec(query)
+        existing_like = result.first()
+
+        if existing_like:
+            # Unlike
+            await session.delete(existing_like)
+            await session.commit()
+            is_liked = False
+        else:
+            # Like
+            new_like = Like(
+                user_id=auth_session.user_id,
+                row_id=bid.row_id,
+                bid_id=bid_id
+            )
+            session.add(new_like)
+            await session.commit()
+            is_liked = True
+
+        # Get updated count for this bid
+        count_query = select(func.count(Like.id)).where(Like.bid_id == bid_id)
+        count_result = await session.exec(count_query)
+        like_count = count_result.one()
+
+        return {
+            "is_liked": is_liked,
+            "like_count": like_count,
+            "bid_id": bid_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to toggle like for bid_id={bid_id}: {str(e)}", exc_info=True)
+        await session.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to toggle like: {str(e)}")

@@ -37,6 +37,12 @@ const chatPlanSchema = z.object({
           query: z.string(),
           providers: z.array(z.string()).optional(),
         }),
+        z.object({
+          type: z.literal('vendor_outreach'),
+          row_id: z.number(),
+          category: z.string(),
+          vendor_suggestions: z.array(z.string()).optional(),
+        }),
       ])
     )
     .default([]),
@@ -103,6 +109,11 @@ Rules:
 - If you create_row or update_row, you SHOULD also include either:
   - search_query (preferred) on that same action, OR
   - a follow-up search action.
+- For SERVICE requests (private jets, roofing, HVAC, contractors, catering, etc.) where the user needs quotes from vendors rather than products to buy:
+  - Use vendor_outreach action instead of search
+  - Set category to: "private_aviation", "roofing", "hvac", "catering", etc.
+  - Optionally suggest vendor names the user might want to contact
+  - Say something like "Let me reach out to vendors for quotes..."
 
 Schema:
 {
@@ -133,6 +144,12 @@ Schema:
       "row_id": number,
       "query": string,
       "providers"?: string[]
+    }
+    | {
+      "type": "vendor_outreach",
+      "row_id": number,
+      "category": string,
+      "vendor_suggestions"?: string[]
     }
   ]
 }`;

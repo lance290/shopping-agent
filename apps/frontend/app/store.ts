@@ -124,6 +124,22 @@ export interface ChoiceFactor {
 
 export type OfferSortMode = 'original' | 'price_asc' | 'price_desc';
 
+// Social features
+export interface CommentData {
+  id: number;
+  user_id: number;
+  body: string;
+  created_at: string;
+}
+
+export interface BidSocialData {
+  bid_id: number;
+  like_count: number;
+  is_liked: boolean;
+  comment_count: number;
+  comments: CommentData[];
+}
+
 // The source of truth state
 interface ShoppingState {
   // Core state - SOURCE OF TRUTH
@@ -140,7 +156,11 @@ interface ShoppingState {
   moreResultsIncoming: Record<number, boolean>; // Per-row flag for streaming results
   isSearching: boolean;           // Loading state for search
   cardClickQuery: string | null;  // Query from card click (triggers chat append)
-  
+
+  // Social features state
+  bidSocialData: Record<number, BidSocialData>; // Social data by bid_id
+  socialDataLoading: Record<number, boolean>;    // Loading state for social data
+
   // Actions
   setCurrentQuery: (query: string) => void;
   setActiveRowId: (id: number | null) => void;
@@ -161,7 +181,13 @@ interface ShoppingState {
   setIsSearching: (searching: boolean) => void;
   clearSearch: () => void;
   setCardClickQuery: (query: string | null) => void;  // For card click -> chat append
-  
+
+  // Social actions
+  loadBidSocial: (bidId: number) => Promise<void>;
+  toggleLike: (bidId: number) => Promise<void>;
+  addComment: (bidId: number, body: string) => Promise<void>;
+  deleteComment: (bidId: number, commentId: number) => Promise<void>;
+
   // UI State
   isSidebarOpen: boolean;
   setSidebarOpen: (isOpen: boolean) => void;
@@ -193,6 +219,8 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   moreResultsIncoming: {},
   isSearching: false,
   cardClickQuery: null,
+  bidSocialData: {},
+  socialDataLoading: {},
   isSidebarOpen: false, // Default closed
 
   pendingRowDelete: null,
@@ -294,6 +322,12 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   },
   
   setRows: (rows) => set((state) => {
+    // Debug: Log incoming rows and their bids
+    console.log('[Store] setRows called with', rows.length, 'rows');
+    rows.forEach(r => {
+      console.log(`[Store] Row ${r.id} "${r.title}" has ${r.bids?.length || 0} bids`);
+    });
+
     // Preserve last_engaged_at timestamps from existing state
     const existingEngagement = new Map<number, number>();
     state.rows.forEach((r) => {
@@ -454,6 +488,133 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     });
 
     return match || null;
+  },
+
+  // Social actions
+  loadBidSocial: async (bidId) => {
+    set((state) => ({
+      socialDataLoading: { ...state.socialDataLoading, [bidId]: true },
+    }));
+
+    try {
+      const res = await fetch(`/api/bids/${bidId}/social`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_token') || ''}`,
+        },
+      });
+
+      if (!res.ok) throw new Error('Failed to load social data');
+
+      const data: BidSocialData = await res.json();
+      set((state) => ({
+        bidSocialData: { ...state.bidSocialData, [bidId]: data },
+        socialDataLoading: { ...state.socialDataLoading, [bidId]: false },
+      }));
+    } catch (error) {
+      console.error('Failed to load social data:', error);
+      set((state) => ({
+        socialDataLoading: { ...state.socialDataLoading, [bidId]: false },
+      }));
+    }
+  },
+
+  toggleLike: async (bidId) => {
+    const currentData = get().bidSocialData[bidId];
+    if (!currentData) return;
+
+    // Optimistic update
+    const optimisticData: BidSocialData = {
+      ...currentData,
+      is_liked: !currentData.is_liked,
+      like_count: currentData.is_liked
+        ? currentData.like_count - 1
+        : currentData.like_count + 1,
+    };
+
+    set((state) => ({
+      bidSocialData: { ...state.bidSocialData, [bidId]: optimisticData },
+    }));
+
+    try {
+      const res = await fetch(`/api/likes/${bidId}/toggle`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_token') || ''}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!res.ok) throw new Error('Failed to toggle like');
+
+      const data = await res.json();
+
+      // Update with server response
+      set((state) => {
+        const current = state.bidSocialData[bidId];
+        if (!current) return state;
+
+        return {
+          bidSocialData: {
+            ...state.bidSocialData,
+            [bidId]: {
+              ...current,
+              is_liked: data.is_liked,
+              like_count: data.like_count,
+            },
+          },
+        };
+      });
+    } catch (error) {
+      console.error('Failed to toggle like:', error);
+      // Revert optimistic update
+      set((state) => ({
+        bidSocialData: { ...state.bidSocialData, [bidId]: currentData },
+      }));
+    }
+  },
+
+  addComment: async (bidId, body) => {
+    try {
+      const res = await fetch(`/api/comments`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_token') || ''}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bid_id: bidId,
+          body,
+          row_id: 0, // Will be set by backend
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to add comment');
+
+      // Reload social data to get the new comment
+      await get().loadBidSocial(bidId);
+    } catch (error) {
+      console.error('Failed to add comment:', error);
+      throw error;
+    }
+  },
+
+  deleteComment: async (bidId, commentId) => {
+    try {
+      const res = await fetch(`/api/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_token') || ''}`,
+        },
+      });
+
+      if (!res.ok) throw new Error('Failed to delete comment');
+
+      // Reload social data to reflect deletion
+      await get().loadBidSocial(bidId);
+    } catch (error) {
+      console.error('Failed to delete comment:', error);
+      throw error;
+    }
   },
 }));
 

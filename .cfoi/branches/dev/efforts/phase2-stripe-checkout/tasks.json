@@ -1,0 +1,243 @@
+```json
+{
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Update ClickoutEvent model with affiliate fields",
+      "description": "Extend existing ClickoutEvent SQLAlchemy model in backend/app/models/clickout.py to include new affiliate tracking fields",
+      "status": "pending",
+      "files": ["backend/app/models/clickout.py"],
+      "acceptance_criteria": [
+        "ClickoutEvent model includes affiliate_id as nullable String field",
+        "ClickoutEvent model includes affiliate_revenue_cents as nullable Integer field",
+        "ClickoutEvent model includes affiliate_currency as String field with default 'usd'",
+        "ClickoutEvent model includes purchase_completed_at as nullable DateTime field",
+        "Model validates properly with SQLAlchemy"
+      ]
+    },
+    {
+      "id": "task-002",
+      "title": "Create ProcurementCompletion model",
+      "description": "Add new ProcurementCompletion SQLAlchemy model in backend/app/models/clickout.py for tracking successful procurement completions",
+      "status": "pending",
+      "files": ["backend/app/models/clickout.py"],
+      "acceptance_criteria": [
+        "ProcurementCompletion model has id, bid_id, clickout_event_id, user_id, reported_at, completion_source fields",
+        "Model has proper foreign key relationships to bids and clickout_events tables",
+        "Model includes appropriate indexes and constraints",
+        "Model is properly imported and available for use"
+      ]
+    },
+    {
+      "id": "task-003",
+      "title": "Create database migration for affiliate tracking",
+      "description": "Create Alembic migration to extend clickout_events table with affiliate_id, affiliate_revenue_cents, affiliate_currency, purchase_completed_at columns and create new procurement_completions table",
+      "status": "pending",
+      "files": ["backend/alembic/versions/"],
+      "acceptance_criteria": [
+        "Migration adds affiliate_id, affiliate_revenue_cents, affiliate_currency, purchase_completed_at columns to clickout_events",
+        "Migration creates procurement_completions table with id, bid_id, clickout_event_id, user_id, reported_at, completion_source columns",
+        "Foreign key constraint from procurement_completions.bid_id to bids.id with CASCADE delete",
+        "Foreign key constraint from procurement_completions.clickout_event_id to clickout_events.id with CASCADE delete",
+        "Foreign key constraint from procurement_completions.user_id to users.id",
+        "Migration creates index idx_clickout_events_affiliate on clickout_events.affiliate_id",
+        "Migration creates index idx_procurement_completions_bid on procurement_completions.bid_id",
+        "Migration creates index idx_procurement_completions_user on procurement_completions.user_id",
+        "Migration runs successfully without errors"
+      ]
+    },
+    {
+      "id": "task-004",
+      "title": "Create affiliate partner configuration system",
+      "description": "Implement configuration management for affiliate partners including credentials, webhook secrets, and URL templates",
+      "status": "pending",
+      "files": ["backend/app/config/affiliate_config.py", "backend/app/models/affiliate_partner.py"],
+      "acceptance_criteria": [
+        "AffiliatePartner model stores partner credentials and webhook secrets securely",
+        "Configuration system supports multiple affiliate partners",
+        "URL template system for generating partner-specific affiliate links",
+        "Environment-based configuration with fallback defaults",
+        "Configuration validation ensures required fields are present"
+      ]
+    },
+    {
+      "id": "task-005",
+      "title": "Extend ClickoutService with affiliate methods",
+      "description": "Add affiliate link generation and tracking methods to existing ClickoutService in backend/app/services/clickout_service.py",
+      "status": "pending",
+      "files": ["backend/app/services/clickout_service.py"],
+      "acceptance_criteria": [
+        "generate_affiliate_url method creates properly formatted affiliate URLs using partner configuration",
+        "track_affiliate_clickout method creates ClickoutEvent with affiliate attribution",
+        "record_purchase_completion method updates clickout with completion data",
+        "Methods handle error cases gracefully",
+        "Service methods are properly typed and documented"
+      ]
+    },
+    {
+      "id": "task-006",
+      "title": "Create comprehensive webhook service with HMAC validation",
+      "description": "Create webhook service for processing affiliate partner callbacks with secure HMAC-SHA256 signature verification and payload validation",
+      "status": "pending",
+      "files": ["backend/app/services/webhook_service.py"],
+      "acceptance_criteria": [
+        "WebhookService class validates webhook signatures using HMAC-SHA256",
+        "Service verifies webhook timestamps to prevent replay attacks",
+        "Service handles different affiliate partner webhook formats",
+        "Webhook payload validation with proper error handling",
+        "Signature verification works with multiple affiliate partner formats",
+        "Invalid signatures are rejected with proper error logging",
+        "Service logs webhook attempts for monitoring and debugging",
+        "Service is properly typed and documented"
+      ]
+    },
+    {
+      "id": "task-007",
+      "title": "Extend clickout API routes with affiliate support and webhook routing",
+      "description": "Modify existing POST /api/clickout endpoint, add affiliate completion endpoints, and implement webhook routing for different affiliate partners",
+      "status": "pending",
+      "files": ["backend/app/api/routes/clickout.py"],
+      "acceptance_criteria": [
+        "POST /api/clickout accepts affiliate_id parameter for affiliate attribution",
+        "POST /api/clickout/completion endpoint handles user-reported completions",
+        "POST /api/clickout/webhook/{partner_id} endpoint routes partner-specific webhooks",
+        "Webhook routing supports multiple affiliate partner formats",
+        "GET /api/clickout/status/{bid_id} returns completion status",
+        "All endpoints include proper authentication and validation",
+        "Webhook endpoints include signature validation"
+      ]
+    },
+    {
+      "id": "task-008",
+      "title": "Update search results with affiliate metadata fields",
+      "description": "Modify rows_search.py SSE endpoint to include affiliate link eligibility and purchase completion status metadata fields based on user permissions",
+      "status": "pending",
+      "files": ["backend/app/api/routes/rows_search.py"],
+      "acceptance_criteria": [
+        "Search results include affiliate_eligible boolean metadata field based on user permissions",
+        "Search results include purchase_completed boolean metadata field based on existing data",
+        "Search results include can_purchase boolean metadata field for row ownership check",
+        "SSE performance remains unimpacted with new metadata fields",
+        "Only row owners see purchase functionality eligibility",
+        "Metadata fields properly typed in search result schema"
+      ]
+    },
+    {
+      "id": "task-009",
+      "title": "Create BuyNowButton component",
+      "description": "Implement new React component for affiliate purchase buttons that integrates with existing clickout flow",
+      "status": "pending",
+      "files": ["frontend/src/components/BuyNowButton.tsx"],
+      "acceptance_criteria": [
+        "Component renders Buy Now button for eligible retail items",
+        "Button triggers affiliate clickout tracking on click",
+        "Component shows loading state during clickout creation",
+        "Button is disabled for non-row-owners",
+        "Component handles error states gracefully"
+      ]
+    },
+    {
+      "id": "task-010",
+      "title": "Create PurchaseStatusIndicator component",
+      "description": "Implement React component to display purchase completion status on search result tiles",
+      "status": "pending",
+      "files": ["frontend/src/components/PurchaseStatusIndicator.tsx"],
+      "acceptance_criteria": [
+        "Component shows completed purchase status with visual indicator",
+        "Status updates when completion is reported",
+        "Component integrates with existing tile styling",
+        "Accessible status indication for screen readers",
+        "Component handles loading and error states"
+      ]
+    },
+    {
+      "id": "task-011",
+      "title": "Create CompletionReportModal component",
+      "description": "Implement modal component for users to manually report purchase completion",
+      "status": "pending",
+      "files": ["frontend/src/components/CompletionReportModal.tsx"],
+      "acceptance_criteria": [
+        "Modal allows users to report successful procurement",
+        "Form validates user input and handles submission",
+        "Modal integrates with existing modal patterns",
+        "Success and error states are clearly communicated",
+        "Modal is accessible with proper focus management"
+      ]
+    },
+    {
+      "id": "task-012",
+      "title": "Extend TileComponent with purchase functionality",
+      "description": "Update existing TileComponent.tsx to integrate BuyNowButton and PurchaseStatusIndicator for retail items",
+      "status": "pending",
+      "files": ["frontend/src/components/TileComponent.tsx"],
+      "acceptance_criteria": [
+        "Retail tiles show Buy Now button when affiliate links available",
+        "Purchase status indicator appears for completed purchases",
+        "Components integrate seamlessly with existing tile layout",
+        "Purchase functionality only visible to row owners",
+        "Tile maintains existing functionality and styling"
+      ]
+    },
+    {
+      "id": "task-013",
+      "title": "Extend search store with purchase state management",
+      "description": "Add purchase-related state and actions to existing search store for tracking completions and managing affiliate purchases",
+      "status": "pending",
+      "files": ["frontend/src/lib/stores/searchStore.ts"],
+      "acceptance_criteria": [
+        "Store tracks set of completed purchase bid IDs",
+        "initiateAffiliatePurchase action handles affiliate clickout creation",
+        "checkCompletionStatus action fetches current completion status",
+        "reportCompletion action submits user completion reports",
+        "State management integrates with existing search patterns"
+      ]
+    },
+    {
+      "id": "task-014",
+      "title": "Extend clickout API client with affiliate methods",
+      "description": "Add affiliate purchase and completion tracking methods to existing frontend API client in lib/api/clickout.ts",
+      "status": "pending",
+      "files": ["frontend/src/lib/api/clickout.ts"],
+      "acceptance_criteria": [
+        "API client supports affiliate clickout creation with attribution",
+        "Client includes completion status checking methods",
+        "Completion reporting functionality implemented",
+        "Error handling consistent with existing API patterns",
+        "TypeScript types properly defined for all new methods"
+      ]
+    },
+    {
+      "id": "task-015",
+      "title": "Implement comprehensive error handling for affiliate purchase flow",
+      "description": "Create consistent error handling across the entire affiliate purchase flow including network failures, partner downtime, invalid signatures, and user-facing error states",
+      "status": "pending",
+      "files": ["backend/app/utils/affiliate_errors.py", "frontend/src/lib/errors/affiliateErrors.ts"],
+      "acceptance_criteria": [
+        "Backend defines standard error codes and messages for affiliate flow failures",
+        "Network timeout and partner downtime errors handled gracefully",
+        "Invalid webhook signature errors logged and rejected appropriately",
+        "Frontend error handling provides user-friendly messages",
+        "Error states properly update UI components (buttons, modals, status indicators)",
+        "Retry logic implemented for recoverable failures",
+        "Error monitoring and alerting hooks integrated"
+      ]
+    },
+    {
+      "id": "task-016",
+      "title": "Create end-to-end affiliate purchase flow integration test",
+      "description": "Implement comprehensive integration test that validates the complete affiliate purchase flow from frontend to backend",
+      "status": "pending",
+      "files": ["tests/integration/test_affiliate_purchase_flow.py", "frontend/src/__tests__/affiliate-purchase-flow.test.tsx"],
+      "acceptance_criteria": [
+        "Test covers affiliate clickout creation from frontend to backend",
+        "Test validates webhook signature verification and completion processing",
+        "Test confirms purchase status updates propagate to frontend store",
+        "Test verifies user completion reporting works end-to-end",
+        "Test includes error scenarios and edge cases",
+        "Test validates partner configuration and URL generation",
+        "Test covers webhook routing for multiple affiliate partners"
+      ]
+    }
+  ]
+}
+```

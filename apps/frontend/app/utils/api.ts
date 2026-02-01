@@ -121,6 +121,45 @@ export interface CommentDto {
   created_at: string;
 }
 
+// Provenance types for BidWithProvenance
+export interface ProvenanceData {
+  product_info?: ProductInfo | null;
+  matched_features?: string[];
+  chat_excerpts?: ChatExcerpt[];
+}
+
+export interface ProductInfo {
+  title?: string;
+  brand?: string;
+  specs?: Record<string, any>;
+  [key: string]: any; // Allow additional fields
+}
+
+export interface ChatExcerpt {
+  role: string;
+  content: string;
+}
+
+export interface BidWithProvenance {
+  id: number;
+  price: number;
+  currency: string;
+  item_title: string;
+  item_url: string | null;
+  image_url: string | null;
+  source: string;
+  is_selected: boolean;
+  seller?: {
+    name: string;
+    domain: string | null;
+  };
+  provenance?: string | null;
+  provenance_data?: ProvenanceData | null;
+  product_info?: ProductInfo | null;
+  matched_features?: string[] | null;
+  chat_excerpts?: ChatExcerpt[] | null;
+}
+
 export const createCommentApi = async (
   rowId: number,
   body: string,
@@ -578,6 +617,137 @@ export const fetchBugReport = async (id: string): Promise<BugReportResponse | nu
     return null;
   } catch (err) {
     console.error('[API] Fetch bug report error:', err);
+    return null;
+  }
+};
+
+// Helper: Fetch bid with provenance data
+export const fetchBidWithProvenance = async (bidId: number): Promise<BidWithProvenance | null> => {
+  try {
+    const res = await fetch(`/api/bids/${bidId}?include_provenance=true`, {
+      signal: AbortSignal.timeout(5000), // 5 second timeout
+    });
+
+    if (!res.ok) {
+      if (res.status === 404) {
+        console.error('[API] Bid not found:', bidId);
+        return null;
+      }
+      console.error('[API] Fetch bid with provenance failed:', res.status);
+      return null;
+    }
+
+    const data = await res.json();
+    return data as BidWithProvenance;
+  } catch (err) {
+    if (err instanceof Error && err.name === 'TimeoutError') {
+      console.error('[API] Fetch bid with provenance timeout:', bidId);
+    } else {
+      console.error('[API] Fetch bid with provenance error:', err);
+    }
+    return null;
+  }
+};
+
+// Share Links API
+
+export interface ShareLinkCreate {
+  resource_type: 'project' | 'row' | 'tile' | 'bid';
+  resource_id: number;
+}
+
+export interface ShareLinkResponse {
+  token: string;
+  share_url: string;
+  resource_type: string;
+  resource_id: number;
+  created_at: string;
+}
+
+export interface ShareContentResponse {
+  resource_type: string;
+  resource_id: number;
+  resource_data: any;
+  created_by: number;
+  access_count: number;
+}
+
+export interface ShareMetricsResponse {
+  token: string;
+  access_count: number;
+  unique_visitors: number;
+  search_initiated_count: number;
+  search_success_count: number;
+  signup_conversion_count: number;
+  search_success_rate: number;
+}
+
+// Helper: Create share link
+export const createShareLink = async (
+  resourceType: 'project' | 'row' | 'tile' | 'bid',
+  resourceId: number
+): Promise<ShareLinkResponse | null> => {
+  try {
+    const res = await fetch('/api/shares', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource_type: resourceType, resource_id: resourceId }),
+    });
+
+    if (!res.ok) {
+      console.error('[API] Create share link failed:', res.status, await res.text());
+      return null;
+    }
+
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Create share link error:', err);
+    return null;
+  }
+};
+
+// Helper: Resolve share link (public access)
+export const resolveShareLink = async (token: string): Promise<ShareContentResponse | null> => {
+  try {
+    const res = await fetch(`/api/shares/${token}`);
+
+    if (!res.ok) {
+      if (res.status === 404) {
+        console.error('[API] Share link not found:', token);
+        return null;
+      }
+      console.error('[API] Resolve share link failed:', res.status);
+      return null;
+    }
+
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Resolve share link error:', err);
+    return null;
+  }
+};
+
+// Helper: Get share metrics (requires ownership)
+export const getShareMetrics = async (token: string): Promise<ShareMetricsResponse | null> => {
+  try {
+    const res = await fetch(`/api/shares/${token}/metrics`);
+
+    if (!res.ok) {
+      if (res.status === 403) {
+        console.error('[API] Not authorized to view share metrics');
+        return null;
+      }
+      if (res.status === 404) {
+        console.error('[API] Share link not found:', token);
+        return null;
+      }
+      console.error('[API] Get share metrics failed:', res.status);
+      return null;
+    }
+
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Get share metrics error:', err);
     return null;
   }
 };

@@ -1,0 +1,473 @@
+```json
+{
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Create database models for seller quotes and bids",
+      "description": "Create new SQLAlchemy models for seller_quotes, bids, quote_attachments, and bid_attachments tables. Add relationships and validation constraints as specified in the schema.",
+      "status": "pending",
+      "files": ["models/seller_quote.py", "models/bid.py", "models/quote_attachment.py", "models/bid_attachment.py"],
+      "acceptance_criteria": [
+        "SellerQuote model with token, row_id, seller fields, price fields, and status",
+        "Bid model with negotiation_thread_id hook and source tracking",
+        "Attachment models with proper cascade relationships",
+        "All models include proper validation constraints and relationships"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "task-002", 
+      "title": "Extend Row model with choice factors and bid count",
+      "description": "Add choice_factors JSONB column and bid_count integer column to existing Row model. Add bids relationship to enable bid querying.",
+      "status": "pending",
+      "files": ["models/row.py"],
+      "acceptance_criteria": [
+        "choice_factors JSONB field with default empty list",
+        "bid_count integer field with default 0", 
+        "bids relationship configured with back_populates",
+        "Existing Row functionality unchanged"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "task-003",
+      "title": "Update database initialization with new models",
+      "description": "Add imports for all new database models (SellerQuote, Bid, QuoteAttachment, BidAttachment) to database initialization to ensure tables are created.",
+      "status": "pending",
+      "files": ["database.py", "models/__init__.py"],
+      "acceptance_criteria": [
+        "Import SellerQuote, Bid, QuoteAttachment, BidAttachment models",
+        "Models registered with SQLAlchemy metadata",
+        "Database connection includes new tables in creation",
+        "All model relationships properly initialized"
+      ],
+      "dependencies": ["task-001", "task-002"]
+    },
+    {
+      "id": "task-004",
+      "title": "Create Alembic migration for database schema",
+      "description": "Generate Alembic migration script to create seller_quotes, bids, quote_attachments, bid_attachments tables and extend rows table with new columns. Include all indexes for performance.",
+      "status": "pending", 
+      "files": ["alembic/versions/add_seller_quotes_and_bids.py"],
+      "acceptance_criteria": [
+        "Creates all 4 new tables with constraints",
+        "Adds choice_factors and bid_count to rows table",
+        "Creates all performance indexes on high-query columns",
+        "Migration is reversible with proper down() method"
+      ],
+      "dependencies": ["task-003"]
+    },
+    {
+      "id": "task-005",
+      "title": "Configure malware scanner integration",
+      "description": "Select and configure specific malware scanning service (ClamAV or cloud-based) including API credentials, file size limits, quarantine workflows, and retry logic.",
+      "status": "pending",
+      "files": ["services/malware_scanner.py", "config/scanner_config.py"],
+      "acceptance_criteria": [
+        "Selection and setup of malware scanning service (ClamAV/VirusTotal/AWS GuardDuty)",
+        "API authentication and rate limiting configuration",
+        "File size limits and allowed file types configuration",
+        "Quarantine workflow for infected files with admin notification",
+        "Fallback behavior when scanner is unavailable"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "task-006",
+      "title": "Create magic link service with token invalidation",
+      "description": "Implement MagicLinkService to generate secure tokens for seller quote forms, validate tokens with row_id and seller_email extraction, and handle single-use token invalidation.",
+      "status": "pending",
+      "files": ["services/magic_link_service.py"],
+      "acceptance_criteria": [
+        "generate_token() creates secure unique tokens",
+        "validate_token() extracts row_id and seller_email safely",
+        "invalidate_token() marks tokens as used after successful submission",
+        "Tokens are cryptographically secure and tamper-resistant", 
+        "Token validation includes expiry checking and single-use enforcement"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "task-007",
+      "title": "Create outreach system integration adapter",
+      "description": "Implement OutreachSystemAdapter to interface with existing outreach/email system, including email template rendering, delivery tracking, and error handling.",
+      "status": "pending",
+      "files": ["services/outreach_system_adapter.py"],
+      "acceptance_criteria": [
+        "Integration with existing email/outreach system API",
+        "send_email() method with template rendering support",
+        "Delivery status tracking and bounce handling",
+        "Rate limiting and bulk sending capabilities",
+        "Error handling and retry logic for failed sends"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "task-008",
+      "title": "Create outreach integration service",
+      "description": "Implement OutreachIntegrationService to generate magic links and send them to sellers via OutreachSystemAdapter. Integrates with MagicLinkService for token generation.",
+      "status": "pending",
+      "files": ["services/outreach_integration_service.py"],
+      "acceptance_criteria": [
+        "send_quote_request() generates magic link and sends to seller",
+        "Integrates with OutreachSystemAdapter for email delivery",
+        "Tracks outreach status and responses",
+        "Handles bulk quote requests for multiple sellers"
+      ],
+      "dependencies": ["task-006", "task-007"]
+    },
+    {
+      "id": "task-009",
+      "title": "Create quote validation service",
+      "description": "Implement QuoteValidationService to enforce business rules including quote deduplication (one quote per seller per Row) and quote quality validation.",
+      "status": "pending",
+      "files": ["services/quote_validation_service.py"],
+      "acceptance_criteria": [
+        "validate_quote_uniqueness() prevents duplicate quotes per seller per Row",
+        "validate_quote_data() checks required fields and business rules",
+        "Returns detailed validation errors for user feedback",
+        "Integrates with SellerQuoteService for submission validation"
+      ],
+      "dependencies": ["task-001"]
+    },
+    {
+      "id": "task-010",
+      "title": "Create file upload service with malware scanning",
+      "description": "Implement FileUploadService to handle quote attachments with cloud storage integration, malware scanning, virus detection, and attachment copying between quotes and bids.",
+      "status": "pending",
+      "files": ["services/file_upload_service.py"],
+      "acceptance_criteria": [
+        "upload_quote_attachment() handles file storage with retry logic",
+        "Malware scanning integration with configured scanner service",
+        "copy_attachments_to_bid() transfers files during conversion",
+        "File size limits, type validation, and quarantine for infected files"
+      ],
+      "dependencies": ["task-005"]
+    },
+    {
+      "id": "task-011",
+      "title": "Create seller quote service with conversion logic",
+      "description": "Implement SellerQuoteService with quote submission and critical quote-to-bid conversion logic including transactional rollback on failure. Integrates with validation service.",
+      "status": "pending",
+      "files": ["services/seller_quote_service.py"],
+      "acceptance_criteria": [
+        "submit_quote() creates SellerQuote with validation and token invalidation",
+        "convert_to_bid() performs transactional conversion with rollback",
+        "Handles attachment copying and bid count updates atomically",
+        "Integrates with QuoteValidationService for deduplication checks"
+      ],
+      "dependencies": ["task-009", "task-010", "task-006"]
+    },
+    {
+      "id": "task-012",
+      "title": "Create buyer notification service",
+      "description": "Implement BuyerNotificationService to alert buyers when new quotes are received for their Rows via email, in-app notifications, and push notifications.",
+      "status": "pending",
+      "files": ["services/buyer_notification_service.py"],
+      "acceptance_criteria": [
+        "notify_new_quote() sends buyer notification when quote received",
+        "Supports email, in-app, and push notification channels",
+        "Includes quote summary and direct link to Row with bids",
+        "Handles notification preferences and unsubscribe options"
+      ],
+      "dependencies": ["task-007"]
+    },
+    {
+      "id": "task-013",
+      "title": "Create bid service",
+      "description": "Implement BidService to manage bid listing, row bid count updates, and negotiation thread creation hooks for future workflow integration.",
+      "status": "pending", 
+      "files": ["services/bid_service.py"],
+      "acceptance_criteria": [
+        "list_bids_for_row() returns bids with attachments",
+        "update_row_bid_count() maintains accurate counts",
+        "create_negotiation_thread() establishes future negotiation foundation",
+        "All operations include proper error handling"
+      ],
+      "dependencies": ["task-001"]
+    },
+    {
+      "id": "task-014",
+      "title": "Integrate buyer notifications with quote submission flow",
+      "description": "Create integration service to connect buyer notifications with the quote submission and conversion workflow, automatically notifying buyers when new bids are created.",
+      "status": "pending",
+      "files": ["services/quote_notification_integration.py"],
+      "acceptance_criteria": [
+        "integrate_notifications() method handles post-conversion notification triggering",
+        "Pass Row and bid information to notification service",
+        "Handle notification failures gracefully without affecting quote processing",
+        "Async notification processing to avoid blocking quote submission"
+      ],
+      "dependencies": ["task-011", "task-012"]
+    },
+    {
+      "id": "task-015",
+      "title": "Create seller quote routes",
+      "description": "Implement FastAPI routes for magic link quote form loading, quote submission with file uploads, and attachment handling.",
+      "status": "pending",
+      "files": ["routes/seller_quotes.py"],
+      "acceptance_criteria": [
+        "GET /seller-quotes/{token} loads form with Row context",
+        "POST /seller-quotes/{token} handles quote submission with files",
+        "POST /seller-quotes/{token}/attachments manages file uploads",
+        "All routes include proper validation and error responses"
+      ],
+      "dependencies": ["task-011"]
+    },
+    {
+      "id": "task-016",
+      "title": "Create bid routes",
+      "description": "Implement FastAPI routes for bid listing and future bid management actions (accept, negotiate) with proper authorization.",
+      "status": "pending",
+      "files": ["routes/bids.py"], 
+      "acceptance_criteria": [
+        "GET /rows/{row_id}/bids lists bids for authenticated buyers",
+        "POST /bids/{bid_id}/accept endpoint for future buyer actions",
+        "POST /bids/{bid_id}/negotiate endpoint for negotiation workflow",
+        "Proper authorization checks for buyer-only actions"
+      ],
+      "dependencies": ["task-013"]
+    },
+    {
+      "id": "task-017",
+      "title": "Extend existing rows routes for bid integration",
+      "description": "Modify existing rows routes to include bid_count in responses and support bid-related queries while maintaining backward compatibility.",
+      "status": "pending",
+      "files": ["routes/rows.py"],
+      "acceptance_criteria": [
+        "GET /rows/{row_id} includes bid_count in response",
+        "Existing row functionality unchanged",
+        "Response includes bid data when requested",
+        "No breaking changes to existing API consumers"
+      ],
+      "dependencies": ["task-013"]
+    },
+    {
+      "id": "task-018",
+      "title": "Create buyer-initiated quote request routes",
+      "description": "Implement FastAPI routes for buyers to trigger outreach to sellers, including seller selection, custom message, and bulk quote requests.",
+      "status": "pending",
+      "files": ["routes/outreach.py"],
+      "acceptance_criteria": [
+        "POST /rows/{row_id}/request-quotes endpoint for buyer-initiated outreach",
+        "Supports seller selection and custom message parameters",
+        "Integrates with OutreachIntegrationService for magic link generation and sending",
+        "Includes proper buyer authorization and Row ownership validation"
+      ],
+      "dependencies": ["task-008"]
+    },
+    {
+      "id": "task-019",
+      "title": "Register new routes in main application",
+      "description": "Register seller_quotes, bids, and outreach route modules in main FastAPI application and configure route prefixes and tags.",
+      "status": "pending",
+      "files": ["main.py"],
+      "acceptance_criteria": [
+        "Register seller_quotes routes with /api/v1 prefix",
+        "Register bids routes with /api/v1 prefix",
+        "Register outreach routes with /api/v1 prefix", 
+        "Configure appropriate route tags for API documentation",
+        "No conflicts with existing route patterns"
+      ],
+      "dependencies": ["task-015", "task-016", "task-018"]
+    },
+    {
+      "id": "task-020",
+      "title": "Create frontend API client services",
+      "description": "Build TypeScript API client services for all new backend routes including seller quotes, bids, and outreach with proper error handling and type safety.",
+      "status": "pending",
+      "files": ["services/api/sellerQuoteApi.ts", "services/api/bidApi.ts", "services/api/outreachApi.ts"],
+      "acceptance_criteria": [
+        "Type-safe API clients for all seller quote operations",
+        "Bid listing and management API client methods",
+        "Outreach request API client with seller selection support",
+        "Consistent error handling and response parsing across all clients"
+      ],
+      "dependencies": ["task-015", "task-016", "task-018"]
+    },
+    {
+      "id": "task-021",
+      "title": "Create file upload hook and service with malware scanning",
+      "description": "Build React hook and TypeScript service for handling file uploads with progress tracking, malware scanning integration, error handling, and integration with quote submission.",
+      "status": "pending",
+      "files": ["hooks/useFileUpload.ts", "services/uploadService.ts"],
+      "acceptance_criteria": [
+        "useFileUpload hook provides upload state management",
+        "uploadService handles chunked uploads with retry logic",
+        "Integration with malware scanning API responses",
+        "Progress tracking, error states, and quarantine handling properly managed"
+      ],
+      "dependencies": ["task-020"]
+    },
+    {
+      "id": "task-022",
+      "title": "Create seller quote form page",
+      "description": "Build React page for magic link quote submission with choice factors rendering, file upload, and mobile-responsive design using existing UI components.",
+      "status": "pending",
+      "files": ["pages/seller-quote/[token].tsx"],
+      "acceptance_criteria": [
+        "Loads quote form with token validation",
+        "Renders choice factors from Row JSON dynamically",
+        "Includes file upload with progress indicators", 
+        "Mobile-first responsive design using existing patterns"
+      ],
+      "dependencies": ["task-020", "task-021"]
+    },
+    {
+      "id": "task-023",
+      "title": "Create quote success page",
+      "description": "Build confirmation page shown after successful quote submission with bid conversion status and future seller dashboard link.",
+      "status": "pending",
+      "files": ["pages/seller-quote/[token]/success.tsx"],
+      "acceptance_criteria": [
+        "Shows quote converted to bid confirmation",
+        "Displays next steps for seller engagement",
+        "Includes link to future seller dashboard",
+        "Uses existing design system components"
+      ],
+      "dependencies": ["task-020"]
+    },
+    {
+      "id": "task-024",
+      "title": "Create magic link error pages",
+      "description": "Build error pages for invalid, expired, or already-used magic link tokens with clear messaging and next steps for sellers.",
+      "status": "pending",
+      "files": ["pages/seller-quote/error.tsx", "components/seller-quote/ErrorMessage.tsx"],
+      "acceptance_criteria": [
+        "Error page for invalid/expired tokens with clear messaging",
+        "Error page for already-submitted quotes with status information",
+        "Generic error page for other quote submission failures",
+        "Consistent styling with existing error pages and contact information"
+      ],
+      "dependencies": ["task-020"]
+    },
+    {
+      "id": "task-025",
+      "title": "Create QuoteForm component",
+      "description": "Build main quote submission form component with choice factors rendering, price input, file upload integration, and validation using existing form patterns.",
+      "status": "pending",
+      "files": ["components/seller-quote/QuoteForm.tsx"],
+      "acceptance_criteria": [
+        "Renders all quote fields with proper validation",
+        "Integrates with FileUploadZone for attachments",
+        "Uses existing UI form components consistently",
+        "Handles submission with loading states and error handling"
+      ],
+      "dependencies": ["task-021"]
+    },
+    {
+      "id": "task-026",
+      "title": "Create ChoiceFactorsRenderer component",
+      "description": "Build dynamic form renderer that converts Row choice_factors JSON to appropriate UI components (select, input, textarea) using existing design system.",
+      "status": "pending",
+      "files": ["components/seller-quote/ChoiceFactorsRenderer.tsx"],
+      "acceptance_criteria": [
+        "Maps choice factor types to correct UI components",
+        "Handles required field validation",
+        "Uses consistent styling from existing components",
+        "Supports all choice factor types defined in schema"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "task-027",
+      "title": "Create BidTile component",
+      "description": "Build bid display tile component for showing converted quotes in Row interface with seller info, price, attachments, and negotiation hooks.",
+      "status": "pending",
+      "files": ["components/bids/BidTile.tsx"],
+      "acceptance_criteria": [
+        "Displays all bid information in clean tile layout",
+        "Shows attachment previews and download links",
+        "Includes negotiation_thread_id hook for future features",
+        "Uses consistent card styling with existing components"
+      ],
+      "dependencies": ["task-020"]
+    },
+    {
+      "id": "task-028",
+      "title": "Create BidsSection component",
+      "description": "Build container component for displaying bid tiles in Row detail view with future 'Request More Quotes' functionality.",
+      "status": "pending",
+      "files": ["components/bids/BidsSection.tsx"],
+      "acceptance_criteria": [
+        "Renders list of BidTile components",
+        "Includes bid count display",
+        "Provides space for future 'Request More Quotes' button",
+        "Uses existing grid/list layout patterns"
+      ],
+      "dependencies": ["task-027"]
+    },
+    {
+      "id": "task-029",
+      "title": "Create buyer-initiated outreach components",
+      "description": "Build UI components for buyers to request quotes from sellers, including seller selection interface, custom message input, and outreach confirmation.",
+      "status": "pending",
+      "files": ["components/outreach/RequestQuotesButton.tsx", "components/outreach/SellerSelectionModal.tsx", "components/outreach/OutreachForm.tsx"],
+      "acceptance_criteria": [
+        "RequestQuotesButton triggers outreach modal from Row detail",
+        "SellerSelectionModal allows multiple seller selection with search",
+        "OutreachForm handles custom message and bulk sending",
+        "Integration with outreach API client for quote requests"
+      ],
+      "dependencies": ["task-020"]
+    },
+    {
+      "id": "task-030",
+      "title": "Extend RowDetail component for bid integration",
+      "description": "Modify existing RowDetail component to include BidsSection and RequestQuotesButton while maintaining existing functionality.",
+      "status": "pending",
+      "files": ["components/rows/RowDetail.tsx"],
+      "acceptance_criteria": [
+        "Includes BidsSection component in layout",
+        "Shows bid_count in appropriate location",
+        "Includes RequestQuotesButton for buyer-initiated outreach",
+        "Maintains all existing Row detail functionality",
+        "Uses existing data fetching patterns"
+      ],
+      "dependencies": ["task-028", "task-029"]
+    },
+    {
+      "id": "task-031",
+      "title": "Extend RowCard component for bid count display",
+      "description": "Modify existing RowCard component to show bid count indicator using existing card layout patterns.",
+      "status": "pending",
+      "files": ["components/rows/RowCard.tsx"],
+      "acceptance_criteria": [
+        "Displays bid count when greater than 0",
+        "Uses existing card styling patterns",
+        "Shows 'X bids received' indicator clearly",
+        "Maintains existing RowCard functionality"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "task-032",
+      "title": "Create email templates for buyer notifications",
+      "description": "Create HTML and text email templates for buyer notifications when new quotes are received, including Row details, quote summary, and action links.",
+      "status": "pending",
+      "files": ["templates/email/new_quote_notification.html", "templates/email/new_quote_notification.txt"],
+      "acceptance_criteria": [
+        "HTML template with responsive design matching existing brand",
+        "Plain text fallback template for email clients",
+        "Templates include Row title, seller info, quote summary, and direct link to bids",
+        "Supports template variables for dynamic content injection"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "task-033",
+      "title": "Create database migration deployment task",
+      "description": "Create deployment script and documentation to ensure Alembic migration runs during application deployment and setup processes.",
+      "status": "pending",
+      "files": ["scripts/migrate_database.py", "docs/deployment.md"],
+      "acceptance_criteria": [
+        "Migration script that runs Alembic upgrade automatically",
+        "Integration with existing deployment pipeline",
+        "Rollback capability and migration status checking",
+        "Documentation for manual migration execution in different environments"
+      ],
+      "dependencies": ["task-004"]
+    }
+  ]
+}
+```

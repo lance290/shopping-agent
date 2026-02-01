@@ -1,0 +1,197 @@
+{
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Document existing Like and Comment models and API routes",
+      "description": "Review and document the current Like and Comment model schemas, test existing API routes in `/likes` and `/comments`, verify error handling patterns, and document response formats. This establishes the baseline for implementation.",
+      "status": "pending",
+      "files": [
+        "backend/models.py",
+        "backend/routes/likes.py",
+        "backend/routes/comments.py"
+      ],
+      "acceptance_criteria": [
+        "Document Like model fields and relationships",
+        "Document Comment model fields and relationships",
+        "Test all existing like and comment API endpoints",
+        "Document current response formats and status codes",
+        "Verify error handling patterns match project standards"
+      ]
+    },
+    {
+      "id": "task-002",
+      "title": "Analyze authentication integration with social features",
+      "description": "Map AuthSession.user_id relationships to Like.user_id and Comment.user_id, test get_current_user dependency with existing routes, and verify auth error handling patterns work with social features.",
+      "status": "pending",
+      "files": [
+        "backend/routes/auth.py",
+        "backend/routes/likes.py",
+        "backend/routes/comments.py"
+      ],
+      "acceptance_criteria": [
+        "Verify user_id relationships work correctly",
+        "Test get_current_user dependency with like/comment routes",
+        "Document auth error handling patterns",
+        "Confirm authenticated-only access works properly"
+      ]
+    },
+    {
+      "id": "task-003",
+      "title": "Review current Zustand store patterns and OfferTile component",
+      "description": "Analyze existing store.ts structure, patterns, and error handling. Review OfferTile component props, layout, and integration points to understand how to add social features without breaking existing functionality.",
+      "status": "pending",
+      "files": [
+        "frontend/stores/store.ts",
+        "frontend/components/OfferTile.tsx",
+        "frontend/components/Board.tsx"
+      ],
+      "acceptance_criteria": [
+        "Document current store state management patterns",
+        "Document existing async action and error handling patterns",
+        "Analyze OfferTile component structure and props",
+        "Identify integration points for social features",
+        "Document Board component state management approach"
+      ]
+    },
+    {
+      "id": "task-004",
+      "title": "Identify and fill backend API gaps for social features",
+      "description": "Based on analysis from task-001, identify missing endpoints needed for social data aggregation, batch operations, and project collaboration filtering. Enhance existing routes as needed.",
+      "status": "pending",
+      "files": [
+        "backend/routes/likes.py",
+        "backend/routes/comments.py"
+      ],
+      "acceptance_criteria": [
+        "POST /api/likes/{bid_id} returns toggle functionality with counts",
+        "GET /api/bids/{bid_id}/social endpoint for aggregated social data",
+        "GET /api/comments/{bid_id} includes user attribution",
+        "All endpoints respect project collaboration access",
+        "Input sanitization implemented for comment content"
+      ]
+    },
+    {
+      "id": "task-005",
+      "title": "Add database indexes and optimize social data queries",
+      "description": "Add database indexes for social data queries and optimize aggregation performance. Focus on bid_id, user_id foreign keys and created_at timestamp queries.",
+      "status": "pending",
+      "files": [
+        "backend/models.py",
+        "backend/routes/likes.py",
+        "backend/routes/comments.py"
+      ],
+      "acceptance_criteria": [
+        "Database indexes added for social query patterns",
+        "Social data aggregation queries optimized",
+        "Batch social data retrieval implemented",
+        "Query performance meets baseline requirements"
+      ]
+    },
+    {
+      "id": "task-006",
+      "title": "Extend Zustand store for social state management",
+      "description": "Integrate social state into existing store patterns, following current conventions for async actions, error handling, and state updates. Include optimistic updates for likes.",
+      "status": "pending",
+      "files": [
+        "frontend/stores/store.ts"
+      ],
+      "acceptance_criteria": [
+        "bidSocialData state integrated into existing store",
+        "loadBidSocial async action implemented",
+        "toggleLike with optimistic updates implemented",
+        "addComment and deleteComment actions implemented",
+        "Error handling follows existing store patterns",
+        "Loading states consistent with current patterns"
+      ]
+    },
+    {
+      "id": "task-007",
+      "title": "Create LikeButton component",
+      "description": "Build LikeButton component with heart icon, smooth animations, and accessibility compliance. Integrate with Zustand store for state management and optimistic updates.",
+      "status": "pending",
+      "files": [
+        "frontend/components/LikeButton.tsx"
+      ],
+      "acceptance_criteria": [
+        "Heart icon with filled/outline states",
+        "Smooth click animations",
+        "Aria-pressed accessibility state",
+        "Integration with store toggleLike action",
+        "Visual feedback within 100ms of click",
+        "Proper error state handling"
+      ]
+    },
+    {
+      "id": "task-008",
+      "title": "Create CommentPanel component",
+      "description": "Build CommentPanel overlay component with comment list, input form, and user attribution. Make mobile-responsive and integrate with existing overlay patterns.",
+      "status": "pending",
+      "files": [
+        "frontend/components/CommentPanel.tsx"
+      ],
+      "acceptance_criteria": [
+        "Mobile-first responsive design",
+        "Comment list with user attribution and timestamps",
+        "Comment input form with validation",
+        "Integration with store comment actions",
+        "Proper overlay/modal behavior",
+        "User can delete own comments only"
+      ]
+    },
+    {
+      "id": "task-009",
+      "title": "Integrate social components into OfferTile",
+      "description": "Add LikeButton and comment trigger to OfferTile component without disrupting existing layout. Ensure backward compatibility and proper loading states.",
+      "status": "pending",
+      "files": [
+        "frontend/components/OfferTile.tsx"
+      ],
+      "acceptance_criteria": [
+        "LikeButton integrated below existing content",
+        "Comment count and trigger button added",
+        "No disruption to existing tile layout",
+        "Backward compatibility maintained",
+        "Loading states handled properly",
+        "Social data loads with tile data"
+      ]
+    },
+    {
+      "id": "task-010",
+      "title": "Update Board component for social overlay management",
+      "description": "Manage CommentPanel state in Board component without interfering with drag/drop functionality. Implement overlay management using existing modal patterns.",
+      "status": "pending",
+      "files": [
+        "frontend/components/Board.tsx"
+      ],
+      "acceptance_criteria": [
+        "CommentPanel state managed without drag/drop interference",
+        "Overlay management follows existing modal patterns",
+        "Batch social data loading for visible tiles",
+        "Mobile responsive overlay behavior",
+        "No impact on existing Board functionality"
+      ]
+    },
+    {
+      "id": "task-011",
+      "title": "Implement comprehensive social feature testing",
+      "description": "Create tests for social features including multi-user scenarios, performance validation, component integration, and accessibility compliance.",
+      "status": "pending",
+      "files": [
+        "backend/routes/likes.py",
+        "backend/routes/comments.py",
+        "frontend/components/LikeButton.tsx",
+        "frontend/components/CommentPanel.tsx",
+        "frontend/components/OfferTile.tsx"
+      ],
+      "acceptance_criteria": [
+        "Social data persists across page reloads",
+        "Like toggle optimistic UI performs within 100ms",
+        "Project collaboration access controls verified",
+        "Comment XSS protection validated",
+        "Mobile responsive behavior tested",
+        "Accessibility compliance verified",
+        "No interference with Board drag/drop functionality"
+      ]
+    }
+  ]
+}

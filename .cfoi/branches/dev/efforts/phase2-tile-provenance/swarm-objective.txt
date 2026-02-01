@@ -1,0 +1,28 @@
+Objective: Implement Tile Detail & Provenance Panel
+
+Context:
+- Goal: When buyer clicks a tile, show WHY it was recommended
+- PRD: docs/prd/phase2/prd-tile-provenance.md
+- Codebase: Next.js frontend (apps/frontend), FastAPI backend (apps/backend)
+- Current state: Search returns bids with basic data, no provenance field yet
+
+Requirements:
+1. Backend: Add `provenance` field to search response containing matched_features, intent_match_score, price_match
+2. Frontend: Create TileDetailPanel component that slides out when tile clicked
+3. Panel must show: title, price, merchant, image, rating, "Why recommended" section
+4. Panel must include Like, Comment, Select action buttons
+5. Load time <300ms (use cached bid data)
+6. WCAG 2.1 AA accessible (keyboard nav, screen reader)
+
+Files to Consider:
+- apps/backend/sourcing/service.py (add provenance to search)
+- apps/backend/sourcing/repository.py (provenance data model)
+- apps/frontend/components/RowStrip.tsx (tile click handler)
+- apps/frontend/components/ (new TileDetailPanel.tsx)
+- apps/frontend/app/store.ts (selected tile state)
+
+Success Criteria:
+- Clicking tile opens detail panel
+- Panel shows at least one matched feature
+- Panel closes on escape key or click outside
+- All tests pass

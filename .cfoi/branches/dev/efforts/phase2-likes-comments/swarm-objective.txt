@@ -1,0 +1,28 @@
+Objective: Fix Likes & Comments Persistence
+
+Context:
+- Goal: Likes and comments must survive page reload
+- PRD: docs/prd/phase2/prd-likes-comments.md
+- Codebase: Next.js frontend (apps/frontend), FastAPI backend (apps/backend)
+- Current state: Backend endpoints exist, frontend UI exists, but persistence is untested/broken
+
+Requirements:
+1. Backend: Verify /bids/{bid_id}/like and /bids/{bid_id}/comments endpoints work
+2. Frontend: Ensure like state syncs to backend on click
+3. Frontend: Restore like state from backend on page load
+4. Frontend: Save comments with user attribution
+5. Frontend: Show like/comment counts on tiles
+6. Like toggle must complete in <200ms (optimistic UI)
+
+Files to Consider:
+- apps/backend/routes/bids.py (like/comment endpoints)
+- apps/backend/models.py (Like, Comment models)
+- apps/frontend/components/RowStrip.tsx (like button)
+- apps/frontend/app/store.ts (like state management)
+- apps/frontend/app/api/ (API calls)
+
+Success Criteria:
+- Like a tile, refresh page, like still shows
+- Add comment, refresh page, comment still shows
+- Collaborators see each other's likes/comments
+- All tests pass

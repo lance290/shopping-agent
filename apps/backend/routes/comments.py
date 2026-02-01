@@ -1,8 +1,14 @@
 """Comments routes - add/list comments on offers."""
+import re
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
+
+
+def sanitize_html(text: str) -> str:
+    """Strip HTML tags from text to prevent XSS."""
+    return re.sub(r'<[^>]+>', '', text)
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -24,6 +30,7 @@ class CommentCreate(BaseModel):
 class CommentRead(BaseModel):
     id: int
     row_id: int
+    user_id: int
     body: str
     bid_id: Optional[int] = None
     offer_url: Optional[str] = None
@@ -58,7 +65,7 @@ async def create_comment(
         row_id=comment_in.row_id,
         bid_id=comment_in.bid_id,
         offer_url=comment_in.offer_url,
-        body=comment_in.body.strip(),
+        body=sanitize_html(comment_in.body.strip()),
         visibility=comment_in.visibility or "private",
     )
     session.add(db_comment)
@@ -70,11 +77,12 @@ async def create_comment(
 @router.get("/comments", response_model=List[CommentRead])
 async def list_comments(
     row_id: Optional[int] = None,
+    bid_id: Optional[int] = None,
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
     from routes.auth import get_current_session
-    
+
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -82,7 +90,34 @@ async def list_comments(
     query = select(Comment).where(Comment.user_id == auth_session.user_id)
     if row_id:
         query = query.where(Comment.row_id == row_id)
+    if bid_id:
+        query = query.where(Comment.bid_id == bid_id)
 
     query = query.order_by(Comment.created_at.desc())
     result = await session.exec(query)
     return result.all()
+
+
+@router.delete("/comments/{comment_id}")
+async def delete_comment(
+    comment_id: int,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """Delete a comment. Users can only delete their own comments."""
+    from routes.auth import get_current_session
+
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    comment = await session.get(Comment, comment_id)
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    if comment.user_id != auth_session.user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    await session.delete(comment)
+    await session.commit()
+    return {"status": "deleted"}

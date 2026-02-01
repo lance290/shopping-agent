@@ -1,0 +1,97 @@
+{
+  "effort": "phase2-share-links",
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Create share_links table and model",
+      "description": "Database table for share links with token, resource_type, resource_id, created_by, access_count",
+      "status": "pending",
+      "files": [
+        "apps/backend/models.py",
+        "apps/backend/alembic/versions/"
+      ],
+      "acceptance_criteria": [
+        "ShareLink model defined",
+        "Migration creates table",
+        "Unique index on token"
+      ]
+    },
+    {
+      "id": "task-002",
+      "title": "Create POST /share endpoint",
+      "description": "Endpoint to create share link for project, row, or bid",
+      "status": "pending",
+      "files": [
+        "apps/backend/routes/share.py",
+        "apps/backend/main.py"
+      ],
+      "acceptance_criteria": [
+        "Accepts resource_type and resource_id",
+        "Generates unique token",
+        "Returns shareable URL",
+        "Requires authentication"
+      ]
+    },
+    {
+      "id": "task-003",
+      "title": "Create GET /s/{token} resolver endpoint",
+      "description": "Public endpoint that resolves share token to resource data",
+      "status": "pending",
+      "files": [
+        "apps/backend/routes/share.py"
+      ],
+      "acceptance_criteria": [
+        "Returns resource data for valid token",
+        "Increments access_count",
+        "404 for invalid token",
+        "No authentication required"
+      ]
+    },
+    {
+      "id": "task-004",
+      "title": "Add Copy Link button to UI",
+      "description": "Button on project header, row header, and tile cards",
+      "status": "pending",
+      "files": [
+        "apps/frontend/components/RowStrip.tsx",
+        "apps/frontend/components/Board.tsx"
+      ],
+      "acceptance_criteria": [
+        "Button visible on hover/focus",
+        "Calls POST /share on click",
+        "Copies URL to clipboard",
+        "Shows 'Link copied!' toast"
+      ]
+    },
+    {
+      "id": "task-005",
+      "title": "Create share resolver page",
+      "description": "Frontend page at /s/[token] that displays shared content",
+      "status": "pending",
+      "files": [
+        "apps/frontend/app/s/[token]/page.tsx"
+      ],
+      "acceptance_criteria": [
+        "Fetches data from GET /s/{token}",
+        "Renders project/row/tile in read-only mode",
+        "Shows 'Sign up for more' CTA",
+        "Handles invalid token gracefully"
+      ]
+    },
+    {
+      "id": "task-006",
+      "title": "Add share tracking and tests",
+      "description": "Ensure access_count works, add API and component tests",
+      "status": "pending",
+      "files": [
+        "apps/backend/tests/test_share.py",
+        "apps/frontend/app/s/[token]/__tests__/"
+      ],
+      "acceptance_criteria": [
+        "access_count increments on each view",
+        "Backend tests pass",
+        "Frontend tests pass"
+      ]
+    }
+  ]
+}

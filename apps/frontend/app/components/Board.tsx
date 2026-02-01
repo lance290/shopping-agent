@@ -7,6 +7,7 @@ import { createRowInDb, createProjectInDb, deleteProjectFromDb } from '../utils/
 import RowStrip from './RowStrip';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
+import { TileDetailPanel } from './TileDetailPanel';
 
 export default function ProcurementBoard() {
   const rows = useShoppingStore(state => state.rows);
@@ -352,6 +353,9 @@ export default function ProcurementBoard() {
           </div>
         </div>
       )}
+
+      {/* Tile Detail Panel Overlay */}
+      <TileDetailPanel />
     </div>
   );
 }

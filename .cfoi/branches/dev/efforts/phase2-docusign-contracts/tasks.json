@@ -1,0 +1,264 @@
+```json
+{
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Create database migration and update Row model with provider fields",
+      "description": "Create Alembic migration to add provider_source, provider_data, normalized_price, availability_status, last_provider_sync, and provider_item_id columns to the existing rows table, and update the Row model accordingly",
+      "status": "pending",
+      "files": ["alembic/versions/add_provider_fields.py", "app/models/row.py"],
+      "acceptance_criteria": [
+        "Migration adds all 6 new columns to rows table",
+        "provider_data column uses JSON type",
+        "normalized_price uses Decimal(10, 2) type",
+        "Migration runs successfully on existing database",
+        "provider_source is NOT NULL for provider attribution, other new columns nullable",
+        "Row model includes all new provider-specific fields",
+        "Model fields match migration column definitions exactly"
+      ]
+    },
+    {
+      "id": "task-002", 
+      "title": "Create SearchFilter model and migration",
+      "description": "Create new SearchFilter model and corresponding Alembic migration for storing user search filters and provider preferences",
+      "status": "pending",
+      "files": ["app/models/search_filter.py", "alembic/versions/add_search_filter_table.py"],
+      "acceptance_criteria": [
+        "SearchFilter model has all required fields (id, user_id, name, filters, provider_preferences, created_at, last_used)",
+        "filters and provider_preferences use JSON column type",
+        "Migration creates search_filters table",
+        "Foreign key relationship to users via user_id",
+        "Model follows existing SQLAlchemy patterns"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "task-003",
+      "title": "Create base ProviderAdapter interface",
+      "description": "Create the base ProviderAdapter class and interface that all provider adapters will implement",
+      "status": "pending",
+      "files": ["app/services/provider_adapter.py"],
+      "acceptance_criteria": [
+        "ProviderAdapter base class with __init__ method accepting provider_config",
+        "Abstract search method that takes query string and filters dict",
+        "Returns List[dict] with standardized structure",
+        "Includes provider name and configuration handling",
+        "Follows existing service patterns in codebase"
+      ]
+    },
+    {
+      "id": "task-004",
+      "title": "Implement mock provider adapters",
+      "description": "Create three mock provider adapters (AcmeIndustrial, GlobalSupply, SupplyChainPlus) that inherit from ProviderAdapter and return realistic test data with price variations",
+      "status": "pending",
+      "files": ["app/services/mock_providers.py"],
+      "acceptance_criteria": [
+        "MockAcmeIndustrialAdapter returns 3+ realistic industrial items",
+        "MockGlobalSupplyAdapter returns same items with 15-30% price differences",
+        "MockSupplyChainPlusAdapter returns mix of overlapping and unique items",
+        "search() method filters by price_min/price_max when provided in filters dict",
+        "search() method filters items by query string matching name/description",
+        "Each adapter returns items with id, name, price, availability fields",
+        "Mock data includes realistic provider-specific metadata"
+      ],
+      "depends_on": ["task-003"]
+    },
+    {
+      "id": "task-005",
+      "title": "Implement circuit breaker and timeout handling",
+      "description": "Create CircuitBreaker utility class and timeout handling mechanisms for provider adapter reliability",
+      "status": "pending",
+      "files": ["app/services/circuit_breaker.py"],
+      "acceptance_criteria": [
+        "CircuitBreaker class with open/closed/half-open states",
+        "Configurable failure threshold and timeout periods",
+        "2-second timeout enforcement for provider calls",
+        "Graceful degradation when providers fail",
+        "Logging for circuit breaker state changes",
+        "Provider health tracking and recovery logic"
+      ],
+      "depends_on": ["task-003", "task-004"]
+    },
+    {
+      "id": "task-006",
+      "title": "Configure provider adapters registry",
+      "description": "Create provider adapter registry and configuration system for initializing and managing provider adapters",
+      "status": "pending",
+      "files": ["app/services/provider_registry.py"],
+      "acceptance_criteria": [
+        "ProviderRegistry class for registering and managing adapter instances",
+        "Configuration system for provider settings and credentials",
+        "Provider initialization with health checks",
+        "Runtime provider enable/disable functionality",
+        "Provider metadata (name, description, capabilities)",
+        "Integration with mock providers for testing"
+      ],
+      "depends_on": ["task-004"]
+    },
+    {
+      "id": "task-006a",
+      "title": "Create provider configuration initialization",
+      "description": "Create configuration files and initialization logic for provider settings, credentials, and default configurations",
+      "status": "pending",
+      "files": ["app/config/providers.py", "app/services/provider_config.py"],
+      "acceptance_criteria": [
+        "Provider configuration schema with settings, credentials, timeouts",
+        "Default configurations for all mock providers",
+        "Environment-based configuration override system",
+        "Configuration validation and error handling",
+        "Integration with ProviderRegistry initialization",
+        "Secure credential management patterns"
+      ],
+      "depends_on": ["task-006"]
+    },
+    {
+      "id": "task-007",
+      "title": "Create ProviderSearchEngine core service",
+      "description": "Implement the main ProviderSearchEngine class that handles concurrent provider querying, result merging, and timeout management",
+      "status": "pending",
+      "files": ["app/services/provider_search_engine.py"],
+      "acceptance_criteria": [
+        "ProviderSearchEngine handles concurrent provider queries with asyncio",
+        "Implements 2-second timeout with partial result handling",
+        "search_all_providers method returns merged results with provider attribution",
+        "Integrates CircuitBreaker for provider failures",
+        "Normalizes results while preserving provider identity",
+        "NO deduplication - maintains separate entries per provider",
+        "Calculates provider coverage metrics"
+      ],
+      "depends_on": ["task-005", "task-006a"]
+    },
+    {
+      "id": "task-008",
+      "title": "Enhance rows_search route with multi-provider support",
+      "description": "Extend the existing /api/rows/search route in app/routes/rows_search.py to integrate with ProviderSearchEngine and store multi-provider results",
+      "status": "pending",
+      "files": ["app/routes/rows_search.py"],
+      "acceptance_criteria": [
+        "Enhanced search_rows route accepts new provider-specific parameters",
+        "Integrates ProviderSearchEngine for multi-provider search",
+        "Stores all provider results in database with attribution",
+        "Returns search_meta and provider_coverage in response",
+        "Maintains existing authentication and error handling patterns",
+        "Preserves backwards compatibility with existing search functionality"
+      ],
+      "depends_on": ["task-007"]
+    },
+    {
+      "id": "task-009",
+      "title": "Add search filter management routes",
+      "description": "Create new routes for saving and retrieving user search filters and provider preferences",
+      "status": "pending",
+      "files": ["app/routes/search_filters.py"],
+      "acceptance_criteria": [
+        "POST /api/rows/search/filters route saves SearchFilter with user association",
+        "GET /api/rows/search/filters route returns user's saved filters",
+        "Routes use existing Clerk authentication patterns",
+        "Proper validation of filter data structure",
+        "Error handling for invalid filter configurations",
+        "Integration with existing database session management"
+      ],
+      "depends_on": ["task-002"]
+    },
+    {
+      "id": "task-010",
+      "title": "Validate authentication integration across enhanced search routes",
+      "description": "Ensure all new enhanced search routes properly integrate with existing Clerk authentication patterns and maintain security consistency",
+      "status": "pending",
+      "files": ["app/routes/rows_search.py", "app/routes/search_filters.py"],
+      "acceptance_criteria": [
+        "All enhanced routes use identical auth decorators as existing rows_search",
+        "User context properly passed to ProviderSearchEngine",
+        "Search filters properly scoped to authenticated user",
+        "Error responses maintain auth-related error patterns",
+        "Integration tests verify auth flow with provider search",
+        "Rate limiting applied consistently across all search endpoints"
+      ],
+      "depends_on": ["task-008", "task-009"]
+    },
+    {
+      "id": "task-011",
+      "title": "Update frontend API client for enhanced search",
+      "description": "Update the frontend API client to handle new enhanced search response structure with provider_coverage and search_meta fields",
+      "status": "pending",
+      "files": ["lib/api-client.ts", "types/search.ts"],
+      "acceptance_criteria": [
+        "Enhanced search API client function with provider filtering parameters",
+        "TypeScript interfaces for provider_coverage and search_meta responses",
+        "Search filter management API client functions",
+        "Error handling for provider timeout scenarios",
+        "Backwards compatibility with existing search client",
+        "Type-safe provider preference handling"
+      ],
+      "depends_on": ["task-008", "task-009"]
+    },
+    {
+      "id": "task-012",
+      "title": "Create useEnhancedSearch hook",
+      "description": "Build React hook for managing enhanced search state, provider preferences, and concurrent search requests",
+      "status": "pending",
+      "files": ["hooks/useEnhancedSearch.ts"],
+      "acceptance_criteria": [
+        "Manages search query, filters, and provider preferences state",
+        "Handles API calls to enhanced search endpoint",
+        "Provides loading states for concurrent provider queries",
+        "Error handling for provider timeouts and failures",
+        "Debounced search to avoid excessive API calls",
+        "Integration with saved search filters",
+        "Type safety for search parameters and responses"
+      ],
+      "depends_on": ["task-011"]
+    },
+    {
+      "id": "task-013",
+      "title": "Build provider filter panel component",
+      "description": "Create ProviderFilterPanel component for selecting/excluding specific providers in search",
+      "status": "pending",
+      "files": ["components/ProviderFilterPanel.tsx"],
+      "acceptance_criteria": [
+        "Checkbox interface for enabling/disabling providers",
+        "Shows provider status (available, timeout, error)",
+        "Integrates with search form state management",
+        "Visual indicators for provider response quality",
+        "Collapsible panel to save screen space",
+        "Follows existing component patterns and styling"
+      ],
+      "depends_on": ["task-012"]
+    },
+    {
+      "id": "task-014",
+      "title": "Enhance SearchResultCard with provider attribution",
+      "description": "Update or create SearchResultCard component to display provider information, price comparisons, and availability status",
+      "status": "pending",
+      "files": ["components/SearchResultCard.tsx"],
+      "acceptance_criteria": [
+        "Displays provider name and logo/badge prominently",
+        "Shows availability status with appropriate styling",
+        "Highlights price differences when same item from multiple providers",
+        "Includes provider-specific metadata (stock status, lead time)",
+        "Maintains existing row display functionality",
+        "Clear visual hierarchy for provider vs item information"
+      ],
+      "depends_on": ["task-012"]
+    },
+    {
+      "id": "task-015",
+      "title": "Create enhanced search page component",
+      "description": "Build the main search interface at app/search/page.tsx with provider filtering and enhanced result display",
+      "status": "pending",
+      "files": ["app/search/page.tsx"],
+      "acceptance_criteria": [
+        "Implements provider filtering controls with enable/disable functionality",
+        "Displays provider coverage metrics and timeout handling status",
+        "Shows price variations across providers for same items with visual comparisons",
+        "Integrates saved search filters functionality",
+        "Maintains existing authentication patterns with Clerk integration",
+        "Responsive design for mobile and desktop",
+        "Loading states for concurrent provider queries with individual provider status",
+        "Error handling UI for provider timeouts and circuit breaker failures"
+      ],
+      "depends_on": ["task-013", "task-014"]
+    }
+  ]
+}
+```

@@ -1,0 +1,156 @@
+```json
+{
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Add provenance field to bid model",
+      "description": "Create database migration to add provenance JSONB field to bids table and update the bid model to include the new field with serialization support.",
+      "status": "pending",
+      "files": ["app/models/bid.py", "migrations/"],
+      "dependencies": [],
+      "acceptance_criteria": [
+        "Migration adds provenance JSONB column to bids table with nullable=True for existing records",
+        "Bid model includes provenance field with db.JSON type",
+        "Provenance field is included in bid serialization methods",
+        "Migration runs successfully without errors on existing data"
+      ]
+    },
+    {
+      "id": "task-002",
+      "title": "Create bid detail API endpoint",
+      "description": "Implement GET /api/rows/{row_id}/bids/{bid_id}/detail endpoint following existing auth patterns. Include permission logic for collaborators vs share-link viewers. Can be developed with mock provenance data initially.",
+      "status": "pending",
+      "files": ["app/routes/api.py"],
+      "dependencies": [],
+      "acceptance_criteria": [
+        "Endpoint returns bid data with provenance in specified JSON schema",
+        "Uses existing Clerk authentication middleware",
+        "Returns correct permissions flags (can_like, can_select, can_comment)",
+        "Handles 401, 403, 404, 500 errors following existing patterns",
+        "Response time under 200ms using existing database connections"
+      ]
+    },
+    {
+      "id": "task-003",
+      "title": "Create product info and provenance display components",
+      "description": "Build BasicProductInfo component for core product display and ProvenanceDisplay component for provenance data rendering. Both components should be reusable with proper accessibility.",
+      "status": "pending",
+      "files": ["app/components/BasicProductInfo.tsx", "app/components/ProvenanceDisplay.tsx"],
+      "dependencies": [],
+      "acceptance_criteria": [
+        "BasicProductInfo displays title, price, merchant, and image with ARIA labels",
+        "ProvenanceDisplay renders provenance.matches with structured fallbacks",
+        "Both components handle missing data gracefully",
+        "Responsive design for desktop and tablet breakpoints",
+        "Shows fallback message when provenance data is sparse",
+        "Accessible with proper headings and screen reader support"
+      ]
+    },
+    {
+      "id": "task-004",
+      "title": "Create responsive breakpoint utilities",
+      "description": "Implement responsive breakpoint utilities and CSS classes to support desktop (768px+), tablet (481-767px), and mobile (≤480px) layouts for the detail panel.",
+      "status": "pending",
+      "files": ["app/styles/breakpoints.css", "app/utils/responsive.ts"],
+      "dependencies": [],
+      "acceptance_criteria": [
+        "CSS breakpoint utilities for desktop (768px+), tablet (481-767px), mobile (≤480px)",
+        "TypeScript utility functions for responsive state detection",
+        "Panel width and positioning logic for each breakpoint",
+        "Consistent with existing responsive patterns in the app"
+      ]
+    },
+    {
+      "id": "task-005",
+      "title": "Create error handling and loading components",
+      "description": "Build reusable ErrorDisplay component for API failures, LoadingSpinner for loading states, and ErrorBoundary for catching component-level errors within the detail panel context.",
+      "status": "pending",
+      "files": ["app/components/ErrorDisplay.tsx", "app/components/LoadingSpinner.tsx", "app/components/ErrorBoundary.tsx"],
+      "dependencies": [],
+      "acceptance_criteria": [
+        "ErrorDisplay component with retry functionality",
+        "LoadingSpinner component matching existing design patterns",
+        "ErrorBoundary catches and handles component-level errors gracefully",
+        "Proper accessibility attributes for error and loading states",
+        "Graceful degradation for different error types (404, 500, network)"
+      ]
+    },
+    {
+      "id": "task-006",
+      "title": "Update row state management",
+      "description": "Extend existing Zustand store to include selectedBidDetail and panel visibility state. Follow current state management patterns without adding new stores.",
+      "status": "pending",
+      "files": ["app/stores/rowStore.ts", "app/types/row.ts"],
+      "dependencies": ["task-002"],
+      "acceptance_criteria": [
+        "Adds selectedBidDetail state following existing Zustand patterns",
+        "Includes panel open/close state management",
+        "Maintains existing state structure and methods",
+        "Proper TypeScript types for bid detail data matching API response",
+        "Error state management for failed API calls"
+      ]
+    },
+    {
+      "id": "task-007",
+      "title": "Create TileDetailPanel component",
+      "description": "Build main slide-out panel component following existing panel patterns. Include responsive breakpoints and keyboard navigation support.",
+      "status": "pending",
+      "files": ["app/components/TileDetailPanel.tsx"],
+      "dependencies": ["task-003", "task-004", "task-005"],
+      "acceptance_criteria": [
+        "Slide-out panel matches existing design patterns",
+        "Uses responsive breakpoint utilities from task-004",
+        "Keyboard navigable with Tab and Escape to close",
+        "Integrates BasicProductInfo, ProvenanceDisplay, ErrorDisplay, and LoadingSpinner components",
+        "Shows permission-aware action buttons based on API response",
+        "Wrapped in ErrorBoundary for component error handling"
+      ]
+    },
+    {
+      "id": "task-008",
+      "title": "Enhance TileCard with click handler",
+      "description": "Add click handler to existing TileCard component that fetches bid detail data and opens the detail panel. Integrate with existing row state management.",
+      "status": "pending",
+      "files": ["app/components/TileCard.tsx"],
+      "dependencies": ["task-002", "task-006"],
+      "acceptance_criteria": [
+        "Click handler calls bid detail API endpoint",
+        "Loading state shown while fetching data",
+        "Error handling for failed API calls using error components",
+        "Uses existing row state patterns for selectedBidDetail",
+        "Maintains existing TileCard functionality"
+      ]
+    },
+    {
+      "id": "task-009",
+      "title": "Integrate detail panel in row view",
+      "description": "Add TileDetailPanel to the main row view component and wire up state management. Ensure proper authentication integration using existing Clerk patterns.",
+      "status": "pending",
+      "files": ["app/row/[id]/page.tsx"],
+      "dependencies": ["task-007", "task-008"],
+      "acceptance_criteria": [
+        "TileDetailPanel rendered in row view",
+        "Connected to row state management",
+        "Uses existing Clerk auth patterns for permission checking",
+        "Panel opens/closes based on tile clicks",
+        "Maintains existing row view functionality"
+      ]
+    },
+    {
+      "id": "task-010",
+      "title": "Connect provenance data to API endpoint",
+      "description": "Update bid detail API endpoint to use actual provenance data from the database instead of mock data. Ensure backward compatibility for existing functionality.",
+      "status": "pending",
+      "files": ["app/routes/api.py"],
+      "dependencies": ["task-001", "task-009"],
+      "acceptance_criteria": [
+        "API endpoint uses real provenance data from database",
+        "Handles null/empty provenance fields gracefully",
+        "Maintains existing API response structure",
+        "No breaking changes to frontend components",
+        "Performance remains under 200ms response time"
+      ]
+    }
+  ]
+}
+```

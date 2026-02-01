@@ -1,0 +1,93 @@
+{
+  "effort": "phase2-likes-comments",
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Verify backend like endpoints",
+      "description": "Test POST /bids/{bid_id}/like and DELETE /bids/{bid_id}/like endpoints work correctly",
+      "status": "pending",
+      "files": [
+        "apps/backend/routes/bids.py",
+        "apps/backend/models.py"
+      ],
+      "acceptance_criteria": [
+        "POST creates like record",
+        "DELETE removes like record",
+        "Returns current like count",
+        "User can only like once per bid"
+      ]
+    },
+    {
+      "id": "task-002",
+      "title": "Verify backend comment endpoints",
+      "description": "Test POST /bids/{bid_id}/comments and GET /bids/{bid_id}/comments endpoints",
+      "status": "pending",
+      "files": [
+        "apps/backend/routes/bids.py",
+        "apps/backend/models.py"
+      ],
+      "acceptance_criteria": [
+        "POST creates comment with user attribution",
+        "GET returns all comments for bid",
+        "Comments ordered by created_at"
+      ]
+    },
+    {
+      "id": "task-003",
+      "title": "Fix frontend like state sync",
+      "description": "Ensure like button calls backend and state persists across reload",
+      "status": "pending",
+      "files": [
+        "apps/frontend/components/RowStrip.tsx",
+        "apps/frontend/app/store.ts"
+      ],
+      "acceptance_criteria": [
+        "Like click calls POST/DELETE endpoint",
+        "Optimistic UI update",
+        "Rollback on error",
+        "State restored from backend on page load"
+      ]
+    },
+    {
+      "id": "task-004",
+      "title": "Fix frontend comment persistence",
+      "description": "Ensure comments save to backend and load on page refresh",
+      "status": "pending",
+      "files": [
+        "apps/frontend/components/RowStrip.tsx",
+        "apps/frontend/app/store.ts"
+      ],
+      "acceptance_criteria": [
+        "Comment submit calls POST endpoint",
+        "Comments load from GET on page load",
+        "User name and timestamp displayed"
+      ]
+    },
+    {
+      "id": "task-005",
+      "title": "Display like/comment counts on tiles",
+      "description": "Show counts on tile cards for social proof",
+      "status": "pending",
+      "files": [
+        "apps/frontend/components/RowStrip.tsx"
+      ],
+      "acceptance_criteria": [
+        "Like count visible on tile",
+        "Comment count visible on tile",
+        "Counts update after action"
+      ]
+    },
+    {
+      "id": "task-006",
+      "title": "Click-test and fix bugs",
+      "description": "Manual testing of full like/comment flow, fix any issues found",
+      "status": "pending",
+      "files": [],
+      "acceptance_criteria": [
+        "Like tile, refresh, like still shows",
+        "Add comment, refresh, comment still shows",
+        "No console errors"
+      ]
+    }
+  ]
+}

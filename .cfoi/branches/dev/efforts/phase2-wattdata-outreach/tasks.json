@@ -1,0 +1,407 @@
+{
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Create SearchIntent model and migration",
+      "description": "Create new SearchIntent SQLAlchemy model with fields for query_text, category, location, budget_range, service_requirements. Generate Alembic migration to create search_intents table.",
+      "status": "pending",
+      "files": [
+        "backend/models/search_intent.py",
+        "backend/alembic/versions/xxx_add_search_intent.py"
+      ],
+      "acceptance_criteria": [
+        "SearchIntent model created with all required fields",
+        "Migration creates search_intents table with proper indexes",
+        "Model includes validation rules for required fields"
+      ]
+    },
+    {
+      "id": "task-002",
+      "title": "Create OutreachEvent and UserNotification models",
+      "description": "Create OutreachEvent model for tracking vendor outreach and UserNotification model for in-app notifications. Add corresponding Alembic migration.",
+      "status": "pending",
+      "files": [
+        "backend/models/outreach_event.py",
+        "backend/models/user_notification.py",
+        "backend/alembic/versions/xxx_add_outreach_models.py"
+      ],
+      "acceptance_criteria": [
+        "OutreachEvent model created with all tracking fields",
+        "UserNotification model created with notification fields",
+        "Migration creates both tables with proper indexes",
+        "Foreign key relationships properly defined"
+      ]
+    },
+    {
+      "id": "task-003",
+      "title": "Update Row model with outreach fields",
+      "description": "Add outreach-related fields to existing Row model: outreach_status, outreach_vendor_count, outreach_sent_at, gap_analysis_complete, search_intent_id. Update migration to add these columns.",
+      "status": "pending",
+      "files": [
+        "backend/models/row.py",
+        "backend/alembic/versions/xxx_add_row_outreach_fields.py"
+      ],
+      "acceptance_criteria": [
+        "Row model updated with outreach status fields",
+        "Migration adds new columns to rows table including search_intent_id foreign key",
+        "Default values properly set for new fields",
+        "Relationship to outreach_events and search_intent added"
+      ]
+    },
+    {
+      "id": "task-004",
+      "title": "Create VendorQuote model and migration",
+      "description": "Create VendorQuote SQLAlchemy model to store vendor quote submissions with fields for vendor contact info, quote details, and submission timestamp. Generate corresponding Alembic migration.",
+      "status": "pending",
+      "files": [
+        "backend/models/vendor_quote.py",
+        "backend/alembic/versions/xxx_add_vendor_quote.py"
+      ],
+      "acceptance_criteria": [
+        "VendorQuote model created with all required fields",
+        "Migration creates vendor_quotes table with proper indexes",
+        "Foreign key relationship to rows table defined",
+        "Quote data validation rules implemented"
+      ]
+    },
+    {
+      "id": "task-005",
+      "title": "Create email template model and migration",
+      "description": "Implement EmailTemplate model for storing email templates by category and template rendering service using Jinja2 with SearchIntent context variables.",
+      "status": "pending",
+      "files": [
+        "backend/models/email_template.py",
+        "backend/services/template_service.py",
+        "backend/alembic/versions/xxx_add_email_template.py"
+      ],
+      "acceptance_criteria": [
+        "EmailTemplate model stores templates by category",
+        "Template variables: vendor_name, search_description, buyer_location, etc.",
+        "Jinja2 rendering with SearchIntent context",
+        "Fallback to generic template for unknown categories",
+        "Migration creates email_templates table"
+      ]
+    },
+    {
+      "id": "task-006",
+      "title": "Setup Redis configuration and connection",
+      "description": "Configure Redis connection for caching vendor search results and session management. Add Redis client initialization and connection health checks.",
+      "status": "pending",
+      "files": [
+        "backend/core/redis.py",
+        "backend/core/database.py"
+      ],
+      "acceptance_criteria": [
+        "Redis connection configuration with environment variables",
+        "Connection pooling and retry logic implemented",
+        "Health check endpoint for Redis connectivity",
+        "Cache client wrapper with error handling",
+        "Integration with FastAPI startup/shutdown events"
+      ]
+    },
+    {
+      "id": "task-007",
+      "title": "Configure logging and monitoring for outreach services",
+      "description": "Set up structured logging configuration for outreach pipeline, error tracking, and performance monitoring of new services.",
+      "status": "pending",
+      "files": [
+        "backend/core/logging.py",
+        "backend/core/monitoring.py"
+      ],
+      "acceptance_criteria": [
+        "Structured logging with JSON format for outreach events",
+        "Error tracking and alerting for pipeline failures",
+        "Performance metrics for email sending and API calls",
+        "Log rotation and retention policies",
+        "Integration with existing logging patterns"
+      ]
+    },
+    {
+      "id": "task-008",
+      "title": "Implement VendorAuthService for magic token management",
+      "description": "Create VendorAuthService class to generate and validate JWT tokens for vendor magic links. Include VendorMagicToken Pydantic model for token structure.",
+      "status": "pending",
+      "files": [
+        "backend/services/vendor_auth_service.py",
+        "backend/models/vendor_token.py"
+      ],
+      "acceptance_criteria": [
+        "VendorAuthService generates valid JWT tokens",
+        "Token validation properly handles expired tokens",
+        "VendorMagicToken model includes all required fields",
+        "7-day token expiration implemented"
+      ]
+    },
+    {
+      "id": "task-009",
+      "title": "Create WattData vendor search service",
+      "description": "Implement VendorSearchService to query WattData API for vendors using SearchIntent data from row.search_intent relationship. Include Redis caching, error handling, and rate limiting.",
+      "status": "pending",
+      "files": [
+        "backend/services/vendor_search_service.py"
+      ],
+      "acceptance_criteria": [
+        "Service queries WattData API using row.search_intent parameters",
+        "Redis caching implemented with 90-day TTL",
+        "Exponential backoff and circuit breaker for reliability",
+        "Response time under 5 seconds",
+        "Filters out vendors already in search results"
+      ]
+    },
+    {
+      "id": "task-010",
+      "title": "Implement OutreachService for gap analysis",
+      "description": "Create OutreachService to analyze search gaps and determine when outreach is needed. Integrate with existing LLM service patterns.",
+      "status": "pending",
+      "files": [
+        "backend/services/outreach_service.py"
+      ],
+      "acceptance_criteria": [
+        "Service analyzes SearchIntent data for gaps",
+        "Triggers on B2B/local service categories with <3 results",
+        "Uses existing LLM integration patterns",
+        "Evaluates coverage gaps using SearchIntent requirements"
+      ]
+    },
+    {
+      "id": "task-011",
+      "title": "Create transactional email service",
+      "description": "Implement TransactionalEmailService for sending outreach emails via SendGrid/Postmark. Include template rendering and webhook handling.",
+      "status": "pending",
+      "files": [
+        "backend/services/transactional_email_service.py"
+      ],
+      "acceptance_criteria": [
+        "Service sends personalized emails with templates",
+        "JWT magic links generated and included",
+        "Webhook integration for tracking delivery/opens/clicks",
+        "CAN-SPAM compliance with unsubscribe links",
+        "Batch email sending under 30 seconds"
+      ]
+    },
+    {
+      "id": "task-012",
+      "title": "Implement background task queue system with FastAPI integration",
+      "description": "Create BackgroundTaskQueue class for processing outreach pipelines asynchronously. Include worker thread management and FastAPI lifecycle integration.",
+      "status": "pending",
+      "files": [
+        "backend/services/task_queue.py"
+      ],
+      "acceptance_criteria": [
+        "Task queue handles both sync and async functions",
+        "Worker thread processes tasks continuously",
+        "Error handling and logging for failed tasks",
+        "Queue state monitoring and health checks"
+      ]
+    },
+    {
+      "id": "task-013",
+      "title": "Create SSE event manager for real-time updates",
+      "description": "Implement OutreachEventManager for Server-Sent Events to broadcast outreach progress to frontend clients.",
+      "status": "pending",
+      "files": [
+        "backend/routes/sse.py",
+        "backend/services/sse_manager.py"
+      ],
+      "acceptance_criteria": [
+        "SSE endpoint streams outreach events to authenticated users",
+        "Event manager broadcasts to multiple connections",
+        "Connection cleanup on disconnect",
+        "User ownership verification for row access"
+      ]
+    },
+    {
+      "id": "task-014",
+      "title": "Implement notification service",
+      "description": "Create NotificationService for sending in-app notifications about vendor quotes and outreach updates.",
+      "status": "pending",
+      "files": [
+        "backend/services/notification_service.py"
+      ],
+      "acceptance_criteria": [
+        "Service creates UserNotification records",
+        "Quote notifications broadcast via SSE",
+        "Integration with outreach event system",
+        "Notification data includes relevant context"
+      ]
+    },
+    {
+      "id": "task-015",
+      "title": "Configure FastAPI application integration",
+      "description": "Update FastAPI main.py to integrate all new services (task queue, SSE manager, Redis) with application startup and shutdown lifecycle events.",
+      "status": "pending",
+      "files": [
+        "backend/main.py"
+      ],
+      "acceptance_criteria": [
+        "Redis connection initialized on startup",
+        "Background task queue started with application",
+        "SSE manager integrated with application lifecycle",
+        "Proper cleanup on application shutdown",
+        "Health check endpoints for all services"
+      ]
+    },
+    {
+      "id": "task-016",
+      "title": "Add outreach endpoints to rows router",
+      "description": "Extend existing backend/routes/rows.py with new outreach trigger endpoint. Include user authentication and background task integration.",
+      "status": "pending",
+      "files": [
+        "backend/routes/rows.py"
+      ],
+      "acceptance_criteria": [
+        "POST /api/rows/{row_id}/outreach endpoint added",
+        "Clerk authentication required",
+        "User ownership verification for row access",
+        "Background task triggered for outreach pipeline",
+        "Proper error handling for missing SearchIntent"
+      ]
+    },
+    {
+      "id": "task-017",
+      "title": "Create notification API endpoints",
+      "description": "Add API endpoints for managing user notifications including fetching unread notifications and marking notifications as read.",
+      "status": "pending",
+      "files": [
+        "backend/routes/notifications.py"
+      ],
+      "acceptance_criteria": [
+        "GET /api/notifications endpoint for fetching user notifications",
+        "PUT /api/notifications/{notification_id}/read endpoint",
+        "GET /api/notifications/unread-count endpoint",
+        "Clerk authentication and user filtering",
+        "Pagination support for notification list"
+      ]
+    },
+    {
+      "id": "task-018",
+      "title": "Create outreach routes for vendor responses",
+      "description": "Implement new outreach router with public endpoints for email webhooks and vendor magic link responses.",
+      "status": "pending",
+      "files": [
+        "backend/routes/outreach.py"
+      ],
+      "acceptance_criteria": [
+        "Webhook endpoint handles email delivery events",
+        "Magic link endpoint validates tokens and returns search context",
+        "Quote submission endpoint processes vendor quotes",
+        "Public endpoints properly secured with token validation",
+        "Quote notifications sent to original searchers"
+      ]
+    },
+    {
+      "id": "task-019",
+      "title": "Configure email service webhooks",
+      "description": "Set up webhook configuration with email service provider (SendGrid/Postmark) for tracking email delivery events and configure webhook URLs.",
+      "status": "pending",
+      "files": [
+        "backend/core/email_webhooks.py",
+        "backend/scripts/setup_webhooks.py"
+      ],
+      "acceptance_criteria": [
+        "Webhook URLs configured with email provider",
+        "Webhook signature verification implemented",
+        "Event type mapping for delivery/bounce/click events",
+        "Webhook endpoint security with API keys",
+        "Setup script for automated webhook registration"
+      ]
+    },
+    {
+      "id": "task-020",
+      "title": "Seed initial email templates",
+      "description": "Create migration script to populate EmailTemplate table with initial template data for different service categories and fallback templates.",
+      "status": "pending",
+      "files": [
+        "backend/scripts/seed_email_templates.py",
+        "backend/alembic/versions/xxx_seed_email_templates.py"
+      ],
+      "acceptance_criteria": [
+        "Templates created for major service categories",
+        "Generic fallback template for unknown categories",
+        "Template variables properly documented",
+        "Migration script populates template data",
+        "Template validation and syntax checking"
+      ]
+    },
+    {
+      "id": "task-021",
+      "title": "Implement outreach pipeline workflow",
+      "description": "Create complete outreach pipeline function that orchestrates gap analysis, vendor discovery, and email sending with progress broadcasting via SSE manager integration.",
+      "status": "pending",
+      "files": [
+        "backend/services/outreach_pipeline.py"
+      ],
+      "acceptance_criteria": [
+        "Pipeline runs gap analysis using SearchIntent data",
+        "Vendor discovery via WattData integration",
+        "Email sending with progress tracking",
+        "SSE events broadcast at each stage via OutreachEventManager",
+        "Error handling and recovery"
+      ]
+    },
+    {
+      "id": "task-022",
+      "title": "Migrate existing rows to populate search_intent_id",
+      "description": "Create data migration script to populate search_intent_id for existing rows by creating SearchIntent records from current query/location patterns. Run after all model changes are complete.",
+      "status": "pending",
+      "files": [
+        "backend/scripts/migrate_search_intents.py"
+      ],
+      "acceptance_criteria": [
+        "Script creates SearchIntent records from existing row data",
+        "Populates search_intent_id foreign keys",
+        "Handles edge cases and data validation",
+        "Rollback capability for failed migrations",
+        "Progress tracking and logging"
+      ]
+    },
+    {
+      "id": "task-023",
+      "title": "Extend SearchResults component for outreach status",
+      "description": "Update frontend SearchResults component to display outreach status and progress. Connect to SSE endpoint for real-time updates.",
+      "status": "pending",
+      "files": [
+        "frontend/components/SearchResults.tsx"
+      ],
+      "acceptance_criteria": [
+        "Shows 'Expanding results...' during outreach",
+        "Displays 'X additional vendors contacted' status",
+        "SSE connection for real-time progress updates",
+        "Integration with existing provider status patterns"
+      ]
+    },
+    {
+      "id": "task-024",
+      "title": "Create VendorQuoteForm component",
+      "description": "Build React component for vendor quote submission form accessed via magic links. Include form validation and submission handling.",
+      "status": "pending",
+      "files": [
+        "frontend/components/VendorQuoteForm.tsx",
+        "frontend/pages/vendor/respond/[token].tsx"
+      ],
+      "acceptance_criteria": [
+        "Form displays search requirements from token context",
+        "Quote submission with proper validation",
+        "Success/error state handling",
+        "Mobile-responsive design",
+        "Token validation and error handling"
+      ]
+    },
+    {
+      "id": "task-025",
+      "title": "Add SSE hook for outreach events",
+      "description": "Create React hook to connect to outreach SSE endpoint and manage connection lifecycle for real-time updates.",
+      "status": "pending",
+      "files": [
+        "frontend/hooks/useOutreachEvents.ts"
+      ],
+      "acceptance_criteria": [
+        "Hook connects to /api/sse/outreach/{row_id} endpoint",
+        "Automatic reconnection on disconnect",
+        "Event parsing and state management",
+        "Connection cleanup on unmount",
+        "Authentication header handling"
+      ]
+    }
+  ]
+}

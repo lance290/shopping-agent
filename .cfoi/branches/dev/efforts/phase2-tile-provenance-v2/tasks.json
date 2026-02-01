@@ -1,0 +1,201 @@
+```json
+{
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Extend Bid model with BidWithProvenance class",
+      "description": "Create BidWithProvenance SQLModel class in apps/backend/app/models/bid.py that extends the base Bid model. Add computed fields for structured provenance data parsing and fallback fields for sparse provenance scenarios using SQLModel's Field validation.",
+      "status": "pending",
+      "files": ["apps/backend/app/models/bid.py"],
+      "acceptance_criteria": [
+        "BidWithProvenance class extends existing Bid model",
+        "Computed fields parse provenance JSONB data into structured format",
+        "Fallback fields handle sparse/missing provenance data gracefully",
+        "SQLModel Field validation prevents malformed data errors"
+      ]
+    },
+    {
+      "id": "task-002",
+      "title": "Enhance bid endpoint with provenance parameter",
+      "description": "Modify existing GET /api/bids/{bid_id} endpoint in apps/backend/app/routers/bids.py to accept optional ?include_provenance=true parameter. Return BidWithProvenance model when parameter is present, with error handling for missing/malformed provenance data.",
+      "status": "pending",
+      "files": ["apps/backend/app/routers/bids.py"],
+      "acceptance_criteria": [
+        "Existing endpoint accepts include_provenance query parameter",
+        "Returns BidWithProvenance model when parameter is true",
+        "Maintains backward compatibility when parameter is omitted",
+        "Proper error handling for missing/malformed provenance data",
+        "Response time <300ms for provenance-enhanced requests"
+      ]
+    },
+    {
+      "id": "task-003",
+      "title": "Add backend endpoint tests for provenance parameter",
+      "description": "Create comprehensive tests for the enhanced bid endpoint in tests/backend/test_bids.py covering provenance parameter handling, response time validation, error scenarios, and backward compatibility verification.",
+      "status": "pending",
+      "files": ["tests/backend/test_bids.py"],
+      "acceptance_criteria": [
+        "Tests for include_provenance=true parameter functionality",
+        "Performance tests ensuring <300ms response time requirement",
+        "Error handling tests for missing/malformed provenance data",
+        "Backward compatibility tests when parameter is omitted",
+        "Edge case tests for sparse provenance scenarios"
+      ]
+    },
+    {
+      "id": "task-004",
+      "title": "Create TypeScript interfaces for BidWithProvenance",
+      "description": "Create TypeScript interfaces in apps/frontend/types/api.ts that match the BidWithProvenance model structure from the backend. Define types for provenance data, structured product info, matched features, and chat excerpts.",
+      "status": "pending",
+      "files": ["apps/frontend/types/api.ts"],
+      "acceptance_criteria": [
+        "BidWithProvenance interface matches backend model structure",
+        "ProvenanceData interface defines structured provenance fields",
+        "Nullable/optional fields properly typed for sparse data scenarios",
+        "Extends existing Bid interface for backward compatibility",
+        "Exports available for use in components and stores"
+      ]
+    },
+    {
+      "id": "task-005",
+      "title": "Add API client method for provenance-enhanced bid fetching",
+      "description": "Extend existing API client in apps/frontend/lib/api.ts to include fetchBidWithProvenance method that calls the enhanced endpoint with include_provenance=true parameter. Include proper TypeScript typing and error handling.",
+      "status": "pending",
+      "files": ["apps/frontend/lib/api.ts"],
+      "acceptance_criteria": [
+        "fetchBidWithProvenance method added to existing API client",
+        "Method uses include_provenance=true query parameter",
+        "Returns typed BidWithProvenance response",
+        "Includes timeout and retry error handling",
+        "Follows existing API client patterns and conventions"
+      ]
+    },
+    {
+      "id": "task-006",
+      "title": "Create detail panel store slice",
+      "description": "Create new detailPanelStore.ts in apps/frontend/stores/ following existing Zustand patterns. Implement selectedBidId, isOpen, bidData, loading, and error states with actions for openPanel, closePanel, fetchBidDetail. Include comprehensive error handling with API timeout, retry logic, and network error detection.",
+      "status": "pending",
+      "files": ["apps/frontend/stores/detailPanelStore.ts"],
+      "acceptance_criteria": [
+        "New Zustand store with detail panel state management",
+        "State includes selectedBidId, isOpen, bidData, loading, error fields",
+        "Actions handle panel open/close and async bid fetching",
+        "Uses fetchBidWithProvenance API method for data loading",
+        "API errors set proper error state with retry capability",
+        "Network timeouts use existing timeout config",
+        "Error state cleared when new requests succeed",
+        "Retry logic limits attempts to prevent infinite loops"
+      ]
+    },
+    {
+      "id": "task-007",
+      "title": "Integrate detail panel store with main store",
+      "description": "Create store integration in apps/frontend/stores/index.ts to connect the detail panel store with existing store patterns and ensure proper state management across the application.",
+      "status": "pending",
+      "files": ["apps/frontend/stores/index.ts"],
+      "acceptance_criteria": [
+        "Detail panel store properly exported and integrated",
+        "Follows existing store integration patterns",
+        "Store available for use in components via hooks",
+        "No conflicts with existing state management",
+        "Maintains TypeScript type safety"
+      ]
+    },
+    {
+      "id": "task-008",
+      "title": "Create TileDetailPanelErrorBoundary component",
+      "description": "Create TileDetailPanelErrorBoundary.tsx in apps/frontend/components/ following existing ErrorBoundary.tsx structure. Extend base error boundary with panel-specific fallback UI and integrate with existing error reporting system.",
+      "status": "pending",
+      "files": ["apps/frontend/components/TileDetailPanelErrorBoundary.tsx"],
+      "acceptance_criteria": [
+        "Follows existing ErrorBoundary.tsx component structure",
+        "Panel-specific fallback UI for provenance errors",
+        "Integrates with existing error reporting system",
+        "Graceful error display without breaking parent components"
+      ]
+    },
+    {
+      "id": "task-009",
+      "title": "Create TileDetailPanel component with responsive design",
+      "description": "Create TileDetailPanel.tsx in apps/frontend/components/ as responsive slide-out panel using TailwindCSS transitions. Include focus management, keyboard navigation, ARIA attributes, and screen reader support. Display product info, matched features, and chat excerpts from provenance data with component-level error handling. Support desktop (≥1024px) slide-out, tablet (768-1023px) full-screen overlay.",
+      "status": "pending",
+      "files": ["apps/frontend/components/TileDetailPanel.tsx"],
+      "acceptance_criteria": [
+        "Desktop (≥1024px): Full slide-out panel from right side (z-index: 50)",
+        "Tablet (768-1023px): Full-screen overlay with close button",
+        "Focus management with useRef and useEffect patterns",
+        "Focus trap using tabindex management within panel",
+        "Escape key closes panel using keyboard event handling",
+        "ARIA attributes: role='dialog', aria-modal='true', aria-labelledby",
+        "Screen reader announcements with aria-live regions",
+        "Displays product info, matched features, chat excerpts",
+        "API errors show 'Unable to load details' with retry button",
+        "Malformed provenance shows basic info with 'Details unavailable'",
+        "Missing bid data shows 'Item no longer available' message",
+        "Error boundary integration for malformed provenance",
+        "Smooth transitions between responsive breakpoint layouts"
+      ]
+    },
+    {
+      "id": "task-010",
+      "title": "Create mobile tooltip component",
+      "description": "Create MobileDetailTooltip.tsx component in apps/frontend/components/ that displays 'Open on desktop for details' message on mobile devices (<768px) when tiles are clicked, replacing the detail panel on mobile.",
+      "status": "pending",
+      "files": ["apps/frontend/components/MobileDetailTooltip.tsx"],
+      "acceptance_criteria": [
+        "Shows tooltip message on mobile clicks (<768px)",
+        "Tooltip auto-dismisses after 3 seconds",
+        "Follows existing tooltip styling patterns",
+        "Accessible with proper ARIA labels",
+        "Integrates with OfferTile click handler logic"
+      ]
+    },
+    {
+      "id": "task-011",
+      "title": "Add click handler to OfferTile component with mobile integration",
+      "description": "Extend existing OfferTile component in apps/frontend/components/OfferTile.tsx to add responsive click handler that triggers detail panel opening on desktop/tablet or mobile tooltip on mobile. Maintain existing tile layout and styling while adding panel interaction and click tracking.",
+      "status": "pending",
+      "files": ["apps/frontend/components/OfferTile.tsx"],
+      "acceptance_criteria": [
+        "Click handler triggers detail panel opening on desktop/tablet (≥768px)",
+        "Click handler shows mobile tooltip on mobile (<768px)",
+        "Uses detail panel store actions to set selectedBidId and isOpen",
+        "Maintains existing tile layout and styling",
+        "No impact on existing tile functionality (likes, comments, etc.)",
+        "Accessible click target with proper focus indicators",
+        "Tile clicks logged to existing audit system",
+        "Integration with MobileDetailTooltip component"
+      ]
+    },
+    {
+      "id": "task-012",
+      "title": "Update Board component for panel overlay",
+      "description": "Modify Board component in apps/frontend/components/Board.tsx to handle TileDetailPanel overlay rendering without disrupting existing grid layout. Integrate panel state management and ensure proper z-index layering.",
+      "status": "pending",
+      "files": ["apps/frontend/components/Board.tsx"],
+      "acceptance_criteria": [
+        "TileDetailPanel renders as overlay without disrupting grid layout",
+        "Integration with detail panel store for state management",
+        "Proper z-index layering consistent with existing modals",
+        "Panel closes on outside click events",
+        "No interference with existing Board functionality",
+        "Error boundary integration for panel rendering"
+      ]
+    },
+    {
+      "id": "task-013",
+      "title": "Add panel interaction analytics and performance monitoring",
+      "description": "Integrate panel interaction analytics in TileDetailPanel.tsx using existing analytics event structure and monitor API performance for the enhanced detail endpoint. Track conversion metrics and error rates.",
+      "status": "pending",
+      "files": ["apps/frontend/components/TileDetailPanel.tsx"],
+      "acceptance_criteria": [
+        "Panel interactions tracked with existing analytics events",
+        "API performance monitoring for enhanced detail endpoint",
+        "Conversion metrics tracking (detail view → like/select)",
+        "Error rate monitoring for malformed provenance data",
+        "Integration with existing analytics patterns"
+      ]
+    }
+  ]
+}
+```

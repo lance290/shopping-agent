@@ -64,3 +64,81 @@ async def client_fixture(session: AsyncSession):
         yield client
 
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture(name="auth_user_and_token")
+async def auth_user_and_token_fixture(session: AsyncSession):
+    """Create authenticated user and return (user, token) tuple."""
+    from models import User, AuthSession, hash_token, generate_session_token
+
+    user = User(email="testauth@example.com", is_admin=False)
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    token = generate_session_token()
+    auth_session = AuthSession(
+        email=user.email,
+        user_id=user.id,
+        session_token_hash=hash_token(token)
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    return user, token
+
+
+@pytest_asyncio.fixture(name="test_bid")
+async def test_bid_fixture(session: AsyncSession, auth_user_and_token):
+    """Create test bid for like/comment/share tests."""
+    from models import Row, Bid
+
+    user, _ = auth_user_and_token
+
+    row = Row(title="Test Row", status="sourcing", user_id=user.id)
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    bid = Bid(
+        row_id=row.id,
+        price=100.0,
+        total_cost=110.0,
+        item_title="Test Product",
+        item_url="https://example.com/product"
+    )
+    session.add(bid)
+    await session.commit()
+    await session.refresh(bid)
+
+    return bid
+
+
+@pytest_asyncio.fixture(name="test_row")
+async def test_row_fixture(session: AsyncSession, auth_user_and_token):
+    """Create test row for share tests."""
+    from models import Row
+
+    user, _ = auth_user_and_token
+
+    row = Row(title="Shareable Row", status="sourcing", user_id=user.id)
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    return row
+
+
+@pytest_asyncio.fixture(name="test_project")
+async def test_project_fixture(session: AsyncSession, auth_user_and_token):
+    """Create test project for share tests."""
+    from models import Project
+
+    user, _ = auth_user_and_token
+
+    project = Project(title="Shareable Project", user_id=user.id)
+    session.add(project)
+    await session.commit()
+    await session.refresh(project)
+
+    return project

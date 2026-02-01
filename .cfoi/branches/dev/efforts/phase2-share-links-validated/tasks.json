@@ -1,0 +1,289 @@
+{
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Audit codebase structure and organization",
+      "description": "Examine the actual backend and frontend directory structure to identify where models, routes, components, and other key files are located. Map the real file organization before proceeding with other tasks.",
+      "status": "pending",
+      "files": [
+        "backend/",
+        "frontend/",
+        "package.json",
+        "requirements.txt"
+      ],
+      "acceptance_criteria": [
+        "Backend directory structure mapped and documented",
+        "Frontend directory structure confirmed",
+        "Models directory location identified",
+        "Routes directory structure confirmed",
+        "Components directory location verified",
+        "Database/migration system location identified",
+        "Authentication implementation files located",
+        "Package dependencies documented"
+      ]
+    },
+    {
+      "id": "task-002",
+      "title": "Audit data models and shareable entities",
+      "description": "Examine actual model files to document Project, Row, and User model structures. Determine what 'rows' and 'tiles' actually represent in the codebase - whether they are persistent entities with IDs, ephemeral search results, or different data structures entirely.",
+      "status": "pending",
+      "files": [
+        "[models_directory_from_task_001]",
+        "[database_directory_from_task_001]",
+        "[migrations_directory_from_task_001]"
+      ],
+      "acceptance_criteria": [
+        "Project model structure and relationships documented",
+        "Row entity definition clarified - persistent vs ephemeral",
+        "Tile entity definition and structure identified",
+        "User model structure and existing fields documented",
+        "Database relationships mapped",
+        "All shareable entity types definitively identified and validated",
+        "Entity ID patterns and primary keys documented"
+      ]
+    },
+    {
+      "id": "task-003",
+      "title": "Audit authentication and routing infrastructure",
+      "description": "Document existing Clerk authentication patterns from actual webhook files and routes. Map current routing structure and middleware patterns using the confirmed backend structure.",
+      "status": "pending",
+      "files": [
+        "[routes_directory_from_task_001]",
+        "[webhooks_directory_from_task_001]",
+        "[middleware_directory_from_task_001]"
+      ],
+      "acceptance_criteria": [
+        "Clerk authentication patterns documented from actual webhook files",
+        "Current routing structure mapped from existing route files",
+        "Authentication middleware patterns identified",
+        "User ownership validation patterns confirmed",
+        "Route protection mechanisms documented",
+        "Authentication dependency injection patterns confirmed"
+      ]
+    },
+    {
+      "id": "task-004",
+      "title": "Audit frontend infrastructure and UI patterns",
+      "description": "Document Next.js structure, existing UI components from confirmed directories, and identify analytics infrastructure. Audit package dependencies for icon libraries and notification systems.",
+      "status": "pending",
+      "files": [
+        "[frontend_app_directory_from_task_001]",
+        "[components_directory_from_task_001]",
+        "package.json",
+        "[frontend_lib_directory_from_task_001]"
+      ],
+      "acceptance_criteria": [
+        "Next.js routing structure documented",
+        "Existing UI component patterns documented from actual components directory",
+        "Icon library identified from package.json dependencies",
+        "Toast/notification system identified from dependencies",
+        "Analytics system documented (if any)",
+        "Component styling patterns confirmed",
+        "TypeScript configuration patterns documented"
+      ]
+    },
+    {
+      "id": "task-005",
+      "title": "Design share data model based on audit findings",
+      "description": "Create ShareLink model design supporting confirmed shareable entities from audit. Design referral tracking fields and determine table relationships based on discovered architecture.",
+      "status": "pending",
+      "files": [
+        "[models_directory]/share_link.py"
+      ],
+      "acceptance_criteria": [
+        "ShareLink model designed supporting all confirmed shareable entity types",
+        "Referral tracking fields designed (referred_by, referral_count, signup_via_share)",
+        "Database relationships mapped to confirmed models",
+        "Token generation strategy defined",
+        "Access tracking fields included",
+        "50-link limit enforcement strategy designed",
+        "Handles both persistent and ephemeral entity types appropriately"
+      ]
+    },
+    {
+      "id": "task-006",
+      "title": "Create ShareLink database migration",
+      "description": "Implement database migration using confirmed migration system to create share_links table and extend User model with referral tracking fields.",
+      "status": "pending",
+      "files": [
+        "[migrations_directory_from_task_001]",
+        "[models_directory]/user.py",
+        "[models_directory]/share_link.py"
+      ],
+      "acceptance_criteria": [
+        "Database migration creates share_links table with proper indexes",
+        "User model extended with referral tracking fields",
+        "Foreign key relationships established to confirmed entity types",
+        "Bidirectional relationships configured",
+        "Migration handles existing data safely",
+        "Database constraints implemented"
+      ]
+    },
+    {
+      "id": "task-007",
+      "title": "Implement share creation endpoints",
+      "description": "Add share creation routes following confirmed routing patterns. Support all confirmed shareable entity types. Include ownership validation and secure token generation.",
+      "status": "pending",
+      "files": [
+        "[routes_directory]/share.py",
+        "[existing_entity_route_files_from_audit]"
+      ],
+      "acceptance_criteria": [
+        "Share creation endpoints for all confirmed entity types",
+        "Authentication implemented using confirmed patterns",
+        "50 share links per project limit enforced",
+        "Cryptographically secure token generation",
+        "Ownership validation before share creation",
+        "Proper error handling and validation",
+        "Follows established route file patterns"
+      ]
+    },
+    {
+      "id": "task-008",
+      "title": "Implement public share resolution endpoint",
+      "description": "Create public share resolution route following confirmed backend structure. Handle token lookup, access tracking, and return full resource data for read-only display.",
+      "status": "pending",
+      "files": [
+        "[routes_directory]/share.py"
+      ],
+      "acceptance_criteria": [
+        "GET /share/{token} endpoint created without authentication",
+        "Access count incremented on each view",
+        "404 returned for invalid tokens",
+        "Response includes full resource data for display",
+        "Handles all supported shareable entity types",
+        "Query parameter support for referral attribution"
+      ]
+    },
+    {
+      "id": "task-009",
+      "title": "Implement referral attribution tracking system",
+      "description": "Create middleware and tracking system for referral attribution using confirmed backend patterns. Track share-to-signup conversions and viral growth metrics.",
+      "status": "pending",
+      "files": [
+        "[middleware_directory]/referral.py",
+        "[routes_directory]/auth.py",
+        "[routes_directory]/share.py"
+      ],
+      "acceptance_criteria": [
+        "Referral attribution middleware created",
+        "Share access tracking with referrer information",
+        "Signup attribution to share links",
+        "Conversion funnel tracking implemented",
+        "Viral coefficient calculation support",
+        "Referral data persisted across user sessions"
+      ]
+    },
+    {
+      "id": "task-010",
+      "title": "Create ShareButton component",
+      "description": "Create reusable ShareButton component using confirmed UI patterns and dependencies. Include copy-to-clipboard functionality with success feedback.",
+      "status": "pending",
+      "files": [
+        "[components_directory]/ShareButton.tsx",
+        "[confirmed_ui_directory]",
+        "[frontend_lib_directory]/utils.ts"
+      ],
+      "acceptance_criteria": [
+        "ShareButton component matches confirmed UI patterns",
+        "Copy-to-clipboard functionality implemented",
+        "Success notification using confirmed toast system",
+        "Share icon from confirmed icon library",
+        "TypeScript interfaces defined",
+        "Loading and disabled states handled",
+        "Keyboard accessibility support"
+      ]
+    },
+    {
+      "id": "task-011",
+      "title": "Create public share page route",
+      "description": "Implement Next.js route for share/[token] within confirmed App Router structure. Display shared content in read-only mode with signup CTAs and referral attribution.",
+      "status": "pending",
+      "files": [
+        "[frontend_app_directory]/share/[token]/page.tsx",
+        "[components_directory]/ShareView.tsx"
+      ],
+      "acceptance_criteria": [
+        "Public share page route created in confirmed routing structure",
+        "Read-only content display for unauthenticated users",
+        "Prominent signup CTAs with value proposition",
+        "Mobile responsive design following confirmed patterns",
+        "404 handling for invalid tokens",
+        "Referral attribution via URL parameters",
+        "Handles all supported entity types appropriately"
+      ]
+    },
+    {
+      "id": "task-012",
+      "title": "Integrate share buttons in existing views",
+      "description": "Add ShareButton components to existing entity detail pages based on confirmed shareable types and UI locations from audit findings.",
+      "status": "pending",
+      "files": [
+        "[confirmed_entity_pages_from_audit]"
+      ],
+      "acceptance_criteria": [
+        "Share buttons added to all confirmed shareable entity detail pages",
+        "Proper placement matching existing UI patterns",
+        "Share functionality only visible to authenticated users",
+        "Button disabled state during link generation",
+        "Consistent styling with existing components",
+        "Integration covers all confirmed shareable entity types"
+      ]
+    },
+    {
+      "id": "task-013",
+      "title": "Implement share management interface",
+      "description": "Create user interface for managing created shares, viewing access counts, and manual share deletion.",
+      "status": "pending",
+      "files": [
+        "[frontend_app_directory]/dashboard/shares/page.tsx",
+        "[routes_directory]/share.py"
+      ],
+      "acceptance_criteria": [
+        "Users can view list of their created shares",
+        "Share access count visible to creators",
+        "Share deletion functionality available",
+        "Share management accessible from confirmed navigation patterns",
+        "Pagination for users with many shares",
+        "Filters by entity type and creation date"
+      ]
+    },
+    {
+      "id": "task-014",
+      "title": "Implement analytics tracking system",
+      "description": "Add event tracking for share activities including creation, access, and conversions. Handle graceful degradation when analytics infrastructure is missing.",
+      "status": "pending",
+      "files": [
+        "[components_directory]/ShareButton.tsx",
+        "[frontend_app_directory]/share/[token]/page.tsx",
+        "[routes_directory]/share.py"
+      ],
+      "acceptance_criteria": [
+        "Share creation events tracked",
+        "Share access events logged",
+        "Share-to-signup conversion tracking",
+        "Analytics gracefully handle missing infrastructure",
+        "Event data includes entity type and user segments",
+        "Client-side and server-side tracking implemented"
+      ]
+    },
+    {
+      "id": "task-015",
+      "title": "Implement cascade deletion and cleanup",
+      "description": "Add cleanup logic to delete associated share links when source entities are deleted. Implement proper cascade deletion handling.",
+      "status": "pending",
+      "files": [
+        "[models_directory]/share_link.py",
+        "[confirmed_entity_models_from_audit]"
+      ],
+      "acceptance_criteria": [
+        "Share links cleaned up when source entities deleted",
+        "Proper cascade deletion configured at database level",
+        "Cleanup handles all supported entity types",
+        "Orphaned share link detection and cleanup",
+        "Database constraints prevent orphaned records",
+        "Cleanup events logged for analytics"
+      ]
+    }
+  ]
+}

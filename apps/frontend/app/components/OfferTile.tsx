@@ -1,8 +1,11 @@
 import { Offer } from '../store';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Heart, MessageSquare, Share2, ShieldCheck, Star, Truck } from 'lucide-react';
+import { Heart, MessageSquare, Share2, ShieldCheck, Star, Truck, Info } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { useState } from 'react';
+import { useDetailPanelStore } from '../stores/detailPanelStore';
+import { MobileDetailTooltip } from './MobileDetailTooltip';
 
 interface OfferTileProps {
   offer: Offer;
@@ -23,11 +26,15 @@ export default function OfferTile({
   onComment,
   onShare,
 }: OfferTileProps) {
+  const [showMobileTooltip, setShowMobileTooltip] = useState(false);
+  const { openPanel } = useDetailPanelStore();
+
   // Build clickout URL
   const clickUrl = offer.click_url || `/api/clickout?url=${encodeURIComponent(offer.url)}&row_id=${rowId}&idx=${index}&source=${encodeURIComponent(offer.source)}`;
   const safePrice = Number.isFinite(offer.price) ? offer.price : 0;
   const source = String(offer.source || '').toLowerCase();
   const isBiddable = source === 'manual' || source.includes('seller');
+  const isSellerQuote = source === 'seller_quote';
   const isSelected = offer.is_selected === true;
   const isLiked = offer.is_liked === true;
   const canSelect = Boolean(onSelect && offer.bid_id);
@@ -35,6 +42,22 @@ export default function OfferTile({
   const reviewsValue = typeof offer.reviews_count === 'number' ? offer.reviews_count : null;
   const hasRating = ratingValue !== null && ratingValue > 0;
   const merchantLabel = offer.merchant_domain || offer.merchant;
+
+  const handleDetailClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!offer.bid_id) return;
+
+    // Check if mobile (< 768px)
+    const isMobile = window.innerWidth < 768;
+
+    if (isMobile) {
+      setShowMobileTooltip(true);
+    } else {
+      openPanel(offer.bid_id);
+    }
+  };
   
   return (
     <Card
@@ -56,7 +79,13 @@ export default function OfferTile({
       >
         {/* Badges */}
         <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5">
-          {isBiddable && (
+          {isSellerQuote && (
+            <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+              <ShieldCheck size={10} />
+              Vendor Quote
+            </div>
+          )}
+          {isBiddable && !isSellerQuote && (
             <div className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-black/5 text-onyx-muted border border-black/10">
               Negotiable
             </div>
@@ -113,6 +142,16 @@ export default function OfferTile({
           
           <div className="mt-auto">
             <div className="flex items-center gap-2 mb-2">
+              {offer.bid_id && (
+                <button
+                  type="button"
+                  onClick={handleDetailClick}
+                  className="h-7 w-7 rounded-full border border-warm-grey/70 flex items-center justify-center bg-white text-onyx-muted hover:text-onyx transition-colors"
+                  title="View details"
+                >
+                  <Info size={12} />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={(e) => {
@@ -208,6 +247,11 @@ export default function OfferTile({
           </div>
         </div>
       </a>
+
+      <MobileDetailTooltip
+        show={showMobileTooltip}
+        onDismiss={() => setShowMobileTooltip(false)}
+      />
     </Card>
   );
 }

@@ -1,9 +1,10 @@
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 import hashlib
 import secrets
+import json
 from sqlmodel import Field, SQLModel, Relationship
-from pydantic import ConfigDict
+from pydantic import ConfigDict, computed_field
 
 
 def hash_token(token: str) -> str:
@@ -18,6 +19,11 @@ def generate_verification_code() -> str:
 
 def generate_session_token() -> str:
     """Generate a cryptographically secure session token."""
+    return secrets.token_urlsafe(32)
+
+
+def generate_magic_link_token() -> str:
+    """Generate a token for magic links (quote submission, etc.)."""
     return secrets.token_urlsafe(32)
 
 # Shared properties
@@ -37,6 +43,10 @@ class RowBase(SQLModel):
     # Search Architecture v2
     search_intent: Optional[str] = None  # JSON of SearchIntent
     provider_query_map: Optional[str] = None  # JSON of ProviderQueryMap
+
+    # Outreach tracking (Phase 2)
+    outreach_status: Optional[str] = None  # none, in_progress, complete
+    outreach_count: int = 0
 
 class RequestSpecBase(SQLModel):
     item_name: str
@@ -107,6 +117,9 @@ class Bid(SQLModel, table=True):
     search_intent_version: Optional[str] = None
     normalized_at: Optional[datetime] = None
 
+    # Tile Provenance - structured provenance data
+    provenance: Optional[str] = None  # JSON of structured provenance data
+
     eta_days: Optional[int] = None
     return_policy: Optional[str] = None
     condition: str = "new"
@@ -121,13 +134,17 @@ class Bid(SQLModel, table=True):
 class User(SQLModel, table=True):
     """Registered users."""
     __tablename__ = "user"
-    
+
     id: Optional[int] = Field(default=None, primary_key=True)
     email: Optional[str] = Field(default=None, index=True)
     clerk_user_id: Optional[str] = Field(default=None, index=True, unique=True)
     phone_number: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     is_admin: bool = Field(default=False)
+
+    # Referral attribution for share links
+    referral_share_token: Optional[str] = Field(default=None, index=True)
+    signup_source: Optional[str] = Field(default=None)  # "share", "direct", etc.
 
 
 class AuditLog(SQLModel, table=True):
@@ -190,29 +207,33 @@ class AuthSession(SQLModel, table=True):
 class ClickoutEvent(SQLModel, table=True):
     """Logs every outbound click for affiliate tracking and auditing."""
     __tablename__ = "clickout_event"
-    
+
     id: Optional[int] = Field(default=None, primary_key=True)
-    
+
     # Who clicked
     user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
     session_id: Optional[int] = Field(default=None)  # For anonymous tracking
-    
+
     # What they clicked
     row_id: Optional[int] = Field(default=None, index=True)
     offer_index: int = 0  # Position in results (for ranking analysis)
-    
+
     # URL info
     canonical_url: str  # Original URL from provider
     final_url: str  # URL after affiliate transformation (may be same)
     merchant_domain: str = Field(index=True)  # e.g., "amazon.com"
-    
+
     # Affiliate info
     handler_name: str = "none"  # Which handler processed this
     affiliate_tag: Optional[str] = None  # e.g., "buyanything-20"
-    
+
     # Provenance
     source: str = "unknown"  # e.g., "serpapi_google_shopping"
-    
+
+    # Share attribution
+    share_token: Optional[str] = Field(default=None, index=True)  # tracks share attribution
+    referral_user_id: Optional[int] = Field(default=None, foreign_key="user.id")  # creator of the share link
+
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -265,30 +286,265 @@ class Comment(SQLModel, table=True):
 class BugReport(SQLModel, table=True):
     """User submitted bug reports."""
     __tablename__ = "bug_report"
-    
+
     id: Optional[int] = Field(default=None, primary_key=True)
-    
+
     # Reporter info
     user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
-    
+
     # Content
     notes: str
     expected: Optional[str] = None
     actual: Optional[str] = None
     severity: str = "low"  # low, medium, high, blocking
     category: str = "ui"   # ui, data, auth, payments, performance, other
-    
+
     # Metadata
     status: str = "captured"  # captured, processing, sent, closed
-    
+
     # JSON fields
     attachments: Optional[str] = None  # JSON list of stored file paths/urls
     diagnostics: Optional[str] = None  # JSON object with captured context
-    
+
     # External Links
     github_issue_url: Optional[str] = None
     github_pr_url: Optional[str] = None
     preview_url: Optional[str] = None
+
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class BidWithProvenance(SQLModel):
+    """
+    Extended Bid model that includes parsed provenance data.
+    Used for detailed tile view endpoints.
+    Not a table model - used for API responses only.
+    """
+    model_config = ConfigDict(from_attributes=True)
+
+    # Copy all Bid fields except relationships
+    id: Optional[int] = None
+    row_id: int
+    seller_id: Optional[int] = None
+
+    price: float
+    shipping_cost: float = 0.0
+    total_cost: float
+    currency: str = "USD"
+
+    item_title: str
+    item_url: Optional[str] = None
+    image_url: Optional[str] = None
+
+    # Search Architecture v2
+    canonical_url: Optional[str] = None
+    source_payload: Optional[str] = None
+    search_intent_version: Optional[str] = None
+    normalized_at: Optional[datetime] = None
+
+    # Tile Provenance - structured provenance data
+    provenance: Optional[str] = None
+
+    eta_days: Optional[int] = None
+    return_policy: Optional[str] = None
+    condition: str = "new"
+
+    source: str = "manual"
+    is_selected: bool = False
+
+    @computed_field
+    @property
+    def provenance_data(self) -> Optional[Dict[str, Any]]:
+        """Parse and return structured provenance data."""
+        if not self.provenance:
+            return None
+
+        try:
+            data = json.loads(self.provenance) if isinstance(self.provenance, str) else self.provenance
+            return data
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+    @computed_field
+    @property
+    def product_info(self) -> Optional[Dict[str, Any]]:
+        """Extract product info from provenance data."""
+        prov = self.provenance_data
+        if not prov:
+            return None
+        return prov.get("product_info")
+
+    @computed_field
+    @property
+    def matched_features(self) -> Optional[List[str]]:
+        """Extract matched features from provenance data."""
+        prov = self.provenance_data
+        if not prov:
+            return None
+        return prov.get("matched_features", [])
+
+    @computed_field
+    @property
+    def chat_excerpts(self) -> Optional[List[Dict[str, str]]]:
+        """Extract chat excerpts from provenance data."""
+        prov = self.provenance_data
+        if not prov:
+            return None
+        return prov.get("chat_excerpts", [])
+
+
+class ShareLink(SQLModel, table=True):
+    """
+    Shareable links for projects, rows, and tiles to enhance search discovery.
+    Enables shared content to guide users to successful searches.
+    """
+    __tablename__ = "share_link"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    token: str = Field(unique=True, index=True)  # 32-char random string
+
+    # Polymorphic resource reference
+    resource_type: str = Field(index=True)  # "project", "row", "tile"
+    resource_id: int = Field(index=True)
+
+    created_by: int = Field(foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Engagement metrics
+    access_count: int = Field(default=0)  # Total times accessed
+    unique_visitors: int = Field(default=0)  # Unique viewers
+    search_initiated_count: int = Field(default=0)  # Users who searched after viewing share
+    search_success_count: int = Field(default=0)  # Successful searches from this share
+    signup_conversion_count: int = Field(default=0)  # Signups attributed to this share
+
+
+class ShareSearchEvent(SQLModel, table=True):
+    """
+    Tracks search events initiated from shared content.
+    Measures share-driven search success rates.
+    """
+    __tablename__ = "share_search_event"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    share_token: str = Field(foreign_key="share_link.token", index=True)
+    session_id: Optional[str] = Field(default=None, index=True)  # Anonymous tracking
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+
+    search_query: str
+    search_success: bool = Field(default=False)  # Determined by existing search success criteria
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# =============================================================================
+# SELLER QUOTE & OUTREACH MODELS (Phase 2 - Private Jet Demo)
+# =============================================================================
+
+class SellerQuote(SQLModel, table=True):
+    """
+    Seller-submitted quotes via magic link.
+    Converts to Bid once submitted.
+    """
+    __tablename__ = "seller_quote"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    row_id: int = Field(foreign_key="row.id", index=True)
+    
+    # Magic link auth
+    token: str = Field(unique=True, index=True)  # Magic link token
+    token_expires_at: Optional[datetime] = None
+    
+    # Seller info (from outreach or form)
+    seller_email: str
+    seller_name: Optional[str] = None
+    seller_company: Optional[str] = None
+    seller_phone: Optional[str] = None
+    
+    # Quote details
+    price: Optional[float] = None
+    currency: str = "USD"
+    description: Optional[str] = None
+    
+    # Choice factor answers (JSON)
+    answers: Optional[str] = None  # JSON object: { "aircraft_type": "Citation XLS", ... }
+    
+    # Attachments (JSON array of URLs)
+    attachments: Optional[str] = None
+    
+    # Status tracking
+    status: str = "pending"  # pending, submitted, accepted, rejected
+    
+    # Converted bid reference
+    bid_id: Optional[int] = Field(default=None, foreign_key="bid.id")
     
     # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    submitted_at: Optional[datetime] = None
+
+
+class OutreachEvent(SQLModel, table=True):
+    """
+    Tracks vendor outreach emails sent for a row.
+    """
+    __tablename__ = "outreach_event"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    row_id: int = Field(foreign_key="row.id", index=True)
+    
+    # Vendor info
+    vendor_email: str
+    vendor_name: Optional[str] = None
+    vendor_company: Optional[str] = None
+    vendor_source: str = "llm"  # llm, wattdata, manual
+    
+    # Email tracking
+    message_id: Optional[str] = None  # SendGrid message ID
+    
+    # Magic link for this vendor
+    quote_token: Optional[str] = Field(default=None, index=True)
+    
+    # Event timestamps
+    sent_at: Optional[datetime] = None
+    opened_at: Optional[datetime] = None
+    clicked_at: Optional[datetime] = None
+    quote_submitted_at: Optional[datetime] = None
+    
+    # Opt-out
+    opt_out: bool = False
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class DealHandoff(SQLModel, table=True):
+    """
+    Tracks email handoff when buyer selects a quote.
+    MVP closing mechanism before Stripe/DocuSign.
+    """
+    __tablename__ = "deal_handoff"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    row_id: int = Field(foreign_key="row.id", index=True)
+    quote_id: int = Field(foreign_key="seller_quote.id", index=True)
+    
+    # Buyer info (for email)
+    buyer_user_id: int = Field(foreign_key="user.id")
+    buyer_email: str
+    buyer_name: Optional[str] = None
+    buyer_phone: Optional[str] = None
+    
+    # Deal value (for tracking)
+    deal_value: Optional[float] = None
+    currency: str = "USD"
+    
+    # Email tracking
+    buyer_email_sent_at: Optional[datetime] = None
+    seller_email_sent_at: Optional[datetime] = None
+    buyer_email_opened_at: Optional[datetime] = None
+    seller_email_opened_at: Optional[datetime] = None
+    
+    # Status
+    status: str = "introduced"  # introduced, closed, cancelled
+    closed_at: Optional[datetime] = None
+    
     created_at: datetime = Field(default_factory=datetime.utcnow)

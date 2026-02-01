@@ -1,0 +1,29 @@
+Objective: Implement Share Links
+
+Context:
+- Goal: Buyers can share projects/rows/tiles via URL for viral growth
+- PRD: docs/prd/phase2/prd-share-links.md
+- Codebase: Next.js frontend (apps/frontend), FastAPI backend (apps/backend)
+- Current state: No share functionality exists
+
+Requirements:
+1. Backend: Create share_links table (token, resource_type, resource_id, created_by, access_count)
+2. Backend: POST /share endpoint to create share link
+3. Backend: GET /s/{token} endpoint to resolve share link
+4. Frontend: "Copy Link" button on project, row, and tile
+5. Frontend: Share link resolver page that shows read-only view
+6. Track share access_count for analytics
+
+Files to Consider:
+- apps/backend/models.py (ShareLink model)
+- apps/backend/routes/ (new share.py)
+- apps/frontend/components/RowStrip.tsx (copy link button)
+- apps/frontend/app/s/[token]/page.tsx (share resolver)
+- apps/frontend/app/store.ts (share state)
+
+Success Criteria:
+- Click "Copy Link" copies URL to clipboard
+- Paste URL in new browser, see shared content
+- Anonymous user sees read-only view
+- access_count increments on view
+- All tests pass

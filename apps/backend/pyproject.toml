@@ -19,6 +19,7 @@ dependencies = [
   "python-multipart>=0.0.21",
   "email-validator>=2.3.0",
   "pytest-cov>=7.0.0",
+  "resend>=2.21.0",
 ]
 
 [project.optional-dependencies]
