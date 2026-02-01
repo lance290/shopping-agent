@@ -4,10 +4,10 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { quoteId: string } }
+  { params }: { params: Promise<{ quoteId: string }> }
 ) {
   try {
-    const { quoteId } = params;
+    const { quoteId } = await params;
     const body = await request.json();
     
     // Build query params for buyer info

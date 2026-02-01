@@ -5,10 +5,10 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 // Trigger outreach
 export async function POST(
   request: NextRequest,
-  { params }: { params: { rowId: string } }
+  { params }: { params: Promise<{ rowId: string }> }
 ) {
   try {
-    const { rowId } = params;
+    const { rowId } = await params;
     const body = await request.json();
     
     const res = await fetch(`${BACKEND_URL}/outreach/rows/${rowId}/trigger`, {
@@ -38,10 +38,10 @@ export async function POST(
 // Get outreach status
 export async function GET(
   request: NextRequest,
-  { params }: { params: { rowId: string } }
+  { params }: { params: Promise<{ rowId: string }> }
 ) {
   try {
-    const { rowId } = params;
+    const { rowId } = await params;
     
     const res = await fetch(`${BACKEND_URL}/outreach/rows/${rowId}/status`, {
       method: 'GET',
