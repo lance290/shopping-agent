@@ -4,7 +4,7 @@ import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import ProviderStatusBadge from './ProviderStatusBadge';
 import { Archive, RefreshCw, FlaskConical, Undo2, Link2, X } from 'lucide-react';
-import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, fetchLikesApi, createCommentApi, fetchCommentsApi } from '../utils/api';
+import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, fetchLikesApi, createCommentApi, fetchCommentsApi, checkIfService, getVendors, VendorResult } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -170,6 +170,52 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       });
     }
   }, [isActive, row.id, offers, setRowResults]);
+
+  // Auto-fetch vendor tiles for service categories when row becomes active
+  const didCheckVendorsRef = useRef(false);
+  useEffect(() => {
+    if (!isActive || !row.id || !row.title || didCheckVendorsRef.current) return;
+    
+    // Check if we already have vendor tiles
+    const hasVendorTiles = offers.some(o => o.is_service_provider);
+    if (hasVendorTiles) {
+      didCheckVendorsRef.current = true;
+      return;
+    }
+
+    didCheckVendorsRef.current = true;
+    console.log('[Vendor] checking if service category for row:', row.id, row.title);
+    
+    checkIfService(row.title).then(async (serviceCheck) => {
+      if (!serviceCheck?.is_service || !serviceCheck?.category) return;
+      
+      console.log('[Vendor] fetching vendors for category:', serviceCheck.category);
+      const vendorsData = await getVendors(serviceCheck.category);
+      if (!vendorsData?.vendors?.length) return;
+
+      const vendorOffers: Offer[] = vendorsData.vendors.map((v: VendorResult) => ({
+        title: v.title,
+        price: 0,
+        currency: 'USD',
+        merchant: v.vendor_company,
+        url: v.url,
+        image_url: v.image_url,
+        rating: null,
+        reviews_count: null,
+        shipping_info: null,
+        source: 'JetBid',
+        is_service_provider: true,
+        vendor_email: v.vendor_email,
+        vendor_name: v.vendor_name,
+        vendor_company: v.vendor_company,
+      }));
+
+      console.log('[Vendor] prepending', vendorOffers.length, 'vendor tiles');
+      setRowResults(row.id, [...vendorOffers, ...offers]);
+    }).catch(err => {
+      console.error('[Vendor] check failed:', err);
+    });
+  }, [isActive, row.id, row.title, offers, setRowResults]);
 
   useEffect(() => {
     if (!isActive || !row.id) return;
