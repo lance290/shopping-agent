@@ -1,28 +1,6 @@
 import { test, expect } from '@playwright/test';
-import fs from 'fs';
-import path from 'path';
 
 test.describe('Auth: Login and Logout', () => {
-  const isClerkDisabled = (() => {
-    if (process.env.NEXT_PUBLIC_DISABLE_CLERK === '1') return true;
-
-    try {
-      const envPath = path.resolve(__dirname, '..', '.env');
-      const raw = fs.readFileSync(envPath, 'utf8');
-      const line = raw
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .find((l) => l.startsWith('NEXT_PUBLIC_DISABLE_CLERK='));
-      if (!line) return false;
-
-      const value = line.split('=')[1]?.trim().replace(/^"|"$/g, '');
-      return value === '1';
-    } catch {
-      return false;
-    }
-  })();
-  test.skip(isClerkDisabled, 'Clerk is disabled in this environment (NEXT_PUBLIC_DISABLE_CLERK=1)');
-
   test.beforeEach(async ({ context }) => {
     // Clear cookies before each test
     await context.clearCookies();
@@ -40,9 +18,10 @@ test.describe('Auth: Login and Logout', () => {
   });
 
   test('can enter email and request verification code', async ({ page }) => {
+    test.skip(!process.env.E2E_ALLOWED_EMAIL, 'Set E2E_ALLOWED_EMAIL to an allowlisted email to run OTP e2e');
     await page.goto('/login');
     
-    await page.fill('input[type="email"]', 'test@example.com');
+    await page.fill('input[type="email"]', process.env.E2E_ALLOWED_EMAIL as string);
     await page.click('button[type="submit"]');
     
     // After sending code, should show code input
@@ -50,7 +29,7 @@ test.describe('Auth: Login and Logout', () => {
     await expect(page.locator('text=We sent a verification code')).toBeVisible();
   });
 
-  test('authenticated user is redirected from /login to /', async ({ page, context }) => {
+  test('authenticated user can still access /login', async ({ page, context }) => {
     // Set a fake session cookie to simulate authenticated state
     await context.addCookies([
       {
@@ -62,8 +41,7 @@ test.describe('Auth: Login and Logout', () => {
     ]);
     
     await page.goto('/login');
-    // Should redirect to home
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL(/\/login/);
   });
 
   test('logout clears session and redirects to login', async ({ page, context }) => {

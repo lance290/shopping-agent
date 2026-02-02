@@ -171,10 +171,11 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     }
   }, [isActive, row.id, offers, setRowResults]);
 
-  // Auto-fetch vendor tiles for service categories when row becomes active
+  // Auto-fetch vendor tiles for service categories when row has offers (not waiting for active)
   const didCheckVendorsRef = useRef(false);
   useEffect(() => {
-    if (!isActive || !row.id || !row.title || didCheckVendorsRef.current) return;
+    // Trigger vendor check as soon as we have a row with offers - don't wait for isActive
+    if (!row.id || !row.title || didCheckVendorsRef.current) return;
     
     // Check if we already have vendor tiles
     const hasVendorTiles = offers.some(o => o.is_service_provider);
@@ -182,6 +183,9 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       didCheckVendorsRef.current = true;
       return;
     }
+
+    // Only check once we have some offers to avoid checking on empty rows
+    if (offers.length === 0) return;
 
     didCheckVendorsRef.current = true;
     console.log('[Vendor] checking if service category for row:', row.id, row.title);
@@ -215,7 +219,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     }).catch(err => {
       console.error('[Vendor] check failed:', err);
     });
-  }, [isActive, row.id, row.title, offers, setRowResults]);
+  }, [row.id, row.title, offers, setRowResults]);
 
   useEffect(() => {
     if (!isActive || !row.id) return;
@@ -639,6 +643,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
                       offer={offer}
                       index={idx}
                       rowId={row.id}
+                      row={row}
                       onSelect={handleSelectOffer}
                       onToggleLike={handleToggleLike}
                       onComment={handleComment}

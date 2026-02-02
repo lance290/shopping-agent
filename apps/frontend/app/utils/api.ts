@@ -1,104 +1,39 @@
 import { Row, Offer, Project, ProviderStatusSnapshot } from '../store';
 
-const DEV_SESSION_STORAGE_KEY = 'sa_session_token';
+const SESSION_COOKIE_NAME = 'sa_session';
 
-function setDevSessionCookie(token: string) {
-  if (typeof document === 'undefined' || !token) return;
-  document.cookie = `sa_session=${encodeURIComponent(token)}; path=/`;
-}
-
-function getStoredSessionToken(): string {
-  if (typeof localStorage === 'undefined') return '';
-  return localStorage.getItem(DEV_SESSION_STORAGE_KEY) || '';
-}
-
-function storeSessionToken(token: string) {
-  if (typeof localStorage === 'undefined' || !token) return;
-  localStorage.setItem(DEV_SESSION_STORAGE_KEY, token);
-}
-
-function getDevAuthToken(): string {
-  const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
-  if (!disableClerk) return '';
-
-  // Prefer the Playwright-set cookie so UI E2E tests and API-created rows share the same session.
+function getAuthToken(): string {
   if (typeof document !== 'undefined') {
+    // Try cookie first
     const match = document.cookie
       .split(';')
       .map((c) => c.trim())
-      .find((c) => c.startsWith('sa_session='));
+      .find((c) => c.startsWith(`${SESSION_COOKIE_NAME}=`));
     if (match) {
-      const value = match.split('=')[1];
-      if (value) return decodeURIComponent(value);
+      return decodeURIComponent(match.split('=')[1]);
     }
-  }
-
-  const stored = getStoredSessionToken();
-  if (stored) {
-    setDevSessionCookie(stored);
-    return stored;
-  }
-
-  return process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN || '';
-}
-
-async function getOrCreateDevAuthToken(forceMint: boolean = false): Promise<string> {
-  const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
-  if (!disableClerk) return '';
-
-  if (!forceMint) {
-    const existing = getDevAuthToken();
-    if (existing) return existing;
-  }
-
-  if (typeof document === 'undefined') return '';
-
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
-  const devEmail =
-    process.env.NEXT_PUBLIC_DEV_SESSION_EMAIL ||
-    process.env.DEV_SESSION_EMAIL ||
-    'test@example.com';
-  try {
-    const res = await fetch(`${backendUrl}/test/mint-session`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: devEmail }),
-    });
-    if (!res.ok) return '';
-    const data = await res.json();
-    if (data?.session_token) {
-      setDevSessionCookie(data.session_token);
-      storeSessionToken(data.session_token);
-      return data.session_token;
-    }
-  } catch (err) {
-    console.error('[API] Dev session mint failed:', err);
   }
   return '';
 }
 
-async function fetchWithDevAuth(url: string, init: RequestInit = {}): Promise<Response> {
+async function fetchWithAuth(url: string, init: RequestInit = {}): Promise<Response> {
   const baseHeaders = init.headers ? { ...(init.headers as Record<string, string>) } : {};
-  const token = await getOrCreateDevAuthToken();
+  const token = getAuthToken();
   const headers = token ? { ...baseHeaders, Authorization: `Bearer ${token}` } : baseHeaders;
 
   const res = await fetch(url, { ...init, headers });
-  if (res.status !== 401) {
-    return res;
+  
+  if (res.status === 401 && typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+    // Redirect to login on 401 if not already there
+    try {
+      document.cookie = `${SESSION_COOKIE_NAME}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;`;
+    } catch {
+      // ignore
+    }
+    window.location.href = '/login';
   }
-
-  if (token) {
-    return res;
-  }
-
-  // If we got a 401 without any token, mint a fresh token and retry once.
-  const freshToken = await getOrCreateDevAuthToken(true);
-  if (!freshToken) {
-    return res;
-  }
-
-  const retryHeaders = { ...baseHeaders, Authorization: `Bearer ${freshToken}` };
-  return fetch(url, { ...init, headers: retryHeaders });
+  
+  return res;
 }
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
@@ -167,7 +102,7 @@ export const createCommentApi = async (
   offerUrl?: string
 ): Promise<CommentDto | null> => {
   try {
-    const res = await fetch('/api/comments', {
+    const res = await fetchWithAuth('/api/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ row_id: rowId, body, bid_id: bidId, offer_url: offerUrl, visibility: 'private' }),
@@ -188,7 +123,7 @@ export const createCommentApi = async (
 
 export const fetchCommentsApi = async (rowId: number): Promise<CommentDto[]> => {
   try {
-    const res = await fetch(`/api/comments?row_id=${rowId}`);
+    const res = await fetchWithAuth(`/api/comments?row_id=${rowId}`);
     if (!res.ok) {
       if (res.status === 404) {
         return [];
@@ -208,7 +143,7 @@ export const fetchCommentsApi = async (rowId: number): Promise<CommentDto[]> => 
 export const persistRowToDb = async (rowId: number, title: string) => {
   console.log('[API] Persisting to DB:', rowId, title);
   try {
-    const res = await fetch(`/api/rows?id=${rowId}`, {
+    const res = await fetchWithAuth(`/api/rows?id=${rowId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title }),
@@ -229,7 +164,7 @@ export const persistRowToDb = async (rowId: number, title: string) => {
 // Helper: Select an offer for a row
 export const selectOfferForRow = async (rowId: number, bidId: number): Promise<boolean> => {
   try {
-    const res = await fetch(`/api/rows?id=${rowId}`, {
+    const res = await fetchWithAuth(`/api/rows?id=${rowId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ selected_bid_id: bidId }),
@@ -306,7 +241,7 @@ export const runSearchApiWithStatus = async (
       }
     }
 
-    const res = await fetch('/api/search', {
+    const res = await fetchWithAuth('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -354,7 +289,7 @@ export const runSearchApiWithStatus = async (
 export const createRowInDb = async (title: string, projectId?: number | null): Promise<Row | null> => {
   console.log('[API] Creating row in DB:', title, 'projectId:', projectId);
   try {
-    const res = await fetch('/api/rows', {
+    const res = await fetchWithAuth('/api/rows', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
@@ -383,8 +318,7 @@ export const createRowInDb = async (title: string, projectId?: number | null): P
 // Helper: Fetch a single row by ID (avoids re-rendering all rows)
 export const fetchSingleRowFromDb = async (rowId: number): Promise<Row | null> => {
   try {
-    await getOrCreateDevAuthToken();
-    const res = await fetch(`/api/rows?id=${rowId}`);
+    const res = await fetchWithAuth(`/api/rows?id=${rowId}`);
     if (res.ok) {
       const row = await res.json();
       return row && typeof row === 'object' && !Array.isArray(row) ? row : null;
@@ -399,31 +333,10 @@ export const fetchSingleRowFromDb = async (rowId: number): Promise<Row | null> =
 // Helper: Fetch all rows from DB
 export const fetchRowsFromDb = async (): Promise<Row[] | null> => {
   try {
-    // Ensure we have a valid session token in cookie before calling
-    await getOrCreateDevAuthToken();
-    
-    const res = await fetch('/api/rows');
+    const res = await fetchWithAuth('/api/rows');
     if (res.ok) {
       const rows = await res.json();
       return Array.isArray(rows) ? rows : [];
-    }
-    
-    // On 401, only mint if we truly have no token (avoid silently switching users).
-    if (res.status === 401) {
-      const existing = getDevAuthToken();
-      if (!existing) {
-        const freshToken = await getOrCreateDevAuthToken(true);
-        if (freshToken) {
-          const retry = await fetch('/api/rows');
-          if (retry.ok) {
-            const rows = await retry.json();
-            return Array.isArray(rows) ? rows : [];
-          }
-        }
-      }
-
-      console.error('[API] fetchRowsFromDb failed: 401');
-      return null;
     }
     
     console.error('[API] fetchRowsFromDb failed:', res.status);
@@ -436,27 +349,10 @@ export const fetchRowsFromDb = async (): Promise<Row[] | null> => {
 // Helper: Fetch projects
 export const fetchProjectsFromDb = async (): Promise<Project[] | null> => {
   try {
-    // Ensure we have a valid session token in cookie before calling
-    await getOrCreateDevAuthToken();
-    
-    const res = await fetch('/api/projects');
+    const res = await fetchWithAuth('/api/projects');
     if (res.ok) {
       const projects = await res.json();
       return Array.isArray(projects) ? projects : [];
-    }
-    
-    // On 401, mint a fresh token and retry once. Existing token may be stale.
-    if (res.status === 401) {
-      const freshToken = await getOrCreateDevAuthToken(true);
-      if (freshToken) {
-        const retry = await fetch('/api/projects');
-        if (retry.ok) {
-          const projects = await retry.json();
-          return Array.isArray(projects) ? projects : [];
-        }
-      }
-      console.error('[API] fetchProjectsFromDb failed: 401');
-      return null;
     }
     
     console.error('[API] fetchProjectsFromDb failed:', res.status);
@@ -470,7 +366,7 @@ export const fetchProjectsFromDb = async (): Promise<Project[] | null> => {
 // Helper: Create project
 export const createProjectInDb = async (title: string): Promise<Project | null> => {
   try {
-    const res = await fetch('/api/projects', {
+    const res = await fetchWithAuth('/api/projects', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -501,7 +397,7 @@ export const createProjectInDb = async (title: string): Promise<Project | null> 
 // Helper: Delete project
 export const deleteProjectFromDb = async (id: number): Promise<boolean> => {
   try {
-    const res = await fetch(`/api/projects?id=${id}`, { 
+    const res = await fetchWithAuth(`/api/projects?id=${id}`, { 
       method: 'DELETE',
     });
     return res.ok;
@@ -522,7 +418,7 @@ export const saveChoiceAnswerToDb = async (
     const answers: Record<string, any> = { ...(existingAnswers || {}) };
     answers[factorName] = answer;
 
-    const res = await fetch(`/api/rows?id=${rowId}`, {
+    const res = await fetchWithAuth(`/api/rows?id=${rowId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ choice_answers: JSON.stringify(answers) }),
@@ -531,6 +427,28 @@ export const saveChoiceAnswerToDb = async (
     return res.ok;
   } catch (err) {
     console.error('[API] Save answer error:', err);
+    return false;
+  }
+};
+
+export const saveOutreachToDb = async (
+  rowId: number,
+  outreach: Record<string, any>,
+  existingAnswers?: Record<string, any>
+): Promise<boolean> => {
+  try {
+    const answers: Record<string, any> = { ...(existingAnswers || {}) };
+    answers.outreach = outreach;
+
+    const res = await fetchWithAuth(`/api/rows?id=${rowId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ choice_answers: JSON.stringify(answers) }),
+    });
+
+    return res.ok;
+  } catch (err) {
+    console.error('[API] Save outreach error:', err);
     return false;
   }
 };
@@ -544,7 +462,7 @@ export const toggleLikeApi = async (
 ): Promise<boolean> => {
   try {
     if (isLiked) {
-      const res = await fetch('/api/likes', {
+      const res = await fetchWithAuth('/api/likes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ row_id: rowId, bid_id: bidId, offer_url: offerUrl }),
@@ -559,7 +477,7 @@ export const toggleLikeApi = async (
       if (bidId) params.append('bid_id', String(bidId));
       if (offerUrl) params.append('offer_url', offerUrl);
 
-      const res = await fetch(`/api/likes?${params.toString()}`, {
+      const res = await fetchWithAuth(`/api/likes?${params.toString()}`, {
         method: 'DELETE',
       });
       if (res.ok) return true;
@@ -578,7 +496,7 @@ export const toggleLikeApi = async (
 export const fetchLikesApi = async (rowId?: number): Promise<any[]> => {
   try {
     const params = rowId ? `?row_id=${rowId}` : '';
-    const res = await fetch(`/api/likes${params}`);
+    const res = await fetchWithAuth(`/api/likes${params}`);
     if (res.ok) {
       return await res.json();
     }
@@ -590,7 +508,6 @@ export const fetchLikesApi = async (rowId?: number): Promise<any[]> => {
     return [];
   }
 };
-
 
 export interface BugReportResponse {
   id: string;
@@ -613,7 +530,7 @@ export const submitBugReport = async (formData: FormData): Promise<BugReportResp
   console.log('[API] Submitting bug report');
   
   try {
-    const res = await fetch('/api/bugs', {
+    const res = await fetchWithAuth('/api/bugs', {
       method: 'POST',
       body: formData,
     });
@@ -640,7 +557,7 @@ export const submitBugReport = async (formData: FormData): Promise<BugReportResp
 
 export const fetchBugReport = async (id: string): Promise<BugReportResponse | null> => {
   try {
-    const res = await fetch(`/api/bugs/${id}`);
+    const res = await fetchWithAuth(`/api/bugs/${id}`);
     if (res.ok) {
       return await res.json();
     }
@@ -655,7 +572,7 @@ export const fetchBugReport = async (id: string): Promise<BugReportResponse | nu
 // Helper: Fetch bid with provenance data
 export const fetchBidWithProvenance = async (bidId: number): Promise<BidWithProvenance | null> => {
   try {
-    const res = await fetch(`/api/bids/${bidId}?include_provenance=true`, {
+    const res = await fetchWithAuth(`/api/bids/${bidId}?include_provenance=true`, {
       signal: AbortSignal.timeout(5000), // 5 second timeout
     });
 
@@ -719,7 +636,7 @@ export const createShareLink = async (
   resourceId: number
 ): Promise<ShareLinkResponse | null> => {
   try {
-    const res = await fetch('/api/shares', {
+    const res = await fetchWithAuth('/api/shares', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ resource_type: resourceType, resource_id: resourceId }),
@@ -740,7 +657,7 @@ export const createShareLink = async (
 // Helper: Resolve share link (public access)
 export const resolveShareLink = async (token: string): Promise<ShareContentResponse | null> => {
   try {
-    const res = await fetch(`/api/shares/${token}`);
+    const res = await fetchWithAuth(`/api/shares/${token}`);
 
     if (!res.ok) {
       if (res.status === 404) {
@@ -761,7 +678,7 @@ export const resolveShareLink = async (token: string): Promise<ShareContentRespo
 // Helper: Get share metrics (requires ownership)
 export const getShareMetrics = async (token: string): Promise<ShareMetricsResponse | null> => {
   try {
-    const res = await fetch(`/api/shares/${token}/metrics`);
+    const res = await fetchWithAuth(`/api/shares/${token}/metrics`);
 
     if (!res.ok) {
       if (res.status === 403) {
@@ -812,7 +729,7 @@ export interface VendorsResponse {
 // Check if a search query is for a service (vs product)
 export const checkIfService = async (query: string): Promise<ServiceCheckResponse | null> => {
   try {
-    const res = await fetch(`/api/check-service?query=${encodeURIComponent(query)}`);
+    const res = await fetchWithAuth(`/api/check-service?query=${encodeURIComponent(query)}`);
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -824,7 +741,7 @@ export const checkIfService = async (query: string): Promise<ServiceCheckRespons
 // Get vendors for a service category
 export const getVendors = async (category: string): Promise<VendorsResponse | null> => {
   try {
-    const res = await fetch(`/api/vendors/${encodeURIComponent(category)}`);
+    const res = await fetchWithAuth(`/api/vendors/${encodeURIComponent(category)}`);
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {

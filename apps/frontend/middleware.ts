@@ -1,53 +1,55 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-const isPublicRoute = createRouteMatcher([
-  '/login(.*)',
-  '/sign-in(.*)',
-  '/sign-up(.*)',
-  '/marketing(.*)',
-  '/clerk_(.*)',
-  '/api(.*)',
-  '/api/health(.*)',
-]);
+const PUBLIC_PATHS = [
+  '/login',
+  '/sign-in',
+  '/sign-up',
+  '/marketing',
+  '/api/proxy/auth', // Allow auth endpoints
+];
 
-const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-const secretKey = process.env.CLERK_SECRET_KEY;
-const signInUrl = process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || '/login';
-const signUpUrl = process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL || '/sign-up';
-
-const middleware = clerkMiddleware(
-  async (auth, request) => {
-    const pathname = request.nextUrl.pathname;
-    const isApiRoute = pathname.startsWith('/api');
-    if (!isApiRoute && !isPublicRoute(request)) {
-      await auth.protect();
-    }
-  },
-  {
-    publishableKey,
-    secretKey,
-    signInUrl,
-    signUpUrl,
-    debug: true,
-  }
-);
-
-export default function authMiddleware(request: NextRequest, event: NextFetchEvent) {
-  if (disableClerk) {
+  if (pathname.startsWith('/api')) {
     return NextResponse.next();
   }
 
-  console.log(
-    `[clerk:middleware] pk_prefix=${publishableKey?.slice(0, 12) || 'missing'} pk_len=${publishableKey?.length || 0} sk_set=${Boolean(secretKey)}`
-  );
-  return middleware(request, event);
+  // Check if path is public
+  const isPublic = PUBLIC_PATHS.some(path => pathname.startsWith(path));
+
+  // Also allow all internal API routes (they should handle their own auth or be open)
+  // But we want to protect / page and other UI pages.
+  // Actually, let's keep it simple: protect everything except public paths and assets.
+  
+  if (
+    pathname.startsWith('/_next') || 
+    pathname.startsWith('/static') || 
+    pathname.includes('.') // file extensions
+  ) {
+    return NextResponse.next();
+  }
+
+  const token = request.cookies.get('sa_session')?.value;
+
+  // If trying to access protected route without token, redirect to login
+  if (!isPublic && !token) {
+    const loginUrl = new URL('/login', request.url);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };

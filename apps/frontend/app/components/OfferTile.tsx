@@ -1,4 +1,4 @@
-import { Offer } from '../store';
+import { Offer, Row } from '../store';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Heart, MessageSquare, Share2, ShieldCheck, Star, Truck, Info } from 'lucide-react';
@@ -12,6 +12,7 @@ interface OfferTileProps {
   offer: Offer;
   index: number;
   rowId: number;
+  row: Row;
   onSelect?: (offer: Offer) => void | Promise<void>;
   onToggleLike?: (offer: Offer) => void;
   onComment?: (offer: Offer) => void;
@@ -22,6 +23,7 @@ export default function OfferTile({
   offer,
   index,
   rowId,
+  row,
   onSelect,
   onToggleLike,
   onComment,
@@ -279,6 +281,9 @@ export default function OfferTile({
         <VendorContactModal
           isOpen={showVendorModal}
           onClose={() => setShowVendorModal(false)}
+          rowId={rowId}
+          rowTitle={row.title}
+          rowChoiceAnswers={row.choice_answers}
           vendorName={offer.vendor_name || 'Contact'}
           vendorCompany={offer.vendor_company || offer.merchant}
           vendorEmail={offer.vendor_email || ''}

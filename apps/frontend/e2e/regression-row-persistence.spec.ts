@@ -1,23 +1,4 @@
 import { test, expect } from '@playwright/test';
-import fs from 'fs';
-import path from 'path';
-
-function isClerkDisabled(): boolean {
-  if (process.env.NEXT_PUBLIC_DISABLE_CLERK === '1') return true;
-  try {
-    const envPath = path.resolve(__dirname, '..', '.env');
-    const raw = fs.readFileSync(envPath, 'utf8');
-    const line = raw
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .find((l) => l.startsWith('NEXT_PUBLIC_DISABLE_CLERK='));
-    if (!line) return false;
-    const value = line.split('=')[1]?.trim().replace(/^"|"$/g, '');
-    return value === '1';
-  } catch {
-    return false;
-  }
-}
 
 test.describe('Row Persistence Regression', () => {
   // Use a unique email for isolation
@@ -75,8 +56,6 @@ test.describe('Row Persistence Regression', () => {
   });
 
   test('should allow logging out', async ({ page }) => {
-    test.skip(isClerkDisabled(), 'Logout/redirect flow is Clerk-dependent and Clerk is disabled in this environment');
-
     await page.goto('/');
     
     // Ensure logout button is visible (it's at the bottom of sidebar)

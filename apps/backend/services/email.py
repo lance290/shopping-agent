@@ -6,7 +6,10 @@ import os
 from typing import Optional
 from dataclasses import dataclass
 
-import resend
+try:
+    import resend
+except ModuleNotFoundError:  # pragma: no cover
+    resend = None  # type: ignore
 
 
 @dataclass
@@ -18,7 +21,7 @@ class EmailResult:
 
 # Check if Resend is available
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
-if RESEND_API_KEY:
+if RESEND_API_KEY and resend is not None:
     resend.api_key = RESEND_API_KEY
 
 FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@buyanything.ai")
@@ -124,7 +127,7 @@ async def send_outreach_email(
     """
     
     # If Resend is configured, send real email
-    if RESEND_API_KEY:
+    if RESEND_API_KEY and resend is not None:
         try:
             params: resend.Emails.SendParams = {
                 "from": f"{FROM_NAME} <{FROM_EMAIL}>",
@@ -209,7 +212,7 @@ async def send_handoff_buyer_email(
     </html>
     """
     
-    if RESEND_API_KEY:
+    if RESEND_API_KEY and resend is not None:
         try:
             params: resend.Emails.SendParams = {
                 "from": f"{FROM_NAME} <{FROM_EMAIL}>",
@@ -284,7 +287,7 @@ async def send_handoff_seller_email(
     </html>
     """
     
-    if RESEND_API_KEY:
+    if RESEND_API_KEY and resend is not None:
         try:
             params: resend.Emails.SendParams = {
                 "from": f"{FROM_NAME} <{FROM_EMAIL}>",

@@ -137,7 +137,6 @@ class User(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     email: Optional[str] = Field(default=None, index=True)
-    clerk_user_id: Optional[str] = Field(default=None, index=True, unique=True)
     phone_number: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     is_admin: bool = Field(default=False)
@@ -184,7 +183,8 @@ class AuthLoginCode(SQLModel, table=True):
     __tablename__ = "auth_login_code"
     
     id: Optional[int] = Field(default=None, primary_key=True)
-    email: str = Field(index=True)
+    email: Optional[str] = Field(default=None, index=True)
+    phone_number: Optional[str] = Field(default=None, index=True)
     code_hash: str
     is_active: bool = True
     attempt_count: int = 0
@@ -197,7 +197,8 @@ class AuthSession(SQLModel, table=True):
     __tablename__ = "auth_session"
     
     id: Optional[int] = Field(default=None, primary_key=True)
-    email: str = Field(index=True)
+    email: Optional[str] = Field(default=None, index=True)
+    phone_number: Optional[str] = Field(default=None, index=True)
     user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
     session_token_hash: str = Field(index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)

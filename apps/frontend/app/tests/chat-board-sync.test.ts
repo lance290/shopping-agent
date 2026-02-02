@@ -100,11 +100,9 @@ describe('Chat-Board Synchronization', () => {
     expect(link?.getAttribute('href')).toContain(encodeURIComponent('https://example.com/product/123'));
   });
 
-  test('Projects API mints dev session token when missing and sets sa_session cookie', async () => {
-    vi.stubEnv('NEXT_PUBLIC_DISABLE_CLERK', '1');
+  test('Projects API forwards sa_session cookie as Authorization header', async () => {
     vi.stubEnv('NEXT_PUBLIC_BACKEND_URL', 'http://127.0.0.1:8000');
     vi.stubEnv('NEXT_PUBLIC_BFF_URL', 'http://127.0.0.1:8081');
-    vi.stubEnv('CLERK_SECRET_KEY', '');
 
     vi.resetModules();
 
@@ -112,16 +110,9 @@ describe('Chat-Board Synchronization', () => {
     const mockFetch = vi.fn(async (url: any, init?: any) => {
       calls.push({ url: String(url), init });
 
-      if (String(url).endsWith('/test/mint-session')) {
-        return new Response(JSON.stringify({ session_token: 'minted-token-123' }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-
       if (String(url).endsWith('/api/projects')) {
         const auth = init?.headers?.Authorization || init?.headers?.authorization;
-        if (auth !== 'Bearer minted-token-123') {
+        if (auth !== 'Bearer fake-session-token') {
           return new Response(JSON.stringify({ error: 'Unauthorized' }), {
             status: 401,
             headers: { 'Content-Type': 'application/json' },
@@ -150,7 +141,12 @@ describe('Chat-Board Synchronization', () => {
       url: 'http://localhost/api/projects',
       headers,
       cookies: {
-        get: (_name: string) => undefined,
+        get: (name: string) => {
+          if (name === 'sa_session') {
+            return { value: 'fake-session-token' };
+          }
+          return undefined;
+        },
       },
       json: async () => ({ title: 'Zac\u2019s Birthday' }),
     } as any;
@@ -158,11 +154,6 @@ describe('Chat-Board Synchronization', () => {
     const res = await projectsPost(req);
     expect(res.status).toBe(200);
 
-    const setCookie = res.headers.get('set-cookie') || '';
-    expect(setCookie).toContain('sa_session=');
-    expect(setCookie).toContain('minted-token-123');
-
-    expect(calls.some((c) => c.url.endsWith('/test/mint-session'))).toBe(true);
     expect(calls.some((c) => c.url.endsWith('/api/projects'))).toBe(true);
   });
 

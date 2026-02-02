@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User } from 'lucide-react';
-import Link from 'next/link';
-import { SignedIn, SignedOut, SignOutButton, UserButton } from '@clerk/nextjs';
+import { Send, Bot, User, LogOut } from 'lucide-react';
 import { useShoppingStore } from '../store';
 import { fetchRowsFromDb, fetchProjectsFromDb } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
+import { logout, getMe } from '../utils/auth';
 
 interface Message {
   id: string;
@@ -17,16 +16,28 @@ interface Message {
 }
 
 export default function Chat() {
-  const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userPhone, setUserPhone] = useState<string | null>(null);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastRowIdRef = useRef<number | null>(null);
   
   const store = useShoppingStore();
   const activeRow = store.rows.find(r => r.id === store.activeRowId);
+
+  useEffect(() => {
+    // Check auth state
+    getMe().then(user => {
+      if (user && user.authenticated) {
+        setUserEmail(user.email || null);
+        setUserPhone(user.phone_number || null);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -252,10 +263,13 @@ export default function Chat() {
     }
   }, [store.cardClickQuery]);
 
-  const handleDevLogout = async () => {
+  const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } finally {
+      await logout();
+      window.location.href = '/login';
+    } catch (err) {
+      console.error('Logout failed', err);
+      // Force redirect anyway
       window.location.href = '/login';
     }
   };
@@ -280,36 +294,19 @@ export default function Chat() {
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          {disableClerk ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleDevLogout}
-              className="text-xs"
-            >
-              Clear session
-            </Button>
-          ) : (
-            <>
-              <SignedOut>
-                <Link
-                  href="/login"
-                  className="text-xs font-medium text-onyx hover:text-agent-blurple transition-colors"
-                >
-                  Sign in
-                </Link>
-              </SignedOut>
-              <SignedIn>
-                <SignOutButton redirectUrl="/login">
-                  <Button type="button" variant="ghost" size="sm" className="text-xs">
-                    Sign out
-                  </Button>
-                </SignOutButton>
-                <UserButton afterSignOutUrl="/login" />
-              </SignedIn>
-            </>
-          )}
+          <div className="text-xs text-onyx-muted hidden sm:block">
+            {userEmail || userPhone || 'User'}
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="text-xs text-onyx-muted hover:text-agent-blurple"
+            title="Sign out"
+          >
+            <LogOut className="w-4 h-4" />
+          </Button>
         </div>
       </div>
 

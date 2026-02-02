@@ -34,7 +34,10 @@ describe('Vendor API Functions', () => {
       
       const result = await checkIfService('private jet');
       
-      expect(mockFetch).toHaveBeenCalledWith('/api/check-service?query=private%20jet');
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/check-service?query=private%20jet',
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
       expect(result).toEqual(mockResponse);
       expect(result?.is_service).toBe(true);
       expect(result?.category).toBe('private_aviation');
@@ -85,7 +88,10 @@ describe('Vendor API Functions', () => {
       
       await checkIfService('private jet & charter');
       
-      expect(mockFetch).toHaveBeenCalledWith('/api/check-service?query=private%20jet%20%26%20charter');
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/check-service?query=private%20jet%20%26%20charter',
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
     });
   });
 
@@ -117,7 +123,10 @@ describe('Vendor API Functions', () => {
       
       const result = await getVendors('private_aviation');
       
-      expect(mockFetch).toHaveBeenCalledWith('/api/vendors/private_aviation');
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/vendors/private_aviation',
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
       expect(result).toEqual(mockResponse);
       expect(result?.vendors).toHaveLength(1);
       expect(result?.vendors[0].is_service_provider).toBe(true);
@@ -150,7 +159,10 @@ describe('Vendor API Functions', () => {
       
       await getVendors('private aviation');
       
-      expect(mockFetch).toHaveBeenCalledWith('/api/vendors/private%20aviation');
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/vendors/private%20aviation',
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
     });
   });
 });

@@ -1,8 +1,7 @@
 """
 Centralized FastAPI dependencies to eliminate duplicated auth patterns.
 
-This module consolidates authentication and authorization logic that was
-previously scattered across main.py with 18+ HTTPException(401) duplications.
+This module consolidates authentication and authorization logic.
 """
 
 from typing import Optional
@@ -12,7 +11,6 @@ from sqlmodel import select
 
 from database import get_session
 from models import AuthSession, User, hash_token
-from clerk_auth import get_clerk_user_id
 
 
 async def get_current_session(
@@ -22,7 +20,6 @@ async def get_current_session(
     """
     Extract and validate session from Authorization header.
 
-    Supports both legacy session tokens and Clerk JWTs.
     Returns None if authentication fails.
     """
     if not authorization or not authorization.startswith("Bearer "):
@@ -30,33 +27,7 @@ async def get_current_session(
 
     token = authorization[7:]
 
-    # First, try Clerk JWT verification
-    clerk_user_id = get_clerk_user_id(token)
-    if clerk_user_id:
-        # Find or create user by Clerk ID
-        result = await session.exec(
-            select(User).where(User.clerk_user_id == clerk_user_id)
-        )
-        user = result.first()
-
-        if not user:
-            # Create new user for this Clerk ID
-            user = User(clerk_user_id=clerk_user_id, email=None)
-            session.add(user)
-            await session.commit()
-            await session.refresh(user)
-            print(f"[CLERK] Created new user {user.id} for Clerk ID {clerk_user_id}")
-
-        # Return a synthetic AuthSession for compatibility
-        fake_session = AuthSession(
-            user_id=user.id,
-            session_token_hash="clerk_jwt",
-            email=user.email,
-        )
-        fake_session.id = -1  # Marker for Clerk session
-        return fake_session
-
-    # Fallback: try legacy session token lookup
+    # Try legacy session token lookup
     token_hash = hash_token(token)
 
     result = await session.exec(

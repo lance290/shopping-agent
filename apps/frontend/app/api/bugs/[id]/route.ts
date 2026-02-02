@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 
 export const dynamic = 'force-dynamic';
 
-const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
 const BFF_URL = process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8080';
 
 async function getAuthHeader(request: NextRequest): Promise<{ Authorization?: string }> {
-  if (disableClerk) {
-    const cookieToken = request.cookies.get('sa_session')?.value;
-    const token = cookieToken || process.env.DEV_SESSION_TOKEN || process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN;
-    return token ? { Authorization: `Bearer ${token}` } : {};
+  const cookieToken = request.cookies.get('sa_session')?.value;
+  const token = cookieToken || process.env.DEV_SESSION_TOKEN || process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN;
+  
+  // Also check Authorization header
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+      return { Authorization: authHeader };
   }
 
-  const { getToken } = await auth();
-  const token = await getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 

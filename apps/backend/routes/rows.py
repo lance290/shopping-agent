@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from database import get_session
 from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project
 from routes.rows_search import router as rows_search_router
+from sourcing.safety import SafetyService
 
 router = APIRouter(tags=["rows"])
 router.include_router(rows_search_router)
@@ -175,6 +176,19 @@ async def create_row(
     )
     if db_row.choice_factors is None:
         db_row.choice_factors = _default_choice_factors_for_row(db_row)
+
+    # Safety check
+    if row.title:
+        check = SafetyService.check_safety(row.title)
+        if check["status"] != "safe":
+            try:
+                answers = json.loads(db_row.choice_answers or "{}")
+            except:
+                answers = {}
+            answers["safety_status"] = check["status"]
+            answers["safety_reason"] = check["reason"]
+            db_row.choice_answers = json.dumps(answers)
+
     session.add(db_row)
     await session.commit()
     await session.refresh(db_row)
@@ -341,6 +355,24 @@ async def update_row(
     await session.commit()
     await session.refresh(row)
     print(f"Row {row_id} updated successfully: {row}")
+
+    # Post-update safety check if title changed
+    if "title" in row_data:
+        check = SafetyService.check_safety(row.title)
+        try:
+            answers = json.loads(row.choice_answers) if row.choice_answers else {}
+        except:
+            answers = {}
+        
+        # Only update if status changed to avoid loops
+        current_status = answers.get("safety_status")
+        if check["status"] != "safe" or current_status:
+            answers["safety_status"] = check["status"]
+            answers["safety_reason"] = check["reason"]
+            row.choice_answers = json.dumps(answers)
+            session.add(row)
+            await session.commit()
+
     return row
 
 

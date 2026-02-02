@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,135 +13,32 @@ function normalizeBaseUrl(url: string): string {
 const BFF_URL = normalizeBaseUrl(
   process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
 );
-const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
 
-const BACKEND_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://127.0.0.1:8000'
-);
-
-function getDevSessionToken(): string | undefined {
-  return process.env.DEV_SESSION_TOKEN || process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN;
-}
-
-function getCookieSessionToken(request: NextRequest): string | undefined {
+function getAuthHeader(request: NextRequest): string | null {
   const direct = request.cookies.get('sa_session')?.value;
-  if (direct) return direct;
-  const raw = request.headers.get('cookie') || '';
-  const parts = raw.split(';').map((p) => p.trim());
-  const match = parts.find((p) => p.startsWith('sa_session='));
-  if (!match) return undefined;
-  const value = match.slice('sa_session='.length);
-  return value ? decodeURIComponent(value) : undefined;
-}
-
-function isClerkConfigured(): boolean {
-  return Boolean(process.env.CLERK_SECRET_KEY);
-}
-
-async function getAuthHeader(request: NextRequest): Promise<{ Authorization?: string }> {
-  // When Clerk is configured, ONLY use Clerk - no fallback to avoid conflicts
-  if (!disableClerk && isClerkConfigured()) {
-    try {
-      const { getToken } = await auth();
-      const token = await getToken();
-      if (token) {
-        console.log(`[API/projects] Using Clerk JWT`);
-        return { Authorization: `Bearer ${token}` };
-      }
-      console.log(`[API/projects] Clerk configured but no token available`);
-      return {};
-    } catch (err) {
-      console.error(`[API/projects] Clerk auth error:`, err);
-      return {};
-    }
-  }
-
-  // Only use dev token when Clerk is explicitly disabled
-  const devToken = getCookieSessionToken(request) || getDevSessionToken();
-  if (devToken) {
-    console.log(`[API/projects] Using dev token (Clerk disabled)`);
-    return { Authorization: `Bearer ${devToken}` };
-  }
-
-  console.log(`[API/projects] No auth available`);
-  return {};
-}
-
-async function ensureAuthHeader(request: NextRequest): Promise<{ Authorization?: string; mintedToken?: string }> {
-  const authHeader = await getAuthHeader(request);
-  if (authHeader.Authorization) {
-    return { Authorization: authHeader.Authorization };
-  }
-
-  if (!disableClerk && isClerkConfigured()) {
-    return {};
-  }
-
-  const mintedToken = await mintDevSessionToken();
-  if (!mintedToken) {
-    return {};
-  }
-  return { Authorization: `Bearer ${mintedToken}`, mintedToken };
-}
-
-async function mintDevSessionToken(): Promise<string | undefined> {
-  try {
-    const devEmail =
-      process.env.NEXT_PUBLIC_DEV_SESSION_EMAIL ||
-      process.env.DEV_SESSION_EMAIL ||
-      'test@example.com';
-    const res = await fetch(`${BACKEND_URL}/test/mint-session`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: devEmail }),
-    });
-    if (!res.ok) return undefined;
-    const data = await res.json();
-    const token = data?.session_token;
-    return token || undefined;
-  } catch {
-    return undefined;
-  }
+  if (direct) return `Bearer ${direct}`;
+  
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) return authHeader;
+  
+  return null;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = await ensureAuthHeader(request);
-    if (!authHeader.Authorization) {
+    const authHeader = getAuthHeader(request);
+    if (!authHeader) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let response = await fetch(`${BFF_URL}/api/projects`, {
+    const response = await fetch(`${BFF_URL}/api/projects`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: authHeader.Authorization,
+        Authorization: authHeader,
       },
     });
 
-    // Only retry with dev token when Clerk is disabled
-    if (response.status === 401 && (disableClerk || !isClerkConfigured())) {
-      const mintedToken = await mintDevSessionToken();
-      if (mintedToken) {
-        response = await fetch(`${BFF_URL}/api/projects`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${mintedToken}`,
-          },
-        });
-        const data = await response.json();
-        const out = NextResponse.json(data, { status: response.status });
-        out.cookies.set('sa_session', mintedToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          path: '/',
-        });
-        return out;
-      }
-    }
-    
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
@@ -153,51 +49,21 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = await ensureAuthHeader(request);
-    console.log(`[API/projects] POST authHeader present: ${!!authHeader.Authorization}, BFF_URL: ${BFF_URL}`);
-    if (!authHeader.Authorization) {
-      console.error(`[API/projects] No auth header - disableClerk: ${disableClerk}, isClerkConfigured: ${isClerkConfigured()}`);
+    const authHeader = getAuthHeader(request);
+    if (!authHeader) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    console.log(`[API/projects] Creating project with title: ${body.title}`);
     
-    let response = await fetch(`${BFF_URL}/api/projects`, {
+    const response = await fetch(`${BFF_URL}/api/projects`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: authHeader.Authorization,
+        Authorization: authHeader,
       },
       body: JSON.stringify(body),
     });
-
-    if (response.status === 401) {
-      const mintedToken = await mintDevSessionToken();
-      if (mintedToken) {
-        response = await fetch(`${BFF_URL}/api/projects`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${mintedToken}`,
-          },
-          body: JSON.stringify(body),
-        });
-
-        // If minting fixed auth, persist cookie for subsequent requests.
-        if (response.ok) {
-          const data = await response.json();
-          const out = NextResponse.json(data, { status: response.status });
-          out.cookies.set('sa_session', mintedToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            path: '/',
-          });
-          return out;
-        }
-      }
-    }
     
     if (!response.ok) {
       const text = await response.text();
@@ -206,16 +72,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    const out = NextResponse.json(data, { status: response.status });
-    if (authHeader.mintedToken) {
-      out.cookies.set('sa_session', authHeader.mintedToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-      });
-    }
-    return out;
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error creating project:', error);
     return NextResponse.json({ error: 'Failed to create project' }, { status: 500 });
@@ -224,8 +81,8 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const authHeader = await ensureAuthHeader(request);
-    if (!authHeader.Authorization) {
+    const authHeader = getAuthHeader(request);
+    if (!authHeader) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -236,46 +93,15 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing project ID' }, { status: 400 });
     }
     
-    let response = await fetch(`${BFF_URL}/api/projects/${id}`, {
+    const response = await fetch(`${BFF_URL}/api/projects/${id}`, {
       method: 'DELETE',
       headers: {
-        Authorization: authHeader.Authorization,
+        Authorization: authHeader,
       }
     });
-
-    if (response.status === 401) {
-      const mintedToken = await mintDevSessionToken();
-      if (mintedToken) {
-        response = await fetch(`${BFF_URL}/api/projects/${id}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${mintedToken}`,
-          },
-        });
-
-        const data = await response.json();
-        const out = NextResponse.json(data, { status: response.status });
-        out.cookies.set('sa_session', mintedToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          path: '/',
-        });
-        return out;
-      }
-    }
     
     const data = await response.json();
-    const out = NextResponse.json(data, { status: response.status });
-    if (authHeader.mintedToken) {
-      out.cookies.set('sa_session', authHeader.mintedToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-      });
-    }
-    return out;
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Error deleting project:', error);
     return NextResponse.json({ error: 'Failed to delete project' }, { status: 500 });

@@ -1,30 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 
 export const dynamic = 'force-dynamic';
 
 const BFF_URL = process.env.BFF_URL || 'http://localhost:8081';
 
-const disableClerk = process.env.NEXT_PUBLIC_DISABLE_CLERK === '1';
+function getAuthHeader(request: NextRequest): string | null {
+  const direct = request.cookies.get('sa_session')?.value;
+  if (direct) return `Bearer ${direct}`;
+  
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) return authHeader;
+  
+  return null;
+}
 
 export async function GET(request: NextRequest) {
   try {
-    // Get auth token if available (for tracking, not required)
-    let token: string | null = null;
-    if (disableClerk) {
-      token = process.env.DEV_SESSION_TOKEN || null;
-    } else {
-      const { getToken } = await auth();
-      token = await getToken();
-    }
+    const authHeader = getAuthHeader(request);
     
     // Forward all query params to BFF
     const { searchParams } = new URL(request.url);
     const params = searchParams.toString();
     
     const headers: Record<string, string> = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    if (authHeader) {
+      headers['Authorization'] = authHeader;
     }
     
     // Fetch from BFF, don't follow redirects

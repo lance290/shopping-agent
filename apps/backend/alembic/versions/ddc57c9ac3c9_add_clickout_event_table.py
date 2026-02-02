@@ -30,13 +30,11 @@ def upgrade() -> None:
             'user',
             sa.Column('id', sa.Integer(), primary_key=True, nullable=False),
             sa.Column('email', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-            sa.Column('clerk_user_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
             sa.Column('phone_number', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
             sa.Column('created_at', sa.DateTime(), nullable=False),
             sa.Column('is_admin', sa.Boolean(), nullable=False, server_default='false'),
         )
         op.create_index(op.f('ix_user_email'), 'user', ['email'], unique=False)
-        op.create_index(op.f('ix_user_clerk_user_id'), 'user', ['clerk_user_id'], unique=True)
         tables = inspector.get_table_names()
 
     if 'seller' not in tables:
