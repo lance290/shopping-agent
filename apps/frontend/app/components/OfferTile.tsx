@@ -156,6 +156,17 @@ export default function OfferTile({
           )}
           
           <div className="mt-auto">
+            {isServiceProvider && (
+              <div className="text-xl font-bold text-white mb-3 text-center">
+                Request Quote
+              </div>
+            )}
+            {!isServiceProvider && (
+              <div className="text-[13px] font-semibold text-onyx mb-2">
+                {offer.currency === 'USD' ? '$' : offer.currency}
+                {safePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            )}
             <div className="flex items-center gap-2 mb-2">
               {offer.bid_id && (
                 <button
@@ -208,16 +219,6 @@ export default function OfferTile({
               >
                 <Share2 size={12} />
               </button>
-            </div>
-            <div className="text-[13px] font-semibold text-onyx mb-2">
-              {isServiceProvider ? (
-                <span className="text-blue-600">Request Quote</span>
-              ) : (
-                <>
-                  {offer.currency === 'USD' ? '$' : offer.currency}
-                  {safePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </>
-              )}
             </div>
             
             <div className="space-y-1 min-h-[36px]">
