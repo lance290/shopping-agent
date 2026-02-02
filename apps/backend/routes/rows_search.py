@@ -22,6 +22,7 @@ from sourcing import (
     available_provider_ids,
 )
 from sourcing.service import SourcingService
+from sourcing.material_filter import extract_material_constraints, should_exclude_result
 
 router = APIRouter(tags=["rows"])
 logger = logging.getLogger(__name__)
@@ -212,13 +213,28 @@ async def search_row_listings(
             )
         )
 
-    # Filter results by price constraints from choice_answers
+    # Extract material and price constraints from choice_answers and spec
     min_price_filter = None
     max_price_filter = None
+    exclude_synthetics = False
+    custom_exclude_keywords = set()
+
+    # Check for material constraints in spec
+    if spec and spec.constraints:
+        try:
+            constraints_obj = json.loads(spec.constraints)
+            exclude_synthetics, custom_exclude_keywords = extract_material_constraints(constraints_obj)
+            logger.info(f"[SEARCH] Material constraints from spec: exclude_synthetics={exclude_synthetics}, custom_keywords={custom_exclude_keywords}")
+        except Exception as e:
+            logger.error(f"[SEARCH] Failed to parse spec constraints: {e}")
+
+    # Check for price and material constraints in choice_answers
     if row.choice_answers:
         try:
             answers_obj = json.loads(row.choice_answers)
             logger.info(f"[SEARCH] choice_answers for row {row_id}: {answers_obj}")
+
+            # Extract price constraints
             if answers_obj.get("min_price"):
                 min_price_filter = float(answers_obj["min_price"])
             if answers_obj.get("max_price"):
@@ -227,32 +243,58 @@ async def search_row_listings(
             if min_price_filter is not None and max_price_filter is not None and min_price_filter > max_price_filter:
                 logger.warning(f"[SEARCH] Inverted price range detected (min={min_price_filter} > max={max_price_filter}), swapping")
                 min_price_filter, max_price_filter = max_price_filter, min_price_filter
+
+            # Extract material constraints
+            exclude_synth_from_answers, custom_keywords_from_answers = extract_material_constraints(answers_obj)
+            exclude_synthetics = exclude_synthetics or exclude_synth_from_answers
+            custom_exclude_keywords.update(custom_keywords_from_answers)
+
         except Exception as e:
             logger.error(f"[SEARCH] Failed to parse choice_answers: {e}")
     else:
         logger.info(f"[SEARCH] No choice_answers for row {row_id}")
 
-    if min_price_filter is not None or max_price_filter is not None:
+    # Apply price and material filtering
+    if min_price_filter is not None or max_price_filter is not None or exclude_synthetics or custom_exclude_keywords:
         filtered_results = []
         # Sources that don't provide price data - allow through without price filtering
         non_shopping_sources = {"google_cse"}
+        dropped_price = 0
+        dropped_materials = 0
+
         for r in results:
             source = getattr(r, "source", None)
-            # Allow non-shopping sources through (they don't have price data)
+
+            # Check material constraints first (applies to all sources)
+            if exclude_synthetics or custom_exclude_keywords:
+                title = getattr(r, "title", "")
+                if should_exclude_result(title, exclude_synthetics, custom_exclude_keywords):
+                    dropped_materials += 1
+                    logger.debug(f"[SEARCH] Excluded due to materials: {title}")
+                    continue
+
+            # Apply price filtering (skip for non-shopping sources)
             if source in non_shopping_sources:
                 filtered_results.append(r)
                 continue
+
             price = getattr(r, "price", None)
             if price is None or price == 0:
+                dropped_price += 1
                 continue
             # Filter: keep items where price >= min AND price <= max
             if min_price_filter is not None and price < min_price_filter:
+                dropped_price += 1
                 continue
             if max_price_filter is not None and price > max_price_filter:
+                dropped_price += 1
                 continue
             filtered_results.append(r)
+
         logger.info(
-            f"[SEARCH] Filtered {len(results)} -> {len(filtered_results)} results (min={min_price_filter}, max={max_price_filter})"
+            f"[SEARCH] Filtered {len(results)} -> {len(filtered_results)} results "
+            f"(price_filter: min={min_price_filter}, max={max_price_filter}, dropped={dropped_price}; "
+            f"material_filter: exclude_synthetics={exclude_synthetics}, dropped={dropped_materials})"
         )
         results = filtered_results
 
@@ -339,9 +381,21 @@ async def search_row_listings_stream(
     if not sanitized_query:
         sanitized_query = base_query.strip()
 
-    # Get price filters
+    # Get price and material filters
     min_price_filter = None
     max_price_filter = None
+    exclude_synthetics = False
+    custom_exclude_keywords = set()
+
+    # Check for material constraints in spec
+    if spec and spec.constraints:
+        try:
+            constraints_obj = json.loads(spec.constraints)
+            exclude_synthetics, custom_exclude_keywords = extract_material_constraints(constraints_obj)
+        except Exception:
+            pass
+
+    # Check for price and material constraints in choice_answers
     if row.choice_answers:
         try:
             answers_obj = json.loads(row.choice_answers)
@@ -351,6 +405,11 @@ async def search_row_listings_stream(
                 max_price_filter = float(answers_obj["max_price"])
             if min_price_filter is not None and max_price_filter is not None and min_price_filter > max_price_filter:
                 min_price_filter, max_price_filter = max_price_filter, min_price_filter
+
+            # Extract material constraints
+            exclude_synth_from_answers, custom_keywords_from_answers = extract_material_constraints(answers_obj)
+            exclude_synthetics = exclude_synthetics or exclude_synth_from_answers
+            custom_exclude_keywords.update(custom_keywords_from_answers)
         except Exception:
             pass
 
@@ -369,15 +428,23 @@ async def search_row_listings_stream(
             max_price=max_price_filter,
         ):
             all_statuses.append(status)
-            
+
             # Convert and filter results
             filtered_batch = []
             for r in results:
+                # Check material constraints first (applies to all sources)
+                if exclude_synthetics or custom_exclude_keywords:
+                    title = getattr(r, "title", "")
+                    if should_exclude_result(title, exclude_synthetics, custom_exclude_keywords):
+                        continue
+
                 source = getattr(r, "source", None)
-                # Allow non-shopping sources through
+                # Allow non-shopping sources through (skip price filtering)
                 if source in non_shopping_sources:
                     filtered_batch.append(r)
                     continue
+
+                # Apply price filtering
                 price = getattr(r, "price", None)
                 if price is None or price == 0:
                     continue
