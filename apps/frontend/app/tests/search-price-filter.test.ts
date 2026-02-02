@@ -151,7 +151,11 @@ describe('Search API Request Building', () => {
     const calls = fetchSpy.mock.calls as unknown as [string, RequestInit?][];
     const url = calls[0][0];
     expect(url).toContain('/api/search');
-    expect(url).toContain('row_id=123');
+
+    const init = calls[0][1] as RequestInit | undefined;
+    expect(init?.method).toBe('POST');
+    const body = JSON.parse(String(init?.body || '{}'));
+    expect(body.rowId).toBe(123);
   });
 
   test('search request can specify providers', async () => {
@@ -167,6 +171,10 @@ describe('Search API Request Building', () => {
     expect(fetchSpy).toHaveBeenCalled();
     const calls = fetchSpy.mock.calls as unknown as [string, RequestInit?][];
     const url = calls[0][0];
-    expect(url).toContain('providers=rainforest');
+
+    const init = calls[0][1] as RequestInit | undefined;
+    expect(init?.method).toBe('POST');
+    const body = JSON.parse(String(init?.body || '{}'));
+    expect(body.providers).toEqual(['rainforest']);
   });
 });

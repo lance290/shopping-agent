@@ -118,6 +118,18 @@ def extract_material_constraints(constraints: dict) -> tuple[bool, Set[str]]:
         key_lower = key.lower()
         value_lower = str(value).lower()
 
+        # Detect synthetic-exclusion intent even when expressed in values
+        # e.g. {"material": "no plastic"} or {"material": "without petroleum"}
+        if any(term in value_lower for term in ["plastic", "petroleum", "synthetic"]):
+            if any(neg in value_lower for neg in ["no ", "without", "exclude"]):
+                exclude_synthetics = True
+            if "plastic" in value_lower:
+                custom_exclude_keywords.add("plastic")
+            if "petroleum" in value_lower:
+                custom_exclude_keywords.add("petroleum")
+            if "synthetic" in value_lower:
+                custom_exclude_keywords.add("synthetic")
+
         # Check if user is requesting exclusion of plastic/petroleum materials
         if "plastic" in key_lower or "petroleum" in key_lower or "synthetic" in key_lower:
             if "no" in value_lower or "without" in value_lower or "exclude" in value_lower:

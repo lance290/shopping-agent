@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Copy, Check, Mail, Building2, User } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 
@@ -20,8 +21,13 @@ export default function VendorContactModal({
   vendorEmail,
 }: VendorContactModalProps) {
   const [copied, setCopied] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen || !mounted) return null;
 
   const handleCopyEmail = async () => {
     try {
@@ -37,17 +43,14 @@ export default function VendorContactModal({
     window.location.href = `mailto:${vendorEmail}`;
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
-      
-      {/* Modal */}
+
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-        {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">Contact Provider</h2>
@@ -60,7 +63,6 @@ export default function VendorContactModal({
           </div>
         </div>
 
-        {/* Content */}
         <div className="p-6 space-y-4">
           <div className="flex items-center gap-3 text-onyx">
             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
@@ -93,7 +95,6 @@ export default function VendorContactModal({
           </div>
         </div>
 
-        {/* Actions */}
         <div className="px-6 pb-6 flex gap-3">
           <Button
             variant="secondary"
@@ -122,6 +123,7 @@ export default function VendorContactModal({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

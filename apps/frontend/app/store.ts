@@ -104,7 +104,15 @@ export function mapBidToOffer(bid: Bid): Offer {
 export function parseChoiceFactors(row: Row): any[] {
   if (!row.choice_factors) return [];
   try {
-    return JSON.parse(row.choice_factors);
+    const parsed = JSON.parse(row.choice_factors);
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && typeof parsed === 'object') {
+      return Object.entries(parsed).map(([name, value]) => ({
+        name,
+        ...(value as Record<string, any>),
+      }));
+    }
+    return [];
   } catch {
     return [];
   }
