@@ -91,10 +91,10 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
     setIsSearching(true);
     setSearchErrorMessage(null);
-    console.log('[RowStrip] calling runSearchApiWithStatus for row:', row.id);
+    console.log('[RowStrip] calling runSearchApiWithStatus for row:', row.id, 'title:', row.title);
     try {
       const searchResponse = await runSearchApiWithStatus(
-        null,
+        row.title,
         row.id,
         mode === 'rainforest' ? { providers: ['rainforest'] } : undefined
       );

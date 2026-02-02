@@ -107,7 +107,7 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
       
       // Also trigger a search to refresh offers
       console.log('[RequestTile] Triggering search...');
-      const searchResponse = await runSearchApiWithStatus(null, row.id);
+      const searchResponse = await runSearchApiWithStatus(row.title, row.id);
       console.log('[RequestTile] Search response:', searchResponse.results?.length, 'results');
       if (searchResponse.results) {
         setRowResults(row.id, searchResponse.results, searchResponse.providerStatuses);
@@ -140,7 +140,7 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
     if (success) {
       updateRow(row.id, { choice_answers: JSON.stringify(newAnswers) });
       setIsSearching(true);
-      const res = await runSearchApiWithStatus(null, row.id);
+      const res = await runSearchApiWithStatus(row.title, row.id);
       setRowResults(row.id, res.results, res.providerStatuses);
       const freshRow = await fetchSingleRowFromDb(row.id);
       if (freshRow) {
