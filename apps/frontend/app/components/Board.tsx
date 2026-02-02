@@ -43,10 +43,15 @@ export default function ProcurementBoard() {
     };
   }, []);
 
-  // Auto-scroll to top when rows change and a new row is added (based on activeRowId)
+  // Auto-scroll to center the selected row when activeRowId changes
   useEffect(() => {
     if (activeRowId && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      // Find the row element by its data attribute
+      const rowElement = scrollContainerRef.current.querySelector(`[data-row-id="${activeRowId}"]`);
+      if (rowElement) {
+        // Scroll the row into view, centering it in the viewport
+        rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
   }, [activeRowId]);
 
