@@ -64,32 +64,32 @@ export default function VendorContactModal({
         </div>
 
         <div className="p-6 space-y-4">
-          <div className="flex items-center gap-3 text-onyx">
+          <div className="flex items-center gap-3 text-ink">
             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
               <Building2 size={20} className="text-blue-600" />
             </div>
             <div>
-              <div className="text-sm text-onyx-muted">Company</div>
+              <div className="text-sm text-ink-muted">Company</div>
               <div className="font-semibold">{vendorCompany}</div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-onyx">
+          <div className="flex items-center gap-3 text-ink">
             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
               <User size={20} className="text-blue-600" />
             </div>
             <div>
-              <div className="text-sm text-onyx-muted">Contact</div>
+              <div className="text-sm text-ink-muted">Contact</div>
               <div className="font-semibold">{vendorName}</div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-onyx">
+          <div className="flex items-center gap-3 text-ink">
             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
               <Mail size={20} className="text-blue-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm text-onyx-muted">Email</div>
+              <div className="text-sm text-ink-muted">Email</div>
               <div className="font-semibold truncate">{vendorEmail}</div>
             </div>
           </div>
