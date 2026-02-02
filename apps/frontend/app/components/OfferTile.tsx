@@ -35,6 +35,7 @@ export default function OfferTile({
   const source = String(offer.source || '').toLowerCase();
   const isBiddable = source === 'manual' || source.includes('seller');
   const isSellerQuote = source === 'seller_quote';
+  const isServiceProvider = offer.is_service_provider === true;
   const isSelected = offer.is_selected === true;
   const isLiked = offer.is_liked === true;
   const canSelect = Boolean(onSelect && offer.bid_id);
@@ -79,13 +80,19 @@ export default function OfferTile({
       >
         {/* Badges */}
         <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5">
-          {isSellerQuote && (
+          {isServiceProvider && (
+            <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-blue-500/10 text-blue-700 border border-blue-500/20">
+              <ShieldCheck size={10} />
+              Charter Provider
+            </div>
+          )}
+          {isSellerQuote && !isServiceProvider && (
             <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
               <ShieldCheck size={10} />
               Vendor Quote
             </div>
           )}
-          {isBiddable && !isSellerQuote && (
+          {isBiddable && !isSellerQuote && !isServiceProvider && (
             <div className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-black/5 text-onyx-muted border border-black/10">
               Negotiable
             </div>
@@ -195,8 +202,14 @@ export default function OfferTile({
               </button>
             </div>
             <div className="text-[13px] font-semibold text-onyx mb-2">
-              {offer.currency === 'USD' ? '$' : offer.currency}
-              {safePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {isServiceProvider ? (
+                <span className="text-blue-600">Request Quote</span>
+              ) : (
+                <>
+                  {offer.currency === 'USD' ? '$' : offer.currency}
+                  {safePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </>
+              )}
             </div>
             
             <div className="space-y-1 min-h-[36px]">

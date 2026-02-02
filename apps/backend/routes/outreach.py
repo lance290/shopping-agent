@@ -13,7 +13,7 @@ from models import (
     generate_magic_link_token,
 )
 from database import get_session
-from services.wattdata_mock import get_vendors, Vendor
+from services.wattdata_mock import get_vendors, get_vendors_as_results, is_service_category, Vendor
 from services.email import send_outreach_email
 
 router = APIRouter(prefix="/outreach", tags=["outreach"])
@@ -251,3 +251,34 @@ async def track_email_open(token: str, session=Depends(get_session)):
     from fastapi.responses import Response
     gif = b'GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x00\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;'
     return Response(content=gif, media_type="image/gif")
+
+
+@router.get("/vendors/{category}")
+async def get_vendors_for_category(category: str, limit: int = 10):
+    """Get vendors for a category as search result tiles."""
+    vendors = get_vendors_as_results(category)
+    return {
+        "category": category,
+        "vendors": vendors[:limit],
+        "is_service": True,
+    }
+
+
+@router.get("/check-service")
+async def check_if_service(query: str):
+    """Check if a query is for a service category."""
+    is_service = is_service_category(query)
+    category = None
+    if is_service:
+        lower = query.lower()
+        if any(t in lower for t in ["jet", "charter", "flight", "aviation", "fly", "plane"]):
+            category = "private_aviation"
+        elif any(t in lower for t in ["roof"]):
+            category = "roofing"
+        elif any(t in lower for t in ["hvac", "heating", "cooling"]):
+            category = "hvac"
+    return {
+        "query": query,
+        "is_service": is_service,
+        "category": category,
+    }

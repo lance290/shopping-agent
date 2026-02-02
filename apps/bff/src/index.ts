@@ -1645,7 +1645,38 @@ export function buildApp() {
     }
   });
 
-  // Outreach Proxy
+  // Outreach Proxy - Vendor endpoints
+  fastify.get('/api/outreach/vendors/:category', async (request, reply) => {
+    try {
+      const { category } = request.params as { category: string };
+      const response = await fetch(`${BACKEND_URL}/outreach/vendors/${category}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      reply.status(response.status).send(data);
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Failed to get vendors' });
+    }
+  });
+
+  fastify.get('/api/outreach/check-service', async (request, reply) => {
+    try {
+      const query = (request.query as { query?: string }).query || '';
+      const response = await fetch(`${BACKEND_URL}/outreach/check-service?query=${encodeURIComponent(query)}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      reply.status(response.status).send(data);
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Failed to check service' });
+    }
+  });
+
+  // Outreach Proxy - Row triggers
   fastify.post('/api/outreach/rows/:rowId/trigger', async (request, reply) => {
     try {
       const { rowId } = request.params as { rowId: string };

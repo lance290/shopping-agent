@@ -20,6 +20,11 @@ export interface Offer {
   is_liked?: boolean;
   liked_at?: string; // ISO timestamp when liked
   comment_preview?: string;
+  // Vendor/service provider fields
+  is_service_provider?: boolean;
+  vendor_email?: string;
+  vendor_name?: string;
+  vendor_company?: string;
 }
 
 export type ProviderStatusType = 'ok' | 'error' | 'timeout' | 'exhausted' | 'rate_limited';

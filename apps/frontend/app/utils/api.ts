@@ -278,6 +278,34 @@ export const runSearchApiWithStatus = async (
       body.providers = options.providers;
     }
 
+    // Check if this is a service query and get vendors
+    let vendorResults: Offer[] = [];
+    const searchQuery = body.query || '';
+    if (searchQuery) {
+      const serviceCheck = await checkIfService(searchQuery);
+      if (serviceCheck?.is_service && serviceCheck?.category) {
+        const vendorsData = await getVendors(serviceCheck.category);
+        if (vendorsData?.vendors) {
+          vendorResults = vendorsData.vendors.map((v: VendorResult) => ({
+            title: v.title,
+            price: 0,
+            currency: 'USD',
+            merchant: v.vendor_company,
+            url: v.url,
+            image_url: v.image_url,
+            rating: null,
+            reviews_count: null,
+            shipping_info: null,
+            source: 'JetBid',
+            is_service_provider: true,
+            vendor_email: v.vendor_email,
+            vendor_name: v.vendor_name,
+            vendor_company: v.vendor_company,
+          } as Offer));
+        }
+      }
+    }
+
     const res = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -288,7 +316,7 @@ export const runSearchApiWithStatus = async (
     const userMessage = typeof data?.user_message === 'string' ? data.user_message : undefined;
     const providerStatuses = Array.isArray(data?.provider_statuses) ? data.provider_statuses : undefined;
     
-    const results = rawResults.map((r: any) => {
+    const productResults = rawResults.map((r: any) => {
       const price = Number(r?.price);
       const rating = r?.rating === null || r?.rating === undefined ? null : Number(r?.rating);
       const reviewsCount = r?.reviews_count === null || r?.reviews_count === undefined ? null : Number(r?.reviews_count);
@@ -311,6 +339,9 @@ export const runSearchApiWithStatus = async (
         is_selected: typeof r?.is_selected === 'boolean' ? r.is_selected : undefined,
       } satisfies Offer;
     });
+    
+    // Combine vendor results (first) with product results
+    const results = [...vendorResults, ...productResults];
     
     return { results, userMessage, providerStatuses };
   } catch (err) {
@@ -748,6 +779,56 @@ export const getShareMetrics = async (token: string): Promise<ShareMetricsRespon
     return await res.json();
   } catch (err) {
     console.error('[API] Get share metrics error:', err);
+    return null;
+  }
+};
+
+// Service/Vendor types
+export interface ServiceCheckResponse {
+  query: string;
+  is_service: boolean;
+  category: string | null;
+}
+
+export interface VendorResult {
+  title: string;
+  description: string;
+  price: number | null;
+  url: string;
+  image_url: string | null;
+  source: string;
+  is_service_provider: boolean;
+  vendor_email: string;
+  vendor_name: string;
+  vendor_company: string;
+}
+
+export interface VendorsResponse {
+  category: string;
+  vendors: VendorResult[];
+  is_service: boolean;
+}
+
+// Check if a search query is for a service (vs product)
+export const checkIfService = async (query: string): Promise<ServiceCheckResponse | null> => {
+  try {
+    const res = await fetch(`/api/check-service?query=${encodeURIComponent(query)}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Check service error:', err);
+    return null;
+  }
+};
+
+// Get vendors for a service category
+export const getVendors = async (category: string): Promise<VendorsResponse | null> => {
+  try {
+    const res = await fetch(`/api/vendors/${encodeURIComponent(category)}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Get vendors error:', err);
     return null;
   }
 };

@@ -16,38 +16,63 @@ class Vendor:
     source: str = "wattdata"
 
 
-# Hardcoded vendors for demo - use demo+* email aliases
+# Real charter providers for JetBid demo
 MOCK_VENDORS: dict[str, List[Vendor]] = {
     "private_aviation": [
         Vendor(
-            name="Sales Team",
-            company="NetJets",
-            email="demo+netjets@buyanything.ai",
-            phone="555-0101",
+            name="Charter Team",
+            company="JetRight Nashville",
+            email="charter@jetrightnashville.com",
+        ),
+        Vendor(
+            name="Adnan",
+            company="247 Jet",
+            email="adnan@247jet.com",
         ),
         Vendor(
             name="Charter Desk",
-            company="Wheels Up",
-            email="demo+wheelsup@buyanything.ai",
-            phone="555-0102",
+            company="WCAS Aviation",
+            email="charter@wcas.aero",
         ),
         Vendor(
-            name="Booking Team",
-            company="XO",
-            email="demo+xo@buyanything.ai",
-            phone="555-0103",
+            name="Info",
+            company="Business Jet Advisors",
+            email="info@businessjetadvisors.com",
         ),
         Vendor(
-            name="Client Services",
-            company="VistaJet",
-            email="demo+vistajet@buyanything.ai",
-            phone="555-0104",
+            name="Michael Morrissey",
+            company="flyExclusive",
+            email="mmorrissey@flyexclusive.com",
         ),
         Vendor(
-            name="Charter Sales",
-            company="Flexjet",
-            email="demo+flexjet@buyanything.ai",
-            phone="555-0105",
+            name="Info",
+            company="Airble",
+            email="info@airble.com",
+        ),
+        Vendor(
+            name="J Kessler",
+            company="V2 Jets",
+            email="jkessler@v2jets.com",
+        ),
+        Vendor(
+            name="Michael Hall",
+            company="FX Air",
+            email="michael.hall@fxair.com",
+        ),
+        Vendor(
+            name="C Parker",
+            company="Jet Access",
+            email="cparker@flyja.com",
+        ),
+        Vendor(
+            name="Charter Team",
+            company="Peak Aviation Solutions",
+            email="charter@peakaviationsolutions.com",
+        ),
+        Vendor(
+            name="Fly Team",
+            company="V2 Jets (Alt)",
+            email="fly@v2jets.com",
         ),
     ],
     "roofing": [
@@ -133,8 +158,9 @@ def get_vendor_suggestions(description: str) -> List[str]:
     """
     lower = description.lower()
     
-    if any(term in lower for term in ["jet", "flight", "charter", "aviation", "fly"]):
-        return ["NetJets", "Wheels Up", "XO", "VistaJet", "Flexjet"]
+    if any(term in lower for term in ["jet", "flight", "charter", "aviation", "fly", "plane"]):
+        vendors = MOCK_VENDORS.get("private_aviation", [])
+        return [v.company for v in vendors]
     
     if any(term in lower for term in ["roof", "shingle", "gutter"]):
         return ["ABC Roofing", "Top Notch Roofing", "Superior Roofing Co"]
@@ -144,3 +170,37 @@ def get_vendor_suggestions(description: str) -> List[str]:
     
     # Default fallback
     return []
+
+
+def is_service_category(query: str) -> bool:
+    """Check if a search query is for a service (vs a product)."""
+    lower = query.lower()
+    service_terms = [
+        "jet", "charter", "flight", "aviation", "fly", "plane",
+        "roof", "roofing", "hvac", "heating", "cooling", "plumb",
+        "electric", "landscap", "clean", "repair", "service"
+    ]
+    return any(term in lower for term in service_terms)
+
+
+def get_vendors_as_results(category: str) -> List[dict]:
+    """
+    Get vendors formatted as search result tiles.
+    Returns list of dicts that match the Bid/offer format.
+    """
+    vendors = get_vendors(category, limit=10)
+    results = []
+    for i, vendor in enumerate(vendors):
+        results.append({
+            "title": vendor.company,
+            "description": f"Charter service provider - {vendor.name}",
+            "price": None,  # Service providers don't have fixed prices
+            "url": f"mailto:{vendor.email}",
+            "image_url": None,
+            "source": "JetBid",
+            "is_service_provider": True,
+            "vendor_email": vendor.email,
+            "vendor_name": vendor.name,
+            "vendor_company": vendor.company,
+        })
+    return results
