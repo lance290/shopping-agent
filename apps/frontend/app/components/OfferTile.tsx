@@ -29,13 +29,15 @@ export default function OfferTile({
   const [showMobileTooltip, setShowMobileTooltip] = useState(false);
   const { openPanel } = useDetailPanelStore();
 
-  // Build clickout URL
-  const clickUrl = offer.click_url || `/api/clickout?url=${encodeURIComponent(offer.url)}&row_id=${rowId}&idx=${index}&source=${encodeURIComponent(offer.source)}`;
+  // Build clickout URL - service providers use direct URL (mailto:), others go through clickout
   const safePrice = Number.isFinite(offer.price) ? offer.price : 0;
   const source = String(offer.source || '').toLowerCase();
   const isBiddable = source === 'manual' || source.includes('seller');
   const isSellerQuote = source === 'seller_quote';
   const isServiceProvider = offer.is_service_provider === true;
+  const clickUrl = isServiceProvider 
+    ? offer.url 
+    : (offer.click_url || `/api/clickout?url=${encodeURIComponent(offer.url)}&row_id=${rowId}&idx=${index}&source=${encodeURIComponent(offer.source)}`);
   const isSelected = offer.is_selected === true;
   const isLiked = offer.is_liked === true;
   const canSelect = Boolean(onSelect && offer.bid_id);
