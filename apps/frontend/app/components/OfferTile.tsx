@@ -6,6 +6,7 @@ import { cn } from '../../utils/cn';
 import { useState } from 'react';
 import { useDetailPanelStore } from '../stores/detailPanelStore';
 import { MobileDetailTooltip } from './MobileDetailTooltip';
+import VendorContactModal from './VendorContactModal';
 
 interface OfferTileProps {
   offer: Offer;
@@ -27,9 +28,10 @@ export default function OfferTile({
   onShare,
 }: OfferTileProps) {
   const [showMobileTooltip, setShowMobileTooltip] = useState(false);
+  const [showVendorModal, setShowVendorModal] = useState(false);
   const { openPanel } = useDetailPanelStore();
 
-  // Build clickout URL - service providers use direct URL (mailto:), others go through clickout
+  // Build clickout URL - service providers show modal, others go through clickout
   const safePrice = Number.isFinite(offer.price) ? offer.price : 0;
   const source = String(offer.source || '').toLowerCase();
   const isBiddable = source === 'manual' || source.includes('seller');
@@ -75,10 +77,14 @@ export default function OfferTile({
       )}
     >
       <a
-        href={clickUrl}
-        target="_blank"
-        rel="noopener noreferrer"
+        href={isServiceProvider ? '#' : clickUrl}
+        target={isServiceProvider ? undefined : "_blank"}
+        rel={isServiceProvider ? undefined : "noopener noreferrer"}
         className="flex flex-col h-full"
+        onClick={isServiceProvider ? (e) => {
+          e.preventDefault();
+          setShowVendorModal(true);
+        } : undefined}
       >
         {/* Badges */}
         <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5">
@@ -267,6 +273,16 @@ export default function OfferTile({
         show={showMobileTooltip}
         onDismiss={() => setShowMobileTooltip(false)}
       />
+
+      {isServiceProvider && (
+        <VendorContactModal
+          isOpen={showVendorModal}
+          onClose={() => setShowVendorModal(false)}
+          vendorName={offer.vendor_name || 'Contact'}
+          vendorCompany={offer.vendor_company || offer.merchant}
+          vendorEmail={offer.vendor_email || ''}
+        />
+      )}
     </Card>
   );
 }
