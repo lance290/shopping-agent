@@ -53,8 +53,8 @@ export default function BugReportStatusPage() {
         <div className="p-4 bg-rose-50 rounded-full text-rose-500 mb-4">
           <AlertTriangle size={32} />
         </div>
-        <h1 className="text-xl font-semibold text-onyx mb-2">Something went wrong</h1>
-        <p className="text-onyx-muted mb-6">{error || 'Could not find that report.'}</p>
+        <h1 className="text-xl font-semibold text-ink mb-2">Something went wrong</h1>
+        <p className="text-ink-muted mb-6">{error || 'Could not find that report.'}</p>
         <Link href="/">
           <Button variant="secondary">Back to Home</Button>
         </Link>
@@ -101,7 +101,7 @@ export default function BugReportStatusPage() {
   return (
     <div className="min-h-screen bg-warm-white p-4 md:p-8">
       <div className="max-w-2xl mx-auto">
-        <Link href="/" className="inline-flex items-center text-onyx-muted hover:text-onyx mb-6 transition-colors">
+        <Link href="/" className="inline-flex items-center text-ink-muted hover:text-ink mb-6 transition-colors">
           <ArrowLeft size={16} className="mr-2" />
           Back to Board
         </Link>
@@ -111,8 +111,8 @@ export default function BugReportStatusPage() {
           <div className="px-6 py-6 border-b border-warm-grey/50 bg-warm-light/30">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h1 className="text-2xl font-semibold text-onyx">Bug Report #{report.id}</h1>
-                <p className="text-sm text-onyx-muted mt-1">
+                <h1 className="text-2xl font-semibold text-ink">Bug Report #{report.id}</h1>
+                <p className="text-sm text-ink-muted mt-1">
                   Submitted on {new Date(report.created_at).toLocaleDateString()} at {new Date(report.created_at).toLocaleTimeString()}
                 </p>
               </div>
@@ -150,20 +150,20 @@ export default function BugReportStatusPage() {
 
             
             <div>
-              <h3 className="text-sm font-medium text-onyx-muted uppercase tracking-wider mb-2">Description</h3>
-              <p className="text-onyx whitespace-pre-wrap leading-relaxed">{report.notes}</p>
+              <h3 className="text-sm font-medium text-ink-muted uppercase tracking-wider mb-2">Description</h3>
+              <p className="text-ink whitespace-pre-wrap leading-relaxed">{report.notes}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-6">
               <div>
-                <h3 className="text-xs font-medium text-onyx-muted uppercase tracking-wider mb-2">Severity</h3>
-                <span className="inline-block px-2 py-1 bg-gray-100 rounded text-sm text-onyx capitalize">
+                <h3 className="text-xs font-medium text-ink-muted uppercase tracking-wider mb-2">Severity</h3>
+                <span className="inline-block px-2 py-1 bg-gray-100 rounded text-sm text-ink capitalize">
                   {report.severity}
                 </span>
               </div>
               <div>
-                <h3 className="text-xs font-medium text-onyx-muted uppercase tracking-wider mb-2">Category</h3>
-                <span className="inline-block px-2 py-1 bg-gray-100 rounded text-sm text-onyx capitalize">
+                <h3 className="text-xs font-medium text-ink-muted uppercase tracking-wider mb-2">Category</h3>
+                <span className="inline-block px-2 py-1 bg-gray-100 rounded text-sm text-ink capitalize">
                   {report.category}
                 </span>
               </div>
@@ -171,7 +171,7 @@ export default function BugReportStatusPage() {
 
             {report.attachments && report.attachments.length > 0 && (
               <div>
-                <h3 className="text-sm font-medium text-onyx-muted uppercase tracking-wider mb-3">Attachments</h3>
+                <h3 className="text-sm font-medium text-ink-muted uppercase tracking-wider mb-3">Attachments</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {report.attachments.map((path: string, i: number) => (
                     <a 
@@ -185,7 +185,7 @@ export default function BugReportStatusPage() {
                       {path.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                         <img src={path} alt="Attachment" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-onyx-muted p-2 text-center">
+                        <div className="w-full h-full flex flex-col items-center justify-center text-ink-muted p-2 text-center">
                           <FileIcon size={24} className="mb-2" />
                           <span className="text-[10px] truncate w-full px-1">{path.split('/').pop()}</span>
                         </div>
@@ -199,15 +199,15 @@ export default function BugReportStatusPage() {
           
           {/* Footer / Timeline Stub */}
           <div className="px-6 py-4 bg-gray-50 border-t border-warm-grey/50">
-             <h3 className="text-xs font-medium text-onyx-muted uppercase tracking-wider mb-3">Activity</h3>
+             <h3 className="text-xs font-medium text-ink-muted uppercase tracking-wider mb-3">Activity</h3>
              <div className="flex gap-3">
                 <div className="relative pt-1">
                     <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                     <div className="absolute top-3 left-1 w-px h-full bg-gray-200 -ml-px"></div>
                 </div>
                 <div className="pb-4">
-                    <p className="text-sm text-onyx">Report captured</p>
-                    <p className="text-xs text-onyx-muted">{new Date(report.created_at).toLocaleString()}</p>
+                    <p className="text-sm text-ink">Report captured</p>
+                    <p className="text-xs text-ink-muted">{new Date(report.created_at).toLocaleString()}</p>
                 </div>
              </div>
              {/* Dynamic timeline would go here later */}

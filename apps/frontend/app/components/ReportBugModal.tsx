@@ -131,8 +131,8 @@ export default function ReportBugModal() {
     }
   };
 
-  const inputClasses = "w-full bg-white border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors outline-none py-2.5 px-4 text-sm text-gray-900 placeholder:text-gray-400 rounded-xl resize-y";
-  const labelClasses = "block text-xs font-medium text-onyx mb-1.5";
+  const inputClasses = "w-full bg-white border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors outline-none py-2.5 px-4 text-sm text-ink placeholder:text-ink-muted rounded-xl resize-y";
+  const labelClasses = "block text-xs font-medium text-ink mb-1.5";
 
   if (submittedId) {
       return (
@@ -173,20 +173,20 @@ export default function ReportBugModal() {
       >
         {/* Header */}
         <div className="px-6 py-4 border-b border-warm-grey/50 flex justify-between items-center bg-warm-light/50 shrink-0">
-          <div className="flex items-center gap-2 text-onyx">
+          <div className="flex items-center gap-2 text-ink">
             <div className="p-1.5 bg-rose-100 text-rose-600 rounded-lg">
               <Bug size={18} />
             </div>
             <div>
               <h2 id="report-bug-title" className="font-medium text-base">Report a Bug</h2>
-              <p className="text-xs text-onyx/70">Help us improve by sharing what you found.</p>
+              <p className="text-xs text-ink-muted">Help us improve by sharing what you found.</p>
             </div>
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={handleClose}
-            className="text-onyx-muted hover:text-onyx -mr-2"
+            className="text-ink-muted hover:text-ink -mr-2"
             aria-label="Close"
           >
             <X size={20} />
@@ -200,7 +200,7 @@ export default function ReportBugModal() {
           <div>
             <div className="flex justify-between items-baseline mb-2">
               <label className={labelClasses}>Screenshots</label>
-              <span className="text-[10px] text-onyx-muted">{attachments.length} attached</span>
+              <span className="text-[10px] text-ink-muted">{attachments.length} attached</span>
             </div>
             
             <div className="grid grid-cols-4 gap-3">
@@ -213,7 +213,7 @@ export default function ReportBugModal() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-onyx-muted">
+                    <div className="w-full h-full flex items-center justify-center text-ink-muted">
                       <ImageIcon size={24} />
                     </div>
                   )}
@@ -228,7 +228,7 @@ export default function ReportBugModal() {
               
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="aspect-square rounded-xl border-2 border-dashed border-warm-grey hover:border-agent-blurple hover:bg-agent-blurple/5 transition-colors flex flex-col items-center justify-center gap-2 text-onyx-muted hover:text-agent-blurple"
+                className="aspect-square rounded-xl border-2 border-dashed border-warm-grey hover:border-agent-blurple hover:bg-agent-blurple/5 transition-colors flex flex-col items-center justify-center gap-2 text-ink-muted hover:text-agent-blurple"
               >
                 <Upload size={20} />
                 <span className="text-xs font-medium">Add Image</span>
@@ -327,10 +327,10 @@ export default function ReportBugModal() {
               />
             </div>
             <div>
-              <label htmlFor="includeDiagnostics" className="text-sm font-medium text-onyx block">
+              <label htmlFor="includeDiagnostics" className="text-sm font-medium text-ink block">
                 Include auto-captured diagnostics
               </label>
-              <p className="text-xs text-onyx-muted mt-0.5">
+              <p className="text-xs text-ink-muted mt-0.5">
                 Attaches console logs, network errors, and recent actions. Sensitive data is redacted.
               </p>
             </div>
