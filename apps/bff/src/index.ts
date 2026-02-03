@@ -1590,6 +1590,23 @@ export function buildApp() {
     }
   });
 
+  fastify.get('/api/likes/counts', async (request, reply) => {
+    try {
+      const { row_id } = request.query as { row_id?: string };
+      const authHeader = request.headers.authorization;
+      const params = new URLSearchParams();
+      if (row_id) params.set('row_id', row_id);
+      const response = await fetch(`${BACKEND_URL}/likes/counts?${params.toString()}`, {
+        headers: authHeader ? { Authorization: authHeader } : {},
+      });
+      const data = await response.json();
+      reply.status(response.status).send(data);
+    } catch (err) {
+      fastify.log.error(err);
+      reply.status(500).send({ error: 'Failed to fetch like counts' });
+    }
+  });
+
   // ============== COMMENTS ROUTES ==============
   fastify.post('/api/comments', async (request, reply) => {
     try {

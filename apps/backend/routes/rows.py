@@ -7,7 +7,7 @@ import json
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, defer, joinedload
 
 from database import get_session
 from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project
@@ -224,7 +224,13 @@ async def read_rows(
             Row.user_id == auth_session.user_id,
             True if include_archived else (Row.status != "archived"),
         )
-        .options(selectinload(Row.bids).joinedload(Bid.seller))
+        .options(
+            selectinload(Row.bids).options(
+                joinedload(Bid.seller),
+                defer(Bid.source_payload),
+                defer(Bid.provenance)
+            )
+        )
         .order_by(Row.updated_at.desc())
     )
     rows = result.all()
@@ -251,7 +257,13 @@ async def read_row(
     result = await session.exec(
         select(Row)
         .where(Row.id == row_id, Row.user_id == auth_session.user_id)
-        .options(selectinload(Row.bids).joinedload(Bid.seller))
+        .options(
+            selectinload(Row.bids).options(
+                joinedload(Bid.seller),
+                defer(Bid.source_payload),
+                defer(Bid.provenance)
+            )
+        )
     )
     row = result.first()
     

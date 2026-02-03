@@ -90,6 +90,12 @@ async def send_verification_sms(to_phone: str, code: str) -> bool:
     twilio_phone_number = _get_env("TWILIO_PHONE_NUMBER")
     twilio_verify_service_sid = _get_env("TWILIO_VERIFY_SERVICE_SID")
 
+    if twilio_verify_service_sid and (not Client or not twilio_account_sid or not twilio_auth_token):
+        print(
+            "[AUTH] Twilio Verify configured but missing TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN or SDK."
+        )
+        return False
+
     if Client and twilio_account_sid and twilio_auth_token and twilio_verify_service_sid:
         try:
             client = Client(twilio_account_sid, twilio_auth_token)
