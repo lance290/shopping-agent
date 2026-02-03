@@ -935,6 +935,12 @@ export function buildApp() {
       }
     }
 
+    const startLLM = Date.now();
+    fastify.log.info({ msg: 'Starting LLM plan generation', activeRowId, projectId });
+    
+    // Send immediate feedback to user
+    writeEvent('assistant_message', { text: 'Processing your request...' });
+
     const plan = await generateChatPlan({
       messages,
       activeRowId: activeRowId ?? null,
@@ -942,6 +948,8 @@ export function buildApp() {
       activeRowTitle,
       projectTitle,
     });
+    const llmDuration = Date.now() - startLLM;
+    fastify.log.info({ msg: 'LLM plan generated', duration: llmDuration, plan });
 
     writeEvent('assistant_message', { text: plan.assistant_message || '' });
 

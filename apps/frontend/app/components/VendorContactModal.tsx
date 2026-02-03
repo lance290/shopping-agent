@@ -53,9 +53,20 @@ export default function VendorContactModal({
     const personaName = typeof existingOutreach?.persona_name === 'string' ? existingOutreach.persona_name : 'Betty';
     const personaRole = typeof existingOutreach?.persona_role === 'string' ? existingOutreach.persona_role : 'Executive Assistant, BuyAnything';
     const fields = typeof existingOutreach?.fields === 'object' && existingOutreach.fields ? existingOutreach.fields : {};
-    const from = fields.from_airport || '';
-    const to = fields.to_airport || '';
-    const date = fields.date || '';
+    
+    // Attempt to extract defaults from row answers if not explicit in outreach fields
+    const answers = existingAnswers as Record<string, any>;
+    const extract = (...keys: string[]) => {
+      for (const k of keys) {
+        if (answers[k]) return String(answers[k]);
+      }
+      return '';
+    };
+
+    const from = fields.from_airport || extract('from', 'origin', 'departure', 'from_airport', 'departure_airport');
+    const to = fields.to_airport || extract('to', 'destination', 'arrival', 'to_airport', 'arrival_airport');
+    const date = fields.date || extract('date', 'dates', 'when', 'departure_date', 'travel_date');
+    const pax = typeof fields.passengers === 'number' ? fields.passengers : extract('passengers', 'pax', 'travelers', 'people', 'seats');
 
     const subjectTemplate = typeof existingOutreach?.subject_template === 'string'
       ? existingOutreach.subject_template
@@ -78,11 +89,11 @@ export default function VendorContactModal({
         time_fixed: fields.time_fixed || '',
         time_earliest: fields.time_earliest || '',
         time_latest: fields.time_latest || '',
-        passengers: typeof fields.passengers === 'number' ? fields.passengers : '',
+        passengers: pax ? Number(pax) || pax : '',
         notes: fields.notes || '',
       },
     };
-  }, [existingOutreach]);
+  }, [existingOutreach, existingAnswers]);
 
   const [personaName, setPersonaName] = useState<string>('Betty');
   const [personaRole, setPersonaRole] = useState<string>('Executive Assistant, BuyAnything');
@@ -105,20 +116,44 @@ export default function VendorContactModal({
 
   useEffect(() => {
     if (!isOpen) return;
-    setPersonaName(defaultOutreach.persona_name || 'Betty');
-    setPersonaRole(defaultOutreach.persona_role || 'Executive Assistant, BuyAnything');
-    setSubjectTemplate(defaultOutreach.subject_template || '');
-    setBodyTemplate(defaultOutreach.body_template || '');
-    setFromAirport(defaultOutreach.fields?.from_airport || '');
-    setToAirport(defaultOutreach.fields?.to_airport || '');
-    setDate(defaultOutreach.fields?.date || '');
-    setTimeMode((defaultOutreach.fields?.time_mode === 'fixed' ? 'fixed' : 'window') as any);
-    setTimeFixed(defaultOutreach.fields?.time_fixed || '');
-    setTimeEarliest(defaultOutreach.fields?.time_earliest || '');
-    setTimeLatest(defaultOutreach.fields?.time_latest || '');
-    setPassengers(String(defaultOutreach.fields?.passengers ?? ''));
-    setNotes(defaultOutreach.fields?.notes || '');
-  }, [isOpen, defaultOutreach]);
+
+    const d = defaultOutreach;
+    const f = d.fields;
+
+    setPersonaName(d.persona_name || 'Betty');
+    setPersonaRole(d.persona_role || 'Executive Assistant, BuyAnything');
+    setFromAirport(f.from_airport || '');
+    setToAirport(f.to_airport || '');
+    setDate(f.date || '');
+    setTimeMode((f.time_mode === 'fixed' ? 'fixed' : 'window') as any);
+    setTimeFixed(f.time_fixed || '');
+    setTimeEarliest(f.time_earliest || '');
+    setTimeLatest(f.time_latest || '');
+    setPassengers(String(f.passengers ?? ''));
+    setNotes(f.notes || '');
+
+    // Interpolate templates immediately for display
+    const render = (tpl: string) => {
+      const time = f.time_mode === 'fixed'
+        ? (f.time_fixed || '')
+        : ((f.time_earliest || f.time_latest) ? `${f.time_earliest || '??'}-${f.time_latest || '??'}` : '');
+
+      return tpl
+        .replaceAll('{provider}', vendorCompany)
+        .replaceAll('{from}', (f.from_airport || '').toUpperCase())
+        .replaceAll('{to}', (f.to_airport || '').toUpperCase())
+        .replaceAll('{date}', f.date || '')
+        .replaceAll('{time}', time)
+        .replaceAll('{pax}', String(f.passengers || ''))
+        .replaceAll('{persona_name}', d.persona_name || 'Betty')
+        .replaceAll('{persona_role}', d.persona_role || 'Executive Assistant, BuyAnything')
+        .replaceAll('{row_title}', rowTitle);
+    };
+
+    setSubjectTemplate(render(d.subject_template || ''));
+    setBodyTemplate(render(d.body_template || ''));
+
+  }, [isOpen, defaultOutreach, vendorCompany, rowTitle]);
 
   if (!isOpen || !mounted) return null;
 

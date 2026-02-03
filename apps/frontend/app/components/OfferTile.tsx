@@ -142,12 +142,12 @@ export default function OfferTile({
         
         {/* Content */}
         <div className="p-3 flex flex-col flex-1 bg-warm-light border-t border-warm-grey/70">
-          <div className="text-[10px] font-medium text-onyx-muted mb-1 truncate flex items-center gap-1.5">
+          <div className="text-xs font-medium text-onyx-muted mb-1 truncate flex items-center gap-1.5">
             <span className="w-1 h-1 rounded-full bg-onyx-muted/60"></span>
             {offer.merchant_domain || offer.merchant}
           </div>
           
-          <div className="text-[12px] font-semibold text-onyx line-clamp-3 mb-2 min-h-[48px] leading-snug group-hover:text-onyx-muted transition-colors" title={offer.title}>
+          <div className="text-sm font-bold text-onyx line-clamp-3 mb-2 min-h-[48px] leading-snug group-hover:text-onyx-muted transition-colors" title={offer.title}>
             {offer.title}
           </div>
 

@@ -2,7 +2,7 @@ import { google } from '@ai-sdk/google';
 import { streamText, generateText } from 'ai';
 import { z } from 'zod';
 
-export const GEMINI_MODEL_NAME = 'gemini-3-flash-preview';
+export const GEMINI_MODEL_NAME = 'gemini-1.5-flash';
 const model = google(GEMINI_MODEL_NAME);
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
