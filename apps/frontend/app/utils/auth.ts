@@ -22,7 +22,7 @@ export interface AuthMeResponse {
 export const startAuth = async (phone: string): Promise<AuthStartResponse> => {
   const body = { phone };
   
-  const res = await fetch('/api/proxy/auth/start', {
+  const res = await fetch('/api/auth/start', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -39,7 +39,7 @@ export const startAuth = async (phone: string): Promise<AuthStartResponse> => {
 export const verifyAuth = async (phone: string, code: string): Promise<AuthVerifyResponse> => {
   const body = { phone, code };
 
-  const res = await fetch('/api/proxy/auth/verify', {
+  const res = await fetch('/api/auth/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -54,14 +54,14 @@ export const verifyAuth = async (phone: string, code: string): Promise<AuthVerif
 };
 
 export const logout = async (): Promise<void> => {
-  await fetch('/api/proxy/auth/logout', { method: 'POST' });
+  await fetch('/api/auth/logout', { method: 'POST' });
   // Also clear cookie on client side if possible, or rely on API to clear it
   document.cookie = 'sa_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
 };
 
 export const getMe = async (): Promise<AuthMeResponse | null> => {
   try {
-    const res = await fetch('/api/proxy/auth/me');
+    const res = await fetch('/api/auth/me');
     if (res.ok) {
       return await res.json();
     }
