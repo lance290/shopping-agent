@@ -77,7 +77,9 @@ class SourcingService:
         min_price, max_price = self._extract_price_constraints(row) if row else (None, None)
 
         if row and (min_price is not None or max_price is not None):
-            cond = Bid.price <= 0
+            # Do not delete service-provider bids (wattdata) when applying price filters.
+            # These results typically have no fixed price.
+            cond = (Bid.price <= 0) & (Bid.source != "wattdata")
             if min_price is not None:
                 cond = cond | (Bid.price < min_price)
             if max_price is not None:
@@ -120,12 +122,18 @@ class SourcingService:
             filtered: List[NormalizedResult] = []
             # Sources that don't provide price data - allow through without price filtering
             non_shopping_sources = {"google_cse"}
+            # Service providers that do not have fixed prices - allow through without price filtering
+            service_sources = {"wattdata"}
             dropped_zero = 0
             dropped_min = 0
             dropped_max = 0
             for res in normalized_results:
                 # Allow non-shopping sources through (they don't have price data)
                 if res.source in non_shopping_sources:
+                    filtered.append(res)
+                    continue
+                # Allow service providers through (they don't have fixed prices)
+                if res.source in service_sources:
                     filtered.append(res)
                     continue
                 price = res.price

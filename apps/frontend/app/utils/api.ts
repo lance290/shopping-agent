@@ -225,9 +225,15 @@ export const runSearchApiWithStatus = async (
     
     // Combine vendor results (first) with product results
     const results = [...rawResults.map((r: any) => {
+      const sourceRaw = String(r?.source ?? 'unknown');
+      const sourceKey = sourceRaw.toLowerCase();
       const price = Number(r?.price);
       const rating = r?.rating === null || r?.rating === undefined ? null : Number(r?.rating);
       const reviewsCount = r?.reviews_count === null || r?.reviews_count === undefined ? null : Number(r?.reviews_count);
+      const isServiceProvider =
+        typeof r?.is_service_provider === 'boolean'
+          ? r.is_service_provider
+          : sourceKey === 'wattdata' || sourceKey === 'jetbid';
 
       return {
         title: String(r?.title ?? ''),
@@ -239,12 +245,16 @@ export const runSearchApiWithStatus = async (
         rating: Number.isFinite(rating as any) ? (rating as number) : null,
         reviews_count: Number.isFinite(reviewsCount as any) ? (reviewsCount as number) : null,
         shipping_info: r?.shipping_info ?? null,
-        source: String(r?.source ?? 'unknown'),
+        source: sourceRaw,
         merchant_domain: r?.merchant_domain ?? undefined,
         click_url: r?.click_url ?? undefined,
         match_score: typeof r?.match_score === 'number' ? r.match_score : undefined,
         bid_id: typeof r?.bid_id === 'number' ? r.bid_id : undefined,
         is_selected: typeof r?.is_selected === 'boolean' ? r.is_selected : undefined,
+        is_service_provider: isServiceProvider,
+        vendor_email: typeof r?.vendor_email === 'string' ? r.vendor_email : undefined,
+        vendor_name: typeof r?.vendor_name === 'string' ? r.vendor_name : undefined,
+        vendor_company: typeof r?.vendor_company === 'string' ? r.vendor_company : undefined,
       } satisfies Offer;
     })];
     

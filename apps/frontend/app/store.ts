@@ -27,6 +27,32 @@ export interface Offer {
   vendor_company?: string;
 }
 
+const getOfferStableKey = (offer: Offer): string => {
+  if (offer.bid_id) return `bid:${offer.bid_id}`;
+
+  const extractInnerUrl = (u: string): string | null => {
+    if (!u) return null;
+
+    if (u.startsWith('/api/clickout') || u.startsWith('/api/out')) {
+      try {
+        const parsed = new URL(u, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+        const inner = parsed.searchParams.get('url');
+        return inner ? decodeURIComponent(inner) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    if (u.startsWith('http://') || u.startsWith('https://')) return u;
+    return null;
+  };
+
+  const canonical = extractInnerUrl(offer.url) || extractInnerUrl(offer.click_url || '');
+  if (canonical) return `url:${canonical}`;
+  if (offer.url) return `raw:${offer.url}`;
+  return `fallback:${offer.title}-${offer.merchant}-${offer.price}`;
+};
+
 export type ProviderStatusType = 'ok' | 'error' | 'timeout' | 'exhausted' | 'rate_limited';
 
 export interface ProviderStatusSnapshot {
@@ -422,7 +448,47 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   })),
   setSearchResults: (results) => set({ searchResults: results, isSearching: false }),
   setRowResults: (rowId, results, providerStatuses, moreIncoming = false) => set((state) => ({
-    rowResults: { ...state.rowResults, [rowId]: results },
+    rowResults: {
+      ...state.rowResults,
+      [rowId]: (() => {
+        const existing = state.rowResults[rowId] || [];
+        if (!existing || existing.length === 0) return results;
+
+        const existingByKey = new Map<string, Offer>();
+        for (const o of existing) {
+          existingByKey.set(getOfferStableKey(o), o);
+        }
+
+        const incomingHasServiceProviders = results.some((o) => o.is_service_provider);
+        const preservedServiceProviders = incomingHasServiceProviders
+          ? []
+          : existing.filter((o) => o.is_service_provider);
+
+        const merged: Offer[] = [];
+        const seen = new Set<string>();
+
+        const pushMerged = (offer: Offer) => {
+          const key = getOfferStableKey(offer);
+          if (seen.has(key)) return;
+          seen.add(key);
+
+          const prev = existingByKey.get(key);
+          merged.push({
+            ...offer,
+            is_liked:
+              typeof offer.is_liked === 'boolean'
+                ? offer.is_liked
+                : (prev?.is_liked ?? offer.is_liked),
+            liked_at: offer.liked_at ?? prev?.liked_at,
+            comment_preview: offer.comment_preview ?? prev?.comment_preview,
+          });
+        };
+
+        for (const sp of preservedServiceProviders) pushMerged(sp);
+        for (const r of results) pushMerged(r);
+        return merged;
+      })(),
+    },
     rowProviderStatuses: providerStatuses ? { ...state.rowProviderStatuses, [rowId]: providerStatuses } : state.rowProviderStatuses,
     moreResultsIncoming: { ...state.moreResultsIncoming, [rowId]: moreIncoming },
     isSearching: moreIncoming, // Keep searching state while more results incoming
@@ -554,34 +620,30 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     }));
 
     try {
-      const res = await fetch(`/api/likes/${bidId}/toggle`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('session_token') || ''}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const desiredLiked = !currentData.is_liked;
+      const token = localStorage.getItem('session_token') || '';
 
-      if (!res.ok) throw new Error('Failed to toggle like');
-
-      const data = await res.json();
-
-      // Update with server response
-      set((state) => {
-        const current = state.bidSocialData[bidId];
-        if (!current) return state;
-
-        return {
-          bidSocialData: {
-            ...state.bidSocialData,
-            [bidId]: {
-              ...current,
-              is_liked: data.is_liked,
-              like_count: data.like_count,
+      const res = desiredLiked
+        ? await fetch(`/api/likes`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
             },
-          },
-        };
-      });
+            body: JSON.stringify({ bid_id: bidId }),
+          })
+        : await fetch(`/api/likes?bid_id=${encodeURIComponent(String(bidId))}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+      if (!res.ok && !(desiredLiked && res.status === 409) && !(!desiredLiked && res.status === 404)) {
+        throw new Error('Failed to toggle like');
+      }
+
+      // We already did optimistic update; no further data required here.
     } catch (error) {
       console.error('Failed to toggle like:', error);
       // Revert optimistic update

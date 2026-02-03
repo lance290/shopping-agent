@@ -58,7 +58,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       if (!u) return null;
 
       // If this is our clickout wrapper, unwrap it.
-      if (u.startsWith('/api/clickout')) {
+      if (u.startsWith('/api/clickout') || u.startsWith('/api/out')) {
         try {
           const parsed = new URL(u, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
           const inner = parsed.searchParams.get('url');
@@ -67,6 +67,9 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
           return null;
         }
       }
+
+      // Service-provider tiles often use mailto links.
+      if (u.startsWith('mailto:')) return u;
 
       // If it's a real http(s) URL, keep it.
       if (u.startsWith('http://') || u.startsWith('https://')) return u;
@@ -219,6 +222,52 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     }).catch(err => {
       console.error('[Vendor] check failed:', err);
     });
+  }, [row.id, row.title, offers, setRowResults]);
+
+  // Self-heal: if vendor tiles disappear after a refresh, re-inject them.
+  const vendorHealInFlightRef = useRef(false);
+  useEffect(() => {
+    if (!row.id || !row.title) return;
+    if (offers.length === 0) return;
+
+    const hasVendorTiles = offers.some((o) => o.is_service_provider);
+    if (hasVendorTiles) return;
+
+    if (vendorHealInFlightRef.current) return;
+    vendorHealInFlightRef.current = true;
+
+    checkIfService(row.title)
+      .then(async (serviceCheck) => {
+        if (!serviceCheck?.is_service || !serviceCheck?.category) return;
+
+        const vendorsData = await getVendors(serviceCheck.category);
+        if (!vendorsData?.vendors?.length) return;
+
+        const vendorOffers: Offer[] = vendorsData.vendors.map((v: VendorResult) => ({
+          title: v.title,
+          price: 0,
+          currency: 'USD',
+          merchant: v.vendor_company,
+          url: v.url,
+          image_url: v.image_url,
+          rating: null,
+          reviews_count: null,
+          shipping_info: null,
+          source: 'JetBid',
+          is_service_provider: true,
+          vendor_email: v.vendor_email,
+          vendor_name: v.vendor_name,
+          vendor_company: v.vendor_company,
+        }));
+
+        setRowResults(row.id, [...vendorOffers, ...offers]);
+      })
+      .catch((err) => {
+        console.error('[Vendor] self-heal failed:', err);
+      })
+      .finally(() => {
+        vendorHealInFlightRef.current = false;
+      });
   }, [row.id, row.title, offers, setRowResults]);
 
   useEffect(() => {

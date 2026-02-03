@@ -3,7 +3,7 @@
 **Status:** Draft  
 **Author:** Cascade + Lance  
 **Created:** 2026-01-31  
-**Last Updated:** 2026-01-31
+**Last Updated:** 2026-02-03
 
 ---
 
@@ -581,7 +581,62 @@ ALTER TABLE rows ADD COLUMN outreach_count INTEGER DEFAULT 0;
 
 ---
 
-## 9. Risks & Mitigations
+## 9. Competitive Positioning
+
+### 9.1 PartFinder Comparison
+
+Phase 2 delivers **feature parity with PartFinder** (B2B industrial parts sourcing startup) while maintaining our consumer UX advantage.
+
+| PartFinder Feature | Our Phase 2 Equivalent |
+|-------------------|------------------------|
+| AI Email Agent | WattData Outreach + SendGrid |
+| RFQ to multiple suppliers | `POST /rows/{row_id}/outreach` |
+| Centralized comms dashboard | Outreach status on row |
+| Quote submission (magic link) | Seller Quote Intake |
+| Response tracking | `outreach_events` table |
+| Deal closing | Email Handoff + DocuSign |
+
+### 9.2 Our Differentiators
+
+**Features we have that PartFinder doesn't:**
+- **Merchant Registry** — Two-sided marketplace; they only do cold outreach
+- **Service Provider Network** — Category taxonomy (home, auto, professional, travel, events)
+- **Social Features** — Likes, comments, collaborative decision-making
+- **Viral Mechanics** — Share links with referral tracking
+- **Consumer Marketplace** — Real-time Amazon, Google Shopping, eBay integration
+- **Conversational UX** — Chat-driven interface vs. form-based
+
+### 9.3 B2B Expansion Path
+
+Phase 2 positions us for B2B without additional work:
+
+| Capability | Status |
+|------------|--------|
+| RFQ Automation | ✅ WattData Outreach |
+| Quote Intake | ✅ Magic link flow |
+| Merchant Network | ✅ Registry + taxonomy |
+| Deal Closing | ✅ Email Handoff + DocuSign |
+| Service Categories | ✅ Home, auto, professional, travel, events |
+
+**Monetization paths (from Merchant Registry):**
+- Lead fees (charge merchant per RFP notification)
+- Success fees (% of closed deals)
+- Premium tier (priority placement, more leads)
+
+### 9.4 Remaining Gaps (Phase 3+)
+
+| Gap | Priority | Notes |
+|-----|----------|-------|
+| ERP Integrations | Low | SAP/NetSuite for enterprise stickiness |
+| Parts-specific AI | Low | Technical spec understanding for industrial |
+| Photo-based Search | Medium | Upload image → find part |
+| Automated Negotiation | Low | AI counter-offers |
+
+See [Competitive Analysis](../Competitive_Analysis_PartFinder.md) for full details.
+
+---
+
+## 10. Risks & Mitigations
 
 | Risk | Impact | Likelihood | Mitigation |
 |------|--------|------------|------------|
@@ -593,7 +648,7 @@ ALTER TABLE rows ADD COLUMN outreach_count INTEGER DEFAULT 0;
 
 ---
 
-## 10. Success Criteria
+## 11. Success Criteria
 
 Phase 2 is complete when:
 
@@ -610,18 +665,21 @@ Phase 2 is complete when:
 
 ---
 
-## 11. Appendix
+## 12. Appendix
 
-### 11.1 Related Documents
+### 12.1 Related Documents
 
 - [Parent PRD](../marketplace-pivot/parent.md)
 - [Search Architecture v2 PRD](../search-architecture-v2/PRD.md)
 - [WattData Integration Spec](./wattdata-integration.md)
 - [Quote Intake Schema](./quote-intake-schema.md)
+- [Competitive Analysis: PartFinder](../Competitive_Analysis_PartFinder.md)
+- [Phase 3 Roadmap](./phase3-roadmap.md)
 
-### 11.2 References
+### 12.2 References
 
-- [WattData](https://www.wattdata.ai/) — Vendor discovery MCP
+- [WattData](https://www.wattdata.ai/) — Vendor discovery MCP (we are investors)
 - [Stripe Checkout](https://stripe.com/docs/checkout)
 - [DocuSign eSignature API](https://developers.docusign.com/)
 - [SendGrid API](https://docs.sendgrid.com/)
+- [PartFinder Pitch Deck](../PartFinder_PitchDeck.pdf) — Competitor reference

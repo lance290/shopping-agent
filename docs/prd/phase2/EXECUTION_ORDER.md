@@ -1,7 +1,7 @@
 # Phase 2 Execution Order
 
 **Created:** 2026-01-31  
-**Last Updated:** 2026-01-31
+**Last Updated:** 2026-02-03
 
 ---
 
@@ -219,3 +219,37 @@ If external dependencies (WattData, Stripe, DocuSign) have long setup times:
 | 2026-02-01 | Add Merchant Registry (P1) | Favor registered merchants over cold outreach; build defensible network |
 | 2026-02-01 | Add Email Handoff (P1) | MVP closing mechanism before Stripe/DocuSign; enables revenue faster |
 | 2026-02-01 | Email Handoff before Wave 3 | Quick win (S effort) that unblocks transactions |
+| 2026-02-03 | Phase 2 = PartFinder parity | Competitive analysis shows Phase 2 delivers their core RFQ features |
+| 2026-02-03 | Merchant Registry is key differentiator | Two-sided marketplace vs their cold-outreach-only model |
+| 2026-02-03 | WattData partnership is strategic | We're investors — preferred access, input on roadmap |
+| 2026-02-03 | B2B ready after Phase 2 | Service taxonomy + merchant registry = enterprise-capable |
+| 2026-02-03 | Defer ERP/photo search to Phase 3 | Not needed for B2B services; only for industrial parts vertical |
+
+---
+
+## Competitive Context
+
+Phase 2 delivers **feature parity with PartFinder** (B2B industrial parts sourcing startup):
+
+| PartFinder Feature | Our Phase 2 Equivalent |
+|-------------------|------------------------|
+| AI Email Agent | WattData Outreach + SendGrid |
+| RFQ to suppliers | `POST /rows/{row_id}/outreach` |
+| Quote submission | Magic link intake |
+| Response tracking | `outreach_events` table |
+| Deal closing | Email Handoff + DocuSign |
+
+**We have features they don't:**
+- Merchant Registry (two-sided marketplace)
+- Service provider network with taxonomy
+- Social features (likes, comments)
+- Viral sharing mechanics
+- Consumer marketplace integrations (Amazon, Google Shopping)
+
+**Remaining gaps after Phase 2 (Phase 3+):**
+- ERP integrations (SAP/NetSuite)
+- Parts-specific AI training
+- Photo-based search
+- Automated negotiation
+
+See [Competitive Analysis](../Competitive_Analysis_PartFinder.md) for full details.

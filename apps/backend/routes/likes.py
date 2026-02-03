@@ -10,7 +10,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
-from models import Like, Row
+from models import Like, Row, Bid
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ router = APIRouter(tags=["likes"])
 
 
 class LikeCreate(BaseModel):
-    row_id: int
+    row_id: Optional[int] = None
     bid_id: Optional[int] = None
     offer_url: Optional[str] = None
 
@@ -44,13 +44,23 @@ async def create_like(
         if not auth_session:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
-        row = await session.get(Row, like_in.row_id)
+        effective_row_id: Optional[int] = like_in.row_id
+        if effective_row_id is None and like_in.bid_id is not None:
+            bid = await session.get(Bid, like_in.bid_id)
+            if not bid:
+                raise HTTPException(status_code=404, detail="Bid not found")
+            effective_row_id = bid.row_id
+
+        if effective_row_id is None:
+            raise HTTPException(status_code=400, detail="Must provide row_id or bid_id")
+
+        row = await session.get(Row, effective_row_id)
         if not row or row.user_id != auth_session.user_id:
             raise HTTPException(status_code=404, detail="Row not found")
 
         query = select(Like).where(
             Like.user_id == auth_session.user_id,
-            Like.row_id == like_in.row_id
+            Like.row_id == effective_row_id
         )
         if like_in.bid_id:
             query = query.where(Like.bid_id == like_in.bid_id)
@@ -65,7 +75,7 @@ async def create_like(
 
         db_like = Like(
             user_id=auth_session.user_id,
-            row_id=like_in.row_id,
+            row_id=effective_row_id,
             bid_id=like_in.bid_id,
             offer_url=like_in.offer_url
         )
@@ -83,7 +93,7 @@ async def create_like(
 
 @router.delete("/likes")
 async def delete_like(
-    row_id: int,
+    row_id: Optional[int] = None,
     bid_id: Optional[int] = None,
     offer_url: Optional[str] = None,
     authorization: Optional[str] = Header(None),
@@ -96,9 +106,23 @@ async def delete_like(
         if not auth_session:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
+        effective_row_id: Optional[int] = row_id
+        if effective_row_id is None and bid_id is not None:
+            bid = await session.get(Bid, bid_id)
+            if not bid:
+                raise HTTPException(status_code=404, detail="Bid not found")
+            effective_row_id = bid.row_id
+
+        if effective_row_id is None:
+            raise HTTPException(status_code=400, detail="Must provide row_id or bid_id")
+
+        row = await session.get(Row, effective_row_id)
+        if not row or row.user_id != auth_session.user_id:
+            raise HTTPException(status_code=404, detail="Row not found")
+
         query = select(Like).where(
             Like.user_id == auth_session.user_id,
-            Like.row_id == row_id
+            Like.row_id == effective_row_id
         )
         if bid_id:
             query = query.where(Like.bid_id == bid_id)

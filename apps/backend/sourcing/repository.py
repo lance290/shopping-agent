@@ -954,7 +954,14 @@ class SourcingRepository:
         for results in results_lists:
             all_results.extend(results)
             
-        filtered_results = [r for r in all_results if normalize_url(getattr(r, 'url', ''))[:4] == 'http']
+        def _allow_url(u: str) -> bool:
+            norm = normalize_url(u)
+            if not norm:
+                return False
+            key = norm.lower()
+            return key.startswith('http://') or key.startswith('https://') or key.startswith('mailto:')
+
+        filtered_results = [r for r in all_results if _allow_url(getattr(r, 'url', ''))]
         
         # Deduplication
         seen_urls = set()

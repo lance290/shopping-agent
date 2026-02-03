@@ -259,11 +259,14 @@ async def search_row_listings(
         filtered_results = []
         # Sources that don't provide price data - allow through without price filtering
         non_shopping_sources = {"google_cse"}
+        # Service providers that do not have fixed prices - allow through without price filtering
+        service_sources = {"wattdata"}
         dropped_price = 0
         dropped_materials = 0
 
         for r in results:
             source = getattr(r, "source", None)
+            source_key = str(source or "").lower()
 
             # Check material constraints first (applies to all sources)
             if exclude_synthetics or custom_exclude_keywords:
@@ -273,8 +276,8 @@ async def search_row_listings(
                     logger.debug(f"[SEARCH] Excluded due to materials: {title}")
                     continue
 
-            # Apply price filtering (skip for non-shopping sources)
-            if source in non_shopping_sources:
+            # Apply price filtering (skip for non-shopping sources and service providers)
+            if source_key in non_shopping_sources or source_key in service_sources:
                 filtered_results.append(r)
                 continue
 
