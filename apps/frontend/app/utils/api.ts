@@ -213,34 +213,6 @@ export const runSearchApiWithStatus = async (
       body.providers = options.providers;
     }
 
-    // Check if this is a service query and get vendors
-    let vendorResults: Offer[] = [];
-    const searchQuery = body.query || '';
-    if (searchQuery) {
-      const serviceCheck = await checkIfService(searchQuery);
-      if (serviceCheck?.is_service && serviceCheck?.category) {
-        const vendorsData = await getVendors(serviceCheck.category);
-        if (vendorsData?.vendors) {
-          vendorResults = vendorsData.vendors.map((v: VendorResult) => ({
-            title: v.title,
-            price: 0,
-            currency: 'USD',
-            merchant: v.vendor_company,
-            url: v.url,
-            image_url: v.image_url,
-            rating: null,
-            reviews_count: null,
-            shipping_info: null,
-            source: 'JetBid',
-            is_service_provider: true,
-            vendor_email: v.vendor_email,
-            vendor_name: v.vendor_name,
-            vendor_company: v.vendor_company,
-          } as Offer));
-        }
-      }
-    }
-
     const res = await fetchWithAuth('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -251,7 +223,8 @@ export const runSearchApiWithStatus = async (
     const userMessage = typeof data?.user_message === 'string' ? data.user_message : undefined;
     const providerStatuses = Array.isArray(data?.provider_statuses) ? data.provider_statuses : undefined;
     
-    const productResults = rawResults.map((r: any) => {
+    // Combine vendor results (first) with product results
+    const results = [...rawResults.map((r: any) => {
       const price = Number(r?.price);
       const rating = r?.rating === null || r?.rating === undefined ? null : Number(r?.rating);
       const reviewsCount = r?.reviews_count === null || r?.reviews_count === undefined ? null : Number(r?.reviews_count);
@@ -273,10 +246,7 @@ export const runSearchApiWithStatus = async (
         bid_id: typeof r?.bid_id === 'number' ? r.bid_id : undefined,
         is_selected: typeof r?.is_selected === 'boolean' ? r.is_selected : undefined,
       } satisfies Offer;
-    });
-    
-    // Combine vendor results (first) with product results
-    const results = [...vendorResults, ...productResults];
+    })];
     
     return { results, userMessage, providerStatuses };
   } catch (err) {

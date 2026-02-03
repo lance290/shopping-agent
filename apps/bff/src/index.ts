@@ -822,6 +822,10 @@ export function buildApp() {
         return;
       }
 
+      // Emit structured row_created event to update UI immediately
+      reply.raw.write(`event: row_created\n`);
+      reply.raw.write(`data: ${JSON.stringify({ row: createResult.data })}\n\n`);
+
       saveChoiceFactorsToBackend(rowId, buildBasicChoiceFactors(createTitle), authHeaderValue).catch((err) => {
         fastify.log.error({ err, rowId }, 'Failed to save fallback choice_factors');
       });
@@ -831,6 +835,10 @@ export function buildApp() {
 
     const searchLabel = hasPriceConstraint && queryToUse ? queryToUse : (isPriceOnly ? 'your request' : query);
     reply.raw.write(`\n🔍 Searching for "${searchLabel}"...`);
+
+    // Emit action_started event to show searching spinner
+    reply.raw.write(`event: action_started\n`);
+    reply.raw.write(`data: ${JSON.stringify({ type: 'search', row_id: rowId })}\n\n`);
 
     const searchBody = isPriceOnly && existingRowTitle
       ? { query: existingRowTitle }
