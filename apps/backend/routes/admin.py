@@ -1,7 +1,7 @@
 """Admin routes - audit logs, test endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, Header
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 import os
@@ -18,7 +18,7 @@ router = APIRouter(tags=["admin"])
 
 
 class MintSessionRequest(BaseModel):
-    email: EmailStr
+    phone: str
 
 
 class MintSessionResponse(BaseModel):
@@ -59,22 +59,25 @@ async def mint_session(request: MintSessionRequest, session: AsyncSession = Depe
     if os.getenv("E2E_TEST_MODE") != "1":
         raise HTTPException(status_code=404, detail="Not Found")
     
-    if not check_rate_limit(f"mint:{request.email}", "auth_start"):
+    from routes.auth import validate_phone_number
+
+    phone = validate_phone_number(request.phone)
+
+    if not check_rate_limit(f"mint:{phone}", "auth_start"):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
-    
-    email = request.email.lower()
-    
-    result = await session.exec(select(User).where(User.email == email))
+
+    result = await session.exec(select(User).where(User.phone_number == phone))
     user = result.first()
     if not user:
-        user = User(email=email)
+        user = User(phone_number=phone)
         session.add(user)
         await session.commit()
         await session.refresh(user)
     
     token = generate_session_token()
     new_session = AuthSession(
-        email=email,
+        email=user.email,
+        phone_number=phone,
         user_id=user.id,
         session_token_hash=hash_token(token),
     )

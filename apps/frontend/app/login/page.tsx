@@ -6,7 +6,7 @@ import { startAuth, verifyAuth } from '../utils/auth';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [identifier, setIdentifier] = useState('');
+  const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState<'start' | 'verify'>('start');
   const [error, setError] = useState('');
@@ -18,7 +18,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await startAuth(identifier);
+      await startAuth(phone);
       setStep('verify');
     } catch (err: any) {
       setError(err.message || 'Failed to send verification code');
@@ -33,7 +33,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await verifyAuth(identifier, code);
+      await verifyAuth(phone, code);
       router.push('/');
       router.refresh();
     } catch (err: any) {
@@ -48,7 +48,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Sign in to Shopping Agent</h1>
-          <p className="text-gray-600 mt-2">Enter your phone number or email to get started</p>
+          <p className="text-gray-600 mt-2">Enter your phone number to get started</p>
         </div>
 
         {error && (
@@ -60,15 +60,15 @@ export default function LoginPage() {
         {step === 'start' ? (
           <form onSubmit={handleStart} className="space-y-6">
             <div>
-              <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-1">
-                Phone number or Email
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                Phone number
               </label>
               <input
-                id="identifier"
-                type="text"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="+1 555 555 5555 or name@example.com"
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+1 555 555 5555"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
@@ -98,7 +98,7 @@ export default function LoginPage() {
                 maxLength={6}
               />
               <p className="mt-2 text-sm text-gray-500">
-                Sent to {identifier}. <button type="button" onClick={() => setStep('start')} className="text-blue-600 hover:text-blue-800">Change?</button>
+                Sent to {phone}. <button type="button" onClick={() => setStep('start')} className="text-blue-600 hover:text-blue-800">Change?</button>
               </p>
             </div>
             <button

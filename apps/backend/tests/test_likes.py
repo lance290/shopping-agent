@@ -6,8 +6,8 @@ import pytest
 async def test_likes_crud(client, monkeypatch):
     # 1. Setup user & session
     monkeypatch.setenv("E2E_TEST_MODE", "1")
-    email = "likes_tester@example.com"
-    mint_res = await client.post("/test/mint-session", json={"email": email})
+    phone = "+16505550113"
+    mint_res = await client.post("/test/mint-session", json={"phone": phone})
     assert mint_res.status_code == 200
     token = mint_res.json()["session_token"]
     

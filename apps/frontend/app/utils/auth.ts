@@ -19,9 +19,8 @@ export interface AuthMeResponse {
   user_id?: number;
 }
 
-export const startAuth = async (identifier: string): Promise<AuthStartResponse> => {
-  const isEmail = identifier.includes('@');
-  const body = isEmail ? { email: identifier } : { phone: identifier };
+export const startAuth = async (phone: string): Promise<AuthStartResponse> => {
+  const body = { phone };
   
   const res = await fetch('/api/proxy/auth/start', {
     method: 'POST',
@@ -37,11 +36,8 @@ export const startAuth = async (identifier: string): Promise<AuthStartResponse> 
   return res.json();
 };
 
-export const verifyAuth = async (identifier: string, code: string): Promise<AuthVerifyResponse> => {
-  const isEmail = identifier.includes('@');
-  const body = isEmail 
-    ? { email: identifier, code } 
-    : { phone: identifier, code };
+export const verifyAuth = async (phone: string, code: string): Promise<AuthVerifyResponse> => {
+  const body = { phone, code };
 
   const res = await fetch('/api/proxy/auth/verify', {
     method: 'POST',

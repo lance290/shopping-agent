@@ -26,19 +26,13 @@ from audit import audit_log
 
 router = APIRouter(tags=["auth"])
 
-RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-FROM_EMAIL = os.getenv("FROM_EMAIL", "Agent Shopper <shopper@info.xcor-cto.com>")
 
-# Twilio Configuration
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
-TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
-TWILIO_VERIFY_SERVICE_SID = os.getenv("TWILIO_VERIFY_SERVICE_SID", "")
+def _get_env(name: str, default: str = "") -> str:
+    return (os.getenv(name, default) or "").strip()
 
-ALLOWED_USER_EMAILS = os.getenv("ALLOWED_USER_EMAILS", "")
-ALLOWED_USER_PHONES = os.getenv("ALLOWED_USER_PHONES", "")
-MANAGER_USER_EMAILS = os.getenv("MANAGER_USER_EMAILS", "")
-MANAGER_USER_PHONES = os.getenv("MANAGER_USER_PHONES", "")
+
+def _get_from_email() -> str:
+    return _get_env("FROM_EMAIL", "Agent Shopper <shopper@info.xcor-cto.com>")
 
 ACCOUNT_EMAIL_TO_PHONE = {
     "kathleen@ecomedes.com": "+14152157928",
@@ -52,7 +46,8 @@ MAX_ATTEMPTS = 5
 
 async def send_verification_email(to_email: str, code: str) -> bool:
     """Send verification code via Resend API. Returns True on success."""
-    if not RESEND_API_KEY:
+    resend_api_key = _get_env("RESEND_API_KEY")
+    if not resend_api_key:
         print(f"[AUTH] RESEND_API_KEY not set. Code would be sent to {to_email}")
         return True
     
@@ -61,11 +56,11 @@ async def send_verification_email(to_email: str, code: str) -> bool:
             response = await client.post(
                 "https://api.resend.com/emails",
                 headers={
-                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Authorization": f"Bearer {resend_api_key}",
                     "Content-Type": "application/json",
                 },
                 json={
-                    "from": FROM_EMAIL,
+                    "from": _get_from_email(),
                     "to": [to_email],
                     "subject": "Your verification code",
                     "text": f"Your verification code is: {code}",
@@ -87,10 +82,18 @@ async def send_verification_email(to_email: str, code: str) -> bool:
 
 async def send_verification_sms(to_phone: str, code: str) -> bool:
     """Send verification code via Twilio API. Returns True on success."""
-    if Client and TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_VERIFY_SERVICE_SID:
+    if os.getenv("PYTEST_CURRENT_TEST") or os.getenv("E2E_TEST_MODE") == "1":
+        return True
+
+    twilio_account_sid = _get_env("TWILIO_ACCOUNT_SID")
+    twilio_auth_token = _get_env("TWILIO_AUTH_TOKEN")
+    twilio_phone_number = _get_env("TWILIO_PHONE_NUMBER")
+    twilio_verify_service_sid = _get_env("TWILIO_VERIFY_SERVICE_SID")
+
+    if Client and twilio_account_sid and twilio_auth_token and twilio_verify_service_sid:
         try:
-            client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-            verification = client.verify.v2.services(TWILIO_VERIFY_SERVICE_SID).verifications.create(
+            client = Client(twilio_account_sid, twilio_auth_token)
+            verification = client.verify.v2.services(twilio_verify_service_sid).verifications.create(
                 to=to_phone,
                 channel="sms",
             )
@@ -107,15 +110,15 @@ async def send_verification_sms(to_phone: str, code: str) -> bool:
         print(f"[AUTH] Twilio SDK not installed. Code {code} would be sent to {to_phone}")
         return True
 
-    if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN or not TWILIO_PHONE_NUMBER:
+    if not twilio_account_sid or not twilio_auth_token or not twilio_phone_number:
         print(f"[AUTH] Twilio credentials not set. Code {code} would be sent to {to_phone}")
         return True
 
     try:
-        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        client = Client(twilio_account_sid, twilio_auth_token)
         message = client.messages.create(
             body=f"Your Agent Shopper verification code is: {code}",
-            from_=TWILIO_PHONE_NUMBER,
+            from_=twilio_phone_number,
             to=to_phone
         )
         print(f"[AUTH] SMS sent to {to_phone}: {message.sid}")
@@ -154,13 +157,9 @@ def _parse_csv_env(raw: str) -> list[str]:
     return [item.strip() for item in value.split(',') if item.strip()]
 
 
-def _get_allowed_emails() -> set[str]:
-    return {e.lower() for e in _parse_csv_env(ALLOWED_USER_EMAILS)}
-
-
 def _get_allowed_phones() -> set[str]:
     out: set[str] = set()
-    for p in _parse_csv_env(ALLOWED_USER_PHONES):
+    for p in _parse_csv_env(_get_env("ALLOWED_USER_PHONES")):
         try:
             out.add(validate_phone_number(p))
         except ValueError:
@@ -168,13 +167,9 @@ def _get_allowed_phones() -> set[str]:
     return out
 
 
-def _get_manager_emails() -> set[str]:
-    return {e.lower() for e in _parse_csv_env(MANAGER_USER_EMAILS)}
-
-
 def _get_manager_phones() -> set[str]:
     out: set[str] = set()
-    for p in _parse_csv_env(MANAGER_USER_PHONES):
+    for p in _parse_csv_env(_get_env("MANAGER_USER_PHONES")):
         try:
             out.add(validate_phone_number(p))
         except ValueError:
@@ -186,14 +181,8 @@ def _is_allowed_identifier(email: Optional[str], phone: Optional[str]) -> bool:
     if os.getenv("PYTEST_CURRENT_TEST"):
         return True
 
-    allowed_emails = _get_allowed_emails()
     allowed_phones = _get_allowed_phones()
-    manager_emails = _get_manager_emails()
     manager_phones = _get_manager_phones()
-
-    if email:
-        if email in allowed_emails or email in manager_emails:
-            return True
     if phone:
         if phone in allowed_phones or phone in manager_phones:
             return True
@@ -201,10 +190,7 @@ def _is_allowed_identifier(email: Optional[str], phone: Optional[str]) -> bool:
 
 
 def _is_manager_identifier(email: Optional[str], phone: Optional[str]) -> bool:
-    manager_emails = _get_manager_emails()
     manager_phones = _get_manager_phones()
-    if email and email in manager_emails:
-        return True
     if phone and phone in manager_phones:
         return True
     return False
@@ -271,9 +257,7 @@ class AuthStartRequest(BaseModel):
         return v
     
     @model_validator(mode='after')
-    def validate_one_field(self):
-        if not self.email and not self.phone:
-            raise ValueError('Either email or phone must be provided')
+    def validate_phone_only(self):
         return self
 
 
@@ -287,6 +271,19 @@ class AuthVerifyRequest(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     code: str
+
+    @validator('phone')
+    def validate_phone(cls, v):
+        if v:
+            try:
+                return validate_phone_number(v)
+            except ValueError as e:
+                raise ValueError(str(e))
+        return v
+
+    @model_validator(mode='after')
+    def validate_phone_only(self):
+        return self
 
 
 class AuthVerifyResponse(BaseModel):
@@ -320,21 +317,27 @@ async def auth_start(
     req: Request,
     session: AsyncSession = Depends(get_session)
 ):
-    """Send a verification code to the user's email or phone."""
-    email = auth_request.email.lower() if auth_request.email else None
+    """Send a verification code to the user's phone."""
+    try:
+        raw = await req.json()
+    except Exception:
+        raw = {}
+    if isinstance(raw, dict) and raw.get("email"):
+        raise HTTPException(status_code=400, detail="Email login is disabled. Use phone number instead.")
+
     phone = auth_request.phone
+    if not phone:
+        raise HTTPException(status_code=400, detail="Phone number is required")
+    try:
+        phone = validate_phone_number(phone)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    if phone:
-        try:
-            phone = validate_phone_number(phone)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-
-    if not _is_allowed_identifier(email=email, phone=phone):
+    if not _is_allowed_identifier(email=None, phone=phone):
         raise HTTPException(status_code=403, detail="Not allowed")
     
-    identifier = email or phone
-    identifier_type = "email" if email else "phone"
+    identifier = phone
+    identifier_type = "phone"
 
     await audit_log(
         session=session,
@@ -346,11 +349,11 @@ async def auth_start(
     now = datetime.utcnow()
     
     # Check for existing active codes
-    query = select(AuthLoginCode).where(AuthLoginCode.is_active == True)
-    if email:
-        query = query.where(AuthLoginCode.email == email)
-    else:
-        query = query.where(AuthLoginCode.phone_number == phone)
+    query = (
+        select(AuthLoginCode)
+        .where(AuthLoginCode.is_active == True)
+        .where(AuthLoginCode.phone_number == phone)
+    )
         
     result = await session.exec(query)
     existing_codes = result.all()
@@ -366,7 +369,7 @@ async def auth_start(
     
     code = generate_verification_code()
     new_login_code = AuthLoginCode(
-        email=email,
+        email=None,
         phone_number=phone,
         code_hash=hash_token(code),
         is_active=True,
@@ -376,11 +379,7 @@ async def auth_start(
     session.add(new_login_code)
     await session.commit()
     
-    sent = False
-    if email:
-        sent = await send_verification_email(email, code)
-    elif phone:
-        sent = await send_verification_sms(phone, code)
+    sent = await send_verification_sms(phone, code)
     
     if not sent:
         raise HTTPException(status_code=500, detail="Failed to send verification code")
@@ -389,30 +388,34 @@ async def auth_start(
 
 
 @router.post("/auth/verify", response_model=AuthVerifyResponse)
-async def auth_verify(request: AuthVerifyRequest, session: AsyncSession = Depends(get_session)):
+async def auth_verify(
+    request: AuthVerifyRequest,
+    req: Request,
+    session: AsyncSession = Depends(get_session),
+):
     """Verify the code and create a session."""
-    email = request.email.lower() if request.email else None
-    phone = request.phone
-    
-    if phone:
-        try:
-            phone = validate_phone_number(phone)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-            
-    if not email and not phone:
-         raise HTTPException(status_code=400, detail="Either email or phone must be provided")
+    try:
+        raw = await req.json()
+    except Exception:
+        raw = {}
+    if isinstance(raw, dict) and raw.get("email"):
+        raise HTTPException(status_code=400, detail="Email login is disabled. Use phone number instead.")
 
-    if not _is_allowed_identifier(email=email, phone=phone):
+    phone = request.phone
+    if not phone:
+        raise HTTPException(status_code=400, detail="Phone number is required")
+    try:
+        phone = validate_phone_number(phone)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not _is_allowed_identifier(email=None, phone=phone):
         raise HTTPException(status_code=403, detail="Not allowed")
 
     now = datetime.utcnow()
     
     query = select(AuthLoginCode).where(AuthLoginCode.is_active == True)
-    if email:
-        query = query.where(AuthLoginCode.email == email)
-    else:
-        query = query.where(AuthLoginCode.phone_number == phone)
+    query = query.where(AuthLoginCode.phone_number == phone)
         
     result = await session.exec(query)
     login_code = result.first()
@@ -427,10 +430,15 @@ async def auth_verify(request: AuthVerifyRequest, session: AsyncSession = Depend
         )
     
     is_valid = False
-    if phone and Client and TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_VERIFY_SERVICE_SID:
+    skip_twilio = os.getenv("PYTEST_CURRENT_TEST") or os.getenv("E2E_TEST_MODE") == "1"
+    twilio_account_sid = _get_env("TWILIO_ACCOUNT_SID")
+    twilio_auth_token = _get_env("TWILIO_AUTH_TOKEN")
+    twilio_verify_service_sid = _get_env("TWILIO_VERIFY_SERVICE_SID")
+
+    if not skip_twilio and phone and Client and twilio_account_sid and twilio_auth_token and twilio_verify_service_sid:
         try:
-            client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-            check = client.verify.v2.services(TWILIO_VERIFY_SERVICE_SID).verification_checks.create(
+            client = Client(twilio_account_sid, twilio_auth_token)
+            check = client.verify.v2.services(twilio_verify_service_sid).verification_checks.create(
                 to=phone,
                 code=request.code,
             )
@@ -466,16 +474,10 @@ async def auth_verify(request: AuthVerifyRequest, session: AsyncSession = Depend
     # Find or create user
     emails: set[str] = set()
     phones: set[str] = set()
-    if email:
-        emails.add(email)
-        mapped_phone = ACCOUNT_EMAIL_TO_PHONE.get(email)
-        if mapped_phone:
-            phones.add(mapped_phone)
-    if phone:
-        phones.add(phone)
-        mapped_email = ACCOUNT_PHONE_TO_EMAIL.get(phone)
-        if mapped_email:
-            emails.add(mapped_email)
+    phones.add(phone)
+    mapped_email = ACCOUNT_PHONE_TO_EMAIL.get(phone)
+    if mapped_email:
+        emails.add(mapped_email)
 
     conds = []
     for e in emails:
@@ -508,15 +510,12 @@ async def auth_verify(request: AuthVerifyRequest, session: AsyncSession = Depend
                 await session.commit()
 
     if not user:
-        user = User(email=email, phone_number=phone)
+        user = User(email=next(iter(emails), None), phone_number=phone)
         session.add(user)
         await session.commit()
         await session.refresh(user)
 
     updated = False
-    if email and not user.email:
-        user.email = email
-        updated = True
     if phone and not user.phone_number:
         user.phone_number = phone
         updated = True
@@ -529,7 +528,7 @@ async def auth_verify(request: AuthVerifyRequest, session: AsyncSession = Depend
             user.phone_number = p
             updated = True
 
-    if _is_manager_identifier(email=user.email, phone=user.phone_number) and not user.is_admin:
+    if _is_manager_identifier(email=None, phone=user.phone_number) and not user.is_admin:
         user.is_admin = True
         updated = True
 
@@ -540,7 +539,7 @@ async def auth_verify(request: AuthVerifyRequest, session: AsyncSession = Depend
     
     token = generate_session_token()
     new_session = AuthSession(
-        email=email,
+        email=user.email,
         phone_number=phone,
         user_id=user.id,
         session_token_hash=hash_token(token),
