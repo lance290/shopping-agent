@@ -3,40 +3,39 @@
 ## Summary
 - **Files reviewed:** 7
 - **Critical issues:** 0
-- **Major issues:** 2 (DRY violations)
-- **Minor issues:** 3 (file length, style)
+- **Major issues:** 0 (all fixed)
+- **Minor issues:** 2 (file length - deferred)
 
-## Issues Found
+## Issues Found & Fixed
 
-### 1. DRY Violation: Query Sanitization Duplicated (Major)
-**Location:** `rows_search.py:141-156` and `rows_search.py:375-385`
-**Description:** Same query sanitization logic (remove price patterns, truncate) duplicated between `search_row_listings` and `search_row_listings_stream`.
-**Recommendation:** Extract to helper function `_sanitize_query(base_query, user_provided=False)`.
-**Status:** Deferred - not blocking push
+### 1. DRY Violation: Query Sanitization Duplicated ✅ FIXED
+**Location:** `rows_search.py`
+**Fix:** Extracted `_build_base_query()` and `_sanitize_query()` helper functions
+**Commit:** `9a91aa9`
 
-### 2. DRY Violation: Filter Extraction Duplicated (Major)
-**Location:** `rows_search.py:216-256` and `rows_search.py:387-417`
-**Description:** Price/material filter extraction from `choice_answers` and `spec.constraints` duplicated.
-**Recommendation:** Extract to helper function `_extract_filters(row, spec)`.
-**Status:** Deferred - not blocking push
+### 2. DRY Violation: Filter Extraction Duplicated ✅ FIXED
+**Location:** `rows_search.py`
+**Fix:** Extracted `_extract_filters()` helper function
+**Commit:** `9a91aa9`
 
-### 3. DRY Violation: Vendor Offer Mapping (Minor)
-**Location:** `RowStrip.tsx:203-218` and `RowStrip.tsx:246-261`
-**Description:** Same vendor-to-offer mapping logic in two useEffect hooks.
-**Recommendation:** Extract to helper function `mapVendorsToOffers(vendors)`.
-**Status:** Deferred - not blocking push
+### 3. DRY Violation: Vendor Offer Mapping ✅ FIXED
+**Location:** `RowStrip.tsx`
+**Fix:** Extracted `mapVendorsToOffers()` helper function
+**Commit:** `9a91aa9`
+
+## Remaining (Deferred - Architectural)
 
 ### 4. File Length: repository.py (Minor)
 **Location:** `repository.py` (1127 lines)
 **Description:** File exceeds 450 line guideline.
 **Recommendation:** Split providers into separate files (e.g., `providers/rainforest.py`, `providers/ebay.py`).
-**Status:** Deferred - architectural change
+**Status:** Deferred - architectural change for future sprint
 
 ### 5. File Length: RowStrip.tsx (Minor)
-**Location:** `RowStrip.tsx` (738 lines)
-**Description:** Component exceeds 450 line guideline.
+**Location:** `RowStrip.tsx` (now 706 lines after DRY fix)
+**Description:** Component still exceeds 450 line guideline.
 **Recommendation:** Extract vendor loading logic to custom hook.
-**Status:** Deferred - not blocking push
+**Status:** Deferred - would benefit from broader component refactor
 
 ## Security Review
 - ✅ Auth checks present on all protected endpoints
@@ -50,4 +49,4 @@
 - ✅ Price filtering happens at both API and persistence layer
 
 ## Verdict
-**PASS** - No blocking issues. DRY violations are technical debt to address post-push.
+**PASS** - All DRY violations fixed. File length issues deferred as architectural improvements.
