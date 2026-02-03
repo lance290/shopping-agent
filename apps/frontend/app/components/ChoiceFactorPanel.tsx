@@ -256,9 +256,9 @@ export default function ChoiceFactorPanel() {
                           </span>
                         )}
                       </span>
-                      <div className="h-3 w-3">
+                      <div className="h-4 w-4">
                         {isSaving ? (
-                          <Loader2 className="animate-spin text-agent-blurple" size={12} />
+                          <Loader2 className="animate-spin text-status-success" size={16} />
                         ) : hasAnswer ? (
                           <Check className="text-status-success" size={12} />
                         ) : null}
