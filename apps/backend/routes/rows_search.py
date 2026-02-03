@@ -27,6 +27,103 @@ from sourcing.material_filter import extract_material_constraints, should_exclud
 router = APIRouter(tags=["rows"])
 logger = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Helper functions to avoid DRY violations
+# ---------------------------------------------------------------------------
+
+def _build_base_query(row: Row, spec: Optional[RequestSpec], explicit_query: Optional[str]) -> tuple[str, bool]:
+    """
+    Build the base search query from row data, spec constraints, and choice answers.
+    Returns (base_query, user_provided_query).
+    """
+    base_query = explicit_query or row.provider_query or row.title or (spec.item_name if spec else "")
+    user_provided = bool(explicit_query)
+
+    if not explicit_query:
+        if spec and spec.constraints:
+            try:
+                constraints_obj = json.loads(spec.constraints)
+                constraint_parts = [f"{k}: {v}" for k, v in constraints_obj.items()]
+                if constraint_parts:
+                    base_query = base_query + " " + " ".join(constraint_parts)
+            except Exception:
+                pass
+
+        if row.choice_answers:
+            try:
+                answers_obj = json.loads(row.choice_answers)
+                answer_parts = [
+                    f"{k} {v}"
+                    for k, v in answers_obj.items()
+                    if k not in ("min_price", "max_price") and v and str(v).lower() != "not answered"
+                ]
+                if answer_parts:
+                    base_query = base_query + " " + " ".join(answer_parts)
+            except Exception:
+                pass
+
+    return base_query, user_provided
+
+
+def _sanitize_query(base_query: str, user_provided: bool) -> str:
+    """
+    Sanitize search query: remove price patterns, truncate if auto-constructed.
+    """
+    clean_query = re.sub(r"\$\d+", "", base_query)
+    clean_query = re.sub(
+        r"\b(over|under|below|above)\s*\$?\d+\b", "", clean_query, flags=re.IGNORECASE
+    )
+    sanitized = " ".join(clean_query.replace("(", " ").replace(")", " ").split())
+
+    # Only truncate if query was NOT explicitly provided by user
+    if not user_provided:
+        sanitized = " ".join(sanitized.split()[:12]).strip()
+
+    return sanitized if sanitized else base_query.strip()
+
+
+def _extract_filters(row: Row, spec: Optional[RequestSpec]) -> tuple[Optional[float], Optional[float], bool, set]:
+    """
+    Extract price and material filters from row.choice_answers and spec.constraints.
+    Returns (min_price, max_price, exclude_synthetics, custom_exclude_keywords).
+    """
+    min_price = None
+    max_price = None
+    exclude_synthetics = False
+    custom_exclude_keywords: set = set()
+
+    # Check for material constraints in spec
+    if spec and spec.constraints:
+        try:
+            constraints_obj = json.loads(spec.constraints)
+            exclude_synthetics, custom_exclude_keywords = extract_material_constraints(constraints_obj)
+        except Exception:
+            pass
+
+    # Check for price and material constraints in choice_answers
+    if row.choice_answers:
+        try:
+            answers_obj = json.loads(row.choice_answers)
+
+            # Extract price constraints
+            if answers_obj.get("min_price"):
+                min_price = float(answers_obj["min_price"])
+            if answers_obj.get("max_price"):
+                max_price = float(answers_obj["max_price"])
+            # Swap if inverted (min > max)
+            if min_price is not None and max_price is not None and min_price > max_price:
+                min_price, max_price = max_price, min_price
+
+            # Extract material constraints
+            exclude_synth_from_answers, custom_keywords_from_answers = extract_material_constraints(answers_obj)
+            exclude_synthetics = exclude_synthetics or exclude_synth_from_answers
+            custom_exclude_keywords.update(custom_keywords_from_answers)
+        except Exception:
+            pass
+
+    return min_price, max_price, exclude_synthetics, custom_exclude_keywords
+
 # Lazy init sourcing repository to ensure env vars are loaded
 _sourcing_repo = None
 
@@ -105,54 +202,11 @@ async def search_row_listings(
     spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
     spec = spec_result.first()
 
-    base_query = body.query or row.provider_query or row.title or (spec.item_name if spec else "")
-    user_provided_query = bool(body.query)  # Track if query was explicitly provided by user
-    logger.info(
-        f"[SEARCH DEBUG] body.query={body.query!r}, row.title={row.title!r}, base_query={base_query!r}"
-    )
-
-    if not body.query:
-        if spec and spec.constraints:
-            try:
-                constraints_obj = json.loads(spec.constraints)
-                constraint_parts = []
-                for k, v in constraints_obj.items():
-                    constraint_parts.append(f"{k}: {v}")
-                if constraint_parts:
-                    base_query = base_query + " " + " ".join(constraint_parts)
-            except Exception:
-                pass
-
-        if row.choice_answers:
-            try:
-                answers_obj = json.loads(row.choice_answers)
-                answer_parts = []
-
-                for k, v in answers_obj.items():
-                    if k in ("min_price", "max_price"):
-                        continue
-                    if v and str(v).lower() != "not answered":
-                        answer_parts.append(f"{k} {v}")
-                if answer_parts:
-                    base_query = base_query + " " + " ".join(answer_parts)
-            except Exception:
-                pass
-
-    # Sanitize: remove price patterns that confuse Amazon search
-    clean_query = re.sub(r"\$\d+", "", base_query)
-    clean_query = re.sub(
-        r"\b(over|under|below|above)\s*\$?\d+\b", "", clean_query, flags=re.IGNORECASE
-    )
-    sanitized_query = " ".join(clean_query.replace("(", " ").replace(")", " ").split())
-
-    # Only truncate if query was NOT explicitly provided by user
-    # When user provides explicit search query, preserve it fully (after sanitization)
-    if not user_provided_query:
-        # For auto-constructed queries (with constraints/answers), limit to 12 words to keep focused
-        sanitized_query = " ".join(sanitized_query.split()[:12]).strip()
-
-    if not sanitized_query:
-        sanitized_query = base_query.strip()
+    # Build and sanitize query using helper functions
+    base_query, user_provided_query = _build_base_query(row, spec, body.query)
+    logger.info(f"[SEARCH DEBUG] body.query={body.query!r}, row.title={row.title!r}, base_query={base_query!r}")
+    
+    sanitized_query = _sanitize_query(base_query, user_provided_query)
     logger.info(f"[SEARCH DEBUG] base_query={base_query!r}, sanitized_query={sanitized_query!r}")
 
     if body.search_intent is not None or body.provider_query_map is not None:
@@ -213,46 +267,9 @@ async def search_row_listings(
             )
         )
 
-    # Extract material and price constraints from choice_answers and spec
-    min_price_filter = None
-    max_price_filter = None
-    exclude_synthetics = False
-    custom_exclude_keywords = set()
-
-    # Check for material constraints in spec
-    if spec and spec.constraints:
-        try:
-            constraints_obj = json.loads(spec.constraints)
-            exclude_synthetics, custom_exclude_keywords = extract_material_constraints(constraints_obj)
-            logger.info(f"[SEARCH] Material constraints from spec: exclude_synthetics={exclude_synthetics}, custom_keywords={custom_exclude_keywords}")
-        except Exception as e:
-            logger.error(f"[SEARCH] Failed to parse spec constraints: {e}")
-
-    # Check for price and material constraints in choice_answers
-    if row.choice_answers:
-        try:
-            answers_obj = json.loads(row.choice_answers)
-            logger.info(f"[SEARCH] choice_answers for row {row_id}: {answers_obj}")
-
-            # Extract price constraints
-            if answers_obj.get("min_price"):
-                min_price_filter = float(answers_obj["min_price"])
-            if answers_obj.get("max_price"):
-                max_price_filter = float(answers_obj["max_price"])
-            # Swap if inverted (min > max)
-            if min_price_filter is not None and max_price_filter is not None and min_price_filter > max_price_filter:
-                logger.warning(f"[SEARCH] Inverted price range detected (min={min_price_filter} > max={max_price_filter}), swapping")
-                min_price_filter, max_price_filter = max_price_filter, min_price_filter
-
-            # Extract material constraints
-            exclude_synth_from_answers, custom_keywords_from_answers = extract_material_constraints(answers_obj)
-            exclude_synthetics = exclude_synthetics or exclude_synth_from_answers
-            custom_exclude_keywords.update(custom_keywords_from_answers)
-
-        except Exception as e:
-            logger.error(f"[SEARCH] Failed to parse choice_answers: {e}")
-    else:
-        logger.info(f"[SEARCH] No choice_answers for row {row_id}")
+    # Extract filters using helper function
+    min_price_filter, max_price_filter, exclude_synthetics, custom_exclude_keywords = _extract_filters(row, spec)
+    logger.info(f"[SEARCH] Filters for row {row_id}: price=[{min_price_filter}, {max_price_filter}], exclude_synthetics={exclude_synthetics}, custom_keywords={custom_exclude_keywords}")
 
     # Apply price and material filtering
     if min_price_filter is not None or max_price_filter is not None or exclude_synthetics or custom_exclude_keywords:
@@ -342,79 +359,12 @@ async def search_row_listings_stream(
     spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
     spec = spec_result.first()
 
-    # Build query (same logic as non-streaming endpoint)
-    base_query = body.query or row.provider_query or row.title or (spec.item_name if spec else "")
-    user_provided_query = bool(body.query)
+    # Build and sanitize query using helper functions
+    base_query, user_provided_query = _build_base_query(row, spec, body.query)
+    sanitized_query = _sanitize_query(base_query, user_provided_query)
 
-    if not body.query:
-        if spec and spec.constraints:
-            try:
-                constraints_obj = json.loads(spec.constraints)
-                constraint_parts = []
-                for k, v in constraints_obj.items():
-                    constraint_parts.append(f"{k}: {v}")
-                if constraint_parts:
-                    base_query = base_query + " " + " ".join(constraint_parts)
-            except Exception:
-                pass
-
-        if row.choice_answers:
-            try:
-                answers_obj = json.loads(row.choice_answers)
-                answer_parts = []
-                for k, v in answers_obj.items():
-                    if k in ("min_price", "max_price"):
-                        continue
-                    if v and str(v).lower() != "not answered":
-                        answer_parts.append(f"{k} {v}")
-                if answer_parts:
-                    base_query = base_query + " " + " ".join(answer_parts)
-            except Exception:
-                pass
-
-    clean_query = re.sub(r"\$\d+", "", base_query)
-    clean_query = re.sub(
-        r"\b(over|under|below|above)\s*\$?\d+\b", "", clean_query, flags=re.IGNORECASE
-    )
-    sanitized_query = " ".join(clean_query.replace("(", " ").replace(")", " ").split())
-
-    if not user_provided_query:
-        sanitized_query = " ".join(sanitized_query.split()[:12]).strip()
-
-    if not sanitized_query:
-        sanitized_query = base_query.strip()
-
-    # Get price and material filters
-    min_price_filter = None
-    max_price_filter = None
-    exclude_synthetics = False
-    custom_exclude_keywords = set()
-
-    # Check for material constraints in spec
-    if spec and spec.constraints:
-        try:
-            constraints_obj = json.loads(spec.constraints)
-            exclude_synthetics, custom_exclude_keywords = extract_material_constraints(constraints_obj)
-        except Exception:
-            pass
-
-    # Check for price and material constraints in choice_answers
-    if row.choice_answers:
-        try:
-            answers_obj = json.loads(row.choice_answers)
-            if answers_obj.get("min_price"):
-                min_price_filter = float(answers_obj["min_price"])
-            if answers_obj.get("max_price"):
-                max_price_filter = float(answers_obj["max_price"])
-            if min_price_filter is not None and max_price_filter is not None and min_price_filter > max_price_filter:
-                min_price_filter, max_price_filter = max_price_filter, min_price_filter
-
-            # Extract material constraints
-            exclude_synth_from_answers, custom_keywords_from_answers = extract_material_constraints(answers_obj)
-            exclude_synthetics = exclude_synthetics or exclude_synth_from_answers
-            custom_exclude_keywords.update(custom_keywords_from_answers)
-        except Exception:
-            pass
+    # Extract filters using helper function
+    min_price_filter, max_price_filter, exclude_synthetics, custom_exclude_keywords = _extract_filters(row, spec)
 
     sourcing_repo = get_sourcing_repo()
 

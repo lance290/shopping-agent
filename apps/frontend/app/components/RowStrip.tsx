@@ -16,6 +16,26 @@ interface RowStripProps {
   onToast?: (message: string, tone?: 'success' | 'error') => void;
 }
 
+// Helper function to convert vendor results to offers (DRY)
+const mapVendorsToOffers = (vendors: VendorResult[]): Offer[] => {
+  return vendors.map((v) => ({
+    title: v.title,
+    price: 0,
+    currency: 'USD',
+    merchant: v.vendor_company,
+    url: v.url,
+    image_url: v.image_url,
+    rating: null,
+    reviews_count: null,
+    shipping_info: null,
+    source: 'JetBid',
+    is_service_provider: true,
+    vendor_email: v.vendor_email,
+    vendor_name: v.vendor_name,
+    vendor_company: v.vendor_company,
+  }));
+};
+
 export default function RowStrip({ row, offers, isActive, onSelect, onToast }: RowStripProps) {
   const requestDeleteRow = useShoppingStore(state => state.requestDeleteRow);
   const pendingRowDelete = useShoppingStore(state => state.pendingRowDelete);
@@ -200,23 +220,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       const vendorsData = await getVendors(serviceCheck.category);
       if (!vendorsData?.vendors?.length) return;
 
-      const vendorOffers: Offer[] = vendorsData.vendors.map((v: VendorResult) => ({
-        title: v.title,
-        price: 0,
-        currency: 'USD',
-        merchant: v.vendor_company,
-        url: v.url,
-        image_url: v.image_url,
-        rating: null,
-        reviews_count: null,
-        shipping_info: null,
-        source: 'JetBid',
-        is_service_provider: true,
-        vendor_email: v.vendor_email,
-        vendor_name: v.vendor_name,
-        vendor_company: v.vendor_company,
-      }));
-
+      const vendorOffers = mapVendorsToOffers(vendorsData.vendors);
       console.log('[Vendor] prepending', vendorOffers.length, 'vendor tiles');
       setRowResults(row.id, [...vendorOffers, ...offers]);
     }).catch(err => {
@@ -243,23 +247,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         const vendorsData = await getVendors(serviceCheck.category);
         if (!vendorsData?.vendors?.length) return;
 
-        const vendorOffers: Offer[] = vendorsData.vendors.map((v: VendorResult) => ({
-          title: v.title,
-          price: 0,
-          currency: 'USD',
-          merchant: v.vendor_company,
-          url: v.url,
-          image_url: v.image_url,
-          rating: null,
-          reviews_count: null,
-          shipping_info: null,
-          source: 'JetBid',
-          is_service_provider: true,
-          vendor_email: v.vendor_email,
-          vendor_name: v.vendor_name,
-          vendor_company: v.vendor_company,
-        }));
-
+        const vendorOffers = mapVendorsToOffers(vendorsData.vendors);
         setRowResults(row.id, [...vendorOffers, ...offers]);
       })
       .catch((err) => {
