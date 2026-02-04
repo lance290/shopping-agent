@@ -95,6 +95,7 @@ class RowUpdate(BaseModel):
     provider_query: Optional[str] = None
     selected_bid_id: Optional[int] = None
     regenerate_choice_factors: Optional[bool] = None
+    chat_history: Optional[str] = None
 
 
 def _default_choice_factors_for_row(row: Row) -> str:

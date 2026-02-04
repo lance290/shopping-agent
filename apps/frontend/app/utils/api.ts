@@ -433,6 +433,21 @@ export const saveOutreachToDb = async (
   }
 };
 
+// Helper: Save chat history for a row
+export const saveChatHistory = async (rowId: number, messages: Array<{id: string; role: string; content: string}>): Promise<boolean> => {
+  try {
+    const res = await fetchWithAuth(`/api/rows?id=${rowId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_history: JSON.stringify(messages) }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error('[API] Save chat history error:', err);
+    return false;
+  }
+};
+
 // Helper: Toggle like (persist)
 export const toggleLikeApi = async (
   rowId: number,

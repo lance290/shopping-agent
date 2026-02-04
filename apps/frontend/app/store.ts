@@ -86,6 +86,7 @@ export interface Row {
   currency: string;
   choice_factors?: string;   // JSON string
   choice_answers?: string;   // JSON string
+  chat_history?: string;     // JSON string of chat messages
   bids?: Bid[];              // Persisted bids from DB
   project_id?: number | null;
   last_engaged_at?: number;  // Client-side timestamp for ordering

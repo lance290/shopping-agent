@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, LogOut } from 'lucide-react';
 import { useShoppingStore } from '../store';
-import { fetchRowsFromDb, fetchProjectsFromDb } from '../utils/api';
+import { fetchRowsFromDb, fetchProjectsFromDb, saveChatHistory } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
@@ -53,19 +53,52 @@ export default function Chat() {
     if (lastRowIdRef.current === store.activeRowId) return;
     lastRowIdRef.current = store.activeRowId;
 
-    // Clear previous messages and start fresh for the new active row
-    setMessages([
-      {
-        id: `${Date.now()}-${store.activeRowId}`,
-        role: 'assistant',
-        content: `Focused on: ${activeRow.title}`,
-      },
-    ]);
-  }, [store.activeRowId]);
+    // Load chat history from the row, or start fresh
+    let loadedMessages: Message[] = [];
+    if (activeRow.chat_history) {
+      try {
+        loadedMessages = JSON.parse(activeRow.chat_history);
+      } catch {
+        loadedMessages = [];
+      }
+    }
+    
+    if (loadedMessages.length > 0) {
+      setMessages(loadedMessages);
+    } else {
+      // No history - show focus message
+      setMessages([
+        {
+          id: `${Date.now()}-${store.activeRowId}`,
+          role: 'assistant',
+          content: `Focused on: ${activeRow.title}`,
+        },
+      ]);
+    }
+    
+    // Clear clarification context when switching rows
+    setPendingClarification(null);
+  }, [store.activeRowId, activeRow]);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+  
+  // Save chat history to backend when messages change (debounced)
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!store.activeRowId || messages.length === 0) return;
+    
+    // Debounce saves to avoid hammering the API
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      saveChatHistory(store.activeRowId!, messages);
+    }, 1000);
+    
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [messages, store.activeRowId]);
 
   // Load rows on mount
   useEffect(() => {

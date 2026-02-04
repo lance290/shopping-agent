@@ -47,6 +47,9 @@ class RowBase(SQLModel):
     # Outreach tracking (Phase 2)
     outreach_status: Optional[str] = None  # none, in_progress, complete
     outreach_count: int = 0
+    
+    # Chat history for this row (JSON array of messages)
+    chat_history: Optional[str] = None
 
 class RequestSpecBase(SQLModel):
     item_name: str
