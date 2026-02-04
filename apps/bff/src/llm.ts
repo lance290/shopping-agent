@@ -132,6 +132,7 @@ IMPORTANT - create_row MUST include:
 SERVICE REQUESTS (any service, not a physical product):
 Examples: private jets, yacht charters, safari tours, ice sculptors, wedding planners, caterers, contractors, photographers, event venues, limo services, personal chefs, etc.
 - For services, use "ask_clarification" to gather essential details BEFORE creating the row
+- IMPORTANT: In ask_clarification for services, set is_service: true and service_category
 - Essential details vary by service type:
   - Private jets: origin, destination, date, number of passengers
   - Catering: date, location, headcount
@@ -154,16 +155,25 @@ CRITICAL: The "message" field is REQUIRED and must NEVER be empty.
 - For create_row: message should confirm what you're creating
 - Always be conversational and helpful in your message.
 
-Decide the appropriate action and provide a message for the user.`;
+Decide the appropriate action and provide a message for the user.
 
-  // Use structured output for reliable JSON
-  const { object } = await generateObject({
+Return ONLY valid JSON matching this schema - no markdown, no extra text:
+{
+  "message": "string (required)",
+  "action": { "type": "create_row"|"update_row"|"context_switch"|"ask_clarification"|"search"|"vendor_outreach", ... }
+}`;
+
+  // Use generateText instead of generateObject to avoid AI SDK structured output bugs
+  // that cause hangs on specific prompt patterns
+  const { text } = await generateText({
     model: getModel(),
-    schema: unifiedDecisionSchema,
     prompt,
   });
 
-  return object;
+  // Parse and validate the response
+  const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
+  const parsed = JSON.parse(cleaned);
+  return unifiedDecisionSchema.parse(parsed);
 }
 
 // ============================================================================

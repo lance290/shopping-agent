@@ -1085,17 +1085,15 @@ export function buildApp() {
         const title = action.title === 'New Request' ? extractTitleFromConversation() : action.title;
         const constraints = action.constraints || {};
         
-        // DEBUG: Log what LLM returned
-        fastify.log.info({ 
-          msg: 'CREATE_ROW action', 
-          is_service: action.is_service, 
-          service_category: action.service_category,
-          constraints: action.constraints,
-          pendingClarification: pendingClarification?.partial_constraints
-        });
+        // Carry over LLM's service decision from pendingClarification
+        const pc = (pendingClarification?.partial_constraints || {}) as Record<string, any>;
+        const isService = action.is_service || pc.is_service;
+        const svcCat = action.service_category || pc.service_category;
         
-        if (action.is_service) constraints.is_service = true;
-        if (action.service_category) constraints.service_category = action.service_category;
+        fastify.log.info({ msg: 'CREATE_ROW', isService, svcCat });
+        
+        if (isService) constraints.is_service = true;
+        if (svcCat) constraints.service_category = svcCat;
 
         writeEvent('action_started', { type: 'create_row', title });
         const createRes = await fetchJsonWithTimeoutRetry(
@@ -1127,30 +1125,29 @@ export function buildApp() {
         await generateAndSaveChoiceFactors(title, rowId, authorization, constraints);
         writeEvent('factors_updated', { row_id: rowId });
 
-        // For services, fetch vendors instead of product search - use LLM's decision only
-        const serviceCategory = action.service_category;
-        
-        if (action.is_service && serviceCategory) {
-          writeEvent('action_started', { type: 'fetch_vendors', row_id: rowId, category: serviceCategory });
+        // For services, fetch vendors instead of product search
+        // Use merged values that include pendingClarification context
+        if (isService && svcCat) {
+          writeEvent('action_started', { type: 'fetch_vendors', row_id: rowId, category: svcCat });
           try {
             const vendorRes = await fetchJsonWithTimeoutRetry(
-              `${BACKEND_URL}/outreach/vendors/${serviceCategory}`,
+              `${BACKEND_URL}/outreach/vendors/${svcCat}`,
               { headers },
               15000, 1, 500
             );
             if (vendorRes.ok && vendorRes.data?.vendors && Array.isArray(vendorRes.data.vendors)) {
               writeEvent('vendors_loaded', {
                 row_id: rowId,
-                category: serviceCategory,
+                category: svcCat,
                 vendors: vendorRes.data.vendors,
               });
             } else {
-              fastify.log.warn({ status: vendorRes.status, category: serviceCategory }, 'Vendor fetch returned non-ok or non-array');
+              fastify.log.warn({ status: vendorRes.status, category: svcCat }, 'Vendor fetch returned non-ok or non-array');
             }
           } catch (err: any) {
             fastify.log.error({ err }, 'Failed to fetch vendors');
           }
-        } else if (action.is_service && !serviceCategory) {
+        } else if (isService && !svcCat) {
           // Service but LLM didn't provide category - log warning but still do product search as fallback
           fastify.log.warn({ title }, 'LLM marked as service but no service_category provided - falling back to product search');
           const searchQuery = action.search_query || title;

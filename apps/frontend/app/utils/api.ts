@@ -226,14 +226,11 @@ export const runSearchApiWithStatus = async (
     // Combine vendor results (first) with product results
     const results = [...rawResults.map((r: any) => {
       const sourceRaw = String(r?.source ?? 'unknown');
-      const sourceKey = sourceRaw.toLowerCase();
       const price = Number(r?.price);
       const rating = r?.rating === null || r?.rating === undefined ? null : Number(r?.rating);
       const reviewsCount = r?.reviews_count === null || r?.reviews_count === undefined ? null : Number(r?.reviews_count);
-      const isServiceProvider =
-        typeof r?.is_service_provider === 'boolean'
-          ? r.is_service_provider
-          : sourceKey === 'wattdata' || sourceKey === 'jetbid';
+      // Trust the is_service_provider flag from backend - no heuristic fallback
+      const isServiceProvider = r?.is_service_provider === true;
 
       return {
         title: String(r?.title ?? ''),

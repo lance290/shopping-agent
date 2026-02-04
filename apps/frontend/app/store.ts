@@ -125,7 +125,7 @@ export function mapBidToOffer(bid: Bid): Offer {
     click_url: `/api/clickout?url=${encodeURIComponent(bid.item_url || '')}`,
     bid_id: bid.id,
     is_selected: bid.is_selected,
-    is_service_provider: bid.source === 'wattdata' || bid.source === 'JetBid',
+    is_service_provider: Boolean((bid as any).is_service_provider),
     vendor_company: bid.seller?.name, // Use seller name as company for service providers
     vendor_name: bid.item_title.match(/Contact: (.*)\)/)?.[1], // Extract contact name if stored in title
     vendor_email: bid.item_url?.replace('mailto:', '') || undefined, // Extract email from mailto URL
