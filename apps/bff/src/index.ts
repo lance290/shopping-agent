@@ -1136,9 +1136,24 @@ export function buildApp() {
           } catch (err: any) {
             fastify.log.error({ err }, 'Failed to fetch vendors');
           }
-        } else if (action.is_service) {
-          // Service but no category detected - skip search, just show options form
-          fastify.log.info({ title }, 'Service detected but no category - skipping product search');
+        } else if (action.is_service && !serviceCategory) {
+          // Service but LLM didn't provide category - log warning but still do product search as fallback
+          fastify.log.warn({ title }, 'LLM marked as service but no service_category provided - falling back to product search');
+          const searchQuery = action.search_query || title;
+          writeEvent('action_started', { type: 'search', row_id: rowId, query: searchQuery });
+          try {
+            await streamSearchResults(rowId, { query: searchQuery }, headers, (batch) => {
+              writeEvent('search_results', {
+                row_id: rowId,
+                results: batch.results,
+                provider_statuses: [batch.status],
+                more_incoming: batch.more_incoming,
+                provider: batch.provider,
+              });
+            });
+          } catch (err: any) {
+            writeEvent('error', { message: err?.message || 'Search failed' });
+          }
         } else {
           // Product search for non-services
           const searchQuery = action.search_query || title;
