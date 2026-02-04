@@ -47,11 +47,12 @@ export default function Chat() {
   }, []);
 
   useEffect(() => {
-    inputRef.current?.focus();
-    setInput('');
     if (!activeRow || store.activeRowId === null) return;
     if (lastRowIdRef.current === store.activeRowId) return;
     lastRowIdRef.current = store.activeRowId;
+    
+    // Only focus/clear on actual row switch
+    setInput('');
 
     // Load chat history from the row, or start fresh
     let loadedMessages: Message[] = [];
