@@ -85,22 +85,12 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
   
-  // Save chat history to backend when messages change (debounced)
-  // TEMPORARILY DISABLED - investigating re-render loop
-  // const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // useEffect(() => {
-  //   if (!store.activeRowId || messages.length === 0) return;
-  //   
-  //   // Debounce saves to avoid hammering the API
-  //   if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-  //   saveTimeoutRef.current = setTimeout(() => {
-  //     saveChatHistory(store.activeRowId!, messages);
-  //   }, 1000);
-  //   
-  //   return () => {
-  //     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-  //   };
-  // }, [messages, store.activeRowId]);
+  // Helper to save chat history - called only on stream end, not on every message change
+  const saveCurrentChat = (msgs: Message[]) => {
+    if (store.activeRowId && msgs.length > 0) {
+      saveChatHistory(store.activeRowId, msgs);
+    }
+  };
 
   // Load rows on mount
   useEffect(() => {
@@ -313,6 +303,11 @@ export default function Chat() {
       }
     } finally {
       setIsLoading(false);
+      // Save chat history after stream completes
+      setMessages(currentMsgs => {
+        saveCurrentChat(currentMsgs);
+        return currentMsgs;
+      });
     }
   };
   
