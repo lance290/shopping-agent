@@ -24,6 +24,8 @@ export default function Chat() {
   // Track pending clarification context for multi-turn flows (e.g., aviation)
   const [pendingClarification, setPendingClarification] = useState<{
     type: string;
+    service_type?: string;
+    title?: string;
     partial_constraints: Record<string, unknown>;
   } | null>(null);
   
@@ -207,6 +209,8 @@ export default function Chat() {
               if (data?.type && data?.partial_constraints) {
                 setPendingClarification({
                   type: data.type,
+                  service_type: data.service_type,
+                  title: data.title,
                   partial_constraints: data.partial_constraints,
                 });
               }
