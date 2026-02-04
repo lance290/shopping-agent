@@ -1112,21 +1112,42 @@ export function buildApp() {
         await generateAndSaveChoiceFactors(title, rowId, authorization, constraints);
         writeEvent('factors_updated', { row_id: rowId });
 
-        // Always run search - use title as fallback query
-        const searchQuery = action.search_query || title;
-        writeEvent('action_started', { type: 'search', row_id: rowId, query: searchQuery });
-        try {
-          await streamSearchResults(rowId, { query: searchQuery }, headers, (batch) => {
-            writeEvent('search_results', {
-              row_id: rowId,
-              results: batch.results,
-              provider_statuses: [batch.status],
-              more_incoming: batch.more_incoming,
-              provider: batch.provider,
+        // For services, fetch vendors instead of product search
+        if (action.is_service && action.service_category) {
+          writeEvent('action_started', { type: 'fetch_vendors', row_id: rowId, category: action.service_category });
+          try {
+            const vendorRes = await fetchJsonWithTimeoutRetry(
+              `${BACKEND_URL}/outreach/vendors/${action.service_category}`,
+              { headers },
+              15000, 1, 500
+            );
+            if (vendorRes.ok && Array.isArray(vendorRes.data)) {
+              writeEvent('vendors_loaded', {
+                row_id: rowId,
+                category: action.service_category,
+                vendors: vendorRes.data,
+              });
+            }
+          } catch (err: any) {
+            fastify.log.error({ err }, 'Failed to fetch vendors');
+          }
+        } else {
+          // Product search for non-services
+          const searchQuery = action.search_query || title;
+          writeEvent('action_started', { type: 'search', row_id: rowId, query: searchQuery });
+          try {
+            await streamSearchResults(rowId, { query: searchQuery }, headers, (batch) => {
+              writeEvent('search_results', {
+                row_id: rowId,
+                results: batch.results,
+                provider_statuses: [batch.status],
+                more_incoming: batch.more_incoming,
+                provider: batch.provider,
+              });
             });
-          });
-        } catch (err: any) {
-          writeEvent('error', { message: err?.message || 'Search failed' });
+          } catch (err: any) {
+            writeEvent('error', { message: err?.message || 'Search failed' });
+          }
         }
 
         writeEvent('done', {});

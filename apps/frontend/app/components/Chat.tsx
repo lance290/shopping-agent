@@ -266,6 +266,33 @@ export default function Chat() {
               if (!moreIncoming) {
                 store.setIsSearching(false);
               }
+            } else if (eventName === 'vendors_loaded') {
+              // Service request - convert vendors to offer-like tiles
+              const rowId = data?.row_id;
+              const vendors = Array.isArray(data?.vendors) ? data.vendors : [];
+              const category = data?.category;
+              
+              if (rowId && vendors.length > 0) {
+                // Convert vendors to offer format for display
+                const vendorOffers = vendors.map((v: any) => ({
+                  id: `vendor-${v.id}`,
+                  title: v.name,
+                  price: null,
+                  image_url: v.image_url,
+                  item_url: v.domain ? `https://${v.domain}` : null,
+                  source: 'vendor',
+                  seller_name: v.name,
+                  seller_domain: v.domain,
+                  is_vendor: true,
+                  vendor_id: v.id,
+                  vendor_category: category,
+                  contact_name: v.contact_name,
+                  contact_email: v.email,
+                  contact_phone: v.phone,
+                }));
+                store.setRowResults(rowId, vendorOffers, undefined, false);
+              }
+              store.setIsSearching(false);
             } else if (eventName === 'needs_clarification') {
               // Store partial constraints for the next turn
               if (data?.type && data?.partial_constraints) {
