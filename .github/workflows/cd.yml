@@ -227,7 +227,7 @@ jobs:
         # Generate service configuration
         if [[ -f "infra/railway/config-railway.js" ]]; then
           echo "🔧 Generating Railway configuration..."
-          node infra/railway/config-railway.js generate
+          node infra/railway/config-railway.js setup-monorepo .
         fi
         
         # Set environment variables
