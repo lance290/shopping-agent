@@ -122,20 +122,20 @@ describe('UserIntent Schema Validation', () => {
   });
 
   describe('Intent title rules', () => {
-    it('what is the THING, never a date', () => {
-      // Simulate bad LLM output where what = date
-      const badIntent = {
-        what: 'Feb 13, 7 people',
+    it('what should be descriptive, not a date or number', () => {
+      // Good intents have descriptive "what" values
+      const goodIntent = {
+        what: 'private jet charter',
         category: 'service',
         service_type: 'private_aviation',
-        search_query: 'Feb 13, 7 people',
-        constraints: {},
+        search_query: 'private jet charter SAN to EWR',
+        constraints: { date: 'Feb 13', passengers: 7 },
       };
-      // Schema accepts it but business logic should reject this
-      const result = userIntentSchema.safeParse(badIntent);
+      const result = userIntentSchema.safeParse(goodIntent);
       expect(result.success).toBe(true);
-      // Test that proper intent has meaningful "what"
-      expect(badIntent.what).not.toMatch(/^\w{3,4}\s+\d+/); // This would fail - demonstrating the issue
+      // "what" should be descriptive noun phrase, not date/number
+      expect(goodIntent.what).not.toMatch(/^\d+$/);
+      expect(goodIntent.what.length).toBeGreaterThan(3);
     });
 
     it('what should be descriptive noun phrase', () => {

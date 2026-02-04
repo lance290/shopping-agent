@@ -948,8 +948,9 @@ export function buildApp() {
             id: activeRowId,
             title: rowRes.data.title || '',
             constraints: choiceAnswers,
-            is_service: choiceAnswers.is_service || false,
-            service_category: choiceAnswers.service_category,
+            // Read from actual row columns, NOT from choiceAnswers
+            is_service: rowRes.data.is_service === true,
+            service_category: rowRes.data.service_category || null,
           };
         }
       }
