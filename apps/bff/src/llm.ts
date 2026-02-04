@@ -81,35 +81,53 @@ JSON only:`;
   }
 }
 
-// Extract aviation-specific constraints from user message
-export interface AviationConstraints {
-  from_airport?: string;
-  to_airport?: string;
-  departure_date?: string;
-  passengers?: number;
-  time_earliest?: string;
-  time_latest?: string;
+// Generic service clarification system - works for any service type
+export interface ServiceConstraints {
+  extracted: Record<string, unknown>;
   missing_required: string[];
+  clarifying_question?: string;
+  is_complete: boolean;
 }
 
-export async function extractAviationConstraints(userMessage: string): Promise<AviationConstraints> {
-  const prompt = `Extract flight/charter details from this request. Return what you can find.
+export async function extractServiceConstraints(
+  userMessage: string, 
+  serviceType: string,
+  existingConstraints?: Record<string, unknown>
+): Promise<ServiceConstraints> {
+  const existingText = existingConstraints && Object.keys(existingConstraints).length > 0
+    ? `\n\nAlready collected: ${JSON.stringify(existingConstraints)}`
+    : '';
 
-User: "${userMessage}"
+  const prompt = `You are analyzing a service request to determine what information is needed.
 
-Return JSON with these fields (use null if not mentioned):
+Service type: "${serviceType}"
+User message: "${userMessage}"${existingText}
+
+Your task:
+1. Extract any concrete details from the user's message (dates, locations, quantities, preferences, etc.)
+2. Determine what essential information is still missing to fulfill this request
+3. If anything is missing, write a natural, friendly clarifying question
+
+Return JSON:
 {
-  "from_airport": "3-letter code or city name",
-  "to_airport": "3-letter code or city name", 
-  "departure_date": "YYYY-MM-DD format",
-  "passengers": number,
-  "time_earliest": "HH:MM format",
-  "time_latest": "HH:MM format"
+  "extracted": {
+    // key-value pairs of info found in the message
+    // Use snake_case keys like "departure_date", "num_guests", "location", etc.
+  },
+  "missing_required": [
+    // Array of plain English descriptions of what's still needed
+    // e.g., "departure date", "number of guests", "preferred location"
+  ],
+  "clarifying_question": "A natural question to ask for the missing info (or null if complete)",
+  "is_complete": true/false
 }
 
 Examples:
-- "private jet from Nashville to Teterboro on Feb 13 for 7 people" -> {"from_airport": "BNA", "to_airport": "TEB", "departure_date": "2026-02-13", "passengers": 7, "time_earliest": null, "time_latest": null}
-- "charter flight NYC to Miami next Friday morning" -> {"from_airport": "NYC", "to_airport": "MIA", "departure_date": null, "passengers": null, "time_earliest": "08:00", "time_latest": "12:00"}
+- Private jet, "from SAN to EWR" -> extracted: {from_airport: "SAN", to_airport: "EWR"}, missing: ["departure date", "number of passengers"]
+- Catering, "party for 50 on Saturday" -> extracted: {num_guests: 50, event_date: "Saturday"}, missing: ["venue/delivery location", "dietary restrictions"]
+- Photography, "wedding next June" -> extracted: {event_type: "wedding", event_month: "June"}, missing: ["exact date", "venue location", "hours needed"]
+
+Be practical - only ask for info that's truly essential to get a quote. Don't over-ask.
 
 JSON only:`;
 
@@ -118,41 +136,48 @@ JSON only:`;
     const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
     const parsed = JSON.parse(cleaned);
     
-    // Determine which required fields are missing
-    const missing: string[] = [];
-    if (!parsed.from_airport) missing.push('departure airport');
-    if (!parsed.to_airport) missing.push('destination airport');
-    if (!parsed.departure_date) missing.push('departure date');
-    if (!parsed.passengers) missing.push('number of passengers');
-    
     return {
-      from_airport: parsed.from_airport || undefined,
-      to_airport: parsed.to_airport || undefined,
-      departure_date: parsed.departure_date || undefined,
-      passengers: typeof parsed.passengers === 'number' ? parsed.passengers : undefined,
-      time_earliest: parsed.time_earliest || undefined,
-      time_latest: parsed.time_latest || undefined,
-      missing_required: missing,
+      extracted: parsed.extracted || {},
+      missing_required: Array.isArray(parsed.missing_required) ? parsed.missing_required : [],
+      clarifying_question: parsed.clarifying_question || undefined,
+      is_complete: parsed.is_complete ?? (parsed.missing_required?.length === 0),
     };
   } catch (e) {
-    return { missing_required: ['departure airport', 'destination airport', 'departure date', 'number of passengers'] };
+    console.error('Failed to extract service constraints:', e);
+    return { 
+      extracted: {}, 
+      missing_required: [], 
+      is_complete: true // Don't block on extraction failure
+    };
   }
 }
 
-// Generate a clarifying question for missing aviation fields
-export function generateAviationClarifyingQuestion(missing: string[]): string {
-  if (missing.length === 0) return '';
-  
-  if (missing.length === 1) {
-    return `To get you a quote, I need the ${missing[0]}. What is it?`;
+// Check if user is switching context (asking about something completely different)
+export async function isContextSwitch(
+  userMessage: string, 
+  currentServiceType: string
+): Promise<boolean> {
+  const prompt = `Is this user message continuing a conversation about "${currentServiceType}", or are they switching to a completely different topic?
+
+User message: "${userMessage}"
+
+Return JSON: {"is_switch": true/false, "reason": "brief explanation"}
+
+Examples:
+- currentServiceType: "private jet charter", message: "Feb 13, 7 people" -> {"is_switch": false, "reason": "providing requested details"}
+- currentServiceType: "private jet charter", message: "actually, let's look for dinner reservations" -> {"is_switch": true, "reason": "explicitly changing topic"}
+- currentServiceType: "catering", message: "vegetarian options please" -> {"is_switch": false, "reason": "adding dietary info to catering request"}
+
+JSON only:`;
+
+  try {
+    const { text } = await generateText({ model, prompt });
+    const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    return parsed.is_switch === true;
+  } catch (e) {
+    return false; // Default to continuing context on error
   }
-  
-  if (missing.length === 2) {
-    return `To get you a quote, I need the ${missing[0]} and ${missing[1]}. Can you provide those?`;
-  }
-  
-  const last = missing.pop();
-  return `To request quotes from charter operators, I need a few more details: ${missing.join(', ')}, and ${last}. Can you provide those?`;
 }
 
 // Generate optimized search query for providers

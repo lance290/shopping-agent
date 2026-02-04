@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fs from 'fs';
 import path from 'path';
-import { generateAndSaveChoiceFactors, GEMINI_MODEL_NAME, triageProviderQuery, generateChatPlan, extractTitleQuick, generateSearchQuery, extractAviationConstraints, generateAviationClarifyingQuestion, AviationConstraints } from './llm';
+import { generateAndSaveChoiceFactors, GEMINI_MODEL_NAME, triageProviderQuery, generateChatPlan, extractTitleQuick, generateSearchQuery, extractServiceConstraints, isContextSwitch, ServiceConstraints } from './llm';
 import { extractSearchIntent } from './intent';
 
 // Manually load .env since we want to avoid dependency issues
@@ -886,6 +886,8 @@ export function buildApp() {
       projectId?: number;
       clarificationContext?: {
         type: string;
+        service_type?: string;
+        title?: string;
         partial_constraints: Record<string, unknown>;
       };
     };
@@ -1033,104 +1035,76 @@ export function buildApp() {
     }
 
     // === CLARIFICATION CONTINUATION: User is responding to a clarifying question ===
-    if (clarificationContext?.type === 'aviation') {
-      // First, check if user is switching context entirely (e.g., "actually, let's look for dinner")
-      const contextCheck = await extractTitleQuick(userText);
-      const looksLikeNewRequest = contextCheck.title.length > 10 && 
-        !contextCheck.title.toLowerCase().includes('jet') &&
-        !contextCheck.title.toLowerCase().includes('flight') &&
-        !contextCheck.title.toLowerCase().includes('charter') &&
-        !userText.toLowerCase().match(/^\d/) && // doesn't start with a number (like "7 people")
-        !userText.toLowerCase().match(/^(feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|jan)/i); // doesn't start with month
+    if (clarificationContext?.type === 'service') {
+      const serviceType = clarificationContext.service_type as string || 'service';
+      const existingConstraints = clarificationContext.partial_constraints as Record<string, unknown> || {};
       
-      if (looksLikeNewRequest) {
-        fastify.log.info({ msg: 'User switched context from aviation, starting new request', newTitle: contextCheck.title });
+      // Check if user is switching context entirely
+      const switching = await isContextSwitch(userText, serviceType);
+      
+      if (switching) {
+        fastify.log.info({ msg: 'User switched context, starting new request' });
         // Fall through to normal flow - don't process as clarification
       } else {
-        fastify.log.info({ msg: 'Continuing aviation clarification flow', partial: clarificationContext.partial_constraints });
+        fastify.log.info({ msg: 'Continuing service clarification flow', serviceType, existing: existingConstraints });
         
-        // Extract new constraints from user's response and merge with existing
-        const newConstraints = await extractAviationConstraints(userText);
-      const partial = clarificationContext.partial_constraints as unknown as AviationConstraints;
-      
-      // Merge: new values override partial, but keep partial values if new is undefined
-      const merged: AviationConstraints = {
-        from_airport: newConstraints.from_airport || partial.from_airport,
-        to_airport: newConstraints.to_airport || partial.to_airport,
-        departure_date: newConstraints.departure_date || partial.departure_date,
-        passengers: newConstraints.passengers ?? partial.passengers,
-        time_earliest: newConstraints.time_earliest || partial.time_earliest,
-        time_latest: newConstraints.time_latest || partial.time_latest,
-        missing_required: [],
-      };
-      
-      // Recalculate missing required fields
-      if (!merged.from_airport) merged.missing_required.push('departure airport');
-      if (!merged.to_airport) merged.missing_required.push('destination airport');
-      if (!merged.departure_date) merged.missing_required.push('departure date');
-      if (!merged.passengers) merged.missing_required.push('number of passengers');
-      
-      fastify.log.info({ msg: 'Merged aviation constraints', merged });
-      
-      // Still missing required fields? Ask again
-      if (merged.missing_required.length > 0) {
-        const question = generateAviationClarifyingQuestion([...merged.missing_required]);
-        writeEvent('assistant_message', { text: question });
-        writeEvent('needs_clarification', { 
-          type: 'aviation',
-          missing_fields: merged.missing_required,
-          partial_constraints: merged,
-        });
+        // Extract new constraints and merge with existing
+        const result = await extractServiceConstraints(userText, serviceType, existingConstraints);
+        const mergedConstraints = { ...existingConstraints, ...result.extracted };
+        
+        fastify.log.info({ msg: 'Service constraints extracted', result, merged: mergedConstraints });
+        
+        // Still missing required info? Ask again
+        if (!result.is_complete && result.clarifying_question) {
+          writeEvent('assistant_message', { text: result.clarifying_question });
+          writeEvent('needs_clarification', { 
+            type: 'service',
+            service_type: serviceType,
+            missing_fields: result.missing_required,
+            partial_constraints: mergedConstraints,
+          });
+          writeEvent('done', {});
+          reply.raw.end();
+          return;
+        }
+        
+        // All fields present - create the row with constraints
+        const title = clarificationContext.title as string || serviceType;
+        
+        writeEvent('assistant_message', { text: `Great! I have everything I need. Let me find options for you.` });
+        writeEvent('action_started', { type: 'create_row', title });
+        
+        const createRes = await fetchJsonWithTimeoutRetry(
+          `${BACKEND_URL}/rows`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              title,
+              status: 'sourcing',
+              project_id: projectId ?? undefined,
+              request_spec: { item_name: title, constraints: JSON.stringify(mergedConstraints) },
+              choice_answers: JSON.stringify(mergedConstraints),
+            }),
+          },
+          20000, 1, 500
+        );
+        
+        if (!createRes.ok || !createRes.data?.id) {
+          writeEvent('error', { message: createRes.data?.detail || 'Failed to create row' });
+          reply.raw.end();
+          return;
+        }
+        
+        const rowId = Number(createRes.data.id);
+        writeEvent('row_created', { row: createRes.data });
+        
+        await generateAndSaveChoiceFactors(title, rowId, authorization, mergedConstraints);
+        writeEvent('factors_updated', { row_id: rowId });
+        
         writeEvent('done', {});
         reply.raw.end();
         return;
-      }
-      
-      // All fields present - create the row
-      const title = `Private jet ${merged.from_airport} to ${merged.to_airport}`;
-      const choiceAnswers = {
-        from_airport: merged.from_airport,
-        to_airport: merged.to_airport,
-        departure_date: merged.departure_date,
-        passengers: merged.passengers,
-        time_earliest: merged.time_earliest,
-        time_latest: merged.time_latest,
-      };
-      
-      writeEvent('assistant_message', { text: `Great! I'll reach out to charter operators for a ${merged.from_airport} → ${merged.to_airport} flight on ${merged.departure_date} for ${merged.passengers} passengers.` });
-      writeEvent('action_started', { type: 'create_row', title });
-      
-      const createRes = await fetchJsonWithTimeoutRetry(
-        `${BACKEND_URL}/rows`,
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            title,
-            status: 'sourcing',
-            project_id: projectId ?? undefined,
-            request_spec: { item_name: title, constraints: JSON.stringify(choiceAnswers) },
-            choice_answers: JSON.stringify(choiceAnswers),
-          }),
-        },
-        20000, 1, 500
-      );
-      
-      if (!createRes.ok || !createRes.data?.id) {
-        writeEvent('error', { message: createRes.data?.detail || 'Failed to create row' });
-        reply.raw.end();
-        return;
-      }
-      
-      const rowId = Number(createRes.data.id);
-      writeEvent('row_created', { row: createRes.data });
-      
-      await generateAndSaveChoiceFactors(title, rowId, authorization, choiceAnswers);
-      writeEvent('factors_updated', { row_id: rowId });
-      
-      writeEvent('done', {});
-      reply.raw.end();
-      return;
       } // end else (continuing clarification)
     } // end if clarificationContext
 
@@ -1143,21 +1117,23 @@ export function buildApp() {
     const title = titleInfo.title;
     fastify.log.info({ msg: 'Quick title extracted', title, is_service: titleInfo.is_service, category: titleInfo.category });
 
-    // Special handling for private aviation - extract constraints and ask clarifying questions
-    if (titleInfo.is_service && titleInfo.category === 'private_aviation') {
-      fastify.log.info({ msg: 'Detected private aviation request, extracting constraints' });
+    // Special handling for SERVICE requests - extract constraints and ask clarifying questions
+    if (titleInfo.is_service) {
+      const serviceType = titleInfo.category || title;
+      fastify.log.info({ msg: 'Detected service request, extracting constraints', serviceType });
       
-      const aviationConstraints = await extractAviationConstraints(userText);
-      fastify.log.info({ msg: 'Aviation constraints extracted', constraints: aviationConstraints });
+      const constraints = await extractServiceConstraints(userText, serviceType);
+      fastify.log.info({ msg: 'Service constraints extracted', constraints });
       
       // If missing required fields, ask clarifying question
-      if (aviationConstraints.missing_required.length > 0) {
-        const question = generateAviationClarifyingQuestion([...aviationConstraints.missing_required]);
-        writeEvent('assistant_message', { text: question });
+      if (!constraints.is_complete && constraints.clarifying_question) {
+        writeEvent('assistant_message', { text: constraints.clarifying_question });
         writeEvent('needs_clarification', { 
-          type: 'aviation',
-          missing_fields: aviationConstraints.missing_required,
-          partial_constraints: aviationConstraints,
+          type: 'service',
+          service_type: serviceType,
+          title: title,
+          missing_fields: constraints.missing_required,
+          partial_constraints: constraints.extracted,
         });
         writeEvent('done', {});
         reply.raw.end();
@@ -1165,16 +1141,7 @@ export function buildApp() {
       }
       
       // All required fields present - create row with constraints
-      const choiceAnswers = {
-        from_airport: aviationConstraints.from_airport,
-        to_airport: aviationConstraints.to_airport,
-        departure_date: aviationConstraints.departure_date,
-        passengers: aviationConstraints.passengers,
-        time_earliest: aviationConstraints.time_earliest,
-        time_latest: aviationConstraints.time_latest,
-      };
-      
-      writeEvent('assistant_message', { text: `Great! I'll reach out to charter operators for a ${aviationConstraints.from_airport} → ${aviationConstraints.to_airport} flight on ${aviationConstraints.departure_date} for ${aviationConstraints.passengers} passengers.` });
+      writeEvent('assistant_message', { text: `Great! I have everything I need. Let me find options for you.` });
       writeEvent('action_started', { type: 'create_row', title });
       
       const createRes = await fetchJsonWithTimeoutRetry(
@@ -1186,8 +1153,8 @@ export function buildApp() {
             title,
             status: 'sourcing',
             project_id: projectId ?? undefined,
-            request_spec: { item_name: title, constraints: JSON.stringify(choiceAnswers) },
-            choice_answers: JSON.stringify(choiceAnswers),
+            request_spec: { item_name: title, constraints: JSON.stringify(constraints.extracted) },
+            choice_answers: JSON.stringify(constraints.extracted),
           }),
         },
         20000, 1, 500
@@ -1203,7 +1170,7 @@ export function buildApp() {
       writeEvent('row_created', { row: createRes.data });
       
       // Generate choice factors for the UI
-      await generateAndSaveChoiceFactors(title, rowId, authorization, choiceAnswers);
+      await generateAndSaveChoiceFactors(title, rowId, authorization, constraints.extracted);
       writeEvent('factors_updated', { row_id: rowId });
       
       writeEvent('done', {});
