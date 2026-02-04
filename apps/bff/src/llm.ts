@@ -1,9 +1,15 @@
-import { google } from '@ai-sdk/google';
+import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, generateText } from 'ai';
 import { z } from 'zod';
 
-export const GEMINI_MODEL_NAME = 'gemini-3-flash-preview';
-const model = google(GEMINI_MODEL_NAME);
+// Use OpenRouter for LLM calls
+const openrouter = createOpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
+
+export const GEMINI_MODEL_NAME = 'google/gemini-3-flash-preview';
+const model = openrouter(GEMINI_MODEL_NAME);
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 const chatPlanSchema = z.object({

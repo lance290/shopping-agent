@@ -1,10 +1,15 @@
-import { google } from '@ai-sdk/google';
+import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { z } from 'zod';
 import type { ExtractSearchIntentResult, SearchIntent } from '../types';
 import { GEMINI_MODEL_NAME } from '../llm';
 
-const model = google(GEMINI_MODEL_NAME);
+// Use OpenRouter for LLM calls
+const openrouter = createOpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
+const model = openrouter(GEMINI_MODEL_NAME);
 
 const featureValueSchema = z.union([
   z.string(),
