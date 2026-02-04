@@ -103,31 +103,31 @@ export async function extractServiceConstraints(
 Service type: "${serviceType}"
 User message: "${userMessage}"${existingText}
 
-Your task:
-1. Extract any concrete details from the user's message (dates, locations, quantities, preferences, etc.)
-2. Determine what essential information is still missing to fulfill this request
-3. If anything is missing, write a natural, friendly clarifying question
+IMPORTANT RULES:
+1. Only ask for ABSOLUTE MINIMUM info needed to request a quote (usually: who, what, when, where)
+2. If user says "let's see", "let's go", "proceed", "get quotes", "what can you find" etc. → mark is_complete: true
+3. Nice-to-have details (luggage, preferences, equipment) are NOT required - never ask for them
+4. For private jets: only need origin, destination, date, and passengers. NOTHING ELSE.
+5. For catering: only need date, headcount, location. Dietary restrictions are optional.
+6. When in doubt, mark is_complete: true and let the user add details later
 
 Return JSON:
 {
   "extracted": {
     // key-value pairs of info found in the message
-    // Use snake_case keys like "departure_date", "num_guests", "location", etc.
   },
   "missing_required": [
-    // Array of plain English descriptions of what's still needed
-    // e.g., "departure date", "number of guests", "preferred location"
+    // ONLY truly essential fields - keep this list SHORT (max 2-3 items)
   ],
-  "clarifying_question": "A natural question to ask for the missing info (or null if complete)",
+  "clarifying_question": "A short question (or null if complete)",
   "is_complete": true/false
 }
 
 Examples:
-- Private jet, "from SAN to EWR" -> extracted: {from_airport: "SAN", to_airport: "EWR"}, missing: ["departure date", "number of passengers"]
-- Catering, "party for 50 on Saturday" -> extracted: {num_guests: 50, event_date: "Saturday"}, missing: ["venue/delivery location", "dietary restrictions"]
-- Photography, "wedding next June" -> extracted: {event_type: "wedding", event_month: "June"}, missing: ["exact date", "venue location", "hours needed"]
-
-Be practical - only ask for info that's truly essential to get a quote. Don't over-ask.
+- Private jet, "from SAN to EWR" -> missing: ["date", "passengers"], is_complete: false
+- Private jet, "Feb 13, 7 people" (with existing from/to) -> is_complete: true (we have everything essential)
+- Private jet, "let's see what we can get" -> is_complete: true (user wants to proceed)
+- Any service, "just get me some options" -> is_complete: true
 
 JSON only:`;
 
