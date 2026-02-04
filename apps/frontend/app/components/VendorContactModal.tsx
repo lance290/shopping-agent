@@ -109,6 +109,7 @@ export default function VendorContactModal({
   const [passengers, setPassengers] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  const [bodyEdited, setBodyEdited] = useState<string | null>(null); // null = use template
 
   useEffect(() => {
     setMounted(true);
@@ -135,6 +136,7 @@ export default function VendorContactModal({
     // Store raw templates for re-rendering
     setSubjectTemplateRaw(d.subject_template || 'Charter request — {from} to {to} on {date}');
     setBodyTemplateRaw(d.body_template || `Hi {provider},\n\nI'm reaching out on behalf of my boss. We're looking to arrange a private charter:\nRoute: {from} → {to}\nDate: {date}\nWheels up: {time}\nPassengers: {pax}\n\nAre you able to quote this? If so, what availability/pricing do you have?\n\nThanks,\n{persona_name}\n{persona_role}`);
+    setBodyEdited(null); // Reset to template mode when modal opens
 
   }, [isOpen, defaultOutreach]);
 
@@ -157,7 +159,7 @@ export default function VendorContactModal({
   };
 
   const subjectRendered = renderTemplate(subjectTemplateRaw);
-  const bodyRendered = renderTemplate(bodyTemplateRaw);
+  const bodyRendered = bodyEdited !== null ? bodyEdited : renderTemplate(bodyTemplateRaw);
 
   if (!isOpen || !mounted) return null;
 
@@ -297,9 +299,9 @@ export default function VendorContactModal({
               <div className="text-xs text-onyx-muted mb-1">Email body</div>
               <textarea
                 value={bodyRendered}
-                readOnly
+                onChange={(e) => setBodyEdited(e.target.value)}
                 rows={6}
-                className="w-full px-3 py-2 bg-gray-50 border border-warm-grey/60 rounded-lg text-xs text-gray-900 outline-none resize-none"
+                className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none resize-none"
               />
             </div>
 
