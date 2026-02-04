@@ -205,10 +205,20 @@ export default function Chat() {
             } else if (eventName === 'row_created') {
               const row = data?.row;
               if (row?.id) {
-                const mergedRows = [...store.rows.filter((r) => r.id !== row.id), row].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+                // Save current conversation to the new row before switching
+                // This preserves the clarification Q&A that led to row creation
+                const currentMessages = [...messages, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
+                saveChatHistory(row.id, currentMessages);
+                
+                // Update the row with chat_history so it loads correctly
+                const rowWithHistory = { ...row, chat_history: JSON.stringify(currentMessages) };
+                const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
                 store.setRows(mergedRows);
                 store.setActiveRowId(row.id);
                 store.setCurrentQuery(row.title);
+                
+                // Clear clarification context since row is now created
+                setPendingClarification(null);
               }
             } else if (eventName === 'row_updated') {
               const row = data?.row;
