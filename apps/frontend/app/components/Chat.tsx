@@ -134,7 +134,7 @@ export default function Chat() {
           activeRowId: effectiveActiveRowId,
           projectId: intendedProjectId,
           // Include pending clarification context if we're in a multi-turn flow
-          clarificationContext: pendingClarification,
+          pendingClarification: pendingClarification,
         }),
       });
       
@@ -203,22 +203,46 @@ export default function Chat() {
                   const currentMessages = [...messages, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
                   saveChatHistory(row.id, currentMessages);
                   const rowWithHistory = { ...row, chat_history: JSON.stringify(currentMessages) };
-                  const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+                  const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
                   store.setRows(mergedRows);
                 } else {
-                  // New unrelated request - start fresh, just add the row
-                  const mergedRows = [...store.rows.filter((r) => r.id !== row.id), row].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+                  // New request - preserve full conversation including user message
+                  const currentMessages = [...messages, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
+                  saveChatHistory(row.id, currentMessages);
+                  const rowWithHistory = { ...row, chat_history: JSON.stringify(currentMessages) };
+                  const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
                   store.setRows(mergedRows);
                 }
                 
                 store.setActiveRowId(row.id);
                 store.setCurrentQuery(row.title);
                 setPendingClarification(null);
+                // Update ref so load effect doesn't overwrite
+                lastRowIdRef.current = row.id;
+              }
+            } else if (eventName === 'context_switch') {
+              // User switched to completely different topic - new row, fresh chat for new topic
+              const row = data?.row;
+              if (row?.id) {
+                // Start fresh conversation with just the switch message and response
+                const lastUserMsg = messages.filter(m => m.role === 'user').pop();
+                const freshMessages = lastUserMsg 
+                  ? [lastUserMsg, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }]
+                  : [{ id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
+                saveChatHistory(row.id, freshMessages);
+                const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages) };
+                const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
+                store.setRows(mergedRows);
+                store.setActiveRowId(row.id);
+                store.setCurrentQuery(row.title);
+                setMessages(freshMessages);
+                setPendingClarification(null);
+                lastRowIdRef.current = row.id;
               }
             } else if (eventName === 'row_updated') {
               const row = data?.row;
               if (row?.id) {
-                const mergedRows = [...store.rows.filter((r) => r.id !== row.id), row].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+                const mergedRows = [...store.rows.filter((r) => r.id !== row.id), row];
                 store.setRows(mergedRows);
                 store.setActiveRowId(row.id);
                 store.setCurrentQuery(row.title);

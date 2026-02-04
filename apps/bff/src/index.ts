@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fs from 'fs';
 import path from 'path';
-import { generateAndSaveChoiceFactors, GEMINI_MODEL_NAME, triageProviderQuery, generateChatPlan, extractTitleQuick, generateSearchQuery, extractServiceConstraints, isContextSwitch, ServiceConstraints } from './llm';
+import { generateAndSaveChoiceFactors, GEMINI_MODEL_NAME, makeUnifiedDecision, ChatContext, triageProviderQuery } from './llm';
 import { extractSearchIntent } from './intent';
 
 // Manually load .env since we want to avoid dependency issues
@@ -878,146 +878,288 @@ export function buildApp() {
     reply.raw.end();
   }
 
+  // ============================================================================
+  // UNIFIED CHAT HANDLER - Single LLM decision point, no heuristics
+  // ============================================================================
   fastify.post('/api/chat', async (request, reply) => {
-  try {
-    const { messages, activeRowId, projectId, clarificationContext } = request.body as {
-      messages: any[];
-      activeRowId?: number;
-      projectId?: number;
-      clarificationContext?: {
-        type: string;
-        service_type?: string;
-        title?: string;
-        partial_constraints: Record<string, unknown>;
+    try {
+      const { messages, activeRowId, projectId, pendingClarification } = request.body as {
+        messages: any[];
+        activeRowId?: number;
+        projectId?: number;
+        pendingClarification?: {
+          partial_constraints: Record<string, unknown>;
+          missing_fields: string[];
+        };
       };
-    };
-    const authorization = request.headers.authorization;
+      const authorization = request.headers.authorization;
 
-    if (!process.env.OPENROUTER_API_KEY) {
-      reply.status(500).send({ error: 'LLM not configured - OPENROUTER_API_KEY required' });
-      return;
-    }
-
-    reply.raw.writeHead(200, {
-      'Content-Type': 'text/event-stream; charset=utf-8',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
-    });
-
-    const writeEvent = (event: string, data: any) => {
-      reply.raw.write(`event: ${event}\n`);
-      reply.raw.write(`data: ${JSON.stringify(data ?? null)}\n\n`);
-    };
-
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (typeof authorization === 'string' && authorization) {
-      headers['Authorization'] = authorization;
-    }
-
-    let activeRowTitle: string | null = null;
-    let projectTitle: string | null = null;
-    if (activeRowId) {
-      const rowRes = await fetchJsonWithTimeoutRetry(
-        `${BACKEND_URL}/rows/${activeRowId}`,
-        { headers },
-        20000,
-        1,
-        500
-      );
-      if (rowRes.ok && typeof rowRes.data?.title === 'string') {
-        activeRowTitle = rowRes.data.title;
+      if (!process.env.OPENROUTER_API_KEY) {
+        reply.status(500).send({ error: 'LLM not configured - OPENROUTER_API_KEY required' });
+        return;
       }
-    }
-    if (projectId) {
-      const projRes = await fetchJsonWithTimeoutRetry(
-        `${BACKEND_URL}/projects/${projectId}`,
-        { headers },
-        20000,
-        1,
-        500
-      );
-      if (projRes.ok && typeof projRes.data?.title === 'string') {
-        projectTitle = projRes.data.title;
-      }
-    }
 
-    // Get last user message for quick title extraction
-    const lastUserMessage = Array.isArray(messages)
-      ? [...messages].reverse().find((m: any) => m?.role === 'user')
-      : null;
-    const userText = typeof lastUserMessage?.content === 'string'
-      ? lastUserMessage.content
-      : typeof lastUserMessage?.content?.text === 'string'
-        ? lastUserMessage.content.text
-        : '';
-
-    // If there's an active row, use the old flow (update/refine)
-    // For new requests, use the fast parallel flow
-    if (activeRowId) {
-      // Existing row - use full plan for updates
-      const startLLM = Date.now();
-      fastify.log.info({ msg: 'Starting LLM plan generation (update flow)', activeRowId });
-      writeEvent('assistant_message', { text: 'Updating your request...' });
-
-      const plan = await generateChatPlan({
-        messages,
-        activeRowId: activeRowId ?? null,
-        projectId: projectId ?? null,
-        activeRowTitle,
-        projectTitle,
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
       });
-      const llmDuration = Date.now() - startLLM;
-      fastify.log.info({ msg: 'LLM plan generated', duration: llmDuration });
 
-      writeEvent('assistant_message', { text: plan.assistant_message || '' });
+      const writeEvent = (event: string, data: any) => {
+        reply.raw.write(`event: ${event}\n`);
+        reply.raw.write(`data: ${JSON.stringify(data ?? null)}\n\n`);
+      };
 
-      let lastRowId: number | null = activeRowId;
-      for (const action of plan.actions || []) {
-        if (action.type === 'update_row') {
-          // Handle update_row inline here (simplified)
-          const constraints = action.constraints && typeof action.constraints === 'object' ? action.constraints : undefined;
-          const updateBody: any = {};
-          if (typeof action.title === 'string' && action.title.trim().length > 0) {
-            updateBody.title = action.title;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (typeof authorization === 'string' && authorization) {
+        headers['Authorization'] = authorization;
+      }
+
+      // Get last user message
+      const lastUserMessage = Array.isArray(messages)
+        ? [...messages].reverse().find((m: any) => m?.role === 'user')
+        : null;
+      const userMessage = typeof lastUserMessage?.content === 'string'
+        ? lastUserMessage.content
+        : typeof lastUserMessage?.content?.text === 'string'
+          ? lastUserMessage.content.text
+          : '';
+
+      // Build conversation history for LLM context
+      const conversationHistory = (messages || [])
+        .filter((m: any) => m?.role === 'user' || m?.role === 'assistant')
+        .map((m: any) => ({
+          role: m.role as 'user' | 'assistant',
+          content: typeof m.content === 'string' ? m.content : m.content?.text || '',
+        }));
+
+      // Fetch active row info if present
+      let activeRow: ChatContext['activeRow'] = null;
+      if (activeRowId) {
+        const rowRes = await fetchJsonWithTimeoutRetry(
+          `${BACKEND_URL}/rows/${activeRowId}`,
+          { headers },
+          20000, 1, 500
+        );
+        if (rowRes.ok && rowRes.data) {
+          const choiceAnswers = rowRes.data.choice_answers ? JSON.parse(rowRes.data.choice_answers) : {};
+          activeRow = {
+            id: activeRowId,
+            title: rowRes.data.title || '',
+            constraints: choiceAnswers,
+            is_service: choiceAnswers.is_service || false,
+            service_category: choiceAnswers.service_category,
+          };
+        }
+      }
+
+      // Fetch project info if present
+      let activeProject: ChatContext['activeProject'] = null;
+      if (projectId) {
+        const projRes = await fetchJsonWithTimeoutRetry(
+          `${BACKEND_URL}/projects/${projectId}`,
+          { headers },
+          20000, 1, 500
+        );
+        if (projRes.ok && projRes.data) {
+          activeProject = { id: projectId, title: projRes.data.title || '' };
+        }
+      }
+
+      // Helper: extract title from conversation when LLM returns default
+      const extractTitleFromConversation = (): string => {
+        // Find first user message that looks like a request
+        for (const msg of conversationHistory) {
+          if (msg.role === 'user' && msg.content.length > 3 && msg.content.length < 100) {
+            // Capitalize first letter
+            return msg.content.charAt(0).toUpperCase() + msg.content.slice(1);
           }
-          const choiceAnswers: Record<string, any> = constraints ? { ...constraints } : {};
-          if (typeof action.min_price === 'number') choiceAnswers.min_price = action.min_price;
-          if (typeof action.max_price === 'number') choiceAnswers.max_price = action.max_price;
-          if (Object.keys(choiceAnswers).length > 0) {
-            updateBody.choice_answers = JSON.stringify(choiceAnswers);
-          }
+        }
+        return userMessage.charAt(0).toUpperCase() + userMessage.slice(1);
+      };
 
-          writeEvent('action_started', { type: 'update_row', row_id: action.row_id });
-          await fetchJsonWithTimeoutRetry(
-            `${BACKEND_URL}/rows/${action.row_id}`,
-            { method: 'PATCH', headers, body: JSON.stringify(updateBody) },
-            20000, 1, 500
-          );
-          writeEvent('row_updated', { row_id: action.row_id });
-          lastRowId = action.row_id;
+      // === SINGLE LLM DECISION ===
+      fastify.log.info({ msg: 'Making unified decision', userMessage, activeRowId, pendingClarification: !!pendingClarification });
+      
+      const decision = await makeUnifiedDecision({
+        userMessage,
+        conversationHistory,
+        activeRow,
+        activeProject,
+        pendingClarification: pendingClarification || null,
+      });
 
-          if (typeof action.search_query === 'string' && action.search_query.trim().length > 0) {
-            writeEvent('action_started', { type: 'search', row_id: lastRowId, query: action.search_query });
-            try {
-              await streamSearchResults(lastRowId, { query: action.search_query }, headers, (batch) => {
-                writeEvent('search_results', {
-                  row_id: lastRowId,
-                  results: batch.results,
-                  provider_statuses: [batch.status],
-                  more_incoming: batch.more_incoming,
-                  provider: batch.provider,
-                });
-              });
-            } catch (err: any) {
-              writeEvent('error', { message: err?.message || 'Search failed' });
-            }
-          }
-        } else if (action.type === 'search') {
-          writeEvent('action_started', { type: 'search', row_id: action.row_id, query: action.query });
+      fastify.log.info({ msg: 'Decision made', actionType: decision.action.type, message: decision.message });
+
+      // Send assistant message
+      writeEvent('assistant_message', { text: decision.message });
+
+      // === HANDLE EACH ACTION TYPE ===
+      const action = decision.action;
+
+      if (action.type === 'ask_clarification') {
+        // Need more info - don't create row yet
+        writeEvent('needs_clarification', {
+          partial_constraints: action.partial_constraints,
+          missing_fields: action.missing_fields,
+        });
+        writeEvent('done', {});
+        reply.raw.end();
+        return;
+      }
+
+      if (action.type === 'context_switch') {
+        // User switched topics - create NEW row, signal frontend to clear chat
+        // Use fallback title if LLM returned default
+        const title = action.new_title === 'New Request' ? extractTitleFromConversation() : action.new_title;
+        const constraints = action.constraints || {};
+        if (action.is_service) constraints.is_service = true;
+        if (action.service_category) constraints.service_category = action.service_category;
+
+        writeEvent('action_started', { type: 'create_row', title });
+        const createRes = await fetchJsonWithTimeoutRetry(
+          `${BACKEND_URL}/rows`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              title,
+              status: 'sourcing',
+              project_id: projectId ?? undefined,
+              request_spec: { item_name: title, constraints: JSON.stringify(constraints) },
+              choice_answers: JSON.stringify(constraints),
+            }),
+          },
+          20000, 1, 500
+        );
+
+        if (!createRes.ok || !createRes.data?.id) {
+          writeEvent('error', { message: createRes.data?.detail || 'Failed to create row' });
+          reply.raw.end();
+          return;
+        }
+
+        const rowId = Number(createRes.data.id);
+        // Signal context_switch so frontend clears chat history
+        writeEvent('context_switch', { row: createRes.data });
+
+        // Generate choice factors
+        await generateAndSaveChoiceFactors(title, rowId, authorization, constraints);
+        writeEvent('factors_updated', { row_id: rowId });
+
+        // Always run search - use title as fallback query
+        const ctxSearchQuery = action.search_query || title;
+        writeEvent('action_started', { type: 'search', row_id: rowId, query: ctxSearchQuery });
+        try {
+          await streamSearchResults(rowId, { query: ctxSearchQuery }, headers, (batch) => {
+            writeEvent('search_results', {
+              row_id: rowId,
+              results: batch.results,
+              provider_statuses: [batch.status],
+              more_incoming: batch.more_incoming,
+              provider: batch.provider,
+            });
+          });
+        } catch (err: any) {
+          writeEvent('error', { message: err?.message || 'Search failed' });
+        }
+
+        writeEvent('done', {});
+        reply.raw.end();
+        return;
+      }
+
+      if (action.type === 'create_row') {
+        // New request - create row
+        // Use fallback title if LLM returned default
+        const title = action.title === 'New Request' ? extractTitleFromConversation() : action.title;
+        const constraints = action.constraints || {};
+        if (action.is_service) constraints.is_service = true;
+        if (action.service_category) constraints.service_category = action.service_category;
+
+        writeEvent('action_started', { type: 'create_row', title });
+        const createRes = await fetchJsonWithTimeoutRetry(
+          `${BACKEND_URL}/rows`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              title,
+              status: 'sourcing',
+              project_id: projectId ?? undefined,
+              request_spec: { item_name: title, constraints: JSON.stringify(constraints) },
+              choice_answers: JSON.stringify(constraints),
+            }),
+          },
+          20000, 1, 500
+        );
+
+        if (!createRes.ok || !createRes.data?.id) {
+          writeEvent('error', { message: createRes.data?.detail || 'Failed to create row' });
+          reply.raw.end();
+          return;
+        }
+
+        const rowId = Number(createRes.data.id);
+        writeEvent('row_created', { row: createRes.data });
+
+        // Generate choice factors
+        await generateAndSaveChoiceFactors(title, rowId, authorization, constraints);
+        writeEvent('factors_updated', { row_id: rowId });
+
+        // Always run search - use title as fallback query
+        const searchQuery = action.search_query || title;
+        writeEvent('action_started', { type: 'search', row_id: rowId, query: searchQuery });
+        try {
+          await streamSearchResults(rowId, { query: searchQuery }, headers, (batch) => {
+            writeEvent('search_results', {
+              row_id: rowId,
+              results: batch.results,
+              provider_statuses: [batch.status],
+              more_incoming: batch.more_incoming,
+              provider: batch.provider,
+            });
+          });
+        } catch (err: any) {
+          writeEvent('error', { message: err?.message || 'Search failed' });
+        }
+
+        writeEvent('done', {});
+        reply.raw.end();
+        return;
+      }
+
+      if (action.type === 'update_row') {
+        // Refine existing row
+        if (!activeRowId) {
+          writeEvent('error', { message: 'No active row to update' });
+          reply.raw.end();
+          return;
+        }
+
+        const constraints = action.constraints || {};
+        const updateBody: any = {};
+        if (Object.keys(constraints).length > 0) {
+          // Merge with existing constraints
+          const merged = { ...(activeRow?.constraints || {}), ...constraints };
+          updateBody.choice_answers = JSON.stringify(merged);
+        }
+
+        writeEvent('action_started', { type: 'update_row', row_id: activeRowId });
+        await fetchJsonWithTimeoutRetry(
+          `${BACKEND_URL}/rows/${activeRowId}`,
+          { method: 'PATCH', headers, body: JSON.stringify(updateBody) },
+          20000, 1, 500
+        );
+        writeEvent('row_updated', { row_id: activeRowId });
+
+        // Run search if provided
+        if (action.search_query) {
+          writeEvent('action_started', { type: 'search', row_id: activeRowId, query: action.search_query });
           try {
-            await streamSearchResults(action.row_id, { query: action.query }, headers, (batch) => {
+            await streamSearchResults(activeRowId, { query: action.search_query }, headers, (batch) => {
               writeEvent('search_results', {
-                row_id: action.row_id,
+                row_id: activeRowId,
                 results: batch.results,
                 provider_statuses: [batch.status],
                 more_incoming: batch.more_incoming,
@@ -1028,220 +1170,67 @@ export function buildApp() {
             writeEvent('error', { message: err?.message || 'Search failed' });
           }
         }
-      }
-      writeEvent('done', {});
-      reply.raw.end();
-      return;
-    }
 
-    // === CLARIFICATION CONTINUATION: User is responding to a clarifying question ===
-    if (clarificationContext?.type === 'service') {
-      const serviceType = clarificationContext.service_type as string || 'service';
-      const existingConstraints = clarificationContext.partial_constraints as Record<string, unknown> || {};
-      
-      // Check if user is switching context entirely
-      const switching = await isContextSwitch(userText, serviceType);
-      
-      if (switching) {
-        fastify.log.info({ msg: 'User switched context, starting new request' });
-        // Fall through to normal flow - don't process as clarification
-      } else {
-        fastify.log.info({ msg: 'Continuing service clarification flow', serviceType, existing: existingConstraints });
-        
-        // Extract new constraints and merge with existing
-        const result = await extractServiceConstraints(userText, serviceType, existingConstraints);
-        const mergedConstraints = { ...existingConstraints, ...result.extracted };
-        
-        fastify.log.info({ msg: 'Service constraints extracted', result, merged: mergedConstraints });
-        
-        // Still missing required info? Ask again
-        if (!result.is_complete && result.clarifying_question) {
-          writeEvent('assistant_message', { text: result.clarifying_question });
-          writeEvent('needs_clarification', { 
-            type: 'service',
-            service_type: serviceType,
-            missing_fields: result.missing_required,
-            partial_constraints: mergedConstraints,
+        writeEvent('done', {});
+        reply.raw.end();
+        return;
+      }
+
+      if (action.type === 'search') {
+        // Just search on existing row
+        if (!activeRowId) {
+          writeEvent('error', { message: 'No active row to search' });
+          reply.raw.end();
+          return;
+        }
+
+        writeEvent('action_started', { type: 'search', row_id: activeRowId, query: action.query });
+        try {
+          await streamSearchResults(activeRowId, { query: action.query }, headers, (batch) => {
+            writeEvent('search_results', {
+              row_id: activeRowId,
+              results: batch.results,
+              provider_statuses: [batch.status],
+              more_incoming: batch.more_incoming,
+              provider: batch.provider,
+            });
           });
-          writeEvent('done', {});
-          reply.raw.end();
-          return;
+        } catch (err: any) {
+          writeEvent('error', { message: err?.message || 'Search failed' });
         }
-        
-        // All fields present - create the row with constraints
-        const title = clarificationContext.title as string || serviceType;
-        
-        writeEvent('assistant_message', { text: `Great! I have everything I need. Let me find options for you.` });
-        writeEvent('action_started', { type: 'create_row', title });
-        
-        const createRes = await fetchJsonWithTimeoutRetry(
-          `${BACKEND_URL}/rows`,
-          {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              title,
-              status: 'sourcing',
-              project_id: projectId ?? undefined,
-              request_spec: { item_name: title, constraints: JSON.stringify(mergedConstraints) },
-              choice_answers: JSON.stringify(mergedConstraints),
-            }),
-          },
-          20000, 1, 500
-        );
-        
-        if (!createRes.ok || !createRes.data?.id) {
-          writeEvent('error', { message: createRes.data?.detail || 'Failed to create row' });
-          reply.raw.end();
-          return;
-        }
-        
-        const rowId = Number(createRes.data.id);
-        writeEvent('row_created', { row: createRes.data });
-        
-        await generateAndSaveChoiceFactors(title, rowId, authorization, mergedConstraints);
-        writeEvent('factors_updated', { row_id: rowId });
-        
-        writeEvent('done', {});
-        reply.raw.end();
-        return;
-      } // end else (continuing clarification)
-    } // end if clarificationContext
 
-    // === NEW REQUEST: Fast parallel flow ===
-    // 1. Quick title extraction (fast LLM call)
-    fastify.log.info({ msg: 'Starting fast parallel flow' });
-    writeEvent('assistant_message', { text: 'Finding options for you...' });
-
-    const titleInfo = await extractTitleQuick(userText);
-    const title = titleInfo.title;
-    fastify.log.info({ msg: 'Quick title extracted', title, is_service: titleInfo.is_service, category: titleInfo.category });
-
-    // Special handling for SERVICE requests - extract constraints and ask clarifying questions
-    if (titleInfo.is_service) {
-      const serviceType = titleInfo.category || title;
-      fastify.log.info({ msg: 'Detected service request, extracting constraints', serviceType });
-      
-      const constraints = await extractServiceConstraints(userText, serviceType);
-      fastify.log.info({ msg: 'Service constraints extracted', constraints });
-      
-      // If missing required fields, ask clarifying question
-      if (!constraints.is_complete && constraints.clarifying_question) {
-        writeEvent('assistant_message', { text: constraints.clarifying_question });
-        writeEvent('needs_clarification', { 
-          type: 'service',
-          service_type: serviceType,
-          title: title,
-          missing_fields: constraints.missing_required,
-          partial_constraints: constraints.extracted,
-        });
         writeEvent('done', {});
         reply.raw.end();
         return;
       }
-      
-      // All required fields present - create row with constraints
-      writeEvent('assistant_message', { text: `Great! I have everything I need. Let me find options for you.` });
-      writeEvent('action_started', { type: 'create_row', title });
-      
-      const createRes = await fetchJsonWithTimeoutRetry(
-        `${BACKEND_URL}/rows`,
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            title,
-            status: 'sourcing',
-            project_id: projectId ?? undefined,
-            request_spec: { item_name: title, constraints: JSON.stringify(constraints.extracted) },
-            choice_answers: JSON.stringify(constraints.extracted),
-          }),
-        },
-        20000, 1, 500
-      );
-      
-      if (!createRes.ok || !createRes.data?.id) {
-        writeEvent('error', { message: createRes.data?.detail || 'Failed to create row' });
+
+      if (action.type === 'vendor_outreach') {
+        // Service request - vendor outreach
+        if (!activeRowId) {
+          writeEvent('error', { message: 'No active row for vendor outreach' });
+          reply.raw.end();
+          return;
+        }
+
+        writeEvent('action_started', { type: 'vendor_outreach', row_id: activeRowId, category: action.category });
+        writeEvent('vendor_outreach', { row_id: activeRowId, category: action.category });
+        writeEvent('done', {});
         reply.raw.end();
         return;
       }
-      
-      const rowId = Number(createRes.data.id);
-      writeEvent('row_created', { row: createRes.data });
-      
-      // Generate choice factors for the UI
-      await generateAndSaveChoiceFactors(title, rowId, authorization, constraints.extracted);
-      writeEvent('factors_updated', { row_id: rowId });
-      
+
+      // Fallback - should not reach here
       writeEvent('done', {});
       reply.raw.end();
-      return;
-    }
-
-    // 2. Create row immediately (user sees activity)
-    writeEvent('action_started', { type: 'create_row', title });
-    const createRes = await fetchJsonWithTimeoutRetry(
-      `${BACKEND_URL}/rows`,
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          title,
-          status: 'sourcing',
-          project_id: projectId ?? undefined,
-          request_spec: { item_name: title, constraints: '{}' },
-          choice_answers: '{}',
-        }),
-      },
-      20000, 1, 500
-    );
-    if (!createRes.ok || !createRes.data?.id) {
-      writeEvent('error', { message: createRes.data?.detail || 'Failed to create row' });
-      reply.raw.end();
-      return;
-    }
-    const rowId = Number(createRes.data.id);
-    writeEvent('row_created', { row: createRes.data });
-
-    // 3. Run parallel LLMs: search query + choice factors
-    const searchQueryPromise = generateSearchQuery(title);
-    const factorsPromise = generateAndSaveChoiceFactors(title, rowId, authorization);
-
-    // 4. Start search as soon as query is ready (don't wait for factors)
-    const searchQuery = await searchQueryPromise;
-    fastify.log.info({ msg: 'Search query generated', query: searchQuery });
-
-    writeEvent('action_started', { type: 'search', row_id: rowId, query: searchQuery });
-    try {
-      await streamSearchResults(rowId, { query: searchQuery }, headers, (batch) => {
-        writeEvent('search_results', {
-          row_id: rowId,
-          results: batch.results,
-          provider_statuses: [batch.status],
-          more_incoming: batch.more_incoming,
-          provider: batch.provider,
-        });
-      });
     } catch (err: any) {
-      writeEvent('error', { message: err?.message || 'Search failed' });
+      fastify.log.error({ err }, 'Chat error');
+      try {
+        reply.raw.write(`event: error\n`);
+        reply.raw.write(`data: ${JSON.stringify({ message: err?.message || 'Chat processing failed' })}\n\n`);
+      } catch {}
+      reply.raw.end();
     }
-
-    // 5. Factors should be done by now (or almost done) - notify UI to refresh
-    await factorsPromise;
-    writeEvent('factors_updated', { row_id: rowId });
-
-    writeEvent('done', {});
-    reply.raw.end();
-    return;
-  } catch (err: any) {
-    fastify.log.error({ err }, 'Chat error');
-    try {
-      reply.raw.write(`event: error\n`);
-      reply.raw.write(`data: ${JSON.stringify({ message: err?.message || 'Chat processing failed' })}\n\n`);
-    } catch {}
-    reply.raw.end();
-  }
-});
+  });
 
 // Row Management Proxy
   fastify.get('/api/rows', async (request, reply) => {

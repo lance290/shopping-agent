@@ -1,16 +1,157 @@
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText, generateText } from 'ai';
+import { streamText, generateText, generateObject } from 'ai';
 import { z } from 'zod';
 
-// Use OpenRouter for LLM calls
-const openrouter = createOpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: process.env.OPENROUTER_API_KEY,
+export const GEMINI_MODEL_NAME = 'google/gemini-3-flash-preview';
+
+// Lazy-initialize OpenRouter client (env may not be loaded at import time)
+let _openrouter: ReturnType<typeof createOpenAI> | null = null;
+function getOpenRouter() {
+  if (!_openrouter) {
+    _openrouter = createOpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: process.env.OPENROUTER_API_KEY,
+    });
+  }
+  return _openrouter;
+}
+const getModel = () => getOpenRouter()(GEMINI_MODEL_NAME);
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+
+// ============================================================================
+// UNIFIED LLM DECISION - Single entry point for all chat decisions
+// ============================================================================
+
+const unifiedDecisionSchema = z.object({
+  message: z.string().default(''),
+  action: z.discriminatedUnion('type', [
+    // New request when no active row
+    z.object({
+      type: z.literal('create_row'),
+      title: z.string().default('New Request'),
+      constraints: z.record(z.string(), z.any()).optional(),
+      is_service: z.boolean().default(false),
+      service_category: z.string().optional(),
+      search_query: z.string().optional(),
+    }),
+    // Update existing active row (refinement)
+    z.object({
+      type: z.literal('update_row'),
+      constraints: z.record(z.string(), z.any()).optional(),
+      search_query: z.string().optional(),
+    }),
+    // User switched to completely different topic - create new row, clear chat
+    z.object({
+      type: z.literal('context_switch'),
+      new_title: z.string().default('New Request'),
+      constraints: z.record(z.string(), z.any()).optional(),
+      is_service: z.boolean().default(false),
+      service_category: z.string().optional(),
+      search_query: z.string().optional(),
+    }),
+    // Need more info before creating/updating row
+    z.object({
+      type: z.literal('ask_clarification'),
+      partial_constraints: z.record(z.string(), z.any()).default({}),
+      missing_fields: z.array(z.string()).default([]),
+    }),
+    // Just search on existing row (no changes)
+    z.object({
+      type: z.literal('search'),
+      query: z.string().default(''),
+    }),
+    // Vendor outreach for service requests
+    z.object({
+      type: z.literal('vendor_outreach'),
+      category: z.string().default('service'),
+    }),
+  ]),
 });
 
-export const GEMINI_MODEL_NAME = 'google/gemini-3-flash-preview';
-const model = openrouter(GEMINI_MODEL_NAME);
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+export type UnifiedDecision = z.infer<typeof unifiedDecisionSchema>;
+
+export interface ChatContext {
+  userMessage: string;
+  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
+  activeRow?: {
+    id: number;
+    title: string;
+    constraints?: Record<string, any>;
+    is_service?: boolean;
+    service_category?: string;
+  } | null;
+  activeProject?: {
+    id: number;
+    title: string;
+  } | null;
+  pendingClarification?: {
+    partial_constraints: Record<string, any>;
+    missing_fields: string[];
+  } | null;
+}
+
+export async function makeUnifiedDecision(ctx: ChatContext): Promise<UnifiedDecision> {
+  const { userMessage, conversationHistory, activeRow, activeProject, pendingClarification } = ctx;
+
+  const prompt = `You are the decision engine for a shopping/procurement assistant.
+
+INPUTS:
+- User message: "${userMessage}"
+- Active row: ${activeRow ? JSON.stringify({ id: activeRow.id, title: activeRow.title, is_service: activeRow.is_service, category: activeRow.service_category }) : 'none'}
+- Active project: ${activeProject ? JSON.stringify({ id: activeProject.id, title: activeProject.title }) : 'none'}
+- Pending clarification: ${pendingClarification ? JSON.stringify(pendingClarification) : 'none'}
+- Recent conversation:
+${conversationHistory.slice(-6).map(m => `  ${m.role}: ${m.content}`).join('\n')}
+
+YOUR JOB: Decide what action to take. Return ONLY a JSON object.
+
+ACTION TYPES:
+1. "create_row" - User wants something NEW and there's NO active row
+2. "update_row" - User is REFINING the active row (same topic: price, color, size, etc.)
+3. "context_switch" - User has active row but is asking for something COMPLETELY DIFFERENT
+   Example: active row is "private jet SAN to EWR", user says "I need a winter coat" → context_switch
+4. "ask_clarification" - You need more info before proceeding (missing date, passengers, etc.)
+   Use this for SERVICE requests (jets, catering, contractors) that need details
+5. "search" - Just refresh search results on current row
+6. "vendor_outreach" - For service requests, reach out to vendors for quotes
+
+CRITICAL RULES:
+- If active row exists AND user asks for something UNRELATED → "context_switch"
+- If active row exists AND user refines it → "update_row"  
+- If NO active row → "create_row" (or "ask_clarification" if missing critical info)
+- If pending_clarification exists AND user provides the missing info → "create_row" with title from conversation history + merged constraints
+- If pending_clarification exists BUT user asks for something else → "context_switch"
+
+IMPORTANT - create_row MUST include:
+- title: Extract from conversation history (e.g., "Private jet SAN to EWR")
+- constraints: Merge all collected info (dates, passengers, etc.)
+- is_service: true for services
+- service_category: the category
+
+SERVICE REQUESTS (private jets, catering, contractors, HVAC, etc.):
+- Set is_service: true
+- Set service_category: "private_aviation", "catering", "roofing", etc.
+- These typically need clarification (dates, passengers, location, etc.)
+
+PRICE HANDLING:
+- "over $50" → constraints: { min_price: 50 }
+- "under $100" → constraints: { max_price: 100 }
+
+Decide the appropriate action and provide a message for the user.`;
+
+  // Use structured output for reliable JSON
+  const { object } = await generateObject({
+    model: getModel(),
+    schema: unifiedDecisionSchema,
+    prompt,
+  });
+
+  return object;
+}
+
+// ============================================================================
+// LEGACY CODE BELOW - To be removed after migration
+// ============================================================================
 
 const chatPlanSchema = z.object({
   assistant_message: z.string().default(''),
@@ -72,7 +213,7 @@ Examples:
 JSON only:`;
 
   try {
-    const { text } = await generateText({ model, prompt });
+    const { text } = await generateText({ model: getModel(), prompt });
     const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
     return JSON.parse(cleaned);
   } catch (e) {
@@ -132,7 +273,7 @@ Examples:
 JSON only:`;
 
   try {
-    const { text } = await generateText({ model, prompt });
+    const { text } = await generateText({ model: getModel(), prompt });
     const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
     const parsed = JSON.parse(cleaned);
     
@@ -171,7 +312,7 @@ Examples:
 JSON only:`;
 
   try {
-    const { text } = await generateText({ model, prompt });
+    const { text } = await generateText({ model: getModel(), prompt });
     const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
     const parsed = JSON.parse(cleaned);
     return parsed.is_switch === true;
@@ -190,7 +331,7 @@ Item: "${title}"${constraintsText}
 Return ONLY the search query string, no quotes, no explanation. Keep it concise (max 8 words).`;
 
   try {
-    const { text } = await generateText({ model, prompt });
+    const { text } = await generateText({ model: getModel(), prompt });
     return text.trim().replace(/^["']|["']$/g, '');
   } catch (e) {
     return title;
@@ -246,7 +387,8 @@ Hard requirements:
   - search (only if you are NOT changing the row, but want to refresh results)
 
 Rules:
-- If active_row_id is present and the user is refining constraints (price/color/size/etc), use update_row with row_id=active_row_id.
+- If active_row_id is present BUT the user is asking for something COMPLETELY DIFFERENT (e.g., active row is "private jet" but user says "I need a winter coat"), use create_row for the new item. Do NOT update the existing row with unrelated info.
+- If active_row_id is present and the user is refining constraints (price/color/size/etc) for the SAME item, use update_row with row_id=active_row_id.
 - For any update_row or create_row, include constraints as a key-value JSON object when the user expressed constraints (EXCEPT price).
 - Price constraints MUST be expressed ONLY via min_price/max_price numeric fields:
   - "over $50" -> min_price: 50
@@ -301,7 +443,7 @@ Schema:
   ]
 }`;
 
-  const { text } = await generateText({ model, prompt });
+  const { text } = await generateText({ model: getModel(), prompt });
   const cleaned = String(text || '').replace(/```json\n?|\n?```/g, '').trim();
   const parsed = JSON.parse(cleaned);
   return chatPlanSchema.parse(parsed);
@@ -356,7 +498,7 @@ Return JSON ONLY:
 {"provider_query":"..."}`;
 
   try {
-    const { text } = await generateText({ model, prompt });
+    const { text } = await generateText({ model: getModel(), prompt });
     const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
     const parsed = JSON.parse(cleaned);
     const q = typeof parsed?.provider_query === 'string' ? parsed.provider_query.trim() : '';
@@ -474,7 +616,7 @@ Return ONLY the JSON array, no explanation.`;
 
   try {
     const { text } = await generateText({
-      model,
+      model: getModel(),
       prompt: factorPrompt,
     });
     
@@ -547,7 +689,7 @@ DO NOT call createRow - the row already exists!`
     : '\n\nNo active row. For new items, call createRow first.';
 
   return streamText({
-    model,
+    model: getModel(),
     messages,
     system: `You are a procurement agent. Help users find items and manage their procurement board.
 
