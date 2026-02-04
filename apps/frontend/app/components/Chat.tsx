@@ -224,11 +224,12 @@ export default function Chat() {
               // User switched to completely different topic - new row, fresh chat for new topic
               const row = data?.row;
               if (row?.id) {
-                // Start fresh conversation with just the switch message and response
-                const lastUserMsg = messages.filter(m => m.role === 'user').pop();
-                const freshMessages = lastUserMsg 
-                  ? [lastUserMsg, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }]
-                  : [{ id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
+                // Start fresh conversation with the CURRENT user message (not stale closure)
+                // userMessage is the message that triggered this context switch
+                const freshMessages = [
+                  userMessage,
+                  { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }
+                ];
                 saveChatHistory(row.id, freshMessages);
                 const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages) };
                 const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];

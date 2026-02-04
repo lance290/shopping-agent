@@ -50,6 +50,10 @@ class RowBase(SQLModel):
     
     # Chat history for this row (JSON array of messages)
     chat_history: Optional[str] = None
+    
+    # Service detection - set by LLM, persisted on row
+    is_service: bool = False
+    service_category: Optional[str] = None  # e.g., "private_aviation", "catering"
 
 class RequestSpecBase(SQLModel):
     item_name: str

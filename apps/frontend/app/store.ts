@@ -90,6 +90,8 @@ export interface Row {
   bids?: Bid[];              // Persisted bids from DB
   project_id?: number | null;
   last_engaged_at?: number;  // Client-side timestamp for ordering
+  is_service?: boolean;      // True if this is a service request (not a product)
+  service_category?: string; // e.g., "private_aviation", "catering"
 }
 
 export interface Project {

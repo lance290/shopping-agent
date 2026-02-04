@@ -173,7 +173,9 @@ async def create_row(
         user_id=auth_session.user_id,
         project_id=row.project_id,
         choice_factors=row.choice_factors,
-        choice_answers=row.choice_answers
+        choice_answers=row.choice_answers,
+        is_service=row.is_service,
+        service_category=row.service_category,
     )
     if db_row.choice_factors is None:
         db_row.choice_factors = _default_choice_factors_for_row(db_row)

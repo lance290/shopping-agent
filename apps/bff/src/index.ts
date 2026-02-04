@@ -990,27 +990,41 @@ export function buildApp() {
         pendingClarification: pendingClarification || null,
       });
 
-      fastify.log.info({ msg: 'Decision made', actionType: decision.action.type, message: decision.message });
+      const intent = decision.intent;
+      const action = decision.action;
+      
+      fastify.log.info({ 
+        msg: 'Decision made', 
+        actionType: action.type, 
+        intent: { what: intent.what, category: intent.category, search_query: intent.search_query },
+      });
 
       // Send assistant message
       writeEvent('assistant_message', { text: decision.message });
 
+      // === INTENT-DRIVEN HELPERS ===
+      const isService = intent.category === 'service';
+      const serviceCategory = intent.service_type;
+      const title = intent.what.charAt(0).toUpperCase() + intent.what.slice(1);
+      const searchQuery = intent.search_query;
+      const constraints = intent.constraints || {};
+
       // === HANDLE EACH ACTION TYPE ===
-      const action = decision.action;
 
       if (action.type === 'ask_clarification') {
-        // Need more info - don't create row yet
-        // Include is_service and service_category directly from action (not just partial_constraints)
-        const pc = action.partial_constraints || {};
-        // Merge service info into partial_constraints so it's passed back
-        if (action.is_service) pc.is_service = true;
-        if (action.service_category) pc.service_category = action.service_category;
-        
+        // Need more info - store intent for next turn
         writeEvent('needs_clarification', {
           type: 'clarification',
-          service_type: action.service_category || action.is_service ? 'service' : undefined,
-          title: pc.item_name || pc.title,
-          partial_constraints: pc,
+          service_type: serviceCategory,
+          title: title,
+          partial_constraints: { 
+            ...constraints, 
+            title,
+            what: intent.what,
+            is_service: isService,
+            service_category: serviceCategory,
+            search_query: searchQuery,
+          },
           missing_fields: action.missing_fields,
         });
         writeEvent('done', {});
@@ -1019,13 +1033,7 @@ export function buildApp() {
       }
 
       if (action.type === 'context_switch') {
-        // User switched topics - create NEW row, signal frontend to clear chat
-        // Use fallback title if LLM returned default
-        const title = action.new_title === 'New Request' ? extractTitleFromConversation() : action.new_title;
-        const constraints = action.constraints || {};
-        if (action.is_service) constraints.is_service = true;
-        if (action.service_category) constraints.service_category = action.service_category;
-
+        // User switched topics - create NEW row with NEW intent
         writeEvent('action_started', { type: 'create_row', title });
         const createRes = await fetchJsonWithTimeoutRetry(
           `${BACKEND_URL}/rows`,
@@ -1036,6 +1044,8 @@ export function buildApp() {
               title,
               status: 'sourcing',
               project_id: projectId ?? undefined,
+              is_service: isService,
+              service_category: serviceCategory,
               request_spec: { item_name: title, constraints: JSON.stringify(constraints) },
               choice_answers: JSON.stringify(constraints),
             }),
@@ -1050,15 +1060,14 @@ export function buildApp() {
         }
 
         const rowId = Number(createRes.data.id);
-        // Signal context_switch so frontend clears chat history
         writeEvent('context_switch', { row: createRes.data });
 
         // Generate choice factors
         await generateAndSaveChoiceFactors(title, rowId, authorization, constraints);
         writeEvent('factors_updated', { row_id: rowId });
 
-        // Always run search - use title as fallback query
-        const ctxSearchQuery = action.search_query || title;
+        // Use intent.search_query - NEVER conversation artifacts
+        const ctxSearchQuery = searchQuery;
         writeEvent('action_started', { type: 'search', row_id: rowId, query: ctxSearchQuery });
         try {
           await streamSearchResults(rowId, { query: ctxSearchQuery }, headers, (batch) => {
@@ -1080,20 +1089,8 @@ export function buildApp() {
       }
 
       if (action.type === 'create_row') {
-        // New request - create row
-        // Use fallback title if LLM returned default
-        const title = action.title === 'New Request' ? extractTitleFromConversation() : action.title;
-        const constraints = action.constraints || {};
-        
-        // Carry over LLM's service decision from pendingClarification
-        const pc = (pendingClarification?.partial_constraints || {}) as Record<string, any>;
-        const isService = action.is_service || pc.is_service;
-        const svcCat = action.service_category || pc.service_category;
-        
-        fastify.log.info({ msg: 'CREATE_ROW', isService, svcCat });
-        
-        if (isService) constraints.is_service = true;
-        if (svcCat) constraints.service_category = svcCat;
+        // New request - use intent for everything
+        fastify.log.info({ msg: 'CREATE_ROW', isService, serviceCategory, searchQuery });
 
         writeEvent('action_started', { type: 'create_row', title });
         const createRes = await fetchJsonWithTimeoutRetry(
@@ -1105,6 +1102,8 @@ export function buildApp() {
               title,
               status: 'sourcing',
               project_id: projectId ?? undefined,
+              is_service: isService,
+              service_category: serviceCategory || null,
               request_spec: { item_name: title, constraints: JSON.stringify(constraints) },
               choice_answers: JSON.stringify(constraints),
             }),
@@ -1125,32 +1124,29 @@ export function buildApp() {
         await generateAndSaveChoiceFactors(title, rowId, authorization, constraints);
         writeEvent('factors_updated', { row_id: rowId });
 
-        // For services, fetch vendors instead of product search
-        // Use merged values that include pendingClarification context
-        if (isService && svcCat) {
-          writeEvent('action_started', { type: 'fetch_vendors', row_id: rowId, category: svcCat });
+        // For services, fetch vendors. For products, search.
+        if (isService && serviceCategory) {
+          writeEvent('action_started', { type: 'fetch_vendors', row_id: rowId, category: serviceCategory });
           try {
             const vendorRes = await fetchJsonWithTimeoutRetry(
-              `${BACKEND_URL}/outreach/vendors/${svcCat}`,
+              `${BACKEND_URL}/outreach/vendors/${serviceCategory}`,
               { headers },
               15000, 1, 500
             );
             if (vendorRes.ok && vendorRes.data?.vendors && Array.isArray(vendorRes.data.vendors)) {
               writeEvent('vendors_loaded', {
                 row_id: rowId,
-                category: svcCat,
+                category: serviceCategory,
                 vendors: vendorRes.data.vendors,
               });
             } else {
-              fastify.log.warn({ status: vendorRes.status, category: svcCat }, 'Vendor fetch returned non-ok or non-array');
+              fastify.log.warn({ status: vendorRes.status, category: serviceCategory }, 'Vendor fetch returned non-ok or non-array');
             }
           } catch (err: any) {
             fastify.log.error({ err }, 'Failed to fetch vendors');
           }
-        } else if (isService && !svcCat) {
-          // Service but LLM didn't provide category - log warning but still do product search as fallback
-          fastify.log.warn({ title }, 'LLM marked as service but no service_category provided - falling back to product search');
-          const searchQuery = action.search_query || title;
+        } else if (isService && !serviceCategory) {
+          fastify.log.warn({ title }, 'Service but no category - using search_query from intent');
           writeEvent('action_started', { type: 'search', row_id: rowId, query: searchQuery });
           try {
             await streamSearchResults(rowId, { query: searchQuery }, headers, (batch) => {
@@ -1166,8 +1162,7 @@ export function buildApp() {
             writeEvent('error', { message: err?.message || 'Search failed' });
           }
         } else {
-          // Product search for non-services
-          const searchQuery = action.search_query || title;
+          // Product search for non-services - use intent.search_query
           writeEvent('action_started', { type: 'search', row_id: rowId, query: searchQuery });
           try {
             await streamSearchResults(rowId, { query: searchQuery }, headers, (batch) => {
@@ -1190,17 +1185,15 @@ export function buildApp() {
       }
 
       if (action.type === 'update_row') {
-        // Refine existing row
+        // Refine existing row - use intent for constraints and search
         if (!activeRowId) {
           writeEvent('error', { message: 'No active row to update' });
           reply.raw.end();
           return;
         }
 
-        const constraints = action.constraints || {};
         const updateBody: any = {};
         if (Object.keys(constraints).length > 0) {
-          // Merge with existing constraints
           const merged = { ...(activeRow?.constraints || {}), ...constraints };
           updateBody.choice_answers = JSON.stringify(merged);
         }
@@ -1213,34 +1206,33 @@ export function buildApp() {
         );
         writeEvent('row_updated', { row_id: activeRowId });
 
-        // Check if this is a service request - use activeRow info from DB (LLM set it on create)
-        const isService = activeRow?.is_service;
-        const serviceCategory = activeRow?.service_category;
+        // Use intent category, fall back to activeRow for service detection
+        const rowIsService = isService || activeRow?.is_service;
+        const rowServiceCategory = serviceCategory || activeRow?.service_category;
 
-        if (isService && serviceCategory) {
-          // Fetch vendors for service requests
-          writeEvent('action_started', { type: 'fetch_vendors', row_id: activeRowId, category: serviceCategory });
+        if (rowIsService && rowServiceCategory) {
+          writeEvent('action_started', { type: 'fetch_vendors', row_id: activeRowId, category: rowServiceCategory });
           try {
             const vendorRes = await fetchJsonWithTimeoutRetry(
-              `${BACKEND_URL}/outreach/vendors/${serviceCategory}`,
+              `${BACKEND_URL}/outreach/vendors/${rowServiceCategory}`,
               { headers },
               15000, 1, 500
             );
             if (vendorRes.ok && vendorRes.data?.vendors && Array.isArray(vendorRes.data.vendors)) {
               writeEvent('vendors_loaded', {
                 row_id: activeRowId,
-                category: serviceCategory,
+                category: rowServiceCategory,
                 vendors: vendorRes.data.vendors,
               });
             }
           } catch (err: any) {
             fastify.log.error({ err }, 'Failed to fetch vendors for update_row');
           }
-        } else if (action.search_query) {
-          // Run product search for non-services
-          writeEvent('action_started', { type: 'search', row_id: activeRowId, query: action.search_query });
+        } else if (searchQuery) {
+          // Use intent.search_query for products
+          writeEvent('action_started', { type: 'search', row_id: activeRowId, query: searchQuery });
           try {
-            await streamSearchResults(activeRowId, { query: action.search_query }, headers, (batch) => {
+            await streamSearchResults(activeRowId, { query: searchQuery }, headers, (batch) => {
               writeEvent('search_results', {
                 row_id: activeRowId,
                 results: batch.results,
@@ -1260,16 +1252,16 @@ export function buildApp() {
       }
 
       if (action.type === 'search') {
-        // Just search on existing row
+        // Just search on existing row - use intent.search_query
         if (!activeRowId) {
           writeEvent('error', { message: 'No active row to search' });
           reply.raw.end();
           return;
         }
 
-        writeEvent('action_started', { type: 'search', row_id: activeRowId, query: action.query });
+        writeEvent('action_started', { type: 'search', row_id: activeRowId, query: searchQuery });
         try {
-          await streamSearchResults(activeRowId, { query: action.query }, headers, (batch) => {
+          await streamSearchResults(activeRowId, { query: searchQuery }, headers, (batch) => {
             writeEvent('search_results', {
               row_id: activeRowId,
               results: batch.results,
@@ -1288,15 +1280,16 @@ export function buildApp() {
       }
 
       if (action.type === 'vendor_outreach') {
-        // Service request - vendor outreach
+        // Service request - use intent.service_type for category
         if (!activeRowId) {
           writeEvent('error', { message: 'No active row for vendor outreach' });
           reply.raw.end();
           return;
         }
 
-        writeEvent('action_started', { type: 'vendor_outreach', row_id: activeRowId, category: action.category });
-        writeEvent('vendor_outreach', { row_id: activeRowId, category: action.category });
+        const category = serviceCategory || activeRow?.service_category || 'service';
+        writeEvent('action_started', { type: 'vendor_outreach', row_id: activeRowId, category });
+        writeEvent('vendor_outreach', { row_id: activeRowId, category });
         writeEvent('done', {});
         reply.raw.end();
         return;

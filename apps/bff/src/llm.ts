@@ -19,53 +19,51 @@ const getModel = () => getOpenRouter()(GEMINI_MODEL_NAME);
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 // ============================================================================
+// USER INTENT - First-class concept that drives ALL behavior
+// ============================================================================
+
+const userIntentSchema = z.object({
+  what: z.string().describe('WHAT the user wants - the core item/service. E.g., "private jet charter", "kids baseball glove", "winter coat". This is NEVER a date, number, or clarification response.'),
+  category: z.enum(['product', 'service']).describe('Is this a purchasable product or a service that requires vendor outreach?'),
+  service_type: z.string().nullish().describe('For services only: snake_case category like "private_aviation", "yacht_charter", "home_renovation"'),
+  search_query: z.string().describe('The search query to find this item. Derived from WHAT, not from conversation. E.g., "private jet charter SAN to EWR" or "youth baseball glove"'),
+  constraints: z.record(z.string(), z.any()).default({}).describe('Structured constraints: origin, destination, date, passengers, size, color, price_min, price_max, etc.'),
+});
+
+export type UserIntent = z.infer<typeof userIntentSchema>;
+
+// ============================================================================
 // UNIFIED LLM DECISION - Single entry point for all chat decisions
 // ============================================================================
 
 const unifiedDecisionSchema = z.object({
   message: z.string().describe('REQUIRED: The message to show the user. For ask_clarification, this MUST ask the specific questions.'),
+  intent: userIntentSchema.describe('REQUIRED: The user\'s intent. This MUST be provided with every action and represents what the user actually wants.'),
   action: z.discriminatedUnion('type', [
     // New request when no active row
     z.object({
       type: z.literal('create_row'),
-      title: z.string().default('New Request'),
-      constraints: z.record(z.string(), z.any()).optional(),
-      is_service: z.boolean().default(false),
-      service_category: z.string().optional(),
-      search_query: z.string().optional(),
     }),
     // Update existing active row (refinement)
     z.object({
       type: z.literal('update_row'),
-      constraints: z.record(z.string(), z.any()).optional(),
-      search_query: z.string().optional(),
     }),
     // User switched to completely different topic - create new row, clear chat
     z.object({
       type: z.literal('context_switch'),
-      new_title: z.string().default('New Request'),
-      constraints: z.record(z.string(), z.any()).optional(),
-      is_service: z.boolean().default(false),
-      service_category: z.string().optional(),
-      search_query: z.string().optional(),
     }),
     // Need more info before creating/updating row
     z.object({
       type: z.literal('ask_clarification'),
-      partial_constraints: z.record(z.string(), z.any()).default({}),
       missing_fields: z.array(z.string()).default([]),
-      is_service: z.boolean().default(false),
-      service_category: z.string().optional(),
     }),
     // Just search on existing row (no changes)
     z.object({
       type: z.literal('search'),
-      query: z.string().default(''),
     }),
     // Vendor outreach for service requests
     z.object({
       type: z.literal('vendor_outreach'),
-      category: z.string().default('service'),
     }),
   ]),
 });
@@ -99,68 +97,71 @@ export async function makeUnifiedDecision(ctx: ChatContext): Promise<UnifiedDeci
 
 INPUTS:
 - User message: "${userMessage}"
-- Active row: ${activeRow ? JSON.stringify({ id: activeRow.id, title: activeRow.title, is_service: activeRow.is_service, category: activeRow.service_category }) : 'none'}
+- Active row: ${activeRow ? JSON.stringify({ id: activeRow.id, title: activeRow.title }) : 'none'}
 - Active project: ${activeProject ? JSON.stringify({ id: activeProject.id, title: activeProject.title }) : 'none'}
 - Pending clarification: ${pendingClarification ? JSON.stringify(pendingClarification) : 'none'}
 - Recent conversation:
 ${conversationHistory.slice(-6).map(m => `  ${m.role}: ${m.content}`).join('\n')}
 
-YOUR JOB: Decide what action to take. Return ONLY a JSON object.
+YOUR JOB: 
+1. UNDERSTAND what the user wants (their INTENT)
+2. Decide what action to take
+3. Return JSON with BOTH intent and action
 
-ACTION TYPES:
-1. "create_row" - User wants something NEW and there's NO active row
-2. "update_row" - User is REFINING the active row (same topic: price, color, size, etc.)
-3. "context_switch" - User has active row but is asking for something COMPLETELY DIFFERENT
-   Example: active row is "private jet SAN to EWR", user says "I need a winter coat" → context_switch
-4. "ask_clarification" - RARELY used. Only when truly ambiguous (e.g., "I need something")
-5. "search" - Just refresh search results on current row
-6. "vendor_outreach" - For service requests, reach out to vendors for quotes
+=== INTENT (REQUIRED - this is the most important part) ===
+You MUST always return an "intent" object that captures WHAT THE USER WANTS:
 
-CRITICAL RULES:
-- If active row exists AND user asks for something UNRELATED → "context_switch"
-- If active row exists AND user refines it → "update_row"  
-- If NO active row → "create_row" (ALWAYS create the row, even for services)
-- If pending_clarification exists AND user provides info → "create_row" with ALL data from pending_clarification.partial_constraints merged with new info. If partial_constraints has is_service or service_category, you MUST include those in your create_row action.
-- If pending_clarification exists BUT user asks for something else → "context_switch"
-
-IMPORTANT - create_row MUST include:
-- title: Extract the request (e.g., "Private jet SAN to EWR Feb 13")
-- constraints: Include ALL info provided (dates, passengers, route, etc.)
-- is_service: true for services
-- service_category: the category
-
-SERVICE REQUESTS (any service, not a physical product):
-Examples: private jets, yacht charters, safari tours, ice sculptors, wedding planners, caterers, contractors, photographers, event venues, limo services, personal chefs, etc.
-- For services, use "ask_clarification" to gather essential details BEFORE creating the row
-- IMPORTANT: In ask_clarification for services, set is_service: true and service_category
-- Essential details vary by service type:
-  - Private jets: origin, destination, date, number of passengers
-  - Catering: date, location, headcount
-  - Photography: date, location, type of event
-  - etc.
-- Once you have essential details, use "create_row" with is_service: true
-- Set service_category: Use a descriptive snake_case category like "private_aviation", "yacht_charter", "safari_travel", "ice_sculpture", "wedding_planning", "catering", "photography", "event_venue", "limo_service", "personal_chef", etc.
-- Include all gathered details in constraints
-
-HOW TO IDENTIFY A SERVICE vs PRODUCT:
-- SERVICE: User needs someone to DO something or PROVIDE an experience (fly them somewhere, cater an event, take photos, plan a trip)
-- PRODUCT: User wants to BUY a physical item (shoes, laptop, bicycle, book)
-
-PRICE HANDLING:
-- "over $50" → constraints: { min_price: 50 }
-- "under $100" → constraints: { max_price: 100 }
-
-CRITICAL: The "message" field is REQUIRED and must NEVER be empty.
-- For ask_clarification: message MUST contain the questions you're asking (e.g., "What date do you need the flight? How many passengers?")
-- For create_row: message should confirm what you're creating
-- Always be conversational and helpful in your message.
-
-Decide the appropriate action and provide a message for the user.
-
-Return ONLY valid JSON matching this schema - no markdown, no extra text:
 {
-  "message": "string (required)",
-  "action": { "type": "create_row"|"update_row"|"context_switch"|"ask_clarification"|"search"|"vendor_outreach", ... }
+  "intent": {
+    "what": "The core thing they want - e.g., 'private jet charter', 'kids baseball glove', 'winter coat'",
+    "category": "product" or "service",
+    "service_type": "for services only: private_aviation, yacht_charter, catering, etc.",
+    "search_query": "The query to find this - derived from WHAT, not conversation snippets",
+    "constraints": { structured data: origin, destination, date, size, color, price, etc. }
+  }
+}
+
+CRITICAL INTENT RULES:
+- "what" is NEVER a date, number, or clarification answer. It's the THING they want.
+- "search_query" is derived from "what" + key constraints. NOT from "Feb 13" or "7 people".
+- If user says "private jet from SAN to EWR" then later "Feb 13, 7 people":
+  - what: "private jet charter"
+  - search_query: "private jet charter SAN to EWR"
+  - constraints: { origin: "SAN", destination: "EWR", date: "Feb 13", passengers: 7 }
+- If pending_clarification exists, MERGE its intent with new info. The "what" comes from the ORIGINAL request.
+
+SERVICE vs PRODUCT:
+- SERVICE (category: "service"): User needs someone to DO something (fly them, cater, photograph, renovate)
+- PRODUCT (category: "product"): User wants to BUY a physical item (shoes, laptop, coat)
+
+=== ACTION TYPES ===
+1. "create_row" - Create new request (no active row, or after clarification)
+2. "update_row" - Refine active row (same topic: price, color, size)
+3. "context_switch" - User wants something COMPLETELY DIFFERENT from active row
+4. "ask_clarification" - Need essential info before proceeding (use sparingly)
+5. "search" - Refresh search on current row
+6. "vendor_outreach" - Reach out to vendors for quotes
+
+RULES:
+- Active row exists AND user asks for UNRELATED thing → context_switch
+- Active row exists AND user refines it → update_row
+- NO active row → create_row
+- pending_clarification exists AND user provides info → create_row (merge intent)
+- pending_clarification exists BUT user asks for something else → context_switch
+
+SERVICE REQUESTS:
+- Use ask_clarification to gather essential details first
+- Essential details by type:
+  - Private jets: origin, destination, date, passengers
+  - Catering: date, location, headcount
+  - Photography: date, location, event type
+- Then create_row with full intent
+
+Return ONLY valid JSON:
+{
+  "message": "Conversational response to user (REQUIRED)",
+  "intent": { "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {...} },
+  "action": { "type": "..." }
 }`;
 
   // Use generateText instead of generateObject to avoid AI SDK structured output bugs
