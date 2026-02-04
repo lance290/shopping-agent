@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BFF_URL = process.env.BFF_URL || process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8080';
+const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
 export async function GET(request: NextRequest) {
   try {
     const query = request.nextUrl.searchParams.get('query') || '';
     
-    const res = await fetch(`${BFF_URL}/api/outreach/check-service?query=${encodeURIComponent(query)}`, {
+    const res = await fetch(`${BACKEND_URL}/outreach/check-service?query=${encodeURIComponent(query)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

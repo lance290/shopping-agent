@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BFF_URL = process.env.BFF_URL || process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8080';
+const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
 export async function GET(
   request: NextRequest,
@@ -9,7 +9,7 @@ export async function GET(
   try {
     const { category } = await params;
     
-    const res = await fetch(`${BFF_URL}/api/outreach/vendors/${category}`, {
+    const res = await fetch(`${BACKEND_URL}/outreach/vendors/${category}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

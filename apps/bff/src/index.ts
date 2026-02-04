@@ -999,7 +999,12 @@ export function buildApp() {
 
       if (action.type === 'ask_clarification') {
         // Need more info - don't create row yet
+        // Extract service info from partial_constraints if available
+        const pc = action.partial_constraints || {};
         writeEvent('needs_clarification', {
+          type: 'clarification',
+          service_type: pc.service_category || pc.is_service ? 'service' : undefined,
+          title: pc.item_name || pc.title,
           partial_constraints: action.partial_constraints,
           missing_fields: action.missing_fields,
         });
