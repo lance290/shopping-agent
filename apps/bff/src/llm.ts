@@ -56,6 +56,48 @@ const chatPlanSchema = z.object({
 
 export type ChatPlan = z.infer<typeof chatPlanSchema>;
 
+// Quick title extraction - fast, minimal prompt for instant row creation
+export async function extractTitleQuick(userMessage: string): Promise<{ title: string; is_service: boolean; category?: string }> {
+  const prompt = `Extract the item/service title from this shopping request. Be concise.
+
+User: "${userMessage}"
+
+Return JSON: {"title": "...", "is_service": true/false, "category": "..." (only if service)}
+
+Examples:
+- "I need a laptop for gaming under $1000" -> {"title": "Gaming laptop", "is_service": false}
+- "Find me a private jet from NYC to LA" -> {"title": "Private jet NYC to LA", "is_service": true, "category": "private_aviation"}
+- "Looking for a plumber in Denver" -> {"title": "Plumber in Denver", "is_service": true, "category": "plumbing"}
+
+JSON only:`;
+
+  try {
+    const { text } = await generateText({ model, prompt });
+    const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
+    return JSON.parse(cleaned);
+  } catch (e) {
+    // Fallback: use first 50 chars of user message
+    return { title: userMessage.slice(0, 50), is_service: false };
+  }
+}
+
+// Generate optimized search query for providers
+export async function generateSearchQuery(title: string, constraints?: Record<string, any>): Promise<string> {
+  const constraintsText = constraints ? ` with constraints: ${JSON.stringify(constraints)}` : '';
+  const prompt = `Generate an optimized search query for shopping providers (Amazon, Google Shopping, etc).
+
+Item: "${title}"${constraintsText}
+
+Return ONLY the search query string, no quotes, no explanation. Keep it concise (max 8 words).`;
+
+  try {
+    const { text } = await generateText({ model, prompt });
+    return text.trim().replace(/^["']|["']$/g, '');
+  } catch (e) {
+    return title;
+  }
+}
+
 export async function generateChatPlan(input: {
   messages: any[];
   activeRowId?: number | null;
@@ -63,8 +105,8 @@ export async function generateChatPlan(input: {
   activeRowTitle?: string | null;
   projectTitle?: string | null;
 }): Promise<ChatPlan> {
-  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-    throw new Error('LLM not configured');
+  if (!process.env.OPENROUTER_API_KEY) {
+    throw new Error('LLM not configured - OPENROUTER_API_KEY required');
   }
 
   const lastUserMessage = Array.isArray(input.messages)

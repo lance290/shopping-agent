@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fs from 'fs';
 import path from 'path';
-import { generateAndSaveChoiceFactors, GEMINI_MODEL_NAME, triageProviderQuery, generateChatPlan } from './llm';
+import { generateAndSaveChoiceFactors, GEMINI_MODEL_NAME, triageProviderQuery, generateChatPlan, extractTitleQuick, generateSearchQuery } from './llm';
 import { extractSearchIntent } from './intent';
 
 // Manually load .env since we want to avoid dependency issues
@@ -887,8 +887,8 @@ export function buildApp() {
     };
     const authorization = request.headers.authorization;
 
-    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-      reply.status(500).send({ error: 'LLM not configured' });
+    if (!process.env.OPENROUTER_API_KEY) {
+      reply.status(500).send({ error: 'LLM not configured - OPENROUTER_API_KEY required' });
       return;
     }
 
@@ -935,74 +935,65 @@ export function buildApp() {
       }
     }
 
-    const startLLM = Date.now();
-    fastify.log.info({ msg: 'Starting LLM plan generation', activeRowId, projectId });
-    
-    // Send immediate feedback to user
-    writeEvent('assistant_message', { text: 'Processing your request...' });
+    // Get last user message for quick title extraction
+    const lastUserMessage = Array.isArray(messages)
+      ? [...messages].reverse().find((m: any) => m?.role === 'user')
+      : null;
+    const userText = typeof lastUserMessage?.content === 'string'
+      ? lastUserMessage.content
+      : typeof lastUserMessage?.content?.text === 'string'
+        ? lastUserMessage.content.text
+        : '';
 
-    const plan = await generateChatPlan({
-      messages,
-      activeRowId: activeRowId ?? null,
-      projectId: projectId ?? null,
-      activeRowTitle,
-      projectTitle,
-    });
-    const llmDuration = Date.now() - startLLM;
-    fastify.log.info({ msg: 'LLM plan generated', duration: llmDuration, plan });
+    // If there's an active row, use the old flow (update/refine)
+    // For new requests, use the fast parallel flow
+    if (activeRowId) {
+      // Existing row - use full plan for updates
+      const startLLM = Date.now();
+      fastify.log.info({ msg: 'Starting LLM plan generation (update flow)', activeRowId });
+      writeEvent('assistant_message', { text: 'Updating your request...' });
 
-    writeEvent('assistant_message', { text: plan.assistant_message || '' });
+      const plan = await generateChatPlan({
+        messages,
+        activeRowId: activeRowId ?? null,
+        projectId: projectId ?? null,
+        activeRowTitle,
+        projectTitle,
+      });
+      const llmDuration = Date.now() - startLLM;
+      fastify.log.info({ msg: 'LLM plan generated', duration: llmDuration });
 
-    let lastRowId: number | null = activeRowId ?? null;
-    for (const action of plan.actions || []) {
-      if (action.type === 'create_row') {
-        const constraints = action.constraints && typeof action.constraints === 'object' ? action.constraints : {};
-        const choiceAnswers: Record<string, any> = { ...constraints };
-        if (typeof action.min_price === 'number' && Number.isFinite(action.min_price)) {
-          choiceAnswers.min_price = action.min_price;
-        }
-        if (typeof action.max_price === 'number' && Number.isFinite(action.max_price)) {
-          choiceAnswers.max_price = action.max_price;
-        }
-        const title = action.title;
-        writeEvent('action_started', { type: 'create_row', title });
-        const createRes = await fetchJsonWithTimeoutRetry(
-          `${BACKEND_URL}/rows`,
-          {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              title,
-              status: 'sourcing',
-              project_id: action.project_id ?? projectId ?? undefined,
-              request_spec: {
-                item_name: title,
-                constraints: JSON.stringify(constraints),
-              },
-              choice_answers: JSON.stringify(choiceAnswers),
-            }),
-          },
-          20000,
-          1,
-          500
-        );
-        if (!createRes.ok || !createRes.data?.id) {
-          writeEvent('error', { message: createRes.data?.detail || createRes.data?.message || createRes.text || 'Failed to create row' });
-          reply.raw.end();
-          return;
-        }
-        lastRowId = Number(createRes.data.id);
-        writeEvent('row_created', { row: createRes.data });
+      writeEvent('assistant_message', { text: plan.assistant_message || '' });
 
-        if (typeof action.search_query === 'string' && action.search_query.trim().length > 0) {
-          writeEvent('action_started', { type: 'search', row_id: lastRowId, query: action.search_query });
-          try {
-            await streamSearchResults(
-              lastRowId,
-              { query: action.search_query, providers: action.providers },
-              headers,
-              (batch) => {
-                // Emit incremental results with more_incoming flag
+      let lastRowId: number | null = activeRowId;
+      for (const action of plan.actions || []) {
+        if (action.type === 'update_row') {
+          // Handle update_row inline here (simplified)
+          const constraints = action.constraints && typeof action.constraints === 'object' ? action.constraints : undefined;
+          const updateBody: any = {};
+          if (typeof action.title === 'string' && action.title.trim().length > 0) {
+            updateBody.title = action.title;
+          }
+          const choiceAnswers: Record<string, any> = constraints ? { ...constraints } : {};
+          if (typeof action.min_price === 'number') choiceAnswers.min_price = action.min_price;
+          if (typeof action.max_price === 'number') choiceAnswers.max_price = action.max_price;
+          if (Object.keys(choiceAnswers).length > 0) {
+            updateBody.choice_answers = JSON.stringify(choiceAnswers);
+          }
+
+          writeEvent('action_started', { type: 'update_row', row_id: action.row_id });
+          await fetchJsonWithTimeoutRetry(
+            `${BACKEND_URL}/rows/${action.row_id}`,
+            { method: 'PATCH', headers, body: JSON.stringify(updateBody) },
+            20000, 1, 500
+          );
+          writeEvent('row_updated', { row_id: action.row_id });
+          lastRowId = action.row_id;
+
+          if (typeof action.search_query === 'string' && action.search_query.trim().length > 0) {
+            writeEvent('action_started', { type: 'search', row_id: lastRowId, query: action.search_query });
+            try {
+              await streamSearchResults(lastRowId, { query: action.search_query }, headers, (batch) => {
                 writeEvent('search_results', {
                   row_id: lastRowId,
                   results: batch.results,
@@ -1010,146 +1001,95 @@ export function buildApp() {
                   more_incoming: batch.more_incoming,
                   provider: batch.provider,
                 });
-              }
-            );
-            // No final event needed - last batch already has more_incoming: false
-          } catch (err: any) {
-            writeEvent('error', { message: err?.message || 'Search failed' });
-            reply.raw.end();
-            return;
+              });
+            } catch (err: any) {
+              writeEvent('error', { message: err?.message || 'Search failed' });
+            }
           }
-        }
-      } else if (action.type === 'update_row') {
-        const constraints = action.constraints && typeof action.constraints === 'object' ? action.constraints : undefined;
-        const updateBody: any = {};
-        if (typeof action.title === 'string' && action.title.trim().length > 0) {
-          updateBody.title = action.title;
-          updateBody.request_spec = {
-            item_name: action.title,
-            constraints: JSON.stringify(constraints || {}),
-          };
-        }
-
-        const choiceAnswers: Record<string, any> = constraints ? { ...constraints } : {};
-        if (typeof action.min_price === 'number' && Number.isFinite(action.min_price)) {
-          choiceAnswers.min_price = action.min_price;
-        }
-        if (typeof action.max_price === 'number' && Number.isFinite(action.max_price)) {
-          choiceAnswers.max_price = action.max_price;
-        }
-        if (Object.keys(choiceAnswers).length > 0) {
-          updateBody.choice_answers = JSON.stringify(choiceAnswers);
-        }
-
-        writeEvent('action_started', { type: 'update_row', row_id: action.row_id });
-        const updateRes = await fetchJsonWithTimeoutRetry(
-          `${BACKEND_URL}/rows/${action.row_id}`,
-          {
-            method: 'PATCH',
-            headers,
-            body: JSON.stringify(updateBody),
-          },
-          20000,
-          1,
-          500
-        );
-        if (!updateRes.ok) {
-          writeEvent('error', { message: updateRes.data?.detail || updateRes.data?.message || updateRes.text || 'Failed to update row' });
-          reply.raw.end();
-          return;
-        }
-        lastRowId = action.row_id;
-        writeEvent('row_updated', { row: updateRes.data });
-
-        if (typeof action.search_query === 'string' && action.search_query.trim().length > 0) {
-          writeEvent('action_started', { type: 'search', row_id: lastRowId, query: action.search_query });
+        } else if (action.type === 'search') {
+          writeEvent('action_started', { type: 'search', row_id: action.row_id, query: action.query });
           try {
-            await streamSearchResults(
-              lastRowId,
-              { query: action.search_query, providers: action.providers },
-              headers,
-              (batch) => {
-                writeEvent('search_results', {
-                  row_id: lastRowId,
-                  results: batch.results,
-                  provider_statuses: [batch.status],
-                  more_incoming: batch.more_incoming,
-                  provider: batch.provider,
-                });
-              }
-            );
-            // No final event needed - last batch already has more_incoming: false
-          } catch (err: any) {
-            writeEvent('error', { message: err?.message || 'Search failed' });
-            reply.raw.end();
-            return;
-          }
-        }
-      } else if (action.type === 'search') {
-        const rowId = action.row_id;
-        writeEvent('action_started', { type: 'search', row_id: rowId, query: action.query });
-        try {
-          await streamSearchResults(
-            rowId,
-            { query: action.query, providers: action.providers },
-            headers,
-            (batch) => {
+            await streamSearchResults(action.row_id, { query: action.query }, headers, (batch) => {
               writeEvent('search_results', {
-                row_id: rowId,
+                row_id: action.row_id,
                 results: batch.results,
                 provider_statuses: [batch.status],
                 more_incoming: batch.more_incoming,
                 provider: batch.provider,
               });
-            }
-          );
-          lastRowId = rowId;
-          // No final event needed - last batch already has more_incoming: false
-        } catch (err: any) {
-          writeEvent('error', { message: err?.message || 'Search failed' });
-          reply.raw.end();
-          return;
-        }
-      } else if (action.type === 'vendor_outreach') {
-        const rowId = action.row_id;
-        const category = action.category;
-        writeEvent('action_started', { type: 'vendor_outreach', row_id: rowId, category });
-        writeEvent('status', { message: `🔍 Finding ${category} vendors...` });
-        try {
-          // Trigger vendor outreach via backend
-          const outreachResult = await fetchJsonWithTimeoutRetry(
-            `${BACKEND_URL}/outreach/rows/${rowId}/trigger`,
-            {
-              method: 'POST',
-              headers: { ...headers, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ category, vendor_limit: 5 }),
-            },
-            30000,
-            1,
-            500
-          );
-          
-          if (outreachResult.ok) {
-            const data = outreachResult.data;
-            writeEvent('outreach_triggered', {
-              row_id: rowId,
-              vendors_contacted: data.vendors_contacted,
-              category,
             });
-            writeEvent('status', { message: `✉️ Contacted ${data.vendors_contacted} vendors. Waiting for quotes...` });
-          } else {
-            writeEvent('error', { message: outreachResult.data?.detail || 'Failed to trigger outreach' });
+          } catch (err: any) {
+            writeEvent('error', { message: err?.message || 'Search failed' });
           }
-          lastRowId = rowId;
-        } catch (err: any) {
-          writeEvent('error', { message: err?.message || 'Vendor outreach failed' });
-          reply.raw.end();
-          return;
         }
       }
+      writeEvent('done', {});
+      reply.raw.end();
+      return;
     }
 
-    writeEvent('done', { row_id: lastRowId });
+    // === NEW REQUEST: Fast parallel flow ===
+    // 1. Quick title extraction (fast LLM call)
+    fastify.log.info({ msg: 'Starting fast parallel flow' });
+    writeEvent('assistant_message', { text: 'Finding options for you...' });
+
+    const titleInfo = await extractTitleQuick(userText);
+    const title = titleInfo.title;
+    fastify.log.info({ msg: 'Quick title extracted', title, is_service: titleInfo.is_service });
+
+    // 2. Create row immediately (user sees activity)
+    writeEvent('action_started', { type: 'create_row', title });
+    const createRes = await fetchJsonWithTimeoutRetry(
+      `${BACKEND_URL}/rows`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          title,
+          status: 'sourcing',
+          project_id: projectId ?? undefined,
+          request_spec: { item_name: title, constraints: '{}' },
+          choice_answers: '{}',
+        }),
+      },
+      20000, 1, 500
+    );
+    if (!createRes.ok || !createRes.data?.id) {
+      writeEvent('error', { message: createRes.data?.detail || 'Failed to create row' });
+      reply.raw.end();
+      return;
+    }
+    const rowId = Number(createRes.data.id);
+    writeEvent('row_created', { row: createRes.data });
+
+    // 3. Run parallel LLMs: search query + choice factors
+    const searchQueryPromise = generateSearchQuery(title);
+    const factorsPromise = generateAndSaveChoiceFactors(title, rowId, authorization);
+
+    // 4. Start search as soon as query is ready (don't wait for factors)
+    const searchQuery = await searchQueryPromise;
+    fastify.log.info({ msg: 'Search query generated', query: searchQuery });
+
+    writeEvent('action_started', { type: 'search', row_id: rowId, query: searchQuery });
+    try {
+      await streamSearchResults(rowId, { query: searchQuery }, headers, (batch) => {
+        writeEvent('search_results', {
+          row_id: rowId,
+          results: batch.results,
+          provider_statuses: [batch.status],
+          more_incoming: batch.more_incoming,
+          provider: batch.provider,
+        });
+      });
+    } catch (err: any) {
+      writeEvent('error', { message: err?.message || 'Search failed' });
+    }
+
+    // 5. Factors should be done by now (or almost done) - notify UI to refresh
+    await factorsPromise;
+    writeEvent('factors_updated', { row_id: rowId });
+
+    writeEvent('done', {});
     reply.raw.end();
   } catch (err: any) {
     fastify.log.error({ err }, 'Chat error');
