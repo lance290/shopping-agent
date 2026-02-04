@@ -47,9 +47,8 @@ export default function VendorContactModal({
   const safetyReason = (existingAnswers as any)?.safety_reason || '';
   const [confirmedSafe, setConfirmedSafe] = useState(false);
 
-  const existingOutreach = (existingAnswers as any)?.outreach || {};
-
   const defaultOutreach = useMemo(() => {
+    const existingOutreach = (existingAnswers as any)?.outreach || {};
     const personaName = typeof existingOutreach?.persona_name === 'string' ? existingOutreach.persona_name : 'Betty';
     const personaRole = typeof existingOutreach?.persona_role === 'string' ? existingOutreach.persona_role : 'Executive Assistant, BuyAnything';
     const fields = typeof existingOutreach?.fields === 'object' && existingOutreach.fields ? existingOutreach.fields : {};
@@ -93,7 +92,7 @@ export default function VendorContactModal({
         notes: fields.notes || '',
       },
     };
-  }, [existingOutreach, existingAnswers]);
+  }, [existingAnswers]);
 
   const [personaName, setPersonaName] = useState<string>('Betty');
   const [personaRole, setPersonaRole] = useState<string>('Executive Assistant, BuyAnything');
