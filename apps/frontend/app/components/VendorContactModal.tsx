@@ -97,8 +97,8 @@ export default function VendorContactModal({
 
   const [personaName, setPersonaName] = useState<string>('Betty');
   const [personaRole, setPersonaRole] = useState<string>('Executive Assistant, BuyAnything');
-  const [subjectTemplate, setSubjectTemplate] = useState<string>('');
-  const [bodyTemplate, setBodyTemplate] = useState<string>('');
+  const [subjectTemplateRaw, setSubjectTemplateRaw] = useState<string>('');
+  const [bodyTemplateRaw, setBodyTemplateRaw] = useState<string>('');
   const [fromAirport, setFromAirport] = useState<string>('');
   const [toAirport, setToAirport] = useState<string>('');
   const [date, setDate] = useState<string>('');
@@ -132,28 +132,32 @@ export default function VendorContactModal({
     setPassengers(String(f.passengers ?? ''));
     setNotes(f.notes || '');
 
-    // Interpolate templates immediately for display
-    const render = (tpl: string) => {
-      const time = f.time_mode === 'fixed'
-        ? (f.time_fixed || '')
-        : ((f.time_earliest || f.time_latest) ? `${f.time_earliest || '??'}-${f.time_latest || '??'}` : '');
+    // Store raw templates for re-rendering
+    setSubjectTemplateRaw(d.subject_template || 'Charter request — {from} to {to} on {date}');
+    setBodyTemplateRaw(d.body_template || `Hi {provider},\n\nI'm reaching out on behalf of my boss. We're looking to arrange a private charter:\nRoute: {from} → {to}\nDate: {date}\nWheels up: {time}\nPassengers: {pax}\n\nAre you able to quote this? If so, what availability/pricing do you have?\n\nThanks,\n{persona_name}\n{persona_role}`);
 
-      return tpl
-        .replaceAll('{provider}', vendorCompany)
-        .replaceAll('{from}', (f.from_airport || '').toUpperCase())
-        .replaceAll('{to}', (f.to_airport || '').toUpperCase())
-        .replaceAll('{date}', f.date || '')
-        .replaceAll('{time}', time)
-        .replaceAll('{pax}', String(f.passengers || ''))
-        .replaceAll('{persona_name}', d.persona_name || 'Betty')
-        .replaceAll('{persona_role}', d.persona_role || 'Executive Assistant, BuyAnything')
-        .replaceAll('{row_title}', rowTitle);
-    };
+  }, [isOpen, defaultOutreach]);
 
-    setSubjectTemplate(render(d.subject_template || ''));
-    setBodyTemplate(render(d.body_template || ''));
+  // Re-render templates whenever fields change
+  const renderTemplate = (tpl: string) => {
+    const time = timeMode === 'fixed'
+      ? (timeFixed || '')
+      : ((timeEarliest || timeLatest) ? `${timeEarliest || '??'}-${timeLatest || '??'}` : '');
 
-  }, [isOpen, defaultOutreach, vendorCompany, rowTitle]);
+    return tpl
+      .replaceAll('{provider}', vendorCompany)
+      .replaceAll('{from}', (fromAirport || '').toUpperCase())
+      .replaceAll('{to}', (toAirport || '').toUpperCase())
+      .replaceAll('{date}', date || '')
+      .replaceAll('{time}', time)
+      .replaceAll('{pax}', passengers || '')
+      .replaceAll('{persona_name}', personaName)
+      .replaceAll('{persona_role}', personaRole)
+      .replaceAll('{row_title}', rowTitle);
+  };
+
+  const subjectRendered = renderTemplate(subjectTemplateRaw);
+  const bodyRendered = renderTemplate(bodyTemplateRaw);
 
   if (!isOpen || !mounted) return null;
 
@@ -168,25 +172,8 @@ export default function VendorContactModal({
   };
 
   const handleEmailClick = () => {
-    const time = timeMode === 'fixed'
-      ? (timeFixed || '')
-      : ((timeEarliest || timeLatest) ? `${timeEarliest || '??'}-${timeLatest || '??'}` : '');
-
-    const render = (tpl: string) => {
-      return tpl
-        .replaceAll('{provider}', vendorCompany)
-        .replaceAll('{from}', (fromAirport || '').toUpperCase())
-        .replaceAll('{to}', (toAirport || '').toUpperCase())
-        .replaceAll('{date}', date || '')
-        .replaceAll('{time}', time)
-        .replaceAll('{pax}', passengers || '')
-        .replaceAll('{persona_name}', personaName)
-        .replaceAll('{persona_role}', personaRole)
-        .replaceAll('{row_title}', rowTitle);
-    };
-
-    const subject = render(subjectTemplate || '').trim();
-    let body = render(bodyTemplate || '').trim();
+    const subject = subjectRendered.trim();
+    let body = bodyRendered.trim();
     if (notes && notes.trim().length > 0) {
       body = `${body}\n\nNotes:\n${notes.trim()}`;
     }
@@ -202,8 +189,8 @@ export default function VendorContactModal({
     const outreach = {
       persona_name: personaName,
       persona_role: personaRole,
-      subject_template: subjectTemplate,
-      body_template: bodyTemplate,
+      subject_template: subjectTemplateRaw,
+      body_template: bodyTemplateRaw,
       fields: {
         from_airport: fromAirport,
         to_airport: toAirport,
@@ -300,19 +287,19 @@ export default function VendorContactModal({
             <div>
               <div className="text-xs text-onyx-muted mb-1">Subject</div>
               <input
-                value={subjectTemplate}
-                onChange={(e) => setSubjectTemplate(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                value={subjectRendered}
+                readOnly
+                className="w-full px-3 py-2 bg-gray-50 border border-warm-grey/60 rounded-lg text-xs text-gray-900 outline-none"
               />
             </div>
 
             <div>
               <div className="text-xs text-onyx-muted mb-1">Email body</div>
               <textarea
-                value={bodyTemplate}
-                onChange={(e) => setBodyTemplate(e.target.value)}
+                value={bodyRendered}
+                readOnly
                 rows={6}
-                className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none resize-none"
+                className="w-full px-3 py-2 bg-gray-50 border border-warm-grey/60 rounded-lg text-xs text-gray-900 outline-none resize-none"
               />
             </div>
 

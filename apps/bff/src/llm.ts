@@ -361,11 +361,12 @@ Example for "laptop":
 
 Example for "private jet charter" or any flight/travel service:
 [
-  {"name": "passengers", "label": "Passengers", "type": "number", "required": true},
-  {"name": "aircraft_size", "label": "Aircraft Size", "type": "select", "options": ["Light Jet (4-6 pax)", "Midsize Jet (6-8 pax)", "Super Midsize (8-10 pax)", "Large Cabin (10-14 pax)", "Heavy Jet (14+ pax)"], "required": false},
+  {"name": "from_airport", "label": "Departure Airport", "type": "text", "required": true},
+  {"name": "to_airport", "label": "Arrival Airport", "type": "text", "required": true},
   {"name": "departure_date", "label": "Departure Date", "type": "text", "required": true},
-  {"name": "return_date", "label": "Return Date", "type": "text", "required": false},
-  {"name": "flexible_dates", "label": "Flexible Dates", "type": "boolean", "required": false}
+  {"name": "passengers", "label": "Passengers", "type": "number", "required": true},
+  {"name": "time_earliest", "label": "Earliest Departure", "type": "text", "required": false},
+  {"name": "time_latest", "label": "Latest Departure", "type": "text", "required": false}
 ]
 
 IMPORTANT: If "Existing constraints" are provided, you MUST include a spec definition for each constraint key so the UI can display it.
