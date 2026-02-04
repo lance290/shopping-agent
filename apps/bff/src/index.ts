@@ -1113,24 +1113,41 @@ export function buildApp() {
         writeEvent('factors_updated', { row_id: rowId });
 
         // For services, fetch vendors instead of product search
-        if (action.is_service && action.service_category) {
-          writeEvent('action_started', { type: 'fetch_vendors', row_id: rowId, category: action.service_category });
+        // Detect category from title if not provided
+        const detectServiceCategory = (t: string): string | null => {
+          const lower = t.toLowerCase();
+          if (/private\s*jet|charter\s*flight|aviation/i.test(lower)) return 'private_aviation';
+          if (/cater/i.test(lower)) return 'catering';
+          if (/roof/i.test(lower)) return 'roofing';
+          if (/hvac|air\s*condition|heating/i.test(lower)) return 'hvac';
+          return null;
+        };
+        
+        const serviceCategory = action.service_category || (action.is_service ? detectServiceCategory(title) : null);
+        
+        if (action.is_service && serviceCategory) {
+          writeEvent('action_started', { type: 'fetch_vendors', row_id: rowId, category: serviceCategory });
           try {
             const vendorRes = await fetchJsonWithTimeoutRetry(
-              `${BACKEND_URL}/outreach/vendors/${action.service_category}`,
+              `${BACKEND_URL}/outreach/vendors/${serviceCategory}`,
               { headers },
               15000, 1, 500
             );
             if (vendorRes.ok && Array.isArray(vendorRes.data)) {
               writeEvent('vendors_loaded', {
                 row_id: rowId,
-                category: action.service_category,
+                category: serviceCategory,
                 vendors: vendorRes.data,
               });
+            } else {
+              fastify.log.warn({ status: vendorRes.status, category: serviceCategory }, 'Vendor fetch returned non-ok or non-array');
             }
           } catch (err: any) {
             fastify.log.error({ err }, 'Failed to fetch vendors');
           }
+        } else if (action.is_service) {
+          // Service but no category detected - skip search, just show options form
+          fastify.log.info({ title }, 'Service detected but no category - skipping product search');
         } else {
           // Product search for non-services
           const searchQuery = action.search_query || title;
