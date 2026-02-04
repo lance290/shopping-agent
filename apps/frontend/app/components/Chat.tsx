@@ -21,6 +21,11 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userPhone, setUserPhone] = useState<string | null>(null);
+  // Track pending clarification context for multi-turn flows (e.g., aviation)
+  const [pendingClarification, setPendingClarification] = useState<{
+    type: string;
+    partial_constraints: Record<string, unknown>;
+  } | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -101,6 +106,8 @@ export default function Chat() {
           messages: [...messages, userMessage],
           activeRowId: effectiveActiveRowId,
           projectId: intendedProjectId,
+          // Include pending clarification context if we're in a multi-turn flow
+          clarificationContext: pendingClarification,
         }),
       });
       
@@ -195,8 +202,18 @@ export default function Chat() {
               if (!moreIncoming) {
                 store.setIsSearching(false);
               }
+            } else if (eventName === 'needs_clarification') {
+              // Store partial constraints for the next turn
+              if (data?.type && data?.partial_constraints) {
+                setPendingClarification({
+                  type: data.type,
+                  partial_constraints: data.partial_constraints,
+                });
+              }
             } else if (eventName === 'done') {
               store.setIsSearching(false);
+              // Clear clarification context if row was created successfully
+              // (done event after row_created means we completed the flow)
             } else if (eventName === 'error') {
               const msg = typeof data?.message === 'string' ? data.message : 'Something went wrong.';
               assistantContent = msg;

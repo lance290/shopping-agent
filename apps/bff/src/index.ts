@@ -880,10 +880,14 @@ export function buildApp() {
 
   fastify.post('/api/chat', async (request, reply) => {
   try {
-    const { messages, activeRowId, projectId } = request.body as {
+    const { messages, activeRowId, projectId, clarificationContext } = request.body as {
       messages: any[];
       activeRowId?: number;
       projectId?: number;
+      clarificationContext?: {
+        type: string;
+        partial_constraints: Record<string, unknown>;
+      };
     };
     const authorization = request.headers.authorization;
 
@@ -1023,6 +1027,94 @@ export function buildApp() {
           }
         }
       }
+      writeEvent('done', {});
+      reply.raw.end();
+      return;
+    }
+
+    // === CLARIFICATION CONTINUATION: User is responding to a clarifying question ===
+    if (clarificationContext?.type === 'aviation') {
+      fastify.log.info({ msg: 'Continuing aviation clarification flow', partial: clarificationContext.partial_constraints });
+      
+      // Extract new constraints from user's response and merge with existing
+      const newConstraints = await extractAviationConstraints(userText);
+      const partial = clarificationContext.partial_constraints as unknown as AviationConstraints;
+      
+      // Merge: new values override partial, but keep partial values if new is undefined
+      const merged: AviationConstraints = {
+        from_airport: newConstraints.from_airport || partial.from_airport,
+        to_airport: newConstraints.to_airport || partial.to_airport,
+        departure_date: newConstraints.departure_date || partial.departure_date,
+        passengers: newConstraints.passengers ?? partial.passengers,
+        time_earliest: newConstraints.time_earliest || partial.time_earliest,
+        time_latest: newConstraints.time_latest || partial.time_latest,
+        missing_required: [],
+      };
+      
+      // Recalculate missing required fields
+      if (!merged.from_airport) merged.missing_required.push('departure airport');
+      if (!merged.to_airport) merged.missing_required.push('destination airport');
+      if (!merged.departure_date) merged.missing_required.push('departure date');
+      if (!merged.passengers) merged.missing_required.push('number of passengers');
+      
+      fastify.log.info({ msg: 'Merged aviation constraints', merged });
+      
+      // Still missing required fields? Ask again
+      if (merged.missing_required.length > 0) {
+        const question = generateAviationClarifyingQuestion([...merged.missing_required]);
+        writeEvent('assistant_message', { text: question });
+        writeEvent('needs_clarification', { 
+          type: 'aviation',
+          missing_fields: merged.missing_required,
+          partial_constraints: merged,
+        });
+        writeEvent('done', {});
+        reply.raw.end();
+        return;
+      }
+      
+      // All fields present - create the row
+      const title = `Private jet ${merged.from_airport} to ${merged.to_airport}`;
+      const choiceAnswers = {
+        from_airport: merged.from_airport,
+        to_airport: merged.to_airport,
+        departure_date: merged.departure_date,
+        passengers: merged.passengers,
+        time_earliest: merged.time_earliest,
+        time_latest: merged.time_latest,
+      };
+      
+      writeEvent('assistant_message', { text: `Great! I'll reach out to charter operators for a ${merged.from_airport} → ${merged.to_airport} flight on ${merged.departure_date} for ${merged.passengers} passengers.` });
+      writeEvent('action_started', { type: 'create_row', title });
+      
+      const createRes = await fetchJsonWithTimeoutRetry(
+        `${BACKEND_URL}/rows`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            title,
+            status: 'sourcing',
+            project_id: projectId ?? undefined,
+            request_spec: { item_name: title, constraints: JSON.stringify(choiceAnswers) },
+            choice_answers: JSON.stringify(choiceAnswers),
+          }),
+        },
+        20000, 1, 500
+      );
+      
+      if (!createRes.ok || !createRes.data?.id) {
+        writeEvent('error', { message: createRes.data?.detail || 'Failed to create row' });
+        reply.raw.end();
+        return;
+      }
+      
+      const rowId = Number(createRes.data.id);
+      writeEvent('row_created', { row: createRes.data });
+      
+      await generateAndSaveChoiceFactors(title, rowId, authorization, choiceAnswers);
+      writeEvent('factors_updated', { row_id: rowId });
+      
       writeEvent('done', {});
       reply.raw.end();
       return;
