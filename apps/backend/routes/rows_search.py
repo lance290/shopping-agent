@@ -21,6 +21,7 @@ from sourcing import (
     build_provider_query_map,
     available_provider_ids,
 )
+from sourcing.normalizers import normalize_results_for_provider
 from sourcing.service import SourcingService
 from sourcing.material_filter import extract_material_constraints, should_exclude_result
 
@@ -367,6 +368,12 @@ async def search_row_listings_stream(
     min_price_filter, max_price_filter, exclude_synthetics, custom_exclude_keywords = _extract_filters(row, spec)
 
     sourcing_repo = get_sourcing_repo()
+    sourcing_service = SourcingService(session, sourcing_repo)
+
+    row.status = "bids_arriving"
+    row.updated_at = datetime.utcnow()
+    session.add(row)
+    await session.commit()
 
     async def generate_sse() -> AsyncGenerator[str, None]:
         """Generate SSE events as each provider completes."""
@@ -407,6 +414,14 @@ async def search_row_listings_stream(
                     continue
                 filtered_batch.append(r)
             
+            if filtered_batch:
+                try:
+                    normalized_batch = normalize_results_for_provider(provider_name, filtered_batch)
+                    if normalized_batch:
+                        await sourcing_service._persist_results(row_id, normalized_batch)
+                except Exception as err:
+                    logger.error(f"[SEARCH STREAM] Failed to persist results for provider {provider_name}: {err}")
+
             all_results.extend(filtered_batch)
             
             # Build SSE event

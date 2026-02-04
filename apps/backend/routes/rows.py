@@ -5,7 +5,7 @@ from typing import Optional, List
 from datetime import datetime
 import json
 
-from sqlmodel import select
+from sqlmodel import select, delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload, defer, joinedload
 
@@ -41,6 +41,9 @@ def filter_bids_by_price(row: Row) -> List:
     
     filtered = []
     for bid in row.bids:
+        if getattr(bid, "is_service_provider", False):
+            filtered.append(bid)
+            continue
         price = bid.price
         if price is None:
             filtered.append(bid)
@@ -69,6 +72,10 @@ class BidRead(BaseModel):
     image_url: Optional[str] = None
     source: str
     is_selected: bool = False
+    is_service_provider: bool = False
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
     seller: Optional[SellerRead] = None
 
 
@@ -96,6 +103,7 @@ class RowUpdate(BaseModel):
     selected_bid_id: Optional[int] = None
     regenerate_choice_factors: Optional[bool] = None
     chat_history: Optional[str] = None
+    reset_bids: Optional[bool] = None
 
 
 def _default_choice_factors_for_row(row: Row) -> str:
@@ -334,6 +342,7 @@ async def update_row(
     selected_bid_id = row_data.pop("selected_bid_id", None)
     request_spec_updates = row_data.pop("request_spec", None)
     regenerate_choice_factors = row_data.pop("regenerate_choice_factors", None)
+    reset_bids = row_data.pop("reset_bids", None)
 
     if selected_bid_id is not None:
         bids_result = await session.exec(select(Bid).where(Bid.row_id == row_id))
@@ -349,6 +358,9 @@ async def update_row(
             raise HTTPException(status_code=404, detail="Option not found")
 
         row.status = "closed"
+
+    if reset_bids:
+        await session.exec(delete(Bid).where(Bid.row_id == row_id))
 
     for key, value in row_data.items():
         setattr(row, key, value)

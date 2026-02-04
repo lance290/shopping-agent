@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, LogOut } from 'lucide-react';
 import { useShoppingStore } from '../store';
-import { fetchRowsFromDb, fetchProjectsFromDb, saveChatHistory } from '../utils/api';
+import { fetchRowsFromDb, fetchProjectsFromDb, fetchSingleRowFromDb, saveChatHistory } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
@@ -243,13 +243,30 @@ export default function Chat() {
               }
             } else if (eventName === 'row_updated') {
               const row = data?.row;
-              if (row?.id) {
+              const rowId = row?.id ?? data?.row_id;
+              if (rowId) {
                 // User updated request - clear old results before new search
-                store.setRowResults(row.id, [], undefined, true);
+                store.setRowResults(rowId, [], undefined, true);
+                const updatedRow = row ?? await fetchSingleRowFromDb(rowId);
+                if (updatedRow) {
+                  const mergedRows = [...store.rows.filter((r) => r.id !== updatedRow.id), updatedRow];
+                  store.setRows(mergedRows);
+                  store.setActiveRowId(updatedRow.id);
+                  store.setCurrentQuery(updatedRow.title);
+                }
+              }
+            } else if (eventName === 'factors_updated') {
+              const row = data?.row;
+              const rowId = row?.id ?? data?.row_id;
+              if (row) {
                 const mergedRows = [...store.rows.filter((r) => r.id !== row.id), row];
                 store.setRows(mergedRows);
-                store.setActiveRowId(row.id);
-                store.setCurrentQuery(row.title);
+              } else if (rowId) {
+                const freshRow = await fetchSingleRowFromDb(rowId);
+                if (freshRow) {
+                  const mergedRows = [...store.rows.filter((r) => r.id !== freshRow.id), freshRow];
+                  store.setRows(mergedRows);
+                }
               }
             } else if (eventName === 'search_results') {
               const rowId = data?.row_id;

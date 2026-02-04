@@ -1,16 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { startAuth, verifyAuth } from '../utils/auth';
 
 export default function LoginPage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState<'start' | 'verify'>('start');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleStart = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,8 +25,9 @@ export default function LoginPage() {
     try {
       await startAuth(phone);
       setStep('verify');
-    } catch (err: any) {
-      setError(err.message || 'Failed to send verification code');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to send verification code';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -36,12 +42,26 @@ export default function LoginPage() {
       await verifyAuth(phone, code);
       router.push('/');
       router.refresh();
-    } catch (err: any) {
-      setError(err.message || 'Invalid code');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Invalid code';
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
+
+  if (!mounted) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold text-gray-900">Sign in to Shopping Agent</h1>
+            <p className="text-gray-600 mt-2">Loading...</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-50 p-4">

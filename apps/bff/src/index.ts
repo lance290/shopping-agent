@@ -1065,7 +1065,21 @@ export function buildApp() {
 
         // Generate choice factors - pass isService for service-specific fields
         await generateAndSaveChoiceFactors(title, rowId, authorization, constraints, isService, serviceCategory);
-        writeEvent('factors_updated', { row_id: rowId });
+        try {
+          const updatedRowRes = await fetchJsonWithTimeoutRetry(
+            `${BACKEND_URL}/rows/${rowId}`,
+            { headers },
+            15000, 1, 500
+          );
+          if (updatedRowRes.ok && updatedRowRes.data) {
+            writeEvent('factors_updated', { row: updatedRowRes.data });
+          } else {
+            writeEvent('factors_updated', { row_id: rowId });
+          }
+        } catch (err: any) {
+          fastify.log.warn({ err, rowId }, 'Failed to load row after factors update');
+          writeEvent('factors_updated', { row_id: rowId });
+        }
 
         // Use intent.search_query - NEVER conversation artifacts
         const ctxSearchQuery = searchQuery;
@@ -1123,7 +1137,21 @@ export function buildApp() {
 
         // Generate choice factors - pass isService for service-specific fields
         await generateAndSaveChoiceFactors(title, rowId, authorization, constraints, isService, serviceCategory);
-        writeEvent('factors_updated', { row_id: rowId });
+        try {
+          const updatedRowRes = await fetchJsonWithTimeoutRetry(
+            `${BACKEND_URL}/rows/${rowId}`,
+            { headers },
+            15000, 1, 500
+          );
+          if (updatedRowRes.ok && updatedRowRes.data) {
+            writeEvent('factors_updated', { row: updatedRowRes.data });
+          } else {
+            writeEvent('factors_updated', { row_id: rowId });
+          }
+        } catch (err: any) {
+          fastify.log.warn({ err, rowId }, 'Failed to load row after factors update');
+          writeEvent('factors_updated', { row_id: rowId });
+        }
 
         // For services, fetch vendors. For products, search.
         if (isService && serviceCategory) {
@@ -1209,9 +1237,24 @@ export function buildApp() {
         }
 
         const updateBody: any = {};
-        if (Object.keys(constraints).length > 0) {
-          const merged = { ...(activeRow?.constraints || {}), ...constraints };
-          updateBody.choice_answers = JSON.stringify(merged);
+        const titleChanged = (activeRow?.title || '').trim().toLowerCase() !== title.trim().toLowerCase();
+        const nextConstraints = titleChanged
+          ? { ...constraints }
+          : { ...(activeRow?.constraints || {}), ...constraints };
+        if (titleChanged) {
+          updateBody.title = title;
+          updateBody.reset_bids = true;
+          updateBody.request_spec = {
+            item_name: title,
+            constraints: JSON.stringify(nextConstraints),
+          };
+          updateBody.choice_answers = JSON.stringify(nextConstraints);
+        } else if (Object.keys(constraints).length > 0) {
+          updateBody.choice_answers = JSON.stringify(nextConstraints);
+          updateBody.request_spec = {
+            item_name: activeRow?.title || title,
+            constraints: JSON.stringify(nextConstraints),
+          };
         }
 
         writeEvent('action_started', { type: 'update_row', row_id: activeRowId });
@@ -1220,11 +1263,44 @@ export function buildApp() {
           { method: 'PATCH', headers, body: JSON.stringify(updateBody) },
           20000, 1, 500
         );
-        writeEvent('row_updated', { row_id: activeRowId });
+        try {
+          const updatedRowRes = await fetchJsonWithTimeoutRetry(
+            `${BACKEND_URL}/rows/${activeRowId}`,
+            { headers },
+            15000, 1, 500
+          );
+          if (updatedRowRes.ok && updatedRowRes.data) {
+            writeEvent('row_updated', { row: updatedRowRes.data });
+          } else {
+            writeEvent('row_updated', { row_id: activeRowId });
+          }
+        } catch (err: any) {
+          fastify.log.warn({ err, rowId: activeRowId }, 'Failed to load row after update');
+          writeEvent('row_updated', { row_id: activeRowId });
+        }
 
         // Use intent category, fall back to activeRow for service detection
         const rowIsService = isService || activeRow?.is_service;
         const rowServiceCategory = serviceCategory || activeRow?.service_category;
+
+        if (titleChanged || Object.keys(constraints).length > 0) {
+          await generateAndSaveChoiceFactors(title, activeRowId, authorization, nextConstraints, rowIsService, rowServiceCategory);
+          try {
+            const updatedRowRes = await fetchJsonWithTimeoutRetry(
+              `${BACKEND_URL}/rows/${activeRowId}`,
+              { headers },
+              15000, 1, 500
+            );
+            if (updatedRowRes.ok && updatedRowRes.data) {
+              writeEvent('factors_updated', { row: updatedRowRes.data });
+            } else {
+              writeEvent('factors_updated', { row_id: activeRowId });
+            }
+          } catch (err: any) {
+            fastify.log.warn({ err, rowId: activeRowId }, 'Failed to load row after factors update');
+            writeEvent('factors_updated', { row_id: activeRowId });
+          }
+        }
 
         if (rowIsService && rowServiceCategory) {
           writeEvent('action_started', { type: 'fetch_vendors', row_id: activeRowId, category: rowServiceCategory });

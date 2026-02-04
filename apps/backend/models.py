@@ -139,6 +139,10 @@ class Bid(SQLModel, table=True):
     
     source: str = "manual" # manual, searchapi, feed
     is_selected: bool = False
+    is_service_provider: bool = False
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
     
     row: Row = Relationship(back_populates="bids")
     seller: Optional[Seller] = Relationship(back_populates="bids")
@@ -366,6 +370,10 @@ class BidWithProvenance(SQLModel):
 
     source: str = "manual"
     is_selected: bool = False
+    is_service_provider: bool = False
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
 
     @computed_field
     @property

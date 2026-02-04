@@ -279,7 +279,7 @@ async def persist_vendors_for_row(
     Persist vendor tiles as bids for a row.
     This ensures vendor tiles survive page reload.
     """
-    from models import Bid
+    from models import Bid, Seller
     from sqlmodel import delete
     
     # Verify row exists
@@ -299,19 +299,68 @@ async def persist_vendors_for_row(
     # Create bids from vendors
     created_bids = []
     for vendor in request.vendors:
+        vendor_company = vendor.get("vendor_company") or vendor.get("merchant") or vendor.get("title") or "Vendor"
+        vendor_name = vendor.get("vendor_name") or vendor.get("contact_name")
+        vendor_email = vendor.get("vendor_email") or vendor.get("contact_email")
+        contact_phone = vendor.get("contact_phone")
+        image_url = vendor.get("image_url")
+        merchant_domain = vendor.get("merchant_domain")
+
+        seller = None
+        if vendor_company:
+            seller_result = await session.execute(select(Seller).where(Seller.name == vendor_company))
+            seller = seller_result.scalar_one_or_none()
+            if not seller:
+                seller = Seller(
+                    name=vendor_company,
+                    email=vendor_email,
+                    domain=merchant_domain,
+                    image_url=image_url,
+                    category=request.category,
+                    contact_name=vendor_name,
+                    phone=contact_phone,
+                )
+                session.add(seller)
+                await session.flush()
+            else:
+                updated = False
+                if vendor_email and not seller.email:
+                    seller.email = vendor_email
+                    updated = True
+                if merchant_domain and not seller.domain:
+                    seller.domain = merchant_domain
+                    updated = True
+                if image_url and not seller.image_url:
+                    seller.image_url = image_url
+                    updated = True
+                if vendor_name and not seller.contact_name:
+                    seller.contact_name = vendor_name
+                    updated = True
+                if contact_phone and not seller.phone:
+                    seller.phone = contact_phone
+                    updated = True
+                if request.category and not seller.category:
+                    seller.category = request.category
+                    updated = True
+                if updated:
+                    session.add(seller)
+
+        price = vendor.get("price")
+        normalized_price = float(price) if isinstance(price, (int, float)) else 0.0
         bid = Bid(
             row_id=row_id,
-            title=vendor.get("title", vendor.get("vendor_company", "Vendor")),
-            price=vendor.get("price", 0),
+            seller_id=seller.id if seller else None,
+            price=normalized_price,
+            total_cost=normalized_price,
             currency=vendor.get("currency", "USD"),
-            merchant=vendor.get("merchant", vendor.get("vendor_company", "")),
-            url=vendor.get("url", ""),
-            merchant_domain=vendor.get("merchant_domain", ""),
-            image_url=vendor.get("image_url"),
+            item_title=vendor.get("title") or vendor_company,
+            item_url=vendor.get("url") or (f"mailto:{vendor_email}" if vendor_email else None),
+            image_url=image_url,
             source=vendor.get("source", "wattdata"),
             is_service_provider=True,
-            contact_email=vendor.get("vendor_email"),
-            contact_phone=vendor.get("contact_phone"),
+            contact_name=vendor_name,
+            contact_email=vendor_email,
+            contact_phone=contact_phone,
         )
         session.add(bid)
         created_bids.append(bid)
