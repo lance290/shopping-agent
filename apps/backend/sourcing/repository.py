@@ -1040,10 +1040,9 @@ class SourcingRepository:
             allow = {str(p).strip() for p in providers_filter if str(p).strip()}
             selected_providers = {k: v for k, v in self.providers.items() if k in allow}
 
-        try:
-            PROVIDER_TIMEOUT_SECONDS = float(os.getenv("SOURCING_PROVIDER_TIMEOUT_SECONDS", "5.0"))
-        except Exception:
-            PROVIDER_TIMEOUT_SECONDS = 5.0
+        # No timeout for streaming - results flow in as each provider completes
+        # Slow providers just arrive later in the stream
+        PROVIDER_TIMEOUT_SECONDS = float(os.getenv("SOURCING_PROVIDER_TIMEOUT_SECONDS", "30.0"))
 
         async def search_with_timeout(
             name: str, provider: SourcingProvider
