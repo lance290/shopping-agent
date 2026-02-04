@@ -85,20 +85,21 @@ export default function Chat() {
   }, [messages]);
   
   // Save chat history to backend when messages change (debounced)
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (!store.activeRowId || messages.length === 0) return;
-    
-    // Debounce saves to avoid hammering the API
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => {
-      saveChatHistory(store.activeRowId!, messages);
-    }, 1000);
-    
-    return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    };
-  }, [messages, store.activeRowId]);
+  // TEMPORARILY DISABLED - investigating re-render loop
+  // const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // useEffect(() => {
+  //   if (!store.activeRowId || messages.length === 0) return;
+  //   
+  //   // Debounce saves to avoid hammering the API
+  //   if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+  //   saveTimeoutRef.current = setTimeout(() => {
+  //     saveChatHistory(store.activeRowId!, messages);
+  //   }, 1000);
+  //   
+  //   return () => {
+  //     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+  //   };
+  // }, [messages, store.activeRowId]);
 
   // Load rows on mount
   useEffect(() => {
