@@ -118,7 +118,7 @@ CRITICAL RULES:
 - If active row exists AND user asks for something UNRELATED → "context_switch"
 - If active row exists AND user refines it → "update_row"  
 - If NO active row → "create_row" (ALWAYS create the row, even for services)
-- If pending_clarification exists AND user provides info → "create_row" with merged constraints
+- If pending_clarification exists AND user provides info → "create_row" with ALL data from pending_clarification.partial_constraints merged with new info. If partial_constraints has is_service or service_category, you MUST include those in your create_row action.
 - If pending_clarification exists BUT user asks for something else → "context_switch"
 
 IMPORTANT - create_row MUST include:
