@@ -318,15 +318,6 @@ function buildBasicChoiceFactors(itemName: string): Array<{
   return shared;
 }
 
-// Detect service category from title text
-function detectServiceCategoryFromTitle(title: string): string | null {
-  const lower = title.toLowerCase();
-  if (/private\s*jet|charter\s*flight|aviation/i.test(lower)) return 'private_aviation';
-  if (/cater/i.test(lower)) return 'catering';
-  if (/roof/i.test(lower)) return 'roofing';
-  if (/hvac|air\s*condition|heating/i.test(lower)) return 'hvac';
-  return null;
-}
 
 export function buildApp() {
   const fastify = Fastify({
@@ -1122,8 +1113,8 @@ export function buildApp() {
         await generateAndSaveChoiceFactors(title, rowId, authorization, constraints);
         writeEvent('factors_updated', { row_id: rowId });
 
-        // For services, fetch vendors instead of product search
-        const serviceCategory = action.service_category || (action.is_service ? detectServiceCategoryFromTitle(title) : null);
+        // For services, fetch vendors instead of product search - use LLM's decision only
+        const serviceCategory = action.service_category;
         
         if (action.is_service && serviceCategory) {
           writeEvent('action_started', { type: 'fetch_vendors', row_id: rowId, category: serviceCategory });
@@ -1196,10 +1187,9 @@ export function buildApp() {
         );
         writeEvent('row_updated', { row_id: activeRowId });
 
-        // Check if this is a service request - use activeRow info or detect from title
-        const rowTitle = activeRow?.title || '';
-        const isService = activeRow?.is_service || detectServiceCategoryFromTitle(rowTitle) !== null;
-        const serviceCategory = activeRow?.service_category || detectServiceCategoryFromTitle(rowTitle);
+        // Check if this is a service request - use activeRow info from DB (LLM set it on create)
+        const isService = activeRow?.is_service;
+        const serviceCategory = activeRow?.service_category;
 
         if (isService && serviceCategory) {
           // Fetch vendors for service requests

@@ -127,12 +127,17 @@ IMPORTANT - create_row MUST include:
 - is_service: true for services
 - service_category: the category
 
-SERVICE REQUESTS (private jets, catering, contractors, HVAC, etc.):
+SERVICE REQUESTS (any service, not a physical product):
+Examples: private jets, yacht charters, safari tours, ice sculptors, wedding planners, caterers, contractors, photographers, event venues, limo services, personal chefs, etc.
 - ALWAYS use "create_row" immediately - do NOT ask for clarification
 - Set is_service: true
-- Set service_category: "private_aviation", "catering", "roofing", etc.
+- Set service_category: Use a descriptive snake_case category like "private_aviation", "yacht_charter", "safari_travel", "ice_sculpture", "wedding_planning", "catering", "photography", "event_venue", "limo_service", "personal_chef", etc.
 - Include whatever details are provided in constraints
 - Vendors will collect remaining details during outreach
+
+HOW TO IDENTIFY A SERVICE vs PRODUCT:
+- SERVICE: User needs someone to DO something or PROVIDE an experience (fly them somewhere, cater an event, take photos, plan a trip)
+- PRODUCT: User wants to BUY a physical item (shoes, laptop, bicycle, book)
 
 PRICE HANDLING:
 - "over $50" → constraints: { min_price: 50 }
