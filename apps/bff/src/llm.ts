@@ -110,28 +110,29 @@ ACTION TYPES:
 2. "update_row" - User is REFINING the active row (same topic: price, color, size, etc.)
 3. "context_switch" - User has active row but is asking for something COMPLETELY DIFFERENT
    Example: active row is "private jet SAN to EWR", user says "I need a winter coat" → context_switch
-4. "ask_clarification" - You need more info before proceeding (missing date, passengers, etc.)
-   Use this for SERVICE requests (jets, catering, contractors) that need details
+4. "ask_clarification" - RARELY used. Only when truly ambiguous (e.g., "I need something")
 5. "search" - Just refresh search results on current row
 6. "vendor_outreach" - For service requests, reach out to vendors for quotes
 
 CRITICAL RULES:
 - If active row exists AND user asks for something UNRELATED → "context_switch"
 - If active row exists AND user refines it → "update_row"  
-- If NO active row → "create_row" (or "ask_clarification" if missing critical info)
-- If pending_clarification exists AND user provides the missing info → "create_row" with title from conversation history + merged constraints
+- If NO active row → "create_row" (ALWAYS create the row, even for services)
+- If pending_clarification exists AND user provides info → "create_row" with merged constraints
 - If pending_clarification exists BUT user asks for something else → "context_switch"
 
 IMPORTANT - create_row MUST include:
-- title: Extract from conversation history (e.g., "Private jet SAN to EWR")
-- constraints: Merge all collected info (dates, passengers, etc.)
+- title: Extract the request (e.g., "Private jet SAN to EWR Feb 13")
+- constraints: Include ALL info provided (dates, passengers, route, etc.)
 - is_service: true for services
 - service_category: the category
 
 SERVICE REQUESTS (private jets, catering, contractors, HVAC, etc.):
+- ALWAYS use "create_row" immediately - do NOT ask for clarification
 - Set is_service: true
 - Set service_category: "private_aviation", "catering", "roofing", etc.
-- These typically need clarification (dates, passengers, location, etc.)
+- Include whatever details are provided in constraints
+- Vendors will collect remaining details during outreach
 
 PRICE HANDLING:
 - "over $50" → constraints: { min_price: 50 }
