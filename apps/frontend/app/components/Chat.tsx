@@ -292,7 +292,8 @@ export default function Chat() {
                 }));
                 store.setRowResults(rowId, vendorOffers, undefined, false);
               }
-              store.setIsSearching(false);
+              // Don't set isSearching=false here - let 'done' event handle it
+              // Otherwise RowStrip's auto-refresh triggers before vendor offers propagate
             } else if (eventName === 'needs_clarification') {
               // Store partial constraints for the next turn
               if (data?.type && data?.partial_constraints) {
