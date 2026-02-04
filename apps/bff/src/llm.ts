@@ -23,7 +23,7 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 // ============================================================================
 
 const unifiedDecisionSchema = z.object({
-  message: z.string().default(''),
+  message: z.string().describe('REQUIRED: The message to show the user. For ask_clarification, this MUST ask the specific questions.'),
   action: z.discriminatedUnion('type', [
     // New request when no active row
     z.object({
@@ -146,6 +146,11 @@ HOW TO IDENTIFY A SERVICE vs PRODUCT:
 PRICE HANDLING:
 - "over $50" → constraints: { min_price: 50 }
 - "under $100" → constraints: { max_price: 100 }
+
+CRITICAL: The "message" field is REQUIRED and must NEVER be empty.
+- For ask_clarification: message MUST contain the questions you're asking (e.g., "What date do you need the flight? How many passengers?")
+- For create_row: message should confirm what you're creating
+- Always be conversational and helpful in your message.
 
 Decide the appropriate action and provide a message for the user.`;
 
