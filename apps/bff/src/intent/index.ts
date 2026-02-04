@@ -202,7 +202,7 @@ Rules:
 }
 
 export async function extractSearchIntent(params: ExtractParams): Promise<ExtractSearchIntentResult> {
-  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+  if (!process.env.OPENROUTER_API_KEY) {
     return buildHeuristicIntent(params);
   }
 

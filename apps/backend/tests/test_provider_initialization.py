@@ -155,14 +155,14 @@ class TestProviderInitialization:
             timeout = float(os.getenv("SOURCING_PROVIDER_TIMEOUT_SECONDS", "8.0"))
             assert timeout == 15.0
 
-    def test_provider_timeout_defaults_to_8_seconds(self):
-        """Provider timeout should default to 8 seconds."""
+    def test_provider_timeout_defaults_to_30_seconds(self):
+        """Provider timeout should default to 30 seconds for streaming."""
         with patch.dict(os.environ, {}, clear=False):
             # Remove the env var if it exists
             env_timeout = os.environ.pop("SOURCING_PROVIDER_TIMEOUT_SECONDS", None)
             try:
-                timeout = float(os.getenv("SOURCING_PROVIDER_TIMEOUT_SECONDS", "8.0"))
-                assert timeout == 8.0
+                timeout = float(os.getenv("SOURCING_PROVIDER_TIMEOUT_SECONDS", "30.0"))
+                assert timeout == 30.0
             finally:
                 # Restore if it was there
                 if env_timeout:

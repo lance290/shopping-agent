@@ -1,52 +1,46 @@
-# Review Findings - refactor-search-architecture-v2
+# Review Findings - parallel-llm-openrouter
 
 ## Summary
-- **Files reviewed:** 7
-- **Critical issues:** 0
-- **Major issues:** 0 (all fixed)
-- **Minor issues:** 2 (file length - deferred)
+- **Files reviewed:** 5
+- **Critical issues:** 2 (fixed)
+- **Major issues:** 1 (DRY - deferred)
+- **Minor issues:** 1 (test default - fixed)
 
 ## Issues Found & Fixed
 
-### 1. DRY Violation: Query Sanitization Duplicated ✅ FIXED
-**Location:** `rows_search.py`
-**Fix:** Extracted `_build_base_query()` and `_sanitize_query()` helper functions
-**Commit:** `9a91aa9`
+### 1. Wrong API Key Check in intent/index.ts ✅ FIXED
+**Location:** `apps/bff/src/intent/index.ts:205`
+**Issue:** Checked `GOOGLE_GENERATIVE_AI_API_KEY` but we switched to OpenRouter
+**Fix:** Changed to check `OPENROUTER_API_KEY`
 
-### 2. DRY Violation: Filter Extraction Duplicated ✅ FIXED
-**Location:** `rows_search.py`
-**Fix:** Extracted `_extract_filters()` helper function
-**Commit:** `9a91aa9`
+### 2. Wrong API Key Check in llm.ts ✅ FIXED
+**Location:** `apps/bff/src/llm.ts:237`
+**Issue:** `triageProviderQuery` checked wrong env var
+**Fix:** Changed to check `OPENROUTER_API_KEY`
 
-### 3. DRY Violation: Vendor Offer Mapping ✅ FIXED
-**Location:** `RowStrip.tsx`
-**Fix:** Extracted `mapVendorsToOffers()` helper function
-**Commit:** `9a91aa9`
+### 3. Test Default Mismatch ✅ FIXED
+**Location:** `apps/backend/tests/test_provider_initialization.py`
+**Issue:** Test expected 8s default but streaming uses 30s
+**Fix:** Updated test to expect 30s default
 
-## Remaining (Deferred - Architectural)
+## Deferred (Architectural)
 
-### 4. File Length: repository.py (Minor)
-**Location:** `repository.py` (1127 lines)
-**Description:** File exceeds 450 line guideline.
-**Recommendation:** Split providers into separate files (e.g., `providers/rainforest.py`, `providers/ebay.py`).
-**Status:** Deferred - architectural change for future sprint
-
-### 5. File Length: RowStrip.tsx (Minor)
-**Location:** `RowStrip.tsx` (now 706 lines after DRY fix)
-**Description:** Component still exceeds 450 line guideline.
-**Recommendation:** Extract vendor loading logic to custom hook.
-**Status:** Deferred - would benefit from broader component refactor
+### 4. DRY Violation: Fetch Utilities Duplicated (Major)
+**Location:** `llm.ts` and `index.ts`
+**Description:** `fetchJsonWithTimeout`, `fetchJsonWithTimeoutRetry`, `sleep`, `isRetryableFetchError` are duplicated
+**Recommendation:** Extract to shared `utils/fetch.ts`
+**Status:** Deferred - would require module restructuring
 
 ## Security Review
 - ✅ Auth checks present on all protected endpoints
-- ✅ No hardcoded secrets
+- ✅ No hardcoded secrets (uses env vars)
 - ✅ Input validation on API endpoints
-- ✅ SQL injection prevented (using SQLModel parameterized queries)
+- ✅ OpenRouter API key loaded from env
 
 ## Performance Review
-- ✅ No N+1 queries detected
-- ✅ Batch operations used appropriately
-- ✅ Price filtering happens at both API and persistence layer
+- ✅ Parallel LLM calls for title extraction + factors
+- ✅ Streaming search results (non-blocking)
+- ✅ 30s timeout allows slow providers to complete
 
 ## Verdict
-**PASS** - All DRY violations fixed. File length issues deferred as architectural improvements.
+**PASS** - Critical API key issues fixed. DRY violation deferred.

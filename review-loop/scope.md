@@ -1,20 +1,14 @@
-# Review Scope - refactor-search-architecture-v2
+# Review Scope - parallel-llm-openrouter
 
 ## Files to Review (Code Changes)
-- `apps/backend/routes/likes.py` (modified)
-- `apps/backend/routes/rows_search.py` (modified)
-- `apps/backend/sourcing/repository.py` (modified)
-- `apps/backend/sourcing/service.py` (modified)
-- `apps/frontend/app/components/RowStrip.tsx` (modified)
-- `apps/frontend/app/store.ts` (modified)
-- `apps/frontend/app/utils/api.ts` (modified)
+- `apps/bff/src/llm.ts` (modified - parallel LLM functions, OpenRouter switch)
+- `apps/bff/src/index.ts` (modified - parallel flow implementation)
+- `apps/bff/src/intent/index.ts` (modified - OpenRouter switch)
+- `apps/backend/sourcing/repository.py` (modified - streaming timeout)
+- `apps/backend/tests/test_provider_initialization.py` (modified - provider tests)
 
-## Out of Scope (Documentation Only)
-- `docs/prd/phase2/EXECUTION_ORDER.md` - PRD update
-- `docs/prd/phase2/PRD.md` - PRD update
-- `docs/prd/phase2/README.md` - PRD update
-- `docs/Competitive_Analysis_PartFinder.md` - new doc
-- `docs/PartFinder_PitchDeck.pdf` - reference
-- `docs/prd/phase2/phase3-roadmap.md` - new doc
+## Out of Scope
+- `apps/bff/package.json` - dependency addition only
+- `apps/bff/pnpm-lock.yaml` - lockfile
 
-## Review Started: 2026-02-03T13:27:00-08:00
+## Review Started: 2026-02-03T19:13:00-08:00
