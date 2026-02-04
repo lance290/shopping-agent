@@ -1034,10 +1034,23 @@ export function buildApp() {
 
     // === CLARIFICATION CONTINUATION: User is responding to a clarifying question ===
     if (clarificationContext?.type === 'aviation') {
-      fastify.log.info({ msg: 'Continuing aviation clarification flow', partial: clarificationContext.partial_constraints });
+      // First, check if user is switching context entirely (e.g., "actually, let's look for dinner")
+      const contextCheck = await extractTitleQuick(userText);
+      const looksLikeNewRequest = contextCheck.title.length > 10 && 
+        !contextCheck.title.toLowerCase().includes('jet') &&
+        !contextCheck.title.toLowerCase().includes('flight') &&
+        !contextCheck.title.toLowerCase().includes('charter') &&
+        !userText.toLowerCase().match(/^\d/) && // doesn't start with a number (like "7 people")
+        !userText.toLowerCase().match(/^(feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|jan)/i); // doesn't start with month
       
-      // Extract new constraints from user's response and merge with existing
-      const newConstraints = await extractAviationConstraints(userText);
+      if (looksLikeNewRequest) {
+        fastify.log.info({ msg: 'User switched context from aviation, starting new request', newTitle: contextCheck.title });
+        // Fall through to normal flow - don't process as clarification
+      } else {
+        fastify.log.info({ msg: 'Continuing aviation clarification flow', partial: clarificationContext.partial_constraints });
+        
+        // Extract new constraints from user's response and merge with existing
+        const newConstraints = await extractAviationConstraints(userText);
       const partial = clarificationContext.partial_constraints as unknown as AviationConstraints;
       
       // Merge: new values override partial, but keep partial values if new is undefined
@@ -1118,7 +1131,8 @@ export function buildApp() {
       writeEvent('done', {});
       reply.raw.end();
       return;
-    }
+      } // end else (continuing clarification)
+    } // end if clarificationContext
 
     // === NEW REQUEST: Fast parallel flow ===
     // 1. Quick title extraction (fast LLM call)
