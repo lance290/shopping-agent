@@ -4,7 +4,7 @@ import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import ProviderStatusBadge from './ProviderStatusBadge';
 import { Archive, RefreshCw, FlaskConical, Undo2, Link2, X } from 'lucide-react';
-import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, fetchLikesApi, createCommentApi, fetchCommentsApi, checkIfService, getVendors, VendorResult } from '../utils/api';
+import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, fetchLikesApi, createCommentApi, fetchCommentsApi } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -15,26 +15,6 @@ interface RowStripProps {
   onSelect: () => void;
   onToast?: (message: string, tone?: 'success' | 'error') => void;
 }
-
-// Helper function to convert vendor results to offers (DRY)
-const mapVendorsToOffers = (vendors: VendorResult[]): Offer[] => {
-  return vendors.map((v) => ({
-    title: v.title,
-    price: 0,
-    currency: 'USD',
-    merchant: v.vendor_company,
-    url: v.url,
-    image_url: v.image_url,
-    rating: null,
-    reviews_count: null,
-    shipping_info: null,
-    source: 'JetBid',
-    is_service_provider: true,
-    vendor_email: v.vendor_email,
-    vendor_name: v.vendor_name,
-    vendor_company: v.vendor_company,
-  }));
-};
 
 export default function RowStrip({ row, offers, isActive, onSelect, onToast }: RowStripProps) {
   const requestDeleteRow = useShoppingStore(state => state.requestDeleteRow);
@@ -194,69 +174,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     }
   }, [isActive, row.id, offers, setRowResults]);
 
-  // Auto-fetch vendor tiles for service categories when row has offers (not waiting for active)
-  const didCheckVendorsRef = useRef(false);
-  useEffect(() => {
-    // Trigger vendor check as soon as we have a row with offers - don't wait for isActive
-    if (!row.id || !row.title || didCheckVendorsRef.current) return;
-    
-    // Check if we already have vendor tiles
-    const hasVendorTiles = offers.some(o => o.is_service_provider);
-    if (hasVendorTiles) {
-      didCheckVendorsRef.current = true;
-      return;
-    }
-
-    // Only check once we have some offers to avoid checking on empty rows
-    if (offers.length === 0) return;
-
-    didCheckVendorsRef.current = true;
-    console.log('[Vendor] checking if service category for row:', row.id, row.title);
-    
-    checkIfService(row.title).then(async (serviceCheck) => {
-      if (!serviceCheck?.is_service || !serviceCheck?.category) return;
-      
-      console.log('[Vendor] fetching vendors for category:', serviceCheck.category);
-      const vendorsData = await getVendors(serviceCheck.category);
-      if (!vendorsData?.vendors?.length) return;
-
-      const vendorOffers = mapVendorsToOffers(vendorsData.vendors);
-      console.log('[Vendor] prepending', vendorOffers.length, 'vendor tiles');
-      setRowResults(row.id, [...vendorOffers, ...offers]);
-    }).catch(err => {
-      console.error('[Vendor] check failed:', err);
-    });
-  }, [row.id, row.title, offers, setRowResults]);
-
-  // Self-heal: if vendor tiles disappear after a refresh, re-inject them.
-  const vendorHealInFlightRef = useRef(false);
-  useEffect(() => {
-    if (!row.id || !row.title) return;
-    if (offers.length === 0) return;
-
-    const hasVendorTiles = offers.some((o) => o.is_service_provider);
-    if (hasVendorTiles) return;
-
-    if (vendorHealInFlightRef.current) return;
-    vendorHealInFlightRef.current = true;
-
-    checkIfService(row.title)
-      .then(async (serviceCheck) => {
-        if (!serviceCheck?.is_service || !serviceCheck?.category) return;
-
-        const vendorsData = await getVendors(serviceCheck.category);
-        if (!vendorsData?.vendors?.length) return;
-
-        const vendorOffers = mapVendorsToOffers(vendorsData.vendors);
-        setRowResults(row.id, [...vendorOffers, ...offers]);
-      })
-      .catch((err) => {
-        console.error('[Vendor] self-heal failed:', err);
-      })
-      .finally(() => {
-        vendorHealInFlightRef.current = false;
-      });
-  }, [row.id, row.title, offers, setRowResults]);
+  // Vendor tiles are now handled by BFF via LLM decision - no frontend heuristics
 
   useEffect(() => {
     if (!isActive || !row.id) return;
