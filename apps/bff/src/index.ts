@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fs from 'fs';
 import path from 'path';
-import { generateAndSaveChoiceFactors, GEMINI_MODEL_NAME, triageProviderQuery, generateChatPlan, extractTitleQuick, generateSearchQuery } from './llm';
+import { generateAndSaveChoiceFactors, GEMINI_MODEL_NAME, triageProviderQuery, generateChatPlan, extractTitleQuick, generateSearchQuery, extractAviationConstraints, generateAviationClarifyingQuestion, AviationConstraints } from './llm';
 import { extractSearchIntent } from './intent';
 
 // Manually load .env since we want to avoid dependency issues
@@ -1035,7 +1035,75 @@ export function buildApp() {
 
     const titleInfo = await extractTitleQuick(userText);
     const title = titleInfo.title;
-    fastify.log.info({ msg: 'Quick title extracted', title, is_service: titleInfo.is_service });
+    fastify.log.info({ msg: 'Quick title extracted', title, is_service: titleInfo.is_service, category: titleInfo.category });
+
+    // Special handling for private aviation - extract constraints and ask clarifying questions
+    if (titleInfo.is_service && titleInfo.category === 'private_aviation') {
+      fastify.log.info({ msg: 'Detected private aviation request, extracting constraints' });
+      
+      const aviationConstraints = await extractAviationConstraints(userText);
+      fastify.log.info({ msg: 'Aviation constraints extracted', constraints: aviationConstraints });
+      
+      // If missing required fields, ask clarifying question
+      if (aviationConstraints.missing_required.length > 0) {
+        const question = generateAviationClarifyingQuestion([...aviationConstraints.missing_required]);
+        writeEvent('assistant_message', { text: question });
+        writeEvent('needs_clarification', { 
+          type: 'aviation',
+          missing_fields: aviationConstraints.missing_required,
+          partial_constraints: aviationConstraints,
+        });
+        writeEvent('done', {});
+        reply.raw.end();
+        return;
+      }
+      
+      // All required fields present - create row with constraints
+      const choiceAnswers = {
+        from_airport: aviationConstraints.from_airport,
+        to_airport: aviationConstraints.to_airport,
+        departure_date: aviationConstraints.departure_date,
+        passengers: aviationConstraints.passengers,
+        time_earliest: aviationConstraints.time_earliest,
+        time_latest: aviationConstraints.time_latest,
+      };
+      
+      writeEvent('assistant_message', { text: `Great! I'll reach out to charter operators for a ${aviationConstraints.from_airport} → ${aviationConstraints.to_airport} flight on ${aviationConstraints.departure_date} for ${aviationConstraints.passengers} passengers.` });
+      writeEvent('action_started', { type: 'create_row', title });
+      
+      const createRes = await fetchJsonWithTimeoutRetry(
+        `${BACKEND_URL}/rows`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            title,
+            status: 'sourcing',
+            project_id: projectId ?? undefined,
+            request_spec: { item_name: title, constraints: JSON.stringify(choiceAnswers) },
+            choice_answers: JSON.stringify(choiceAnswers),
+          }),
+        },
+        20000, 1, 500
+      );
+      
+      if (!createRes.ok || !createRes.data?.id) {
+        writeEvent('error', { message: createRes.data?.detail || 'Failed to create row' });
+        reply.raw.end();
+        return;
+      }
+      
+      const rowId = Number(createRes.data.id);
+      writeEvent('row_created', { row: createRes.data });
+      
+      // Generate choice factors for the UI
+      await generateAndSaveChoiceFactors(title, rowId, authorization, choiceAnswers);
+      writeEvent('factors_updated', { row_id: rowId });
+      
+      writeEvent('done', {});
+      reply.raw.end();
+      return;
+    }
 
     // 2. Create row immediately (user sees activity)
     writeEvent('action_started', { type: 'create_row', title });
@@ -1091,6 +1159,7 @@ export function buildApp() {
 
     writeEvent('done', {});
     reply.raw.end();
+    return;
   } catch (err: any) {
     fastify.log.error({ err }, 'Chat error');
     try {

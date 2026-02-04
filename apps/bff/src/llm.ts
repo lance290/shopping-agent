@@ -81,6 +81,80 @@ JSON only:`;
   }
 }
 
+// Extract aviation-specific constraints from user message
+export interface AviationConstraints {
+  from_airport?: string;
+  to_airport?: string;
+  departure_date?: string;
+  passengers?: number;
+  time_earliest?: string;
+  time_latest?: string;
+  missing_required: string[];
+}
+
+export async function extractAviationConstraints(userMessage: string): Promise<AviationConstraints> {
+  const prompt = `Extract flight/charter details from this request. Return what you can find.
+
+User: "${userMessage}"
+
+Return JSON with these fields (use null if not mentioned):
+{
+  "from_airport": "3-letter code or city name",
+  "to_airport": "3-letter code or city name", 
+  "departure_date": "YYYY-MM-DD format",
+  "passengers": number,
+  "time_earliest": "HH:MM format",
+  "time_latest": "HH:MM format"
+}
+
+Examples:
+- "private jet from Nashville to Teterboro on Feb 13 for 7 people" -> {"from_airport": "BNA", "to_airport": "TEB", "departure_date": "2026-02-13", "passengers": 7, "time_earliest": null, "time_latest": null}
+- "charter flight NYC to Miami next Friday morning" -> {"from_airport": "NYC", "to_airport": "MIA", "departure_date": null, "passengers": null, "time_earliest": "08:00", "time_latest": "12:00"}
+
+JSON only:`;
+
+  try {
+    const { text } = await generateText({ model, prompt });
+    const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    
+    // Determine which required fields are missing
+    const missing: string[] = [];
+    if (!parsed.from_airport) missing.push('departure airport');
+    if (!parsed.to_airport) missing.push('destination airport');
+    if (!parsed.departure_date) missing.push('departure date');
+    if (!parsed.passengers) missing.push('number of passengers');
+    
+    return {
+      from_airport: parsed.from_airport || undefined,
+      to_airport: parsed.to_airport || undefined,
+      departure_date: parsed.departure_date || undefined,
+      passengers: typeof parsed.passengers === 'number' ? parsed.passengers : undefined,
+      time_earliest: parsed.time_earliest || undefined,
+      time_latest: parsed.time_latest || undefined,
+      missing_required: missing,
+    };
+  } catch (e) {
+    return { missing_required: ['departure airport', 'destination airport', 'departure date', 'number of passengers'] };
+  }
+}
+
+// Generate a clarifying question for missing aviation fields
+export function generateAviationClarifyingQuestion(missing: string[]): string {
+  if (missing.length === 0) return '';
+  
+  if (missing.length === 1) {
+    return `To get you a quote, I need the ${missing[0]}. What is it?`;
+  }
+  
+  if (missing.length === 2) {
+    return `To get you a quote, I need the ${missing[0]} and ${missing[1]}. Can you provide those?`;
+  }
+  
+  const last = missing.pop();
+  return `To request quotes from charter operators, I need a few more details: ${missing.join(', ')}, and ${last}. Can you provide those?`;
+}
+
 // Generate optimized search query for providers
 export async function generateSearchQuery(title: string, constraints?: Record<string, any>): Promise<string> {
   const constraintsText = constraints ? ` with constraints: ${JSON.stringify(constraints)}` : '';
