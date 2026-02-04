@@ -226,6 +226,7 @@ interface ShoppingState {
   clearRowResults: (rowId: number) => void;
   setRowOfferSort: (rowId: number, sort: OfferSortMode) => void;
   setIsSearching: (searching: boolean) => void;
+  setMoreResultsIncoming: (rowId: number, incoming: boolean) => void;
   clearSearch: () => void;
   setCardClickQuery: (query: string | null) => void;  // For card click -> chat append
 
@@ -524,6 +525,9 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     return { rowOfferSort: { ...state.rowOfferSort, [rowId]: sort } };
   }),
   setIsSearching: (searching) => set({ isSearching: searching }),
+  setMoreResultsIncoming: (rowId, incoming) => set((state) => ({
+    moreResultsIncoming: { ...state.moreResultsIncoming, [rowId]: incoming },
+  })),
   clearSearch: () => set({ searchResults: [], rowResults: {}, currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
   setCardClickQuery: (query) => set({ cardClickQuery: query }),
   

@@ -188,10 +188,11 @@ export default function Chat() {
             } else if (eventName === 'action_started') {
               if (data?.type === 'search') {
                 store.setIsSearching(true);
-                // Clear previous results when starting a new search
+                // Mark more results incoming but DON'T clear existing results
+                // This prevents the flash where results disappear then reappear
                 const searchRowId = data?.row_id;
                 if (searchRowId) {
-                  store.setRowResults(searchRowId, [], undefined, true);
+                  store.setMoreResultsIncoming(searchRowId, true);
                 }
               }
             } else if (eventName === 'row_created') {
@@ -243,6 +244,8 @@ export default function Chat() {
             } else if (eventName === 'row_updated') {
               const row = data?.row;
               if (row?.id) {
+                // User updated request - clear old results before new search
+                store.setRowResults(row.id, [], undefined, true);
                 const mergedRows = [...store.rows.filter((r) => r.id !== row.id), row];
                 store.setRows(mergedRows);
                 store.setActiveRowId(row.id);
