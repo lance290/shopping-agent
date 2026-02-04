@@ -274,26 +274,26 @@ export default function Chat() {
               
               if (rowId && vendors.length > 0) {
                 // Convert vendors to offer format for display
-                const vendorOffers = vendors.map((v: any) => ({
-                  id: `vendor-${v.id}`,
-                  title: v.name,
+                const vendorOffers = vendors.map((v: any, idx: number) => ({
+                  id: `vendor-${idx}`,
+                  title: v.title || v.vendor_company || v.name || 'Charter Provider',
                   price: null,
                   image_url: v.image_url,
-                  item_url: v.domain ? `https://${v.domain}` : null,
-                  url: v.domain ? `https://${v.domain}` : null,
-                  source: 'vendor',
-                  seller_name: v.name,
-                  seller_domain: v.domain,
+                  item_url: v.url,
+                  url: v.url,
+                  source: v.source || 'vendor',
+                  seller_name: v.vendor_company || v.title,
+                  seller_domain: null,
                   is_vendor: true,
                   is_service_provider: true,
-                  vendor_id: v.id,
+                  vendor_id: idx,
                   vendor_category: category,
-                  vendor_name: v.contact_name || v.name,
-                  vendor_company: v.name,
-                  vendor_email: v.email,
-                  contact_name: v.contact_name,
-                  contact_email: v.email,
-                  contact_phone: v.phone,
+                  vendor_name: v.vendor_name,
+                  vendor_company: v.vendor_company || v.title,
+                  vendor_email: v.vendor_email,
+                  contact_name: v.vendor_name,
+                  contact_email: v.vendor_email,
+                  contact_phone: v.contact_phone,
                 }));
                 store.setRowResults(rowId, vendorOffers, undefined, false);
               }
