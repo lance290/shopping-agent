@@ -13,7 +13,7 @@ from models import (
     generate_magic_link_token,
 )
 from database import get_session
-from services.wattdata_mock import get_vendors, get_vendors_as_results, is_service_category, Vendor
+from services.wattdata_mock import get_vendors, get_vendors_as_results, Vendor
 from services.email import send_outreach_email
 
 router = APIRouter(prefix="/outreach", tags=["outreach"])
@@ -264,21 +264,5 @@ async def get_vendors_for_category(category: str, limit: int = 10):
     }
 
 
-@router.get("/check-service")
-async def check_if_service(query: str):
-    """Check if a query is for a service category."""
-    is_service = is_service_category(query)
-    category = None
-    if is_service:
-        lower = query.lower()
-        if any(t in lower for t in ["jet", "charter", "flight", "aviation", "fly", "plane"]):
-            category = "private_aviation"
-        elif any(t in lower for t in ["roof"]):
-            category = "roofing"
-        elif any(t in lower for t in ["hvac", "heating", "cooling"]):
-            category = "hvac"
-    return {
-        "query": query,
-        "is_service": is_service,
-        "category": category,
-    }
+# REMOVED: /check-service endpoint was heuristic-based (keyword matching)
+# All service detection is now handled by LLM via BFF's unified decision architecture

@@ -696,52 +696,6 @@ export const getShareMetrics = async (token: string): Promise<ShareMetricsRespon
 };
 
 // Service/Vendor types
-export interface ServiceCheckResponse {
-  query: string;
-  is_service: boolean;
-  category: string | null;
-}
-
-export interface VendorResult {
-  title: string;
-  description: string;
-  price: number | null;
-  url: string;
-  image_url: string | null;
-  source: string;
-  is_service_provider: boolean;
-  vendor_email: string;
-  vendor_name: string;
-  vendor_company: string;
-}
-
-export interface VendorsResponse {
-  category: string;
-  vendors: VendorResult[];
-  is_service: boolean;
-}
-
-// Check if a search query is for a service (vs product)
-export const checkIfService = async (query: string): Promise<ServiceCheckResponse | null> => {
-  try {
-    const res = await fetchWithAuth(`/api/check-service?query=${encodeURIComponent(query)}`);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    console.error('[API] Check service error:', err);
-    return null;
-  }
-};
-
-// Get vendors for a service category
-export const getVendors = async (category: string): Promise<VendorsResponse | null> => {
-  try {
-    const res = await fetchWithAuth(`/api/vendors/${encodeURIComponent(category)}`);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    console.error('[API] Get vendors error:', err);
-    return null;
-  }
-};
-
+// NOTE: All service detection is handled by the LLM via BFF.
+// No heuristic-based checkIfService or getVendors functions here.
+// Vendors are fetched by BFF based on LLM's is_service + service_category output.
