@@ -14,6 +14,7 @@ class Vendor:
     phone: Optional[str] = None
     category: str = "private_aviation"
     source: str = "wattdata"
+    image_url: Optional[str] = None
 
 
 # Real charter providers for JetBid demo
@@ -23,56 +24,67 @@ MOCK_VENDORS: dict[str, List[Vendor]] = {
             name="Charter Team",
             company="JetRight Nashville",
             email="charter@jetrightnashville.com",
+            image_url="https://logo.clearbit.com/jetrightnashville.com",
         ),
         Vendor(
             name="Adnan",
             company="247 Jet",
             email="adnan@247jet.com",
+            image_url="https://logo.clearbit.com/247jet.com",
         ),
         Vendor(
             name="Charter Desk",
             company="WCAS Aviation",
             email="charter@wcas.aero",
+            image_url="https://logo.clearbit.com/wcas.aero",
         ),
         Vendor(
             name="Info",
             company="Business Jet Advisors",
             email="info@businessjetadvisors.com",
+            image_url="https://logo.clearbit.com/businessjetadvisors.com",
         ),
         Vendor(
             name="Michael Morrissey",
             company="flyExclusive",
             email="mmorrissey@flyexclusive.com",
+            image_url="https://logo.clearbit.com/flyexclusive.com",
         ),
         Vendor(
             name="Info",
             company="Airble",
             email="info@airble.com",
+            image_url="https://logo.clearbit.com/airble.com",
         ),
         Vendor(
             name="J Kessler",
             company="V2 Jets",
             email="jkessler@v2jets.com",
+            image_url="https://logo.clearbit.com/v2jets.com",
         ),
         Vendor(
             name="Michael Hall",
             company="FX Air",
             email="michael.hall@fxair.com",
+            image_url="https://logo.clearbit.com/fxair.com",
         ),
         Vendor(
             name="C Parker",
             company="Jet Access",
             email="cparker@flyja.com",
+            image_url="https://logo.clearbit.com/flyja.com",
         ),
         Vendor(
             name="Charter Team",
             company="Peak Aviation Solutions",
             email="charter@peakaviationsolutions.com",
+            image_url="https://logo.clearbit.com/flypeak.com",
         ),
         Vendor(
             name="Fly Team",
             company="V2 Jets (Alt)",
             email="fly@v2jets.com",
+            image_url="https://logo.clearbit.com/v2jets.com",
         ),
     ],
     "roofing": [
@@ -196,7 +208,7 @@ def get_vendors_as_results(category: str) -> List[dict]:
             "description": f"Charter service provider - {vendor.name}",
             "price": None,  # Service providers don't have fixed prices
             "url": f"mailto:{vendor.email}",
-            "image_url": None,
+            "image_url": vendor.image_url,
             "source": "JetBid",
             "is_service_provider": True,
             "vendor_email": vendor.email,
