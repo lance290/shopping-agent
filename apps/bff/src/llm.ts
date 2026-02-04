@@ -2,7 +2,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, generateText, generateObject } from 'ai';
 import { z } from 'zod';
 
-export const GEMINI_MODEL_NAME = 'google/gemini-2.0-flash-001';
+export const GEMINI_MODEL_NAME = 'google/gemini-3-flash-preview';
 
 // Lazy-initialize OpenRouter client (env may not be loaded at import time)
 let _openrouter: ReturnType<typeof createOpenAI> | null = null;
