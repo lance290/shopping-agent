@@ -1063,8 +1063,8 @@ export function buildApp() {
         const rowId = Number(createRes.data.id);
         writeEvent('context_switch', { row: createRes.data });
 
-        // Generate choice factors
-        await generateAndSaveChoiceFactors(title, rowId, authorization, constraints);
+        // Generate choice factors - pass isService for service-specific fields
+        await generateAndSaveChoiceFactors(title, rowId, authorization, constraints, isService, serviceCategory);
         writeEvent('factors_updated', { row_id: rowId });
 
         // Use intent.search_query - NEVER conversation artifacts
@@ -1121,8 +1121,8 @@ export function buildApp() {
         const rowId = Number(createRes.data.id);
         writeEvent('row_created', { row: createRes.data });
 
-        // Generate choice factors
-        await generateAndSaveChoiceFactors(title, rowId, authorization, constraints);
+        // Generate choice factors - pass isService for service-specific fields
+        await generateAndSaveChoiceFactors(title, rowId, authorization, constraints, isService, serviceCategory);
         writeEvent('factors_updated', { row_id: rowId });
 
         // For services, fetch vendors. For products, search.
@@ -1495,10 +1495,12 @@ export function buildApp() {
       const merged = { ...(constraintsObj || {}), ...(answersObj || {}) };
 
       const itemName = row?.title || row?.request_spec?.item_name || 'product';
+      const rowIsService = row?.is_service === true;
+      const rowServiceCategory = row?.service_category || null;
       if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
         await saveChoiceFactorsToBackend(Number(id), buildBasicChoiceFactors(itemName), request.headers.authorization as string | undefined);
       } else {
-        await generateAndSaveChoiceFactors(itemName, Number(id), request.headers.authorization as string | undefined, merged);
+        await generateAndSaveChoiceFactors(itemName, Number(id), request.headers.authorization as string | undefined, merged, rowIsService, rowServiceCategory);
       }
 
       const updatedRes = await fetch(`${BACKEND_URL}/rows/${id}`, { headers });

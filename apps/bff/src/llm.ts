@@ -609,10 +609,11 @@ function normalizeConstraintValue(value: unknown): string {
 }
 
 // Helper to generate and save choice factors
-export async function generateAndSaveChoiceFactors(itemDescription: string, rowId: number, authorization?: string, existingConstraints?: Record<string, any>) {
+export async function generateAndSaveChoiceFactors(itemDescription: string, rowId: number, authorization?: string, existingConstraints?: Record<string, any>, isService?: boolean, serviceCategory?: string | null) {
   const constraintsText = existingConstraints ? `\nExisting constraints: ${JSON.stringify(existingConstraints)}` : '';
+  const serviceContext = isService ? `\nThis is a SERVICE request (category: ${serviceCategory || 'service'}), NOT a product purchase. Generate service-specific fields.` : '';
   
-  const factorPrompt = `You are determining the key product specifications (attributes) for purchasing: "${itemDescription}"${constraintsText}
+  const factorPrompt = `You are determining the key specifications for: "${itemDescription}"${serviceContext}${constraintsText}
 
 Return a JSON array of 3-6 key specifications. Each spec should have:
 - name: lowercase_snake_case identifier (MUST match keys in existing constraints if present)
