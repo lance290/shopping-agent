@@ -93,14 +93,14 @@ class RequestSpec(RequestSpecBase, table=True):
 
 class Seller(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    name: str
-    email: Optional[str] = None
+    name: str = Field(index=True)
+    email: Optional[str] = Field(default=None, index=True)
     domain: Optional[str] = None
     is_verified: bool = False
     
     # Enhanced vendor fields
     image_url: Optional[str] = None
-    category: Optional[str] = None
+    category: Optional[str] = Field(default=None, index=True)
     contact_name: Optional[str] = None
     phone: Optional[str] = None
     
