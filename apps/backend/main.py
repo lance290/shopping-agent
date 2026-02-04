@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy import text
 
 from database import init_db, get_session
 from sourcing import SourcingRepository, SearchResult
@@ -221,6 +222,16 @@ async def startup_event():
     print("FastAPI application starting...")
     print(f"Environment: {os.getenv('ENVIRONMENT', 'development')}")
     print(f"E2E_TEST_MODE: {os.getenv('E2E_TEST_MODE')}")
+    
+    # Always run lightweight migrations for new columns
+    from database import engine
+    async with engine.begin() as conn:
+        # Add chat_history column if it doesn't exist (safe idempotent migration)
+        await conn.execute(text("""
+            ALTER TABLE row ADD COLUMN IF NOT EXISTS chat_history TEXT;
+        """))
+        print("Migration check: chat_history column ensured")
+    
     if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("ENVIRONMENT") == "production":
         return
     await init_db()
