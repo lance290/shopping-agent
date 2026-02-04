@@ -98,6 +98,12 @@ class Seller(SQLModel, table=True):
     domain: Optional[str] = None
     is_verified: bool = False
     
+    # Enhanced vendor fields
+    image_url: Optional[str] = None
+    category: Optional[str] = None
+    contact_name: Optional[str] = None
+    phone: Optional[str] = None
+    
     bids: List["Bid"] = Relationship(back_populates="seller")
 
 class Bid(SQLModel, table=True):

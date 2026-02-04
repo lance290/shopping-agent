@@ -19,6 +19,12 @@ if ! su fastapi -s /bin/sh -c "alembic upgrade heads"; then
 fi
 echo "[STARTUP] Migrations completed successfully."
 
+# Run seed script
+echo "[STARTUP] Seeding vendor data..."
+if ! su fastapi -s /bin/sh -c "python scripts/seed_vendors.py"; then
+    echo "[STARTUP] WARNING: Vendor seeding failed, but continuing startup."
+fi
+
 # Start application
 echo "[STARTUP] Starting Uvicorn server..."
 exec su fastapi -s /bin/sh -c "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080} --workers 4"
