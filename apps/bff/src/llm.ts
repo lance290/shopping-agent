@@ -54,6 +54,8 @@ const unifiedDecisionSchema = z.object({
       type: z.literal('ask_clarification'),
       partial_constraints: z.record(z.string(), z.any()).default({}),
       missing_fields: z.array(z.string()).default([]),
+      is_service: z.boolean().default(false),
+      service_category: z.string().optional(),
     }),
     // Just search on existing row (no changes)
     z.object({

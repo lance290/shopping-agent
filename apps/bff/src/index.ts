@@ -1000,13 +1000,17 @@ export function buildApp() {
 
       if (action.type === 'ask_clarification') {
         // Need more info - don't create row yet
-        // Extract service info from partial_constraints if available
+        // Include is_service and service_category directly from action (not just partial_constraints)
         const pc = action.partial_constraints || {};
+        // Merge service info into partial_constraints so it's passed back
+        if (action.is_service) pc.is_service = true;
+        if (action.service_category) pc.service_category = action.service_category;
+        
         writeEvent('needs_clarification', {
           type: 'clarification',
-          service_type: pc.service_category || pc.is_service ? 'service' : undefined,
+          service_type: action.service_category || action.is_service ? 'service' : undefined,
           title: pc.item_name || pc.title,
-          partial_constraints: action.partial_constraints,
+          partial_constraints: pc,
           missing_fields: action.missing_fields,
         });
         writeEvent('done', {});
@@ -1080,6 +1084,16 @@ export function buildApp() {
         // Use fallback title if LLM returned default
         const title = action.title === 'New Request' ? extractTitleFromConversation() : action.title;
         const constraints = action.constraints || {};
+        
+        // DEBUG: Log what LLM returned
+        fastify.log.info({ 
+          msg: 'CREATE_ROW action', 
+          is_service: action.is_service, 
+          service_category: action.service_category,
+          constraints: action.constraints,
+          pendingClarification: pendingClarification?.partial_constraints
+        });
+        
         if (action.is_service) constraints.is_service = true;
         if (action.service_category) constraints.service_category = action.service_category;
 
