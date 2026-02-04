@@ -1124,11 +1124,11 @@ export function buildApp() {
               { headers },
               15000, 1, 500
             );
-            if (vendorRes.ok && Array.isArray(vendorRes.data)) {
+            if (vendorRes.ok && vendorRes.data?.vendors && Array.isArray(vendorRes.data.vendors)) {
               writeEvent('vendors_loaded', {
                 row_id: rowId,
                 category: serviceCategory,
-                vendors: vendorRes.data,
+                vendors: vendorRes.data.vendors,
               });
             } else {
               fastify.log.warn({ status: vendorRes.status, category: serviceCategory }, 'Vendor fetch returned non-ok or non-array');
@@ -1215,11 +1215,11 @@ export function buildApp() {
               { headers },
               15000, 1, 500
             );
-            if (vendorRes.ok && Array.isArray(vendorRes.data)) {
+            if (vendorRes.ok && vendorRes.data?.vendors && Array.isArray(vendorRes.data.vendors)) {
               writeEvent('vendors_loaded', {
                 row_id: activeRowId,
                 category: serviceCategory,
-                vendors: vendorRes.data,
+                vendors: vendorRes.data.vendors,
               });
             }
           } catch (err: any) {
