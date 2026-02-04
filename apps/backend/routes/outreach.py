@@ -264,5 +264,70 @@ async def get_vendors_for_category(category: str, limit: int = 10):
     }
 
 
+class PersistVendorsRequest(BaseModel):
+    category: str
+    vendors: List[dict]
+
+
+@router.post("/rows/{row_id}/vendors")
+async def persist_vendors_for_row(
+    row_id: int,
+    request: PersistVendorsRequest,
+    session=Depends(get_session),
+):
+    """
+    Persist vendor tiles as bids for a row.
+    This ensures vendor tiles survive page reload.
+    """
+    from models import Bid
+    from sqlmodel import delete
+    
+    # Verify row exists
+    result = await session.execute(select(Row).where(Row.id == row_id))
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+    
+    # Delete existing service provider bids for this row (to avoid duplicates)
+    await session.execute(
+        delete(Bid).where(
+            Bid.row_id == row_id,
+            Bid.is_service_provider == True
+        )
+    )
+    
+    # Create bids from vendors
+    created_bids = []
+    for vendor in request.vendors:
+        bid = Bid(
+            row_id=row_id,
+            title=vendor.get("title", vendor.get("vendor_company", "Vendor")),
+            price=vendor.get("price", 0),
+            currency=vendor.get("currency", "USD"),
+            merchant=vendor.get("merchant", vendor.get("vendor_company", "")),
+            url=vendor.get("url", ""),
+            merchant_domain=vendor.get("merchant_domain", ""),
+            image_url=vendor.get("image_url"),
+            source=vendor.get("source", "wattdata"),
+            is_service_provider=True,
+            contact_email=vendor.get("vendor_email"),
+            contact_phone=vendor.get("contact_phone"),
+        )
+        session.add(bid)
+        created_bids.append(bid)
+    
+    await session.commit()
+    
+    # Refresh to get IDs
+    for bid in created_bids:
+        await session.refresh(bid)
+    
+    return {
+        "row_id": row_id,
+        "persisted_count": len(created_bids),
+        "bids": [{"id": b.id, "title": b.title} for b in created_bids],
+    }
+
+
 # REMOVED: /check-service endpoint was heuristic-based (keyword matching)
 # All service detection is now handled by LLM via BFF's unified decision architecture

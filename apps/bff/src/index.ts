@@ -1135,11 +1135,26 @@ export function buildApp() {
               15000, 1, 500
             );
             if (vendorRes.ok && vendorRes.data?.vendors && Array.isArray(vendorRes.data.vendors)) {
+              const vendors = vendorRes.data.vendors;
               writeEvent('vendors_loaded', {
                 row_id: rowId,
                 category: serviceCategory,
-                vendors: vendorRes.data.vendors,
+                vendors,
               });
+              // Persist vendors as bids so they survive page reload
+              try {
+                await fetchJsonWithTimeoutRetry(
+                  `${BACKEND_URL}/outreach/rows/${rowId}/vendors`,
+                  {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category: serviceCategory, vendors }),
+                  },
+                  10000, 1, 500
+                );
+              } catch (persistErr: any) {
+                fastify.log.warn({ err: persistErr }, 'Failed to persist vendors as bids');
+              }
             } else {
               fastify.log.warn({ status: vendorRes.status, category: serviceCategory }, 'Vendor fetch returned non-ok or non-array');
             }
@@ -1220,11 +1235,26 @@ export function buildApp() {
               15000, 1, 500
             );
             if (vendorRes.ok && vendorRes.data?.vendors && Array.isArray(vendorRes.data.vendors)) {
+              const vendors = vendorRes.data.vendors;
               writeEvent('vendors_loaded', {
                 row_id: activeRowId,
                 category: rowServiceCategory,
-                vendors: vendorRes.data.vendors,
+                vendors,
               });
+              // Persist vendors as bids so they survive page reload
+              try {
+                await fetchJsonWithTimeoutRetry(
+                  `${BACKEND_URL}/outreach/rows/${activeRowId}/vendors`,
+                  {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category: rowServiceCategory, vendors }),
+                  },
+                  10000, 1, 500
+                );
+              } catch (persistErr: any) {
+                fastify.log.warn({ err: persistErr }, 'Failed to persist vendors as bids');
+              }
             }
           } catch (err: any) {
             fastify.log.error({ err }, 'Failed to fetch vendors for update_row');
