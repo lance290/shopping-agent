@@ -834,18 +834,17 @@ class SourcingRepository:
         if rainforest_present:
             self.providers["rainforest"] = RainforestAPIProvider(rainforest_key)
 
-        # DISABLED - too many providers causes slowness
-        # serpapi_key = os.getenv("SERPAPI_API_KEY")
-        # if serpapi_key and serpapi_key != "demo":
-        #     self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
+        serpapi_key = os.getenv("SERPAPI_API_KEY")
+        if serpapi_key and serpapi_key != "demo":
+            self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
 
-        # valueserp_key = os.getenv("VALUESERP_API_KEY")
-        # if valueserp_key and valueserp_key != "demo":
-        #     self.providers["valueserp"] = ValueSerpProvider(valueserp_key)
+        valueserp_key = os.getenv("VALUESERP_API_KEY")
+        if valueserp_key and valueserp_key != "demo":
+            self.providers["valueserp"] = ValueSerpProvider(valueserp_key)
 
-        # searchapi_key = os.getenv("SEARCHAPI_API_KEY")
-        # if searchapi_key and searchapi_key != "demo":
-        #     self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
+        searchapi_key = os.getenv("SEARCHAPI_API_KEY")
+        if searchapi_key and searchapi_key != "demo":
+            self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
         
         # Scale SERP - Google Shopping (same company as Rainforest)
         scaleserp_key = os.getenv("SCALESERP_API_KEY")

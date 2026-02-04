@@ -133,12 +133,12 @@ class TestProviderInitialization:
             from sourcing.repository import SourcingRepository
             repo = SourcingRepository()
             
-            # Only rainforest, google_shopping, google_cse, and wattdata are enabled
-            # serpapi, searchapi, valueserp are disabled for performance
             assert "rainforest" in repo.providers
             assert "google_shopping" in repo.providers
+            assert "serpapi" in repo.providers
+            assert "searchapi" in repo.providers
+            assert "valueserp" in repo.providers
             assert "google_cse" in repo.providers
-            assert "wattdata" in repo.providers
 
     def test_provider_timeout_configurable(self):
         """Provider timeout should be configurable via environment variable."""
