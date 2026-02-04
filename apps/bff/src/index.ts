@@ -318,6 +318,16 @@ function buildBasicChoiceFactors(itemName: string): Array<{
   return shared;
 }
 
+// Detect service category from title text
+function detectServiceCategoryFromTitle(title: string): string | null {
+  const lower = title.toLowerCase();
+  if (/private\s*jet|charter\s*flight|aviation/i.test(lower)) return 'private_aviation';
+  if (/cater/i.test(lower)) return 'catering';
+  if (/roof/i.test(lower)) return 'roofing';
+  if (/hvac|air\s*condition|heating/i.test(lower)) return 'hvac';
+  return null;
+}
+
 export function buildApp() {
   const fastify = Fastify({
     logger: true,
@@ -1113,17 +1123,7 @@ export function buildApp() {
         writeEvent('factors_updated', { row_id: rowId });
 
         // For services, fetch vendors instead of product search
-        // Detect category from title if not provided
-        const detectServiceCategory = (t: string): string | null => {
-          const lower = t.toLowerCase();
-          if (/private\s*jet|charter\s*flight|aviation/i.test(lower)) return 'private_aviation';
-          if (/cater/i.test(lower)) return 'catering';
-          if (/roof/i.test(lower)) return 'roofing';
-          if (/hvac|air\s*condition|heating/i.test(lower)) return 'hvac';
-          return null;
-        };
-        
-        const serviceCategory = action.service_category || (action.is_service ? detectServiceCategory(title) : null);
+        const serviceCategory = action.service_category || (action.is_service ? detectServiceCategoryFromTitle(title) : null);
         
         if (action.is_service && serviceCategory) {
           writeEvent('action_started', { type: 'fetch_vendors', row_id: rowId, category: serviceCategory });
@@ -1196,8 +1196,32 @@ export function buildApp() {
         );
         writeEvent('row_updated', { row_id: activeRowId });
 
-        // Run search if provided
-        if (action.search_query) {
+        // Check if this is a service request - use activeRow info or detect from title
+        const rowTitle = activeRow?.title || '';
+        const isService = activeRow?.is_service || detectServiceCategoryFromTitle(rowTitle) !== null;
+        const serviceCategory = activeRow?.service_category || detectServiceCategoryFromTitle(rowTitle);
+
+        if (isService && serviceCategory) {
+          // Fetch vendors for service requests
+          writeEvent('action_started', { type: 'fetch_vendors', row_id: activeRowId, category: serviceCategory });
+          try {
+            const vendorRes = await fetchJsonWithTimeoutRetry(
+              `${BACKEND_URL}/outreach/vendors/${serviceCategory}`,
+              { headers },
+              15000, 1, 500
+            );
+            if (vendorRes.ok && Array.isArray(vendorRes.data)) {
+              writeEvent('vendors_loaded', {
+                row_id: activeRowId,
+                category: serviceCategory,
+                vendors: vendorRes.data,
+              });
+            }
+          } catch (err: any) {
+            fastify.log.error({ err }, 'Failed to fetch vendors for update_row');
+          }
+        } else if (action.search_query) {
+          // Run product search for non-services
           writeEvent('action_started', { type: 'search', row_id: activeRowId, query: action.search_query });
           try {
             await streamSearchResults(activeRowId, { query: action.search_query }, headers, (batch) => {
