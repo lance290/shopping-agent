@@ -311,6 +311,15 @@ Example for "laptop":
   {"name": "screen_size", "label": "Screen Size", "type": "select", "options": ["13 inch", "15 inch", "17 inch"], "required": false}
 ]
 
+Example for "private jet charter" or any flight/travel service:
+[
+  {"name": "passengers", "label": "Passengers", "type": "number", "required": true},
+  {"name": "aircraft_size", "label": "Aircraft Size", "type": "select", "options": ["Light Jet (4-6 pax)", "Midsize Jet (6-8 pax)", "Super Midsize (8-10 pax)", "Large Cabin (10-14 pax)", "Heavy Jet (14+ pax)"], "required": false},
+  {"name": "departure_date", "label": "Departure Date", "type": "text", "required": true},
+  {"name": "return_date", "label": "Return Date", "type": "text", "required": false},
+  {"name": "flexible_dates", "label": "Flexible Dates", "type": "boolean", "required": false}
+]
+
 IMPORTANT: If "Existing constraints" are provided, you MUST include a spec definition for each constraint key so the UI can display it.
 
 Return ONLY the JSON array, no explanation.`;
