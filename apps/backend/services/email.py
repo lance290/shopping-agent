@@ -309,3 +309,90 @@ async def send_handoff_seller_email(
     print(f"[DEMO EMAIL] Seller notification to: {seller_email}")
     print(f"[DEMO EMAIL] Subject: {subject}")
     return EmailResult(success=True, message_id="demo-seller-handoff")
+
+
+async def send_triage_notification_email(
+    report_id: int,
+    classification: str,
+    confidence: float,
+    notes: str,
+    user_id: Optional[int],
+    page_url: Optional[str],
+    screenshot_url: Optional[str] = None,
+    reasoning: str = ""
+) -> EmailResult:
+    """
+    Send notification email to admin for feature requests or low-confidence triage.
+    """
+    admin_email = "masseyl@gmail.com"  # Hardcoded for MVP
+    
+    subject = f"[{classification.upper()}] Triage Report #{report_id} ({confidence:.2f})"
+    if confidence < 0.7:  # Visual indicator for low confidence
+        subject = f"⚠️ [LOW CONFIDENCE] {subject}"
+
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Bug Report Triage</h2>
+        
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">📊 Classification</h3>
+            <p><strong>Type:</strong> {classification}</p>
+            <p><strong>Confidence:</strong> {confidence:.2f}</p>
+            <p><strong>Reasoning:</strong> {reasoning}</p>
+        </div>
+
+        <div style="background: #fff; border: 1px solid #eee; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">📝 User Report</h3>
+            <p><strong>Notes:</strong> {notes}</p>
+            <p><strong>User ID:</strong> {user_id or 'Anonymous'}</p>
+            <p><strong>Page URL:</strong> {page_url or 'N/A'}</p>
+        </div>
+        
+        {f'<p><a href="{screenshot_url}">View Screenshot</a></p>' if screenshot_url else ''}
+        
+        <p style="color: #666; font-size: 12px;">
+            Report ID: {report_id}
+        </p>
+    </body>
+    </html>
+    """
+    
+    text_content = f"""
+    Bug Report Triage
+    
+    Classification: {classification} ({confidence:.2f})
+    Reasoning: {reasoning}
+    
+    User Report:
+    Notes: {notes}
+    User ID: {user_id or 'Anonymous'}
+    Page URL: {page_url or 'N/A'}
+    
+    Screenshot: {screenshot_url or 'N/A'}
+    Report ID: {report_id}
+    """
+
+    if RESEND_API_KEY and resend is not None:
+        try:
+            params: resend.Emails.SendParams = {
+                "from": f"{FROM_NAME} <{FROM_EMAIL}>",
+                "to": [admin_email],
+                "subject": subject,
+                "html": html_content,
+                "text": text_content,
+            }
+            
+            response = resend.Emails.send(params)
+            
+            return EmailResult(
+                success=True,
+                message_id=response.get("id"),
+            )
+        except Exception as e:
+            print(f"[RESEND ERROR] {e}")
+            return EmailResult(success=False, error=str(e))
+    
+    print(f"[DEMO EMAIL] Triage notification to: {admin_email}")
+    print(f"[DEMO EMAIL] Subject: {subject}")
+    return EmailResult(success=True, message_id="demo-triage")

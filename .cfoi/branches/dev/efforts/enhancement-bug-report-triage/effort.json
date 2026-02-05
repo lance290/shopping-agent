@@ -1,0 +1,61 @@
+{
+  "type": "enhancement",
+  "name": "bug-report-triage",
+  "description": "Add triage step to classify incoming reports as bugs vs feature requests, with different handling for each",
+  "created": "2026-02-05T17:23:00Z",
+  "status": "in-progress",
+  "priority": 12,
+  "parent": null,
+  "definition_of_done": {
+    "version": 1,
+    "status": "active",
+    "thresholds": [
+      {
+        "description": "Classification accuracy ≥85% (bug vs feature)",
+        "metric": "classification_accuracy",
+        "target": 0.85,
+        "evidence_required": "sampled",
+        "type": "threshold"
+      },
+      {
+        "description": "Bug flow unchanged - bugs still create GitHub issues and trigger Claude fix",
+        "metric": "bug_flow_integration_test",
+        "target": "pass",
+        "evidence_required": "measured",
+        "type": "threshold"
+      }
+    ],
+    "signals": [
+      {
+        "description": "Feature request notification delivery rate",
+        "metric": "notification_delivery_rate",
+        "target": 1.0,
+        "weight": 0.5,
+        "evidence_required": "measured",
+        "type": "signal"
+      },
+      {
+        "description": "Triage latency <2 seconds",
+        "metric": "triage_latency_seconds",
+        "target": 2,
+        "weight": 0.3,
+        "evidence_required": "measured",
+        "type": "signal"
+      },
+      {
+        "description": "Features incorrectly classified as bugs <10% (acceptable, errs on caution)",
+        "metric": "feature_as_bug_rate",
+        "target": 0.10,
+        "weight": 0.2,
+        "evidence_required": "sampled",
+        "type": "signal"
+      }
+    ],
+    "approval": {
+      "by": "Lance",
+      "timestamp": "2026-02-05T17:27:00Z",
+      "change_reason": "initial definition - err on side of caution (treat ambiguous as bugs)",
+      "change_type": "clarify"
+    }
+  }
+}

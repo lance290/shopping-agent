@@ -319,6 +319,10 @@ class BugReport(SQLModel, table=True):
 
     # Metadata
     status: str = "captured"  # captured, processing, sent, closed
+    
+    # Classification (Phase 2 - Triage)
+    classification: Optional[str] = None  # "bug" | "feature_request"
+    classification_confidence: Optional[float] = None  # 0.0-1.0
 
     # JSON fields
     attachments: Optional[str] = None  # JSON list of stored file paths/urls

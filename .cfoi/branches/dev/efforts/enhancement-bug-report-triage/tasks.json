@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "effort": "enhancement-bug-report-triage",
+  "created": "2026-02-05T17:51:30Z",
+  "tasks": [
+    {
+      "id": "task-001",
+      "description": "Add classification fields to BugReport model and ensure DB migration path is defined.",
+      "e2e_flow": "Submit bug report → record persists with new classification fields (null initially).",
+      "manual_verification": [
+        "Submit a bug report via UI",
+        "Inspect DB row for BugReport — fields exist and are null"
+      ],
+      "files": [
+        "apps/backend/models.py",
+        "migration files (if applicable)"
+      ],
+      "tests_to_write": [
+        "Model/migration sanity test (if pattern exists)"
+      ],
+      "dependencies": [],
+      "estimated_minutes": 40,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/dev/proof/task-001/"
+    },
+    {
+      "id": "task-002",
+      "description": "Add classification prompt and decision matrix inside create_github_issue_task.",
+      "e2e_flow": "Submit report → background task classifies → routes to GH issue and/or email.",
+      "manual_verification": [
+        "Post a report with “dark mode request” → no GH issue, email sent",
+        "Post a report with “crash on click” → GH issue created",
+        "Post ambiguous report → GH issue + email"
+      ],
+      "files": [
+        "apps/backend/routes/bugs.py"
+      ],
+      "tests_to_write": [
+        "Triage routing unit test with mocked classifier"
+      ],
+      "dependencies": [
+        "task-001"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/dev/proof/task-002/"
+    },
+    {
+      "id": "task-003",
+      "description": "Add triage notification email to services/email.py using Resend.",
+      "e2e_flow": "Feature request / low confidence → email sent to masseyl@gmail.com.",
+      "manual_verification": [
+        "Trigger email path (feature request) and confirm resend logs or provider"
+      ],
+      "files": [
+        "apps/backend/services/email.py"
+      ],
+      "tests_to_write": [
+        "Email payload unit test (mock Resend client)"
+      ],
+      "dependencies": [
+        "task-002"
+      ],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/dev/proof/task-003/"
+    },
+    {
+      "id": "task-004",
+      "description": "Add automated tests for triage decision matrix + notification triggers.",
+      "e2e_flow": "Run tests → all pass.",
+      "manual_verification": [
+        "Run test suite",
+        "Confirm triage tests cover bug/feature/low-confidence"
+      ],
+      "files": [
+        "apps/backend/tests/test_bug_triage.py"
+      ],
+      "tests_to_write": [
+        "Triage tests (this task)"
+      ],
+      "dependencies": [
+        "task-002",
+        "task-003"
+      ],
+      "estimated_minutes": 40,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/dev/proof/task-004/"
+    }
+  ]
+}
