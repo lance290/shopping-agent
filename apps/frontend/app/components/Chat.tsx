@@ -47,10 +47,19 @@ export default function Chat() {
   }, []);
 
   useEffect(() => {
-    if (!activeRow || store.activeRowId === null) return;
+    // Handle "New Request" - clear the chat when activeRowId becomes null
+    if (store.activeRowId === null) {
+      setMessages([]);
+      setInput('');
+      setPendingClarification(null);
+      lastRowIdRef.current = null;
+      return;
+    }
+
+    if (!activeRow) return;
     if (lastRowIdRef.current === store.activeRowId) return;
     lastRowIdRef.current = store.activeRowId;
-    
+
     // Only focus/clear on actual row switch
     setInput('');
 
@@ -63,7 +72,7 @@ export default function Chat() {
         loadedMessages = [];
       }
     }
-    
+
     if (loadedMessages.length > 0) {
       setMessages(loadedMessages);
     } else {
@@ -76,7 +85,7 @@ export default function Chat() {
         },
       ]);
     }
-    
+
     // Clear clarification context when switching rows
     setPendingClarification(null);
   }, [store.activeRowId, activeRow]);
