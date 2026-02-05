@@ -1,0 +1,55 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - generic [ref=e7]: Assistant
+          - heading "Shopping Agent" [level=2] [ref=e9]:
+            - img [ref=e10]
+            - text: Shopping Agent
+        - generic [ref=e13]:
+          - generic [ref=e14]: User
+          - button "Sign out" [ref=e15] [cursor=pointer]:
+            - img [ref=e16]
+      - generic [ref=e20]:
+        - img [ref=e22]
+        - generic [ref=e25]: Welcome
+        - heading "How can I help you today?" [level=3] [ref=e26]
+        - paragraph [ref=e27]: I can help you find products, compare prices, and manage your procurement list.
+      - generic [ref=e29]:
+        - textbox "What are you looking for?" [ref=e31]
+        - button [disabled] [ref=e32]:
+          - img [ref=e33]
+    - separator "Resize chat" [ref=e36]
+    - generic [ref=e39]:
+      - generic [ref=e40]:
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]: Board
+            - generic [ref=e44]: Requests
+          - generic [ref=e45]: The agent may earn a commission from purchases.
+        - generic [ref=e46]:
+          - generic [ref=e47]: 0 projects, 0 active requests
+          - button "Report Bug" [ref=e48] [cursor=pointer]:
+            - img [ref=e49]
+            - text: Report Bug
+          - button "Share Board" [ref=e58] [cursor=pointer]:
+            - img [ref=e59]
+            - text: Share Board
+          - button "New Project" [ref=e65] [cursor=pointer]:
+            - img [ref=e66]
+            - text: New Project
+          - button "New Request" [ref=e68] [cursor=pointer]:
+            - img [ref=e69]
+            - text: New Request
+      - generic [ref=e71]:
+        - img [ref=e73]
+        - heading "Your Board is Empty" [level=3] [ref=e76]
+        - paragraph [ref=e77]: Start a conversation with the agent to begin finding products.
+  - button "Open Next.js Dev Tools" [ref=e83] [cursor=pointer]:
+    - img [ref=e84]
+  - alert [ref=e87]
+```

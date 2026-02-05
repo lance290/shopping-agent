@@ -22,6 +22,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const undoDeleteRow = useShoppingStore(state => state.undoDeleteRow);
   const rowOfferSort = useShoppingStore(state => state.rowOfferSort);
   const rowProviderStatuses = useShoppingStore(state => state.rowProviderStatuses);
+  const rowSearchErrors = useShoppingStore(state => state.rowSearchErrors);
   const moreResultsIncoming = useShoppingStore(state => state.moreResultsIncoming);
   const setRowOfferSort = useShoppingStore(state => state.setRowOfferSort);
   const setIsSearching = useShoppingStore(state => state.setIsSearching);
@@ -30,10 +31,13 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const isPendingArchive = pendingRowDelete?.row.id === row.id;
   const sortMode: OfferSortMode = rowOfferSort[row.id] || 'original';
   const providerStatuses = rowProviderStatuses[row.id];
+  const searchError = rowSearchErrors[row.id];
   const hasMoreIncoming = moreResultsIncoming[row.id] ?? false;
 
   const [cooldownUntil, setCooldownUntil] = useState<number>(0);
-  const [searchErrorMessage, setSearchErrorMessage] = useState<string | null>(null);
+  const [localSearchError, setLocalSearchError] = useState<string | null>(null);
+  const activeSearchError = searchError || localSearchError;
+
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didAutoLoadRef = useRef<boolean>(false);
   const didLoadLikesRef = useRef<boolean>(false);
@@ -100,7 +104,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     cooldownTimerRef.current = setTimeout(() => setCooldownUntil(0), 5000);
 
     setIsSearching(true);
-    setSearchErrorMessage(null);
+    setLocalSearchError(null);
     console.log('[RowStrip] calling runSearchApiWithStatus for row:', row.id, 'title:', row.title);
     try {
       const searchResponse = await runSearchApiWithStatus(
@@ -111,7 +115,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       console.log('[RowStrip] searchResponse:', searchResponse.results.length, 'results, userMessage:', searchResponse.userMessage);
       
       if (searchResponse.userMessage) {
-        setSearchErrorMessage(searchResponse.userMessage);
+        setLocalSearchError(searchResponse.userMessage);
       }
       
       // Re-fetch likes after search to ensure sync.
@@ -628,10 +632,10 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
                       <RefreshCw className="w-6 h-6 animate-spin mb-3 opacity-50" />
                       <span className="text-sm font-medium">Sourcing offers...</span>
                     </>
-                  ) : searchErrorMessage ? (
+                  ) : activeSearchError ? (
                     <>
                       <FlaskConical className="w-6 h-6 mb-3 opacity-50" />
-                      <span className="text-sm font-medium text-center">{searchErrorMessage}</span>
+                      <span className="text-sm font-medium text-center">{activeSearchError}</span>
                     </>
                   ) : (
                     <>

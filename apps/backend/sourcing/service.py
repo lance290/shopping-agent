@@ -58,7 +58,7 @@ class SourcingService:
         row_id: int,
         query: str,
         providers: Optional[List[str]] = None,
-    ) -> Tuple[List[Bid], List[ProviderStatusSnapshot]]:
+    ) -> Tuple[List[Bid], List[ProviderStatusSnapshot], Optional[str]]:
         """
         Execute search across providers, normalize results, and persist them as Bids.
         
@@ -102,6 +102,7 @@ class SourcingService:
 
             normalized_results = search_response.normalized_results
             provider_statuses = search_response.provider_statuses
+            user_message = search_response.user_message
             
             # Record provider metrics
             for status in provider_statuses:
@@ -172,7 +173,7 @@ class SourcingService:
         new_count = sum(1 for b in bids if not any(eb.id == b.id for eb in []))
         metrics.record_persistence(created=len(bids), updated=0)
 
-        return bids, provider_statuses
+        return bids, provider_statuses, user_message
 
     async def _persist_results(self, row_id: int, results: List[NormalizedResult]) -> List[Bid]:
         """Persist normalized results as Bids, creating Sellers as needed. Returns list of Bids."""

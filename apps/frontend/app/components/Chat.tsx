@@ -274,14 +274,15 @@ export default function Chat() {
               const providerStatuses = Array.isArray(data?.provider_statuses) ? data.provider_statuses : undefined;
               const moreIncoming = data?.more_incoming ?? false;
               const provider = data?.provider;
+              const userMessage = data?.user_message; // Extract user_message
               
               if (rowId) {
                 if (provider) {
                   // Streaming: append results from this provider
-                  store.appendRowResults(rowId, results, providerStatuses, moreIncoming);
+                  store.appendRowResults(rowId, results, providerStatuses, moreIncoming, userMessage);
                 } else {
-                  // Non-streaming fallback: replace all
-                  store.setRowResults(rowId, results, providerStatuses, moreIncoming);
+                  // Provider-less events (final/summary) should never overwrite existing results
+                  store.appendRowResults(rowId, results, providerStatuses, moreIncoming, userMessage);
                 }
               }
               if (!moreIncoming) {

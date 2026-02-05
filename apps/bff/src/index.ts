@@ -101,7 +101,7 @@ async function streamSearchResults(
     more_incoming: boolean;
     total_results_so_far: number;
   }) => void
-): Promise<{ results: any[]; provider_statuses: any[] }> {
+): Promise<{ results: any[]; provider_statuses: any[]; user_message?: string }> {
   const url = `${BACKEND_URL}/rows/${rowId}/search/stream`;
   
   const response = await fetch(url, {
@@ -143,7 +143,11 @@ async function streamSearchResults(
           
           if (data.event === 'complete') {
             // Final event - use accumulated statuses
-            return { results: allResults, provider_statuses: data.provider_statuses || allStatuses };
+            return {
+              results: allResults,
+              provider_statuses: data.provider_statuses || allStatuses,
+              user_message: data.user_message,
+            };
           }
           
           // Incremental results from a provider
@@ -169,7 +173,7 @@ async function streamSearchResults(
     }
   }
 
-  return { results: allResults, provider_statuses: allStatuses };
+  return { results: allResults, provider_statuses: allStatuses, user_message: undefined };
 }
 
 function buildBasicChoiceFactors(itemName: string): Array<{
@@ -1085,7 +1089,7 @@ export function buildApp() {
         const ctxSearchQuery = searchQuery;
         writeEvent('action_started', { type: 'search', row_id: rowId, query: ctxSearchQuery });
         try {
-          await streamSearchResults(rowId, { query: ctxSearchQuery }, headers, (batch) => {
+          const final = await streamSearchResults(rowId, { query: ctxSearchQuery }, headers, (batch) => {
             writeEvent('search_results', {
               row_id: rowId,
               results: batch.results,
@@ -1094,6 +1098,14 @@ export function buildApp() {
               provider: batch.provider,
             });
           });
+          if (final.user_message) {
+            writeEvent('search_results', {
+              row_id: rowId,
+              results: [],
+              more_incoming: false,
+              user_message: final.user_message,
+            });
+          }
         } catch (err: any) {
           writeEvent('error', { message: err?.message || 'Search failed' });
         }
@@ -1193,7 +1205,7 @@ export function buildApp() {
           fastify.log.warn({ title }, 'Service but no category - using search_query from intent');
           writeEvent('action_started', { type: 'search', row_id: rowId, query: searchQuery });
           try {
-            await streamSearchResults(rowId, { query: searchQuery }, headers, (batch) => {
+            const final = await streamSearchResults(rowId, { query: searchQuery }, headers, (batch) => {
               writeEvent('search_results', {
                 row_id: rowId,
                 results: batch.results,
@@ -1202,6 +1214,14 @@ export function buildApp() {
                 provider: batch.provider,
               });
             });
+            if (final.user_message) {
+              writeEvent('search_results', {
+                row_id: rowId,
+                results: [],
+                more_incoming: false,
+                user_message: final.user_message,
+              });
+            }
           } catch (err: any) {
             writeEvent('error', { message: err?.message || 'Search failed' });
           }
@@ -1209,7 +1229,7 @@ export function buildApp() {
           // Product search for non-services - use intent.search_query
           writeEvent('action_started', { type: 'search', row_id: rowId, query: searchQuery });
           try {
-            await streamSearchResults(rowId, { query: searchQuery }, headers, (batch) => {
+            const final = await streamSearchResults(rowId, { query: searchQuery }, headers, (batch) => {
               writeEvent('search_results', {
                 row_id: rowId,
                 results: batch.results,
@@ -1218,6 +1238,14 @@ export function buildApp() {
                 provider: batch.provider,
               });
             });
+            if (final.user_message) {
+              writeEvent('search_results', {
+                row_id: rowId,
+                results: [],
+                more_incoming: false,
+                user_message: final.user_message,
+              });
+            }
           } catch (err: any) {
             writeEvent('error', { message: err?.message || 'Search failed' });
           }
@@ -1339,7 +1367,7 @@ export function buildApp() {
           // Use intent.search_query for products
           writeEvent('action_started', { type: 'search', row_id: activeRowId, query: searchQuery });
           try {
-            await streamSearchResults(activeRowId, { query: searchQuery }, headers, (batch) => {
+            const final = await streamSearchResults(activeRowId, { query: searchQuery }, headers, (batch) => {
               writeEvent('search_results', {
                 row_id: activeRowId,
                 results: batch.results,
@@ -1348,6 +1376,14 @@ export function buildApp() {
                 provider: batch.provider,
               });
             });
+            if (final.user_message) {
+              writeEvent('search_results', {
+                row_id: activeRowId,
+                results: [],
+                more_incoming: false,
+                user_message: final.user_message,
+              });
+            }
           } catch (err: any) {
             writeEvent('error', { message: err?.message || 'Search failed' });
           }
@@ -1368,7 +1404,7 @@ export function buildApp() {
 
         writeEvent('action_started', { type: 'search', row_id: activeRowId, query: searchQuery });
         try {
-          await streamSearchResults(activeRowId, { query: searchQuery }, headers, (batch) => {
+          const final = await streamSearchResults(activeRowId, { query: searchQuery }, headers, (batch) => {
             writeEvent('search_results', {
               row_id: activeRowId,
               results: batch.results,
@@ -1377,6 +1413,14 @@ export function buildApp() {
               provider: batch.provider,
             });
           });
+          if (final.user_message) {
+            writeEvent('search_results', {
+              row_id: activeRowId,
+              results: [],
+              more_incoming: false,
+              user_message: final.user_message,
+            });
+          }
         } catch (err: any) {
           writeEvent('error', { message: err?.message || 'Search failed' });
         }

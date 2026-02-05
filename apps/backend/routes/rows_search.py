@@ -24,6 +24,7 @@ from sourcing import (
 from sourcing.normalizers import normalize_results_for_provider
 from sourcing.service import SourcingService
 from sourcing.material_filter import extract_material_constraints, should_exclude_result
+from sourcing.messaging import determine_search_user_message
 
 router = APIRouter(tags=["rows"])
 logger = logging.getLogger(__name__)
@@ -173,6 +174,7 @@ def _parse_intent_payload(payload: Optional[Any]) -> Optional[SearchIntent]:
 class SearchResponse(BaseModel):
     results: List[SearchResult]
     provider_statuses: List[ProviderStatusSnapshot]
+    user_message: Optional[str] = None
 
 
 @router.post("/rows/{row_id}/search", response_model=SearchResponse)
@@ -229,7 +231,7 @@ async def search_row_listings(
     sourcing_service = SourcingService(session, get_sourcing_repo())
 
     # Execute search and persist results as Bids
-    bids, provider_statuses = await sourcing_service.search_and_persist(
+    bids, provider_statuses, user_message = await sourcing_service.search_and_persist(
         row_id=row_id,
         query=sanitized_query,
         providers=body.providers,
@@ -325,7 +327,7 @@ async def search_row_listings(
 
     await session.commit()
 
-    return SearchResponse(results=results, provider_statuses=provider_statuses)
+    return SearchResponse(results=results, provider_statuses=provider_statuses, user_message=user_message)
 
 
 @router.post("/rows/{row_id}/search/stream")
@@ -436,12 +438,16 @@ async def search_row_listings_stream(
             
             yield f"data: {json.dumps(event_data)}\n\n"
         
+        # Determine user_message based on results and statuses
+        user_message = determine_search_user_message(all_results, all_statuses)
+
         # Final event with complete status
         final_event = {
             "event": "complete",
             "total_results": len(all_results),
             "provider_statuses": [s.model_dump() for s in all_statuses],
             "more_incoming": False,
+            "user_message": user_message,
         }
         yield f"data: {json.dumps(final_event)}\n\n"
 

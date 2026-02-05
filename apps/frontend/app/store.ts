@@ -209,6 +209,7 @@ interface ShoppingState {
   searchResults: Offer[];         // Current search results (legacy view)
   rowResults: Record<number, Offer[]>; // Per-row cached results
   rowProviderStatuses: Record<number, ProviderStatusSnapshot[]>; // Per-row provider statuses
+  rowSearchErrors: Record<number, string | null>; // Per-row search error messages
   rowOfferSort: Record<number, OfferSortMode>; // Per-row UI sort mode
   moreResultsIncoming: Record<number, boolean>; // Per-row flag for streaming results
   isSearching: boolean;           // Loading state for search
@@ -231,8 +232,8 @@ interface ShoppingState {
   updateRow: (id: number, updates: Partial<Row>) => void;
   removeRow: (id: number) => void;
   setSearchResults: (results: Offer[]) => void;
-  setRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[], moreIncoming?: boolean) => void;
-  appendRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[], moreIncoming?: boolean) => void;
+  setRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[], moreIncoming?: boolean, userMessage?: string) => void;
+  appendRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[], moreIncoming?: boolean, userMessage?: string) => void;
   clearRowResults: (rowId: number) => void;
   setRowOfferSort: (rowId: number, sort: OfferSortMode) => void;
   setIsSearching: (searching: boolean) => void;
@@ -273,6 +274,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   searchResults: [],
   rowResults: {},
   rowProviderStatuses: {},
+  rowSearchErrors: {},
   rowOfferSort: {},
   moreResultsIncoming: {},
   isSearching: false,
@@ -316,11 +318,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
         const nextRows = s.rows.filter(r => r.id !== id);
         const { [id]: _, ...restResults } = s.rowResults;
         const { [id]: __, ...restStatuses } = s.rowProviderStatuses;
+        const { [id]: ___, ...restErrors } = s.rowSearchErrors;
         const nextActive = s.activeRowId === id ? null : s.activeRowId;
         return {
           rows: nextRows,
           rowResults: restResults,
           rowProviderStatuses: restStatuses,
+          rowSearchErrors: restErrors,
           activeRowId: nextActive,
           pendingRowDelete: null,
         };
@@ -349,11 +353,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
         const nextRows = s.rows.filter(r => r.id !== rowId);
         const { [rowId]: _, ...restResults } = s.rowResults;
         const { [rowId]: __, ...restStatuses } = s.rowProviderStatuses;
+        const { [rowId]: ___, ...restErrors } = s.rowSearchErrors;
         const nextActive = s.activeRowId === rowId ? null : s.activeRowId;
         return {
           rows: nextRows,
           rowResults: restResults,
           rowProviderStatuses: restStatuses,
+          rowSearchErrors: restErrors,
           activeRowId: nextActive,
           pendingRowDelete: null,
         };
@@ -461,7 +467,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     activeRowId: state.activeRowId === id ? null : state.activeRowId,
   })),
   setSearchResults: (results) => set({ searchResults: results, isSearching: false }),
-  setRowResults: (rowId, results, providerStatuses, moreIncoming = false) => set((state) => ({
+  setRowResults: (rowId, results, providerStatuses, moreIncoming = false, userMessage) => set((state) => ({
     rowResults: {
       ...state.rowResults,
       [rowId]: (() => {
@@ -504,10 +510,11 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       })(),
     },
     rowProviderStatuses: providerStatuses ? { ...state.rowProviderStatuses, [rowId]: providerStatuses } : state.rowProviderStatuses,
+    rowSearchErrors: { ...state.rowSearchErrors, [rowId]: userMessage || null },
     moreResultsIncoming: { ...state.moreResultsIncoming, [rowId]: moreIncoming },
     isSearching: moreIncoming, // Keep searching state while more results incoming
   })),
-  appendRowResults: (rowId, results, providerStatuses, moreIncoming = false) => set((state) => {
+  appendRowResults: (rowId, results, providerStatuses, moreIncoming = false, userMessage) => set((state) => {
     const existingResults = state.rowResults[rowId] || [];
     const existingStatuses = state.rowProviderStatuses[rowId] || [];
     // Dedupe by URL
@@ -518,6 +525,9 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       rowProviderStatuses: providerStatuses 
         ? { ...state.rowProviderStatuses, [rowId]: [...existingStatuses, ...providerStatuses] }
         : state.rowProviderStatuses,
+      rowSearchErrors: userMessage !== undefined 
+        ? { ...state.rowSearchErrors, [rowId]: userMessage }
+        : state.rowSearchErrors,
       moreResultsIncoming: { ...state.moreResultsIncoming, [rowId]: moreIncoming },
       isSearching: moreIncoming,
     };
@@ -525,7 +535,8 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   clearRowResults: (rowId) => set((state) => {
     const { [rowId]: _, ...rest } = state.rowResults;
     const { [rowId]: __, ...restStatuses } = state.rowProviderStatuses;
-    return { rowResults: rest, rowProviderStatuses: restStatuses };
+    const { [rowId]: ___, ...restErrors } = state.rowSearchErrors;
+    return { rowResults: rest, rowProviderStatuses: restStatuses, rowSearchErrors: restErrors };
   }),
   setRowOfferSort: (rowId, sort) => set((state) => {
     if (sort === 'original') {
