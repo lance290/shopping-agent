@@ -93,12 +93,12 @@ export default function ChoiceFactorPanel() {
     }
   };
 
-  const handleAnswerChange = async (factorName: string, value: string | number | boolean) => {
+  const handleAnswerChange = async (factorName: string, value: string | number | boolean | string[]) => {
     if (!row) return;
 
     // 1. Optimistic local update
     const newAnswers: Record<string, any> = { ...localAnswers };
-    const shouldClear = value === '' || (typeof value === 'number' && Number.isNaN(value));
+    const shouldClear = value === '' || (typeof value === 'number' && Number.isNaN(value)) || (Array.isArray(value) && value.length === 0);
     if (shouldClear) {
       delete newAnswers[factorName];
     } else {
@@ -109,7 +109,7 @@ export default function ChoiceFactorPanel() {
 
     // 2. Persist to DB
     const success = await saveChoiceAnswerToDb(row.id, factorName, value, newAnswers);
-    
+
     // 3. Update global store if successful
     if (success) {
       updateRow(row.id, { choice_answers: JSON.stringify(newAnswers) });
@@ -123,11 +123,29 @@ export default function ChoiceFactorPanel() {
         updateRow(row.id, freshRow);
       }
     }
-    
+
     // 5. Clear saving state
     setTimeout(() => {
       setSavingFields(prev => ({ ...prev, [factorName]: false }));
     }, 500);
+  };
+
+  const handleMultiSelectToggle = async (factorName: string, option: string) => {
+    if (!row) return;
+
+    const currentValue = localAnswers[factorName];
+    const currentArray = Array.isArray(currentValue) ? currentValue : [];
+
+    let newArray: string[];
+    if (currentArray.includes(option)) {
+      // Remove the option
+      newArray = currentArray.filter((item: string) => item !== option);
+    } else {
+      // Add the option
+      newArray = [...currentArray, option];
+    }
+
+    await handleAnswerChange(factorName, newArray);
   };
 
   const handleTextChange = (factorName: string, value: string | number) => {
@@ -238,6 +256,8 @@ export default function ChoiceFactorPanel() {
                 const hasAnswer = factor.name === 'min_price'
                   ? (localAnswers.min_price !== undefined && localAnswers.min_price !== '') ||
                     (localAnswers.max_price !== undefined && localAnswers.max_price !== '')
+                  : factor.type === 'multiselect'
+                  ? Array.isArray(localAnswers[factor.name]) && localAnswers[factor.name].length > 0
                   : localAnswers[factor.name] !== undefined && localAnswers[factor.name] !== '';
                 
                 // Convert snake_case name to Title Case Label
@@ -283,6 +303,34 @@ export default function ChoiceFactorPanel() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                           </div>
+                        </div>
+                      ) : factor.type === 'multiselect' && factor.options ? (
+                        <div className="space-y-2">
+                          {factor.options.map((opt: string) => {
+                            const currentValue = localAnswers[factor.name];
+                            const selectedOptions = Array.isArray(currentValue) ? currentValue : [];
+                            const isSelected = selectedOptions.includes(opt);
+
+                            return (
+                              <label
+                                key={opt}
+                                className={cn(
+                                  "flex items-center gap-3 px-4 py-3 bg-white border rounded-xl text-sm cursor-pointer transition-all hover:border-blue-400",
+                                  isSelected ? "border-blue-500 bg-blue-50" : "border-gray-300"
+                                )}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleMultiSelectToggle(factor.name, opt)}
+                                  className="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <span className={cn("flex-1", isSelected && "font-medium text-blue-900")}>
+                                  {opt}
+                                </span>
+                              </label>
+                            );
+                          })}
                         </div>
                       ) : factor.type === 'boolean' ? (
                         <div className="flex gap-2">

@@ -166,7 +166,7 @@ describe('ProcurementBoard Display Logic', () => {
       status: 'sourcing',
       budget_max: null,
       currency: 'USD',
-      choice_factors: JSON.stringify({ 
+      choice_factors: JSON.stringify({
         min_price: { type: 'number', label: 'Min Price' },
         max_price: { type: 'number', label: 'Max Price' },
       }),
@@ -177,5 +177,47 @@ describe('ProcurementBoard Display Logic', () => {
 
     // Should display the price values
     expect(screen.getByDisplayValue('500')).toBeDefined();
+  });
+
+  test('Options card displays multiselect amenities', () => {
+    const row: Row = {
+      id: 890,
+      title: 'Private jet charter',
+      status: 'sourcing',
+      budget_max: null,
+      currency: 'USD',
+      choice_factors: JSON.stringify([
+        {
+          name: 'required_amenities',
+          label: 'Required Amenities',
+          type: 'multiselect',
+          options: ['WiFi', 'Catering', 'Entertainment System', 'Private Lavatory'],
+          required: false,
+        }
+      ]),
+      choice_answers: JSON.stringify({ required_amenities: ['WiFi', 'Catering'] }),
+    };
+
+    render(React.createElement(RequestTile, { row }));
+
+    // Should display all amenity options as checkboxes
+    expect(screen.getByText('WiFi')).toBeDefined();
+    expect(screen.getByText('Catering')).toBeDefined();
+    expect(screen.getByText('Entertainment System')).toBeDefined();
+    expect(screen.getByText('Private Lavatory')).toBeDefined();
+
+    // Check that WiFi and Catering checkboxes are checked
+    const checkboxes = screen.getAllByRole('checkbox') as HTMLInputElement[];
+    const wifiCheckbox = checkboxes.find((cb) => {
+      const label = cb.parentElement?.textContent;
+      return label?.includes('WiFi');
+    });
+    const cateringCheckbox = checkboxes.find((cb) => {
+      const label = cb.parentElement?.textContent;
+      return label?.includes('Catering');
+    });
+
+    expect(wifiCheckbox?.checked).toBe(true);
+    expect(cateringCheckbox?.checked).toBe(true);
   });
 });
