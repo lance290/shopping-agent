@@ -388,7 +388,7 @@ export const deleteProjectFromDb = async (id: number): Promise<boolean> => {
 export const saveChoiceAnswerToDb = async (
   rowId: number,
   factorName: string,
-  answer: string | number | boolean,
+  answer: string | number | boolean | string[],
   existingAnswers?: Record<string, any>
 ): Promise<boolean> => {
   try {

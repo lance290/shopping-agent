@@ -125,9 +125,9 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
     }
   };
 
-  const handleAnswerChange = async (factorName: string, value: string | number | boolean) => {
+  const handleAnswerChange = async (factorName: string, value: string | number | boolean | string[]) => {
     const newAnswers: Record<string, any> = { ...localAnswers };
-    const shouldClear = value === '' || (typeof value === 'number' && Number.isNaN(value));
+    const shouldClear = value === '' || (typeof value === 'number' && Number.isNaN(value)) || (Array.isArray(value) && value.length === 0);
     if (shouldClear) {
       delete newAnswers[factorName];
     } else {
@@ -152,6 +152,22 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
     setTimeout(() => {
       setSavingFields(prev => ({ ...prev, [factorName]: false }));
     }, 400);
+  };
+
+  const handleMultiSelectToggle = async (factorName: string, option: string) => {
+    const currentValue = localAnswers[factorName];
+    const currentArray = Array.isArray(currentValue) ? currentValue : [];
+
+    let newArray: string[];
+    if (currentArray.includes(option)) {
+      // Remove the option
+      newArray = currentArray.filter((item: string) => item !== option);
+    } else {
+      // Add the option
+      newArray = [...currentArray, option];
+    }
+
+    await handleAnswerChange(factorName, newArray);
   };
 
   const handleTextChange = (factorName: string, value: string | number) => {
@@ -245,6 +261,8 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
             const hasAnswer = factor.name === 'min_price'
               ? (localAnswers.min_price !== undefined && localAnswers.min_price !== '') ||
                 (localAnswers.max_price !== undefined && localAnswers.max_price !== '')
+              : factor.type === 'multiselect'
+              ? Array.isArray(localAnswers[factor.name]) && localAnswers[factor.name].length > 0
               : localAnswers[factor.name] !== undefined && localAnswers[factor.name] !== '';
             const label = factor.name === 'min_price'
               ? 'Price Range ($)'
@@ -283,6 +301,34 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
+                  </div>
+                ) : factor.type === 'multiselect' && factor.options ? (
+                  <div className="space-y-1.5">
+                    {factor.options.map((opt: string) => {
+                      const currentValue = localAnswers[factor.name];
+                      const selectedOptions = Array.isArray(currentValue) ? currentValue : [];
+                      const isSelected = selectedOptions.includes(opt);
+
+                      return (
+                        <label
+                          key={opt}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-xs cursor-pointer transition-all hover:border-agent-blurple",
+                            isSelected ? "border-agent-blurple bg-agent-blurple/5" : "border-warm-grey/60"
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleMultiSelectToggle(factor.name, opt)}
+                            className="w-3 h-3 text-agent-blurple border-warm-grey rounded focus:ring-agent-blurple"
+                          />
+                          <span className={cn("flex-1", isSelected && "font-medium text-agent-blurple")}>
+                            {opt}
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
                 ) : factor.type === 'boolean' ? (
                   <div className="flex gap-2">
