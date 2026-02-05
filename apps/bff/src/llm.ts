@@ -634,9 +634,9 @@ Example for "private jet charter" or any flight/travel service:
   {"name": "from_airport", "label": "Departure Airport", "type": "text", "required": true},
   {"name": "to_airport", "label": "Arrival Airport", "type": "text", "required": true},
   {"name": "departure_date", "label": "Departure Date", "type": "text", "required": true},
-  {"name": "passengers", "label": "Passengers", "type": "number", "required": true},
-  {"name": "time_earliest", "label": "Earliest Departure", "type": "text", "required": false},
-  {"name": "time_latest", "label": "Latest Departure", "type": "text", "required": false}
+  {"name": "wheels_up_time", "label": "Wheels Up Time", "type": "text", "required": true},
+  {"name": "trip_type", "label": "Trip Type", "type": "select", "options": ["one-way", "round-trip"], "required": true},
+  {"name": "passengers", "label": "Passengers", "type": "number", "required": true}
 ]
 
 IMPORTANT: If "Existing constraints" are provided, you MUST include a spec definition for each constraint key so the UI can display it.
