@@ -158,8 +158,59 @@ export default function ChoiceFactorPanel() {
     return factor?.type === 'number' && (name.includes('price') || name.includes('budget'));
   };
 
+  // Determine which factors to display (progressive disclosure)
+  const getVisibleFactors = () => {
+    if (factors.length === 0) return [];
+
+    // Separate required and optional factors
+    const requiredFactors = factors.filter((f) => f.required);
+    const optionalFactors = factors.filter((f) => !f.required);
+
+    // Check which required factors have answers
+    const answeredRequired: any[] = [];
+    const unansweredRequired: any[] = [];
+
+    requiredFactors.forEach((factor) => {
+      const hasAnswer = factor.name === 'min_price'
+        ? (localAnswers.min_price !== undefined && localAnswers.min_price !== '') ||
+          (localAnswers.max_price !== undefined && localAnswers.max_price !== '')
+        : factor.type === 'multiselect'
+        ? Array.isArray(localAnswers[factor.name]) && localAnswers[factor.name].length > 0
+        : localAnswers[factor.name] !== undefined && localAnswers[factor.name] !== '';
+
+      if (hasAnswer) {
+        answeredRequired.push(factor);
+      } else {
+        unansweredRequired.push(factor);
+      }
+    });
+
+    // Progressive disclosure: Show answered required + first unanswered required
+    // Once all required are answered, show all optional factors too
+    if (unansweredRequired.length > 0) {
+      // Show all answered required factors + only the FIRST unanswered required
+      return [...answeredRequired, unansweredRequired[0]];
+    } else {
+      // All required answered - show everything
+      return [...answeredRequired, ...optionalFactors];
+    }
+  };
+
+  const visibleFactors = getVisibleFactors();
+  const totalRequired = factors.filter((f) => f.required).length;
+  const answeredRequired = factors.filter((f) => {
+    if (!f.required) return false;
+    const hasAnswer = f.name === 'min_price'
+      ? (localAnswers.min_price !== undefined && localAnswers.min_price !== '') ||
+        (localAnswers.max_price !== undefined && localAnswers.max_price !== '')
+      : f.type === 'multiselect'
+      ? Array.isArray(localAnswers[f.name]) && localAnswers[f.name].length > 0
+      : localAnswers[f.name] !== undefined && localAnswers[f.name] !== '';
+    return hasAnswer;
+  }).length;
+
   return (
-    <div 
+    <div
       className={cn(
         "h-full bg-warm-light flex flex-col shrink-0 transition-all duration-300 ease-in-out overflow-hidden border-warm-grey/70 z-20",
         isSidebarOpen ? "w-80 border-r opacity-100" : "w-0 border-none opacity-0"
@@ -177,7 +228,7 @@ export default function ChoiceFactorPanel() {
               Requirements
             </h2>
             <p className="text-xs text-onyx-muted/80 mt-1">
-              {row ? 'Refine your requirements' : 'No request selected'}
+              {row ? (totalRequired > 0 ? `${answeredRequired}/${totalRequired} required` : 'Refine your requirements') : 'No request selected'}
             </p>
           </div>
           <div className="flex items-center gap-1">
@@ -249,7 +300,7 @@ export default function ChoiceFactorPanel() {
             </div>
           ) : (
             <div className="space-y-6">
-              {factors
+              {visibleFactors
                 .filter((factor) => factor.name !== 'max_price') // Handled by min_price price range component
                 .map(factor => {
                 const isSaving = savingFields[factor.name] || (factor.name === 'min_price' && savingFields['max_price']);
