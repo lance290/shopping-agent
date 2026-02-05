@@ -174,7 +174,7 @@ export function parseChoiceAnswers(row: Row): Record<string, any> {
 export interface ChoiceFactor {
   name: string;
   label: string;
-  type: 'number' | 'select' | 'text' | 'boolean';
+  type: 'number' | 'select' | 'multiselect' | 'text' | 'boolean';
   options?: string[];
   required: boolean;
 }
