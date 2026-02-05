@@ -24,6 +24,7 @@ from sourcing import (
 from sourcing.normalizers import normalize_results_for_provider
 from sourcing.service import SourcingService
 from sourcing.material_filter import extract_material_constraints, should_exclude_result
+from sourcing.choice_filter import should_exclude_by_choices, extract_choice_constraints
 from sourcing.messaging import determine_search_user_message
 
 router = APIRouter(tags=["rows"])
@@ -85,15 +86,16 @@ def _sanitize_query(base_query: str, user_provided: bool) -> str:
     return sanitized if sanitized else base_query.strip()
 
 
-def _extract_filters(row: Row, spec: Optional[RequestSpec]) -> tuple[Optional[float], Optional[float], bool, set]:
+def _extract_filters(row: Row, spec: Optional[RequestSpec]) -> tuple[Optional[float], Optional[float], bool, set, dict]:
     """
-    Extract price and material filters from row.choice_answers and spec.constraints.
-    Returns (min_price, max_price, exclude_synthetics, custom_exclude_keywords).
+    Extract price, material, and choice filters from row.choice_answers and spec.constraints.
+    Returns (min_price, max_price, exclude_synthetics, custom_exclude_keywords, choice_constraints).
     """
     min_price = None
     max_price = None
     exclude_synthetics = False
     custom_exclude_keywords: set = set()
+    choice_constraints: dict = {}
 
     # Check for material constraints in spec
     if spec and spec.constraints:
@@ -121,10 +123,13 @@ def _extract_filters(row: Row, spec: Optional[RequestSpec]) -> tuple[Optional[fl
             exclude_synth_from_answers, custom_keywords_from_answers = extract_material_constraints(answers_obj)
             exclude_synthetics = exclude_synthetics or exclude_synth_from_answers
             custom_exclude_keywords.update(custom_keywords_from_answers)
+
+            # Extract choice constraints (color, size, etc.)
+            choice_constraints = extract_choice_constraints(row.choice_answers)
         except Exception:
             pass
 
-    return min_price, max_price, exclude_synthetics, custom_exclude_keywords
+    return min_price, max_price, exclude_synthetics, custom_exclude_keywords, choice_constraints
 
 # Lazy init sourcing repository to ensure env vars are loaded
 _sourcing_repo = None
@@ -271,11 +276,11 @@ async def search_row_listings(
         )
 
     # Extract filters using helper function
-    min_price_filter, max_price_filter, exclude_synthetics, custom_exclude_keywords = _extract_filters(row, spec)
-    logger.info(f"[SEARCH] Filters for row {row_id}: price=[{min_price_filter}, {max_price_filter}], exclude_synthetics={exclude_synthetics}, custom_keywords={custom_exclude_keywords}")
+    min_price_filter, max_price_filter, exclude_synthetics, custom_exclude_keywords, choice_constraints = _extract_filters(row, spec)
+    logger.info(f"[SEARCH] Filters for row {row_id}: price=[{min_price_filter}, {max_price_filter}], exclude_synthetics={exclude_synthetics}, custom_keywords={custom_exclude_keywords}, choice_constraints={choice_constraints}")
 
-    # Apply price and material filtering
-    if min_price_filter is not None or max_price_filter is not None or exclude_synthetics or custom_exclude_keywords:
+    # Apply price, material, and choice filtering
+    if min_price_filter is not None or max_price_filter is not None or exclude_synthetics or custom_exclude_keywords or choice_constraints:
         filtered_results = []
         # Sources that don't provide price data - allow through without price filtering
         non_shopping_sources = {"google_cse"}
@@ -283,17 +288,25 @@ async def search_row_listings(
         service_sources = {"wattdata"}
         dropped_price = 0
         dropped_materials = 0
+        dropped_choices = 0
 
         for r in results:
             source = getattr(r, "source", None)
             source_key = str(source or "").lower()
+            title = getattr(r, "title", "")
 
             # Check material constraints first (applies to all sources)
             if exclude_synthetics or custom_exclude_keywords:
-                title = getattr(r, "title", "")
                 if should_exclude_result(title, exclude_synthetics, custom_exclude_keywords):
                     dropped_materials += 1
                     logger.debug(f"[SEARCH] Excluded due to materials: {title}")
+                    continue
+
+            # Check choice constraints (color, size, etc.) - applies to all sources
+            if choice_constraints:
+                if should_exclude_by_choices(title, choice_constraints):
+                    dropped_choices += 1
+                    logger.debug(f"[SEARCH] Excluded due to choice constraints: {title}")
                     continue
 
             # Apply price filtering (skip for non-shopping sources and service providers)
@@ -317,7 +330,8 @@ async def search_row_listings(
         logger.info(
             f"[SEARCH] Filtered {len(results)} -> {len(filtered_results)} results "
             f"(price_filter: min={min_price_filter}, max={max_price_filter}, dropped={dropped_price}; "
-            f"material_filter: exclude_synthetics={exclude_synthetics}, dropped={dropped_materials})"
+            f"material_filter: exclude_synthetics={exclude_synthetics}, dropped={dropped_materials}; "
+            f"choice_filter: constraints={choice_constraints}, dropped={dropped_choices})"
         )
         results = filtered_results
 
@@ -367,7 +381,7 @@ async def search_row_listings_stream(
     sanitized_query = _sanitize_query(base_query, user_provided_query)
 
     # Extract filters using helper function
-    min_price_filter, max_price_filter, exclude_synthetics, custom_exclude_keywords = _extract_filters(row, spec)
+    min_price_filter, max_price_filter, exclude_synthetics, custom_exclude_keywords, choice_constraints = _extract_filters(row, spec)
 
     sourcing_repo = get_sourcing_repo()
     sourcing_service = SourcingService(session, sourcing_repo)
@@ -394,10 +408,16 @@ async def search_row_listings_stream(
             # Convert and filter results
             filtered_batch = []
             for r in results:
+                title = getattr(r, "title", "")
+
                 # Check material constraints first (applies to all sources)
                 if exclude_synthetics or custom_exclude_keywords:
-                    title = getattr(r, "title", "")
                     if should_exclude_result(title, exclude_synthetics, custom_exclude_keywords):
+                        continue
+
+                # Check choice constraints (color, size, etc.) - applies to all sources
+                if choice_constraints:
+                    if should_exclude_by_choices(title, choice_constraints):
                         continue
 
                 source = getattr(r, "source", None)
