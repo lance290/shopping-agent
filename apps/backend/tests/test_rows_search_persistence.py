@@ -40,7 +40,7 @@ async def test_search_and_persist_creates_new_bids(session, test_user):
     service = SourcingService(session, mock_repo)
 
     # Execute
-    bids, statuses = await service.search_and_persist(row.id, "query")
+    bids, statuses, user_message = await service.search_and_persist(row.id, "query")
 
     # Verify
     assert len(bids) == 1
@@ -107,7 +107,7 @@ async def test_search_and_persist_updates_existing_bids(session, test_user):
     service = SourcingService(session, mock_repo)
 
     # Execute
-    bids, statuses = await service.search_and_persist(row.id, "query")
+    bids, statuses, user_message = await service.search_and_persist(row.id, "query")
 
     # Verify
     assert len(bids) == 1
@@ -161,7 +161,7 @@ async def test_search_and_persist_deduplicates_by_canonical(session, test_user):
     service = SourcingService(session, mock_repo)
 
     # Execute
-    bids, _ = await service.search_and_persist(row.id, "query")
+    bids, statuses, user_message = await service.search_and_persist(row.id, "query")
 
     # Verify
     # Should result in 1 bid because they share canonical_url

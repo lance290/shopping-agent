@@ -23,7 +23,7 @@ describe('RowStrip Error Display', () => {
   const mockRow: Row = {
     id: 1,
     title: 'Test Product',
-    status: 'sourcing',
+    status: 'complete',
     budget_max: null,
     currency: 'USD',
   };
@@ -33,6 +33,7 @@ describe('RowStrip Error Display', () => {
     useShoppingStore.getState().setRows([mockRow]);
     // Ensure no previous state leaks
     useShoppingStore.getState().clearRowResults(1);
+    useShoppingStore.getState().setMoreResultsIncoming(1, false);
   });
 
   afterEach(() => {
@@ -40,21 +41,20 @@ describe('RowStrip Error Display', () => {
   });
 
   test('displays error message from store', () => {
-    const store = useShoppingStore.getState();
     const errorMessage = "Rate limit exceeded. Please try again later.";
     
     // Set up the store with an error
-    store.setRowResults(1, [], undefined, false, errorMessage);
+    useShoppingStore.setState({ rowSearchErrors: { 1: errorMessage } });
 
     render(React.createElement(RowStrip, {
       row: mockRow,
       offers: [],
-      isActive: true,
+      isActive: false,
       onSelect: () => {},
     }));
 
     // Verify error is displayed
-    expect(screen.getByText(errorMessage)).toBeDefined();
+    expect(screen.getByText(/Rate limit exceeded/i)).toBeDefined();
   });
 
   test('displays "No offers found" when no error and no results', () => {
@@ -66,7 +66,7 @@ describe('RowStrip Error Display', () => {
     render(React.createElement(RowStrip, {
       row: mockRow,
       offers: [],
-      isActive: true,
+      isActive: false,
       onSelect: () => {},
     }));
 
@@ -85,7 +85,7 @@ describe('RowStrip Error Display', () => {
     render(React.createElement(RowStrip, {
       row: mockRow,
       offers: [],
-      isActive: true,
+      isActive: false,
       onSelect: () => {},
     }));
 
