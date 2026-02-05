@@ -86,13 +86,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
   const refresh = async (mode: 'all' | 'rainforest') => {
     console.log('[RowStrip] refresh() called, mode:', mode, 'canRefresh:', canRefresh(), 'cooldownUntil:', cooldownUntil, 'now:', Date.now());
-    
-    // Don't run product search for service rows - they use vendor tiles instead
-    if (row.is_service) {
-      console.log('[RowStrip] refresh blocked - row.is_service=true, skipping product search');
-      return;
-    }
-    
+
     if (!canRefresh()) {
       console.log('[RowStrip] refresh blocked by cooldown');
       return;

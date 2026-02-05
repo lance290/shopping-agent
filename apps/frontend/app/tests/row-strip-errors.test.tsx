@@ -6,17 +6,17 @@ import { useShoppingStore, Row } from '../store';
 
 // Mock dependencies
 vi.mock('../utils/api', () => ({
-  fetchSingleRowFromDb: vi.fn(),
-  runSearchApiWithStatus: vi.fn().mockResolvedValue({
+  fetchSingleRowFromDb: vi.fn().mockResolvedValue(null),
+  runSearchApiWithStatus: vi.fn(() => Promise.resolve({
     results: [],
     providerStatuses: [],
     userMessage: null,
-  }),
-  selectOfferForRow: vi.fn(),
-  toggleLikeApi: vi.fn(),
-  fetchLikesApi: vi.fn(async () => []),
-  createCommentApi: vi.fn(),
-  fetchCommentsApi: vi.fn(async () => []),
+  })),
+  selectOfferForRow: vi.fn().mockResolvedValue(true),
+  toggleLikeApi: vi.fn().mockResolvedValue(true),
+  fetchLikesApi: vi.fn(() => Promise.resolve([])),
+  createCommentApi: vi.fn().mockResolvedValue(true),
+  fetchCommentsApi: vi.fn(() => Promise.resolve([])),
 }));
 
 describe('RowStrip Error Display', () => {
@@ -33,6 +33,8 @@ describe('RowStrip Error Display', () => {
     useShoppingStore.getState().setRows([mockRow]);
     // Ensure no previous state leaks
     useShoppingStore.getState().clearRowResults(1);
+    // Prevent auto-refresh by marking as already loaded
+    useShoppingStore.getState().setIsSearching(false);
   });
 
   afterEach(() => {
@@ -42,12 +44,24 @@ describe('RowStrip Error Display', () => {
   test('displays error message from store', () => {
     const store = useShoppingStore.getState();
     const errorMessage = "Rate limit exceeded. Please try again later.";
-    
-    // Set up the store with an error
+
+    // Use a row with status other than 'sourcing' to show error message
+    const rowWithOpenStatus = { ...mockRow, status: 'open' as const };
+
+    // First render with isActive=false to prevent auto-refresh
+    const { rerender } = render(React.createElement(RowStrip, {
+      row: rowWithOpenStatus,
+      offers: [],
+      isActive: false,
+      onSelect: () => {},
+    }));
+
+    // Set up the store with an error after initial render
     store.setRowResults(1, [], undefined, false, errorMessage);
 
-    render(React.createElement(RowStrip, {
-      row: mockRow,
+    // Now make it active to show the error
+    rerender(React.createElement(RowStrip, {
+      row: rowWithOpenStatus,
       offers: [],
       isActive: true,
       onSelect: () => {},
@@ -59,12 +73,24 @@ describe('RowStrip Error Display', () => {
 
   test('displays "No offers found" when no error and no results', () => {
     const store = useShoppingStore.getState();
-    
+
+    // Use a row with status 'open' instead of 'sourcing' to see "No offers found"
+    const rowWithOpenStatus = { ...mockRow, status: 'open' as const };
+
+    // First render with isActive=false to prevent auto-refresh
+    const { rerender } = render(React.createElement(RowStrip, {
+      row: rowWithOpenStatus,
+      offers: [],
+      isActive: false,
+      onSelect: () => {},
+    }));
+
     // Set up the store with NO error and NO results
     store.setRowResults(1, [], undefined, false, undefined);
 
-    render(React.createElement(RowStrip, {
-      row: mockRow,
+    // Now make it active
+    rerender(React.createElement(RowStrip, {
+      row: rowWithOpenStatus,
       offers: [],
       isActive: true,
       onSelect: () => {},
