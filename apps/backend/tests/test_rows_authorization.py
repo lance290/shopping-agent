@@ -4,7 +4,7 @@ import os
 import json
 from httpx import AsyncClient
 from sqlmodel import select
-from models import Row, AuthSession, User
+from models import Row, AuthSession, User, Bid, Seller
 
 # Add parent directory to path to allow importing models and main
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -413,8 +413,8 @@ async def test_row_creation_populates_choice_factors_by_default(client: AsyncCli
 
 
 @pytest.mark.asyncio
-async def test_regenerate_choice_factors_repopulates_on_patch(client: AsyncClient, session):
-    user = User(email="choicefactors-regenerate@example.com")
+async def test_rows_filter_preserves_service_provider_bids(client: AsyncClient, session):
+    user = User(email="service-filter@example.com")
     session.add(user)
     await session.commit()
     await session.refresh(user)
@@ -428,42 +428,165 @@ async def test_regenerate_choice_factors_repopulates_on_patch(client: AsyncClien
     session.add(auth_session)
     await session.commit()
 
-    resp = await client.post(
-        "/rows",
-        json={
-            "title": "Nintendo Switch 2",
-            "status": "sourcing",
-            "currency": "USD",
-            "request_spec": {
-                "item_name": "Nintendo Switch 2",
-                "constraints": "{}",
-            },
-        },
+    row = Row(
+        title="Private jet charter",
+        status="sourcing",
+        user_id=user.id,
+        choice_answers=json.dumps({"min_price": 500}),
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    seller = Seller(name="JetRight", domain="jetright.com")
+    session.add(seller)
+    await session.commit()
+    await session.refresh(seller)
+
+    service_bid = Bid(
+        row_id=row.id,
+        seller_id=seller.id,
+        price=0.0,
+        total_cost=0.0,
+        currency="USD",
+        item_title="JetRight (Contact: Alexis)",
+        item_url="mailto:team@jetright.com",
+        source="wattdata",
+        is_selected=False,
+        is_service_provider=True,
+        contact_name="Alexis",
+        contact_email="team@jetright.com",
+        contact_phone="+16505550199",
+    )
+    product_bid = Bid(
+        row_id=row.id,
+        price=100.0,
+        total_cost=100.0,
+        currency="USD",
+        item_title="Budget flight poster",
+        item_url="https://example.com/poster",
+        source="rainforest",
+        is_selected=False,
+    )
+    session.add(service_bid)
+    session.add(product_bid)
+    await session.commit()
+
+    resp = await client.get(
+        f"/rows/{row.id}",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
-    row_id = resp.json()["id"]
+    payload = resp.json()
+    bids = payload.get("bids") or []
+    assert len(bids) == 1
+    assert bids[0]["is_service_provider"] is True
+    assert bids[0]["contact_email"] == "team@jetright.com"
+    assert bids[0]["contact_name"] == "Alexis"
 
-    clear = await client.patch(
-        f"/rows/{row_id}",
-        json={"choice_factors": "[]"},
+
+@pytest.mark.asyncio
+async def test_reset_bids_clears_existing_bids(client: AsyncClient, session):
+    user = User(email="reset-bids@example.com")
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    token = generate_session_token()
+    auth_session = AuthSession(
+        email=user.email,
+        user_id=user.id,
+        session_token_hash=hash_token(token),
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    row = Row(title="Reset test", status="sourcing", user_id=user.id)
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    bid = Bid(
+        row_id=row.id,
+        price=50.0,
+        total_cost=50.0,
+        currency="USD",
+        item_title="Test item",
+        item_url="https://example.com/test",
+        source="rainforest",
+        is_selected=False,
+    )
+    session.add(bid)
+    await session.commit()
+
+    patch = await client.patch(
+        f"/rows/{row.id}",
+        json={"reset_bids": True},
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert clear.status_code == 200
-    assert clear.json().get("choice_factors") == "[]"
+    assert patch.status_code == 200
 
-    regen = await client.patch(
-        f"/rows/{row_id}",
-        json={"regenerate_choice_factors": True},
+    refreshed = await client.get(
+        f"/rows/{row.id}",
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert regen.status_code == 200
-    regenerated = regen.json().get("choice_factors")
-    assert regenerated is not None
+    assert refreshed.status_code == 200
+    assert refreshed.json().get("bids") == []
 
-    factors = json.loads(regenerated)
-    names = {f.get("name") for f in factors}
-    assert "condition" in names
-    assert "min_price" in names
-    assert "max_price" in names
-    assert "edition" in names
+
+@pytest.mark.asyncio
+async def test_persist_vendors_creates_service_bids(client: AsyncClient, session):
+    user = User(email="vendors@example.com")
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    token = generate_session_token()
+    auth_session = AuthSession(
+        email=user.email,
+        user_id=user.id,
+        session_token_hash=hash_token(token),
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    row = Row(title="Private jet charter", status="sourcing", user_id=user.id)
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    vendor_payload = {
+        "category": "private_aviation",
+        "vendors": [
+            {
+                "title": "JetRight",
+                "vendor_company": "JetRight",
+                "vendor_name": "Alexis",
+                "vendor_email": "team@jetright.com",
+                "contact_phone": "+16505550199",
+                "source": "wattdata",
+            }
+        ],
+    }
+
+    persist = await client.post(f"/outreach/rows/{row.id}/vendors", json=vendor_payload)
+    assert persist.status_code == 200
+
+    resp = await client.get(
+        f"/rows/{row.id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    bids = resp.json().get("bids") or []
+    assert len(bids) == 1
+    assert bids[0]["is_service_provider"] is True
+    assert bids[0]["contact_email"] == "team@jetright.com"
+    assert bids[0]["contact_phone"] == "+16505550199"
+
+    seller = (await session.exec(select(Seller).where(Seller.name == "JetRight"))).first()
+    assert seller is not None
+    assert seller.contact_name == "Alexis"
+    assert seller.email == "team@jetright.com"
+    assert seller.phone == "+16505550199"
+
+

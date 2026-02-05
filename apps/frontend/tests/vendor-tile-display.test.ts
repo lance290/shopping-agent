@@ -6,7 +6,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { Offer } from '../app/store';
+import { Bid, Offer, mapBidToOffer } from '../app/store';
 
 describe('Vendor Tile Display Logic', () => {
   const createVendorOffer = (): Offer => ({
@@ -221,6 +221,59 @@ describe('VendorContactModal Logic', () => {
     const mailtoLink = `mailto:${vendorEmail}`;
     
     expect(mailtoLink).toBe('mailto:charter@jetrightnashville.com');
+  });
+});
+
+describe('Bid Mapping for Vendor Offers', () => {
+  test('mapBidToOffer prefers explicit contact fields', () => {
+    const bid: Bid = {
+      id: 1,
+      price: 0,
+      currency: 'USD',
+      item_title: 'JetRight (Contact: Legacy Name)',
+      item_url: 'mailto:legacy@jetright.com',
+      image_url: null,
+      source: 'wattdata',
+      is_selected: false,
+      is_service_provider: true,
+      contact_name: 'Alexis',
+      contact_email: 'team@jetright.com',
+      contact_phone: '+16505550199',
+      seller: {
+        name: 'JetRight',
+        domain: 'jetright.com',
+      },
+    };
+
+    const offer = mapBidToOffer(bid);
+    expect(offer.is_service_provider).toBe(true);
+    expect(offer.vendor_name).toBe('Alexis');
+    expect(offer.vendor_email).toBe('team@jetright.com');
+    expect(offer.vendor_company).toBe('JetRight');
+  });
+
+  test('mapBidToOffer falls back to mailto when contact email missing', () => {
+    const bid: Bid = {
+      id: 2,
+      price: 0,
+      currency: 'USD',
+      item_title: 'JetRight (Contact: Legacy Name)',
+      item_url: 'mailto:legacy@jetright.com',
+      image_url: null,
+      source: 'wattdata',
+      is_selected: false,
+      is_service_provider: true,
+      contact_name: 'Alexis',
+      contact_email: null,
+      contact_phone: null,
+      seller: {
+        name: 'JetRight',
+        domain: 'jetright.com',
+      },
+    };
+
+    const offer = mapBidToOffer(bid);
+    expect(offer.vendor_email).toBe('legacy@jetright.com');
   });
 });
 

@@ -223,6 +223,10 @@ async def startup_event():
     print(f"Environment: {os.getenv('ENVIRONMENT', 'development')}")
     print(f"E2E_TEST_MODE: {os.getenv('E2E_TEST_MODE')}")
     
+    is_production = os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("ENVIRONMENT") == "production"
+    if not is_production:
+        await init_db()
+
     # Always run lightweight migrations for new columns
     from database import engine
     async with engine.begin() as conn:
@@ -232,9 +236,8 @@ async def startup_event():
         """))
         print("Migration check: chat_history column ensured")
     
-    if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("ENVIRONMENT") == "production":
+    if is_production:
         return
-    await init_db()
 
 
 @app.on_event("shutdown")

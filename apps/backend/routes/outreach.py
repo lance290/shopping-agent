@@ -374,7 +374,7 @@ async def persist_vendors_for_row(
     return {
         "row_id": row_id,
         "persisted_count": len(created_bids),
-        "bids": [{"id": b.id, "title": b.title} for b in created_bids],
+        "bids": [{"id": b.id, "title": b.item_title} for b in created_bids],
     }
 
 

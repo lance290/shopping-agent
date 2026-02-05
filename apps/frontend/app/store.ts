@@ -72,6 +72,10 @@ export interface Bid {
   image_url: string | null;
   source: string;
   is_selected: boolean;
+  is_service_provider?: boolean;
+  contact_name?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
   seller?: {
     name: string;
     domain: string | null;
@@ -111,6 +115,12 @@ interface PendingRowDelete {
 
 // Helper to convert DB Bid to Offer
 export function mapBidToOffer(bid: Bid): Offer {
+  const contactEmail = bid.contact_email ?? undefined;
+  const itemEmail = bid.item_url?.startsWith('mailto:')
+    ? bid.item_url.replace('mailto:', '')
+    : undefined;
+  const parsedName = bid.item_title.match(/Contact: (.*)\)/)?.[1];
+
   return {
     // Extract contact name if stored in title, and clean up the displayed title
     title: bid.item_title.replace(/ \(Contact: .*\)/, ''),
@@ -127,10 +137,10 @@ export function mapBidToOffer(bid: Bid): Offer {
     click_url: `/api/clickout?url=${encodeURIComponent(bid.item_url || '')}`,
     bid_id: bid.id,
     is_selected: bid.is_selected,
-    is_service_provider: Boolean((bid as any).is_service_provider),
+    is_service_provider: bid.is_service_provider === true,
     vendor_company: bid.seller?.name, // Use seller name as company for service providers
-    vendor_name: bid.item_title.match(/Contact: (.*)\)/)?.[1], // Extract contact name if stored in title
-    vendor_email: bid.item_url?.replace('mailto:', '') || undefined, // Extract email from mailto URL
+    vendor_name: bid.contact_name || parsedName, // Prefer explicit contact name
+    vendor_email: contactEmail || itemEmail, // Prefer explicit email
   };
 }
 
