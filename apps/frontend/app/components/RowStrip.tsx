@@ -627,10 +627,12 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center w-64 rounded-2xl border border-dashed border-warm-grey bg-warm-light/60 text-onyx-muted p-4">
-                  {row.status === 'sourcing' || hasMoreIncoming ? (
+                  {row.status === 'sourcing' || hasMoreIncoming || (row.is_service && isSearching) ? (
                     <>
                       <RefreshCw className="w-6 h-6 animate-spin mb-3 opacity-50" />
-                      <span className="text-sm font-medium">Sourcing offers...</span>
+                      <span className="text-sm font-medium">
+                        {row.is_service ? 'Finding vendors...' : 'Sourcing offers...'}
+                      </span>
                     </>
                   ) : activeSearchError ? (
                     <>
@@ -640,7 +642,9 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
                   ) : (
                     <>
                       <FlaskConical className="w-6 h-6 mb-3 opacity-50" />
-                      <span className="text-sm font-medium">No offers found</span>
+                      <span className="text-sm font-medium">
+                        {row.is_service ? 'No vendors found' : 'No offers found'}
+                      </span>
                     </>
                   )}
                 </div>

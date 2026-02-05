@@ -194,6 +194,13 @@ export default function Chat() {
                 if (searchRowId) {
                   store.setMoreResultsIncoming(searchRowId, true);
                 }
+              } else if (data?.type === 'fetch_vendors') {
+                // Service rows: show loading state while fetching vendors
+                store.setIsSearching(true);
+                const vendorRowId = data?.row_id;
+                if (vendorRowId) {
+                  store.setMoreResultsIncoming(vendorRowId, true);
+                }
               }
             } else if (eventName === 'row_created') {
               const row = data?.row;
@@ -293,31 +300,36 @@ export default function Chat() {
               const rowId = data?.row_id;
               const vendors = Array.isArray(data?.vendors) ? data.vendors : [];
               const category = data?.category;
-              
-              if (rowId && vendors.length > 0) {
-                // Convert vendors to offer format for display
-                const vendorOffers = vendors.map((v: any, idx: number) => ({
-                  id: `vendor-${idx}`,
-                  title: v.title || v.vendor_company || v.name || 'Charter Provider',
-                  price: null,
-                  image_url: v.image_url,
-                  item_url: v.url,
-                  url: v.url,
-                  source: v.source || 'vendor',
-                  seller_name: v.vendor_company || v.title,
-                  seller_domain: null,
-                  is_vendor: true,
-                  is_service_provider: true,
-                  vendor_id: idx,
-                  vendor_category: category,
-                  vendor_name: v.vendor_name,
-                  vendor_company: v.vendor_company || v.title,
-                  vendor_email: v.vendor_email,
-                  contact_name: v.vendor_name,
-                  contact_email: v.vendor_email,
-                  contact_phone: v.contact_phone,
-                }));
-                store.setRowResults(rowId, vendorOffers, undefined, false);
+
+              if (rowId) {
+                // Clear "more results incoming" flag for this row
+                store.setMoreResultsIncoming(rowId, false);
+
+                if (vendors.length > 0) {
+                  // Convert vendors to offer format for display
+                  const vendorOffers = vendors.map((v: any, idx: number) => ({
+                    id: `vendor-${idx}`,
+                    title: v.title || v.vendor_company || v.name || 'Charter Provider',
+                    price: null,
+                    image_url: v.image_url,
+                    item_url: v.url,
+                    url: v.url,
+                    source: v.source || 'vendor',
+                    seller_name: v.vendor_company || v.title,
+                    seller_domain: null,
+                    is_vendor: true,
+                    is_service_provider: true,
+                    vendor_id: idx,
+                    vendor_category: category,
+                    vendor_name: v.vendor_name,
+                    vendor_company: v.vendor_company || v.title,
+                    vendor_email: v.vendor_email,
+                    contact_name: v.vendor_name,
+                    contact_email: v.vendor_email,
+                    contact_phone: v.contact_phone,
+                  }));
+                  store.setRowResults(rowId, vendorOffers, undefined, false);
+                }
               }
               // Don't set isSearching=false here - let 'done' event handle it
               // Otherwise RowStrip's auto-refresh triggers before vendor offers propagate
