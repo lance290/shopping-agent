@@ -21,7 +21,7 @@
       "dependencies": [],
       "estimated_minutes": 40,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/dev/proof/task-001/"
     },
     {
@@ -44,7 +44,7 @@
       ],
       "estimated_minutes": 45,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/dev/proof/task-002/"
     },
     {
@@ -65,7 +65,7 @@
       ],
       "estimated_minutes": 30,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/dev/proof/task-003/"
     },
     {
@@ -88,7 +88,7 @@
       ],
       "estimated_minutes": 40,
       "error_budget": 3,
-      "status": "pending",
+      "status": "completed",
       "proof_path": ".cfoi/branches/dev/proof/task-004/"
     }
   ]

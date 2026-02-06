@@ -1,12 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const ALLOWED_PROXY_PATHS = new Set([
+  'auth/start',
+  'auth/verify',
+  'auth/me',
+  'auth/logout',
+]);
+
+function isAllowedPath(path: string): boolean {
+  if (ALLOWED_PROXY_PATHS.has(path)) return true;
+  if (path.includes('..') || path.includes('//')) return false;
+  return false;
+}
+
+function getBackendUrl(): string {
+  return process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   const path = (await params).path.join('/');
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
-  const url = `${backendUrl}/${path}`;
+
+  if (!isAllowedPath(path)) {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+  }
+
+  const url = `${getBackendUrl()}/${path}`;
 
   try {
     const body = await request.json();
@@ -16,8 +37,11 @@ export async function POST(
 
     // Forward Authorization header if present
     const authHeader = request.headers.get('Authorization');
+    const cookieToken = request.cookies.get('sa_session')?.value;
     if (authHeader) {
       headers['Authorization'] = authHeader;
+    } else if (cookieToken) {
+      headers['Authorization'] = `Bearer ${cookieToken}`;
     }
 
     const res = await fetch(url, {
@@ -32,7 +56,8 @@ export async function POST(
     if (path === 'auth/verify' && res.ok && data.session_token) {
         const response = NextResponse.json(data, { status: res.status });
         response.cookies.set('sa_session', data.session_token, {
-            httpOnly: false, // Accessible to JS for now as we store it in localStorage too in api.ts
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
             path: '/',
             maxAge: 60 * 60 * 24 * 30, // 30 days
             sameSite: 'lax',
@@ -62,8 +87,12 @@ export async function GET(
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   const path = (await params).path.join('/');
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
-  const url = `${backendUrl}/${path}`;
+
+  if (!isAllowedPath(path)) {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+  }
+
+  const url = `${getBackendUrl()}/${path}`;
 
   try {
     const headers: Record<string, string> = {};

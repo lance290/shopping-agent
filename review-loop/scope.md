@@ -1,34 +1,53 @@
-# Review Scope - Cherry-picked Upstream Commits
+# Review Scope - enhancement-bug-report-triage
 
 ## Files to Review
 
 ### Backend (modified)
-- `apps/backend/routes/rows_search.py` (modified)
-- `apps/backend/sourcing/choice_filter.py` (added)
-- `apps/backend/tests/test_choice_filter.py` (added)
-- `apps/backend/tests/test_rows_search.py` (modified)
+- `apps/backend/models.py` (modified)
+- `apps/backend/routes/bugs.py` (modified)
+- `apps/backend/services/email.py` (modified)
 
-### BFF (modified)
-- `apps/bff/src/llm.ts` (modified)
+### Backend (added)
+- `apps/backend/scripts/migrate_triage_columns.py` (added)
+- `apps/backend/scripts/verify_triage_models.py` (added)
+- `apps/backend/scripts/manual_verify_triage.py` (added)
+- `apps/backend/tests/test_bug_triage.py` (added)
 
-### Frontend (modified)
-- `apps/frontend/app/components/Chat.tsx` (modified)
-- `apps/frontend/app/components/ChoiceFactorPanel.tsx` (modified)
-- `apps/frontend/app/components/RequestTile.tsx` (modified)
-- `apps/frontend/app/components/RowStrip.tsx` (modified)
-- `apps/frontend/app/store.ts` (modified)
-- `apps/frontend/app/tests/board-display.test.ts` (modified)
-- `apps/frontend/app/tests/row-strip-errors.test.tsx` (modified)
-- `apps/frontend/app/utils/api.ts` (modified)
+### Effort Docs (added)
+- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/ASSUMPTIONS.md`
+- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/DECISIONS.md`
+- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/ERRORS.md`
+- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/NOTES.md`
+- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/PROGRESS.md`
+- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/effort.json`
+- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/metrics.json`
+- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/plan.md`
+- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/product-north-star.md`
+- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/tasks.json`
+- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/tasks.md`
+- `.cfoi/branches/dev/proof/task-001/build-log.md`
+- `.cfoi/branches/dev/proof/task-002/alignment.md`
+- `.cfoi/branches/dev/proof/task-002/build-log.md`
+- `.cfoi/branches/dev/proof/task-002/tests.md`
+- `.cfoi/branches/dev/proof/task-003/alignment.md`
+- `.cfoi/branches/dev/proof/task-003/build-log.md`
+- `.cfoi/branches/dev/proof/task-004/alignment.md`
+- `.cfoi/branches/dev/proof/task-004/build-log.md`
 
-## Commits in Scope
-1. `4bd89c4` - wheels up time + trip type fields for private jet charter
-2. `9a350f9` - prevent product search when modifying service row parameters
-3. `15ee4b9` - multi-select support for choice factors
-4. `075f5e5` - clear chat stream when clicking "New Request"
-5. `1698a15` - choice factor filtering for search results
-6. `b539fb0` - progressive disclosure for choice factor questions
-7. `5315ab6` - improved loading state for service rows
-8. `6572366` - enable vendor search for service rows
+## Out of Scope (unchanged)
+- `apps/backend/routes/rows_search.py`
+- `apps/backend/sourcing/choice_filter.py`
+- `apps/backend/tests/test_choice_filter.py`
+- `apps/backend/tests/test_rows_search.py`
+- `apps/backend/tests/test_rows_search_persistence.py`
+- `apps/bff/src/llm.ts`
+- `apps/frontend/app/components/Chat.tsx`
+- `apps/frontend/app/components/ChoiceFactorPanel.tsx`
+- `apps/frontend/app/components/RequestTile.tsx`
+- `apps/frontend/app/components/RowStrip.tsx`
+- `apps/frontend/app/store.ts`
+- `apps/frontend/app/tests/board-display.test.ts`
+- `apps/frontend/app/tests/row-strip-errors.test.tsx`
+- `apps/frontend/app/utils/api.ts`
 
-## Review Started: 2026-02-05T08:22:00-08:00
+## Review Started: 2026-02-05T11:05:00-08:00

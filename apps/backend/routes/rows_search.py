@@ -13,6 +13,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import Row, RequestSpec, Bid, Seller
+from dependencies import get_current_session
 from sourcing import (
     SourcingRepository,
     SearchResult,
@@ -189,7 +190,6 @@ async def search_row_listings(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
-    from routes.auth import get_current_session
     from routes.rate_limit import check_rate_limit
 
     auth_session = await get_current_session(authorization, session)
@@ -355,7 +355,6 @@ async def search_row_listings_stream(
     Stream search results as each provider completes.
     Returns SSE events with partial results and a 'more_incoming' flag.
     """
-    from routes.auth import get_current_session
     from routes.rate_limit import check_rate_limit
 
     auth_session = await get_current_session(authorization, session)

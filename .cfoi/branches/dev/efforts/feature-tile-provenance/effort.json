@@ -1,0 +1,68 @@
+{
+  "type": "feature",
+  "name": "tile-provenance",
+  "description": "Populate provenance data during search and complete the tile detail panel UX",
+  "created": "2026-02-06T05:59:00Z",
+  "status": "in-progress",
+  "priority": 13,
+  "parent": null,
+  "definition_of_done": {
+    "version": 1,
+    "status": "draft",
+    "thresholds": [
+      {
+        "description": "Detail panel loads with provenance data for bids created after this change",
+        "metric": "panel_has_provenance",
+        "target": true,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "Detail panel load time ≤300ms p95 from cached bid data",
+        "metric": "panel_load_time_ms_p95",
+        "target": 300,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "All backend and frontend tests pass with zero regressions",
+        "metric": "tests_pass",
+        "target": true,
+        "evidence_required": "measured",
+        "type": "threshold"
+      }
+    ],
+    "signals": [
+      {
+        "description": "≥80% of panels show at least one matched feature",
+        "metric": "panels_with_features_pct",
+        "target": 0.80,
+        "weight": 0.4,
+        "evidence_required": "sampled",
+        "type": "signal"
+      },
+      {
+        "description": "Panel is fully keyboard navigable (Tab, Escape)",
+        "metric": "keyboard_navigable",
+        "target": true,
+        "weight": 0.3,
+        "evidence_required": "self-reported",
+        "type": "signal"
+      },
+      {
+        "description": "Screen reader announces panel content correctly",
+        "metric": "screen_reader_compatible",
+        "target": true,
+        "weight": 0.3,
+        "evidence_required": "self-reported",
+        "type": "signal"
+      }
+    ],
+    "approval": {
+      "by": "Lance",
+      "timestamp": "2026-02-06T05:59:00Z",
+      "change_reason": "initial definition",
+      "change_type": "clarify"
+    }
+  }
+}

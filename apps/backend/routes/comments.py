@@ -15,6 +15,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import Comment, Row
+from dependencies import get_current_session
 
 router = APIRouter(tags=["comments"])
 
@@ -44,7 +45,6 @@ async def create_comment(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
-    from routes.auth import get_current_session
     
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
@@ -81,8 +81,6 @@ async def list_comments(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
-    from routes.auth import get_current_session
-
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -105,8 +103,6 @@ async def delete_comment(
     session: AsyncSession = Depends(get_session),
 ):
     """Delete a comment. Users can only delete their own comments."""
-    from routes.auth import get_current_session
-
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
         raise HTTPException(status_code=401, detail="Not authenticated")

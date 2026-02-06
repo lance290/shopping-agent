@@ -7,6 +7,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import Project, ProjectCreate, Row
+from dependencies import get_current_session
 
 router = APIRouter(tags=["projects"])
 
@@ -17,7 +18,6 @@ async def create_project(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
-    from routes.auth import get_current_session
     
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
@@ -38,7 +38,6 @@ async def read_projects(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
-    from routes.auth import get_current_session
     
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
@@ -58,7 +57,6 @@ async def delete_project(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
-    from routes.auth import get_current_session
     
     auth_session = await get_current_session(authorization, session)
     if not auth_session:

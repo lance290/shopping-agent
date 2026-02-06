@@ -8,6 +8,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import ClickoutEvent
+from dependencies import get_current_session
 from sourcing import extract_merchant_domain
 from affiliate import link_resolver, ClickContext
 from audit import audit_log
@@ -35,8 +36,6 @@ async def clickout_redirect(
         idx: The offer's position in search results
         source: The sourcing provider (e.g., serpapi_google_shopping)
     """
-    from routes.auth import get_current_session
-    
     if not url or not url.startswith(('http://', 'https://')):
         raise HTTPException(status_code=400, detail="Invalid URL")
     

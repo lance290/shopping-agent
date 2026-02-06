@@ -195,7 +195,7 @@ If external dependencies (WattData, Stripe, DocuSign) have long setup times:
 
 | PRD | Status | Started | Completed | Blockers |
 |-----|--------|---------|-----------|----------|
-| prd-tile-provenance.md | 🔲 Not Started | - | - | - |
+| prd-tile-provenance.md | ✅ Complete | 2026-02-06 | 2026-02-06 | - |
 | prd-likes-comments.md | 🔲 Not Started | - | - | - |
 | prd-share-links.md | 🔲 Not Started | - | - | - |
 | prd-merchant-registry.md | 🔲 Not Started | - | - | - |

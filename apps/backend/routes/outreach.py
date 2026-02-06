@@ -126,7 +126,7 @@ async def trigger_outreach(
     if row.choice_factors:
         try:
             choice_factors = json.loads(row.choice_factors)
-        except:
+        except (json.JSONDecodeError, TypeError):
             pass
     
     for event_info in created_events:

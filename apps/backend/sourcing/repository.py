@@ -653,7 +653,7 @@ class ScaleSerpProvider(SourcingProvider):
                             if match:
                                 try:
                                     price = float(match.group(1).replace(",", ""))
-                                except:
+                                except (ValueError, AttributeError):
                                     pass
                     
                     # Try multiple URL fields

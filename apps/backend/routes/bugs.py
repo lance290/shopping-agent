@@ -14,6 +14,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import BugReport, User
+from dependencies import get_current_session, require_admin
 from github_client import github_client
 from diagnostics_utils import generate_diagnostics_summary
 from services.email import send_triage_notification_email
@@ -130,7 +131,7 @@ async def create_github_issue_task(bug_id: int):
                     paths = json.loads(bug.attachments)
                     for path in paths:
                         body += f"- {path}\n"
-                except:
+                except (json.JSONDecodeError, TypeError):
                     pass
             
             diagnostics_summary = ""
@@ -161,7 +162,7 @@ async def create_github_issue_task(bug_id: int):
                 try:
                     diag_data = json.loads(bug.diagnostics)
                     page_url = diag_data.get("url")
-                except:
+                except (json.JSONDecodeError, TypeError, KeyError):
                     pass
 
             # Send email for feature requests OR low confidence reports
@@ -210,31 +211,6 @@ async def create_github_issue_task(bug_id: int):
             traceback.print_exc()
 
 
-async def require_admin(
-    authorization: Optional[str] = Header(None),
-    session: AsyncSession = Depends(get_session)
-) -> User:
-    """Dependency that requires admin role."""
-    from routes.auth import get_current_session
-    from audit import audit_log
-    
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    user = await session.get(User, auth_session.user_id)
-    if not user or not user.is_admin:
-        await audit_log(
-            session=session,
-            action="admin.access_denied",
-            user_id=auth_session.user_id,
-            details={"reason": "Not an admin"},
-        )
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    return user
-
-
 @router.post("/api/bugs", response_model=BugReportRead, status_code=201)
 async def create_bug_report(
     notes: str = Form(...),
@@ -250,8 +226,6 @@ async def create_bug_report(
     session: AsyncSession = Depends(get_session)
 ):
     """Submit a bug report with optional file attachments."""
-    from routes.auth import get_current_session
-    
     user_id = None
     if authorization:
         auth_session = await get_current_session(authorization, session)
@@ -310,8 +284,6 @@ async def get_bug_report(
     session: AsyncSession = Depends(get_session)
 ):
     """Get status of a specific bug report."""
-    from routes.auth import get_current_session
-    
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -332,7 +304,7 @@ async def get_bug_report(
     if bug.attachments:
         try:
             attachments_list = json.loads(bug.attachments)
-        except:
+        except (json.JSONDecodeError, TypeError):
             attachments_list = []
 
     return BugReportRead(
@@ -362,7 +334,7 @@ async def list_bug_reports(
         if bug.attachments:
             try:
                 attachments_list = json.loads(bug.attachments)
-            except:
+            except (json.JSONDecodeError, TypeError):
                 attachments_list = []
                 
         response.append(BugReportRead(

@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "effort": "feature-tile-provenance",
+  "created": "2026-02-06T06:15:00Z",
+  "tasks": [
+    {
+      "id": "task-001",
+      "description": "Add provenance field to NormalizedResult and build provenance data in the generic normalizer",
+      "e2e_flow": "When a search returns results, each NormalizedResult carries a provenance dict with product_info and matched_features built from structured provider data (rating, shipping, reviews).",
+      "manual_verification": [
+        "Run backend tests: uv run python -m pytest tests/test_provenance_pipeline.py -v",
+        "Verify NormalizedResult now includes provenance field with product_info and matched_features"
+      ],
+      "files": [
+        "apps/backend/sourcing/models.py",
+        "apps/backend/sourcing/normalizers/__init__.py",
+        "apps/backend/tests/test_provenance_pipeline.py"
+      ],
+      "tests_to_write": ["tests/test_provenance_pipeline.py - TestNormalizerProvenance class"],
+      "dependencies": [],
+      "estimated_minutes": 25,
+      "error_budget": 3,
+      "status": "passed",
+      "proof_path": ".cfoi/branches/dev/proof/task-001/"
+    },
+    {
+      "id": "task-002",
+      "description": "Enrich provenance with search intent context and chat excerpts in _persist_results(), set Bid.provenance on create/update",
+      "e2e_flow": "When _persist_results() creates or updates a Bid, it merges the NormalizedResult provenance with search intent keywords/features from Row.search_intent and extracts last 2 user messages from Row.chat_history as chat_excerpts. The merged provenance JSON is set on Bid.provenance.",
+      "manual_verification": [
+        "Run backend tests: uv run python -m pytest tests/test_provenance_pipeline.py -v",
+        "Verify Bid objects created via _persist_results have non-null provenance JSON",
+        "Verify provenance contains merged search intent features and chat excerpts"
+      ],
+      "files": [
+        "apps/backend/sourcing/service.py",
+        "apps/backend/tests/test_provenance_pipeline.py"
+      ],
+      "tests_to_write": ["tests/test_provenance_pipeline.py - TestPersistProvenance class"],
+      "dependencies": ["task-001"],
+      "estimated_minutes": 35,
+      "error_budget": 3,
+      "status": "passed",
+      "proof_path": ".cfoi/branches/dev/proof/task-002/"
+    },
+    {
+      "id": "task-003",
+      "description": "Improve TileDetailPanel fallback message and accessibility (keyboard nav, ARIA labels)",
+      "e2e_flow": "When a user clicks the Info button on a tile, the detail panel slides out. If provenance is null, it shows 'Based on your search' instead of 'Details unavailable'. Tab key navigates between sections. All sections have proper ARIA labels.",
+      "manual_verification": [
+        "Run frontend tests: cd apps/frontend && npx vitest run app/tests/tile-detail-panel.test.ts",
+        "Verify fallback message reads 'Based on your search' not 'Details unavailable'",
+        "Verify Tab key moves focus between sections in the panel",
+        "Verify Escape closes the panel"
+      ],
+      "files": [
+        "apps/frontend/app/components/TileDetailPanel.tsx",
+        "apps/frontend/app/tests/tile-detail-panel.test.ts"
+      ],
+      "tests_to_write": ["app/tests/tile-detail-panel.test.ts"],
+      "dependencies": [],
+      "estimated_minutes": 25,
+      "error_budget": 3,
+      "status": "passed",
+      "proof_path": ".cfoi/branches/dev/proof/task-003/"
+    },
+    {
+      "id": "task-004",
+      "description": "End-to-end integration test: search creates bids with provenance, detail panel renders them",
+      "e2e_flow": "Run a full search_and_persist flow with a Row that has search_intent and chat_history. Verify the created Bids have provenance JSON. Then call GET /bids/{id}?include_provenance=true and verify the BidWithProvenance computed fields (product_info, matched_features, chat_excerpts) are populated correctly.",
+      "manual_verification": [
+        "Run all backend tests: uv run python -m pytest tests/ -v",
+        "Run all frontend tests: cd apps/frontend && npx vitest run",
+        "Verify zero test regressions"
+      ],
+      "files": [
+        "apps/backend/tests/test_provenance_pipeline.py",
+        "apps/frontend/app/tests/tile-detail-panel.test.ts"
+      ],
+      "tests_to_write": ["tests/test_provenance_pipeline.py - TestEndToEndProvenance class"],
+      "dependencies": ["task-001", "task-002", "task-003"],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "passed",
+      "proof_path": ".cfoi/branches/dev/proof/task-004/"
+    }
+  ]
+}

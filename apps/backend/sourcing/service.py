@@ -167,7 +167,7 @@ class SourcingService:
         )
 
         # 2. Persist Results
-        bids = await self._persist_results(row_id, normalized_results)
+        bids = await self._persist_results(row_id, normalized_results, row)
         
         # Record persistence metrics
         new_count = sum(1 for b in bids if not any(eb.id == b.id for eb in []))
@@ -175,7 +175,54 @@ class SourcingService:
 
         return bids, provider_statuses, user_message
 
-    async def _persist_results(self, row_id: int, results: List[NormalizedResult]) -> List[Bid]:
+    def _build_enriched_provenance(self, res: NormalizedResult, row: Optional["Row"]) -> str:
+        """Merge normalizer provenance with search intent context and chat excerpts."""
+        provenance = dict(res.provenance) if res.provenance else {}
+
+        # Enrich matched_features from search intent
+        matched_features = list(provenance.get("matched_features", []))
+        if row and row.search_intent:
+            try:
+                intent = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
+                if isinstance(intent, dict):
+                    keywords = intent.get("keywords", [])
+                    if keywords:
+                        matched_features.append(f"Matches: {', '.join(keywords[:5])}")
+                    brand = intent.get("brand")
+                    if brand:
+                        product_info = provenance.get("product_info", {})
+                        if isinstance(product_info, dict) and not product_info.get("brand"):
+                            product_info["brand"] = brand
+                            provenance["product_info"] = product_info
+                    features = intent.get("features", {})
+                    if features:
+                        for key, val in list(features.items())[:3]:
+                            label = f"{key}: {val}" if not isinstance(val, list) else f"{key}: {', '.join(val)}"
+                            matched_features.append(label)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        provenance["matched_features"] = matched_features
+
+        # Extract chat excerpts from row
+        if row and row.chat_history and not provenance.get("chat_excerpts"):
+            try:
+                chat = json.loads(row.chat_history) if isinstance(row.chat_history, str) else row.chat_history
+                if isinstance(chat, list):
+                    user_msgs = [m for m in chat if isinstance(m, dict) and m.get("role") == "user"]
+                    excerpts = []
+                    for msg in user_msgs[-2:]:
+                        content = str(msg.get("content", ""))[:200]
+                        if content:
+                            excerpts.append({"role": "user", "content": content})
+                    if excerpts:
+                        provenance["chat_excerpts"] = excerpts
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        return json.dumps(provenance)
+
+    async def _persist_results(self, row_id: int, results: List[NormalizedResult], row: Optional["Row"] = None) -> List[Bid]:
         """Persist normalized results as Bids, creating Sellers as needed. Returns list of Bids."""
         if not results:
             return []
@@ -205,6 +252,8 @@ class SourcingService:
             elif res.url in bids_by_url:
                 existing_bid = bids_by_url[res.url]
 
+            provenance_json = self._build_enriched_provenance(res, row)
+
             if existing_bid:
                 # Update
                 existing_bid.price = res.price if res.price is not None else existing_bid.price
@@ -215,6 +264,7 @@ class SourcingService:
                 existing_bid.source = res.source
                 existing_bid.seller_id = seller.id
                 existing_bid.canonical_url = res.canonical_url
+                existing_bid.provenance = provenance_json
                 
                 self.session.add(existing_bid)
                 processed_bids.append(existing_bid)
@@ -232,7 +282,8 @@ class SourcingService:
                     image_url=res.image_url,
                     source=res.source,
                     canonical_url=res.canonical_url,
-                    is_selected=False
+                    is_selected=False,
+                    provenance=provenance_json
                 )
                 self.session.add(new_bid)
                 # Add to maps to prevent duplicates within the same batch

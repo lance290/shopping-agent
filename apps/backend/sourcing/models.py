@@ -115,6 +115,7 @@ class NormalizedResult(BaseModel):
     reviews_count: Optional[int] = Field(None, ge=0)
     shipping_info: Optional[str] = None
     raw_data: Dict[str, object] = Field(default_factory=dict)
+    provenance: Dict[str, object] = Field(default_factory=dict)
 
 
 class AggregatedSearchResponse(BaseModel):

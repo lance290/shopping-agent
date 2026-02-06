@@ -11,6 +11,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import Like, Row, Bid
+from dependencies import get_current_session
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ async def create_like(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
-    from routes.auth import get_current_session
+
 
     try:
         auth_session = await get_current_session(authorization, session)
@@ -99,7 +100,7 @@ async def delete_like(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
-    from routes.auth import get_current_session
+
 
     try:
         auth_session = await get_current_session(authorization, session)
@@ -153,7 +154,7 @@ async def list_likes(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
-    from routes.auth import get_current_session
+
 
     try:
         auth_session = await get_current_session(authorization, session)
@@ -179,7 +180,7 @@ async def get_like_counts(
     session: AsyncSession = Depends(get_session)
 ) -> Dict[str, int]:
     """Get like counts for all offers in a row, grouped by bid_id or offer_url."""
-    from routes.auth import get_current_session
+
 
     try:
         auth_session = await get_current_session(authorization, session)
@@ -228,7 +229,7 @@ async def toggle_like(
     session: AsyncSession = Depends(get_session)
 ) -> Dict[str, Any]:
     """Toggle like on a bid. Returns liked status and updated counts."""
-    from routes.auth import get_current_session
+
     from models import Bid
 
     try:

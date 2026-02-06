@@ -1,0 +1,6 @@
+{
+  "maxErrorsPerTask": 3,
+  "maxErrorsPerSession": 10,
+  "contextCompactionInterval": 30,
+  "confidenceThreshold": 80
+}

@@ -12,6 +12,7 @@ from sqlalchemy import text
 
 from database import get_session
 from models import User, AuthSession, AuditLog, hash_token, generate_session_token
+from dependencies import require_admin
 from routes.rate_limit import check_rate_limit
 
 router = APIRouter(tags=["admin"])
@@ -23,31 +24,6 @@ class MintSessionRequest(BaseModel):
 
 class MintSessionResponse(BaseModel):
     session_token: str
-
-
-async def require_admin(
-    authorization: Optional[str] = Header(None),
-    session: AsyncSession = Depends(get_session)
-) -> User:
-    """Dependency that requires admin role."""
-    from routes.auth import get_current_session
-    from audit import audit_log
-    
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    user = await session.get(User, auth_session.user_id)
-    if not user or not user.is_admin:
-        await audit_log(
-            session=session,
-            action="admin.access_denied",
-            user_id=auth_session.user_id,
-            details={"reason": "Not an admin"},
-        )
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    return user
 
 
 @router.post("/test/mint-session", response_model=MintSessionResponse)

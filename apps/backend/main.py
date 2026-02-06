@@ -203,8 +203,8 @@ async def global_exception_handler(request: Request, exc: Exception):
                 error_message=str(exc)[:500],
                 request=request,
             )
-    except:
-        pass
+    except Exception as audit_err:
+        print(f"[AUDIT] Failed to log error: {audit_err}")
     
     return JSONResponse(
         status_code=500,

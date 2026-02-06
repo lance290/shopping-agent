@@ -9,6 +9,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import Bid, BidWithProvenance, Like, Comment
+from dependencies import get_current_session
 
 router = APIRouter(tags=["bids"])
 
@@ -52,7 +53,7 @@ async def get_bid(
         404: If bid not found
         500: If provenance data is malformed (with graceful fallback)
     """
-    from routes.auth import get_current_session
+
 
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
@@ -101,7 +102,7 @@ async def get_bid_social(
         401: If not authenticated
         404: If bid not found
     """
-    from routes.auth import get_current_session
+
 
     auth_session = await get_current_session(authorization, session)
     if not auth_session:

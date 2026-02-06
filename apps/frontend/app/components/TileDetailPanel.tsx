@@ -122,8 +122,8 @@ export function TileDetailPanel() {
 
                 {/* Product Info */}
                 {bidData.product_info && (
-                  <div>
-                    <h4 className="font-semibold mb-3">Product Information</h4>
+                  <section aria-label="Product information">
+                    <h4 className="font-semibold mb-3" tabIndex={0}>Product Information</h4>
                     <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                       {bidData.product_info.brand && (
                         <div>
@@ -144,13 +144,13 @@ export function TileDetailPanel() {
                         </div>
                       )}
                     </div>
-                  </div>
+                  </section>
                 )}
 
                 {/* Matched Features */}
                 {bidData.matched_features && bidData.matched_features.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-3">Why this matches</h4>
+                  <section aria-label="Why this matches your search">
+                    <h4 className="font-semibold mb-3" tabIndex={0}>Why this matches</h4>
                     <ul className="space-y-2">
                       {bidData.matched_features.map((feature, idx) => (
                         <li key={idx} className="flex items-start gap-2">
@@ -159,13 +159,13 @@ export function TileDetailPanel() {
                         </li>
                       ))}
                     </ul>
-                  </div>
+                  </section>
                 )}
 
                 {/* Chat Excerpts */}
                 {bidData.chat_excerpts && bidData.chat_excerpts.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-3">From your conversation</h4>
+                  <section aria-label="Related conversation excerpts">
+                    <h4 className="font-semibold mb-3" tabIndex={0}>From your conversation</h4>
                     <div className="space-y-3">
                       {bidData.chat_excerpts.map((excerpt, idx) => (
                         <div
@@ -183,15 +183,15 @@ export function TileDetailPanel() {
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </section>
                 )}
 
                 {/* No Provenance Fallback */}
                 {!bidData.product_info &&
                   (!bidData.matched_features || bidData.matched_features.length === 0) &&
                   (!bidData.chat_excerpts || bidData.chat_excerpts.length === 0) && (
-                    <div className="text-center py-8 text-gray-500 text-sm">
-                      Details unavailable for this item
+                    <div className="text-center py-8 text-gray-500 text-sm" role="status">
+                      Based on your search
                     </div>
                   )}
 

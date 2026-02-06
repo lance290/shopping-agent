@@ -1,18 +1,9 @@
 import { Row, Offer, Project, ProviderStatusSnapshot } from '../store';
 
-const SESSION_COOKIE_NAME = 'sa_session';
-
 function getAuthToken(): string {
-  if (typeof document !== 'undefined') {
-    // Try cookie first
-    const match = document.cookie
-      .split(';')
-      .map((c) => c.trim())
-      .find((c) => c.startsWith(`${SESSION_COOKIE_NAME}=`));
-    if (match) {
-      return decodeURIComponent(match.split('=')[1]);
-    }
-  }
+  // Cookie is HttpOnly — cannot be read from JS.
+  // All /api/* routes are same-origin, so the cookie is sent automatically.
+  // Server-side route handlers read the cookie and forward as Authorization header.
   return '';
 }
 
@@ -25,11 +16,8 @@ async function fetchWithAuth(url: string, init: RequestInit = {}): Promise<Respo
   
   if (res.status === 401 && typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
     // Redirect to login on 401 if not already there
-    try {
-      document.cookie = `${SESSION_COOKIE_NAME}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;`;
-    } catch {
-      // ignore
-    }
+    // Cookie is HttpOnly — server clears it on logout.
+    // Just redirect to login.
     window.location.href = '/login';
   }
   

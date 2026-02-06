@@ -55,8 +55,7 @@ export const verifyAuth = async (phone: string, code: string): Promise<AuthVerif
 
 export const logout = async (): Promise<void> => {
   await fetch('/api/auth/logout', { method: 'POST' });
-  // Also clear cookie on client side if possible, or rely on API to clear it
-  document.cookie = 'sa_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+  // Cookie is HttpOnly — server clears it via the proxy route response.
 };
 
 export const getMe = async (): Promise<AuthMeResponse | null> => {

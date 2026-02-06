@@ -82,7 +82,7 @@ async def get_quote_form(token: str, session=Depends(get_session)):
         import json
         try:
             choice_factors = json.loads(row.choice_factors)
-        except:
+        except (json.JSONDecodeError, TypeError):
             pass
     
     # For demo, add private jet specific factors if not present
@@ -286,7 +286,7 @@ async def select_quote(
             answers = json.loads(quote.answers)
             if answers.get("aircraft_type"):
                 description = f"Aircraft: {answers['aircraft_type']}. {description}"
-        except:
+        except (json.JSONDecodeError, TypeError, KeyError):
             pass
     
     # Email to buyer

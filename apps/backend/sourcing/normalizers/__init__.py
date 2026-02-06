@@ -22,6 +22,31 @@ def _extract_merchant_domain(url: str) -> str:
         return "unknown"
 
 
+def _build_provenance(result: SearchResult, provider_id: str) -> dict:
+    """Build structured provenance data from search result fields."""
+    matched_features = []
+
+    if result.rating is not None and result.rating > 4.0:
+        matched_features.append(f"Highly rated ({result.rating:.1f}★)")
+    if result.shipping_info:
+        matched_features.append(result.shipping_info)
+    if result.reviews_count is not None and result.reviews_count > 100:
+        matched_features.append(f"Popular ({result.reviews_count:,} reviews)")
+    if getattr(result, "match_score", 0) > 0.7:
+        matched_features.append("Strong match for your search")
+
+    return {
+        "product_info": {
+            "title": result.title,
+            "brand": None,
+            "specs": {},
+        },
+        "matched_features": matched_features,
+        "chat_excerpts": [],
+        "source_provider": provider_id,
+    }
+
+
 def _normalize_result(result: SearchResult, provider_id: str) -> NormalizedResult:
     canonical_url = canonicalize_url(result.url)
     merchant_domain = result.merchant_domain or _extract_merchant_domain(result.url)
@@ -45,6 +70,7 @@ def _normalize_result(result: SearchResult, provider_id: str) -> NormalizedResul
         reviews_count=result.reviews_count,
         shipping_info=result.shipping_info,
         raw_data={"provider_id": provider_id},
+        provenance=_build_provenance(result, provider_id),
     )
 
 

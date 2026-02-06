@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload, defer, joinedload
 
 from database import get_session
 from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project
+from dependencies import get_current_session
 from routes.rows_search import router as rows_search_router
 from sourcing.safety import SafetyService
 
@@ -158,7 +159,6 @@ async def create_row(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
-    from routes.auth import get_current_session
     
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
@@ -194,7 +194,7 @@ async def create_row(
         if check["status"] != "safe":
             try:
                 answers = json.loads(db_row.choice_answers or "{}")
-            except:
+            except (json.JSONDecodeError, TypeError):
                 answers = {}
             answers["safety_status"] = check["status"]
             answers["safety_reason"] = check["reason"]
@@ -223,7 +223,6 @@ async def read_rows(
     include_archived: bool = Query(False),
     session: AsyncSession = Depends(get_session)
 ):
-    from routes.auth import get_current_session
     
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
@@ -259,7 +258,6 @@ async def read_row(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
-    from routes.auth import get_current_session
     
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
@@ -293,7 +291,6 @@ async def delete_row(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
-    from routes.auth import get_current_session
     
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
@@ -321,7 +318,6 @@ async def update_row(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
-    from routes.auth import get_current_session
     
     print(f"Received PATCH request for row {row_id} with data: {row_update}")
     
@@ -388,7 +384,7 @@ async def update_row(
         check = SafetyService.check_safety(row.title)
         try:
             answers = json.loads(row.choice_answers) if row.choice_answers else {}
-        except:
+        except (json.JSONDecodeError, TypeError):
             answers = {}
         
         # Only update if status changed to avoid loops
@@ -410,7 +406,6 @@ async def select_row_option(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
-    from routes.auth import get_current_session
     
     auth_session = await get_current_session(authorization, session)
     if not auth_session:

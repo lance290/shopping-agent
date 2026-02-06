@@ -22,6 +22,7 @@ from models import (
     AuthLoginCode, AuthSession, User,
     hash_token, generate_verification_code, generate_session_token
 )
+from dependencies import get_current_session
 from audit import audit_log
 
 router = APIRouter(tags=["auth"])
@@ -227,26 +228,6 @@ async def _reassign_user_foreign_keys(
         stmt = sa.text(f"UPDATE {table} SET {col} = :primary WHERE {col} IN :others")
         stmt = stmt.bindparams(sa.bindparam("others", expanding=True))
         await session.exec(stmt, {"primary": primary_user_id, "others": other_user_ids})
-
-
-async def get_current_session(
-    authorization: Optional[str],
-    session: AsyncSession
-) -> Optional[AuthSession]:
-    """Extract and validate session from Authorization header."""
-    if not authorization or not authorization.startswith("Bearer "):
-        return None
-    
-    token = authorization[7:]
-    
-    # Try session token lookup
-    token_hash = hash_token(token)
-    
-    result = await session.exec(
-        select(AuthSession)
-        .where(AuthSession.session_token_hash == token_hash, AuthSession.revoked_at == None)
-    )
-    return result.first()
 
 
 class AuthStartRequest(BaseModel):
