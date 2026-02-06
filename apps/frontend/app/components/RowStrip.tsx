@@ -489,9 +489,10 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         return;
       }
     } catch {
-      // ignore
+      onToast?.('Could not copy share link.', 'error');
+      return;
     }
-    onToast?.('Share link ready.', 'success');
+    onToast?.('Could not generate share link.', 'error');
   };
 
   const handleCopySearchLink = async () => {

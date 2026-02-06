@@ -1,4 +1,4 @@
-# Review Scope - phase2-full-implementation (Iteration 1)
+# Review Scope - phase2-full-implementation (Iteration 3)
 
 ## Files to Review
 
@@ -23,7 +23,9 @@
 ### Frontend (added)
 - `apps/frontend/app/api/shares/route.ts` (added)
 - `apps/frontend/app/api/shares/[token]/route.ts` (added)
+- `apps/frontend/app/api/merchants/register/route.ts` (added — pass 1 fix)
 - `apps/frontend/app/share/[token]/page.tsx` (added)
-- `apps/frontend/app/merchants/register/page.tsx` (added)
+- `apps/frontend/app/merchants/register/page.tsx` (added, fixed in pass 1)
+- `apps/frontend/app/utils/bff.ts` (added — pass 1 DRY extraction)
 
-## Review Started: 2026-02-06T11:56:00-08:00
+## Review Pass 2 Started: 2026-02-06T12:22:00-08:00

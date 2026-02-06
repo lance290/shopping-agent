@@ -354,6 +354,9 @@ async def close_handoff(
     if not handoff:
         raise HTTPException(status_code=404, detail="Handoff not found")
 
+    if handoff.buyer_user_id != auth_session.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to close this handoff")
+
     if handoff.status == "closed":
         return {"status": "already_closed", "handoff_id": handoff_id}
 

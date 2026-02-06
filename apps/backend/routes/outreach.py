@@ -4,7 +4,7 @@ Handles sending RFP emails and tracking outreach events.
 """
 from datetime import datetime, timedelta
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 from sqlmodel import select
 
@@ -13,6 +13,7 @@ from models import (
     generate_magic_link_token,
 )
 from database import get_session
+from dependencies import get_current_session
 from services.wattdata_mock import get_vendors, get_vendors_as_results, Vendor
 from services.email import send_outreach_email, send_reminder_email
 
@@ -396,12 +397,16 @@ async def unsubscribe_vendor(token: str, session=Depends(get_session)):
 @router.post("/rows/{row_id}/reminders")
 async def send_reminders(
     row_id: int,
+    authorization: Optional[str] = Header(None),
     session=Depends(get_session),
 ):
     """
     Send reminder emails to vendors who haven't responded after 48h.
     Skips opted-out vendors and those who already submitted quotes.
     """
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     import json
     result = await session.execute(select(Row).where(Row.id == row_id))
     row = result.scalar_one_or_none()

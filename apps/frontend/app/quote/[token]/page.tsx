@@ -40,8 +40,9 @@ export default function QuotePage() {
         }
         const data = await res.json();
         setFormData(data);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to load form';
+        setError(message);
       } finally {
         setLoading(false);
       }
@@ -80,8 +81,9 @@ export default function QuotePage() {
       }
 
       setSuccess(true);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to submit quote';
+      setError(message);
     } finally {
       setSubmitting(false);
     }
