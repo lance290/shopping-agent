@@ -81,6 +81,91 @@ async def get_bid(
     return bid
 
 
+@router.get("/bids/social/batch")
+async def get_bids_social_batch(
+    bid_ids: str,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Batch fetch social data for multiple bids in one request.
+
+    Query params:
+        bid_ids: Comma-separated list of bid IDs (e.g., "1,2,3,4,5")
+
+    Returns:
+        Dict mapping bid_id -> BidSocialData
+    """
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    try:
+        ids = [int(x.strip()) for x in bid_ids.split(",") if x.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid bid_ids format")
+
+    if not ids:
+        return {}
+
+    if len(ids) > 100:
+        raise HTTPException(status_code=400, detail="Max 100 bid IDs per request")
+
+    # Batch fetch like counts
+    like_counts_query = (
+        select(Like.bid_id, func.count(Like.id).label("cnt"))
+        .where(Like.bid_id.in_(ids))
+        .group_by(Like.bid_id)
+    )
+    like_counts_result = await session.exec(like_counts_query)
+    like_counts = {bid_id: cnt for bid_id, cnt in like_counts_result}
+
+    # Batch fetch user's likes
+    user_likes_query = select(Like.bid_id).where(
+        Like.bid_id.in_(ids),
+        Like.user_id == auth_session.user_id,
+    )
+    user_likes_result = await session.exec(user_likes_query)
+    user_liked_ids = set(user_likes_result.all())
+
+    # Batch fetch comments
+    comments_query = (
+        select(Comment)
+        .where(Comment.bid_id.in_(ids))
+        .order_by(Comment.created_at.desc())
+    )
+    comments_result = await session.exec(comments_query)
+    all_comments = comments_result.all()
+
+    # Group comments by bid_id
+    comments_by_bid: Dict[int, List[CommentData]] = {}
+    for c in all_comments:
+        if c.bid_id not in comments_by_bid:
+            comments_by_bid[c.bid_id] = []
+        comments_by_bid[c.bid_id].append(
+            CommentData(
+                id=c.id,
+                user_id=c.user_id,
+                body=c.body,
+                created_at=c.created_at,
+            )
+        )
+
+    # Build response
+    result = {}
+    for bid_id in ids:
+        comments = comments_by_bid.get(bid_id, [])
+        result[str(bid_id)] = BidSocialData(
+            bid_id=bid_id,
+            like_count=like_counts.get(bid_id, 0),
+            is_liked=bid_id in user_liked_ids,
+            comment_count=len(comments),
+            comments=comments,
+        )
+
+    return result
+
+
 @router.get("/bids/{bid_id}/social", response_model=BidSocialData)
 async def get_bid_social(
     bid_id: int,

@@ -8,7 +8,7 @@ import os
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlalchemy import text
+from sqlalchemy import func, text
 
 from database import get_session
 from models import User, AuthSession, AuditLog, hash_token, generate_session_token
@@ -79,6 +79,65 @@ async def test_reset_db(session: AsyncSession = Depends(get_session)):
     except Exception as e:
         await session.rollback()
         raise HTTPException(status_code=500, detail=f"DB reset failed: {str(e)}")
+
+
+@router.get("/admin/stats")
+async def admin_stats(
+    admin: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get platform overview statistics (admin only)."""
+    from datetime import timedelta
+    from models import (
+        Row, Bid, ClickoutEvent, PurchaseEvent, Merchant,
+        OutreachEvent, BugReport, SellerQuote,
+    )
+
+    now = datetime.utcnow()
+    week_ago = now - timedelta(days=7)
+
+    async def _count(model, extra_filter=None):
+        q = select(func.count(model.id))
+        if extra_filter is not None:
+            q = q.where(extra_filter)
+        r = await session.exec(q)
+        return r.one()
+
+    total_users = await _count(User)
+    users_7d = await _count(User, User.created_at >= week_ago)
+
+    total_rows = await _count(Row)
+    active_rows = await _count(Row, Row.status.notin_(["closed", "purchased", "archived"]))
+
+    total_bids = await _count(Bid)
+
+    total_clickouts = await _count(ClickoutEvent)
+    clickouts_7d = await _count(ClickoutEvent, ClickoutEvent.created_at >= week_ago)
+
+    total_purchases = await _count(PurchaseEvent)
+    gmv_result = await session.exec(
+        select(func.coalesce(func.sum(PurchaseEvent.amount), 0))
+    )
+    gmv = float(gmv_result.one())
+
+    total_merchants = await _count(Merchant)
+
+    total_outreach = await _count(OutreachEvent)
+    outreach_quoted = await _count(SellerQuote)
+
+    total_bugs = await _count(BugReport)
+    open_bugs = await _count(BugReport, BugReport.status.in_(["captured", "issue_created", "fix_in_progress"]))
+
+    return {
+        "users": {"total": total_users, "last_7_days": users_7d},
+        "rows": {"total": total_rows, "active": active_rows},
+        "bids": {"total": total_bids},
+        "clickouts": {"total": total_clickouts, "last_7_days": clickouts_7d},
+        "purchases": {"total": total_purchases, "gmv": gmv},
+        "merchants": {"total": total_merchants},
+        "outreach": {"sent": total_outreach, "quoted": outreach_quoted},
+        "bugs": {"total": total_bugs, "open": open_bugs},
+    }
 
 
 @router.get("/admin/audit")

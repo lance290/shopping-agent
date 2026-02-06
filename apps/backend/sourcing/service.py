@@ -176,8 +176,16 @@ class SourcingService:
         return bids, provider_statuses, user_message
 
     def _build_enriched_provenance(self, res: NormalizedResult, row: Optional["Row"]) -> str:
-        """Merge normalizer provenance with search intent context and chat excerpts."""
+        """Merge normalizer provenance with search intent context, choice factors, and chat excerpts."""
         provenance = dict(res.provenance) if res.provenance else {}
+
+        # Ensure product_info exists
+        product_info = provenance.get("product_info", {})
+        if not isinstance(product_info, dict):
+            product_info = {}
+        if res.source and not product_info.get("source_provider"):
+            product_info["source_provider"] = res.source
+        provenance["product_info"] = product_info
 
         # Enrich matched_features from search intent
         matched_features = list(provenance.get("matched_features", []))
@@ -190,8 +198,7 @@ class SourcingService:
                         matched_features.append(f"Matches: {', '.join(keywords[:5])}")
                     brand = intent.get("brand")
                     if brand:
-                        product_info = provenance.get("product_info", {})
-                        if isinstance(product_info, dict) and not product_info.get("brand"):
+                        if not product_info.get("brand"):
                             product_info["brand"] = brand
                             provenance["product_info"] = product_info
                     features = intent.get("features", {})
@@ -202,19 +209,71 @@ class SourcingService:
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        provenance["matched_features"] = matched_features
+        # Match against choice_answers for concrete "why this matches" signals
+        if row and row.choice_answers:
+            try:
+                answers = json.loads(row.choice_answers) if isinstance(row.choice_answers, str) else row.choice_answers
+                if isinstance(answers, dict):
+                    price = res.price
+
+                    # Budget check
+                    budget = answers.get("max_price") or answers.get("max_budget") or answers.get("budget")
+                    if budget and price and price > 0:
+                        try:
+                            budget_val = float(budget)
+                            if price <= budget_val:
+                                matched_features.append(f"Price ${price:.2f} is within your ${budget_val:.0f} budget")
+                        except (ValueError, TypeError):
+                            pass
+
+                    # Brand check
+                    pref_brand = answers.get("preferred_brand") or answers.get("brand")
+                    product_brand = product_info.get("brand") or ""
+                    if pref_brand and product_brand and str(pref_brand).lower() in str(product_brand).lower():
+                        matched_features.append(f"Brand: {product_brand} (matches your preference)")
+
+                    # Condition check
+                    pref_condition = answers.get("condition")
+                    product_condition = product_info.get("condition", "new")
+                    if pref_condition and product_condition and str(pref_condition).lower() == str(product_condition).lower():
+                        matched_features.append(f"Condition: {product_condition} (as requested)")
+
+                    # Rating check
+                    if hasattr(res, "rating") and res.rating and float(res.rating) >= 4.0:
+                        matched_features.append(f"Highly rated: {res.rating}/5 stars")
+
+                    # Free shipping check
+                    if hasattr(res, "shipping_info") and res.shipping_info:
+                        shipping_str = str(res.shipping_info).lower()
+                        if "free" in shipping_str:
+                            matched_features.append("Free shipping available")
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        # Deduplicate matched features
+        seen = set()
+        unique_features = []
+        for f in matched_features:
+            if f not in seen:
+                seen.add(f)
+                unique_features.append(f)
+        provenance["matched_features"] = unique_features
 
         # Extract chat excerpts from row
         if row and row.chat_history and not provenance.get("chat_excerpts"):
             try:
                 chat = json.loads(row.chat_history) if isinstance(row.chat_history, str) else row.chat_history
                 if isinstance(chat, list):
-                    user_msgs = [m for m in chat if isinstance(m, dict) and m.get("role") == "user"]
                     excerpts = []
-                    for msg in user_msgs[-2:]:
-                        content = str(msg.get("content", ""))[:200]
-                        if content:
-                            excerpts.append({"role": "user", "content": content})
+                    for msg in chat:
+                        if not isinstance(msg, dict):
+                            continue
+                        role = msg.get("role", "")
+                        content = str(msg.get("content", ""))
+                        if role in ("user", "assistant") and len(content) > 10:
+                            excerpts.append({"role": role, "content": content[:200]})
+                            if len(excerpts) >= 3:
+                                break
                     if excerpts:
                         provenance["chat_excerpts"] = excerpts
             except (json.JSONDecodeError, TypeError):

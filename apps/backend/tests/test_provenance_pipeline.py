@@ -280,7 +280,7 @@ class TestEnrichedProvenance:
         assert any("size: large" in f for f in prov["matched_features"])
 
     def test_extracts_chat_excerpts(self):
-        """Last 2 user messages from chat_history become chat_excerpts."""
+        """Up to 3 user+assistant messages from chat_history become chat_excerpts."""
         svc = self._make_service()
         res = self._make_normalized_result()
         row = MagicMock()
@@ -295,9 +295,11 @@ class TestEnrichedProvenance:
         prov_json = svc._build_enriched_provenance(res, row)
         prov = json.loads(prov_json)
 
-        assert len(prov["chat_excerpts"]) == 2
-        assert prov["chat_excerpts"][0]["content"] == "Under $50 please"
-        assert prov["chat_excerpts"][1]["content"] == "Make it large"
+        assert len(prov["chat_excerpts"]) == 3
+        assert prov["chat_excerpts"][0]["role"] == "user"
+        assert prov["chat_excerpts"][0]["content"] == "I need a blue widget"
+        assert prov["chat_excerpts"][1]["role"] == "assistant"
+        assert prov["chat_excerpts"][2]["role"] == "user"
 
     def test_chat_excerpts_truncated_to_200_chars(self):
         """Long chat messages are truncated to 200 characters."""

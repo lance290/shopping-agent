@@ -8,6 +8,7 @@ import ReportBugModal from './components/ReportBugModal';
 import { cn } from '../utils/cn';
 import { useShoppingStore } from './store';
 import { fetchSingleRowFromDb, runSearchApiWithStatus, createRowInDb, fetchRowsFromDb } from './utils/api';
+import { MessageSquare, LayoutGrid } from 'lucide-react';
 
 export default function Home() {
   const CHAT_MIN_PX = 360;
@@ -22,6 +23,15 @@ export default function Home() {
   const dragStartWidthRef = useRef<number>(CHAT_DEFAULT_PX);
   const latestWidthRef = useRef<number>(CHAT_DEFAULT_PX);
   const hasHandledQueryRef = useRef(false);
+  const [mobilePane, setMobilePane] = useState<'chat' | 'board'>('chat');
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   useEffect(() => {
     try {
@@ -133,6 +143,48 @@ export default function Home() {
     };
   }, []);
 
+  // Mobile layout: tabbed chat/board with bottom nav
+  if (isMobile) {
+    return (
+      <main className="flex flex-col h-screen w-full bg-transparent text-onyx overflow-hidden font-sans selection:bg-agent-blurple/15 selection:text-agent-blurple">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {mobilePane === 'chat' ? <Chat /> : <ProcurementBoard />}
+        </div>
+
+        {/* Bottom Navigation */}
+        <nav className="shrink-0 flex border-t border-warm-grey/60 bg-white safe-area-bottom">
+          <button
+            onClick={() => setMobilePane('chat')}
+            className={cn(
+              "flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-semibold transition-colors",
+              mobilePane === 'chat'
+                ? "text-agent-blurple"
+                : "text-onyx-muted"
+            )}
+          >
+            <MessageSquare size={20} />
+            Chat
+          </button>
+          <button
+            onClick={() => setMobilePane('board')}
+            className={cn(
+              "flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-semibold transition-colors",
+              mobilePane === 'board'
+                ? "text-agent-blurple"
+                : "text-onyx-muted"
+            )}
+          >
+            <LayoutGrid size={20} />
+            Board
+          </button>
+        </nav>
+
+        <ReportBugModal />
+      </main>
+    );
+  }
+
+  // Desktop layout: split pane
   return (
     <main className="flex h-screen w-full bg-transparent text-onyx overflow-hidden font-sans selection:bg-agent-blurple/15 selection:text-agent-blurple">
       {/* Chat Pane (Center Left) */}

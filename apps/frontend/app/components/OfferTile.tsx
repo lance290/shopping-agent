@@ -259,6 +259,41 @@ export default function OfferTile({
             </div>
             
             <div className="grid gap-2">
+              {!isServiceProvider && safePrice > 0 && offer.bid_id && !isSelected && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    try {
+                      const token = typeof window !== 'undefined' ? localStorage.getItem('session_token') || '' : '';
+                      const res = await fetch('/api/checkout', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({
+                          bid_id: offer.bid_id,
+                          row_id: rowId,
+                        }),
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        if (data.checkout_url) {
+                          window.location.href = data.checkout_url;
+                        }
+                      }
+                    } catch (err) {
+                      console.error('[OfferTile] Checkout error:', err);
+                    }
+                  }}
+                  className="w-full h-8 text-xs"
+                >
+                  Buy Now
+                </Button>
+              )}
               {canSelect && !isSelected && (
                 <Button
                   size="sm"

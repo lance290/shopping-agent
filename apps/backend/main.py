@@ -38,6 +38,8 @@ from routes.outreach import router as outreach_router
 from routes.quotes import router as quotes_router
 from routes.merchants import router as merchants_router
 from routes.contracts import router as contracts_router
+from routes.checkout import router as checkout_router
+from routes.seller import router as seller_router
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
@@ -111,6 +113,8 @@ app.include_router(outreach_router)
 app.include_router(quotes_router)
 app.include_router(merchants_router)
 app.include_router(contracts_router)
+app.include_router(checkout_router)
+app.include_router(seller_router)
 
 # Lazy init sourcing repository
 _sourcing_repo = None
