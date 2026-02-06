@@ -139,6 +139,12 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       likes.filter(l => l.offer_url).map(l => [l.offer_url, l.created_at])
     );
 
+    // Count likes per bid_id
+    const likeCountByBid = new Map<number, number>();
+    likes.filter(l => l.bid_id).forEach(l => {
+      likeCountByBid.set(l.bid_id, (likeCountByBid.get(l.bid_id) || 0) + 1);
+    });
+
     return currentOffers.map((offer) => {
       const canonical = getCanonicalOfferUrl(offer);
       let likedAt: string | undefined;
@@ -156,6 +162,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         ...offer,
         is_liked: isLiked,
         liked_at: likedAt,
+        like_count: offer.bid_id ? (likeCountByBid.get(offer.bid_id) || 0) : (isLiked ? 1 : 0),
       };
     });
   };
@@ -197,12 +204,14 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
     const latestByBidId = new Map<number, string>();
     const latestByUrl = new Map<string, string>();
+    const countByBidId = new Map<number, number>();
 
     for (const c of comments) {
       const body = typeof c?.body === 'string' ? c.body : '';
       if (!body) continue;
       if (typeof c?.bid_id === 'number') {
         if (!latestByBidId.has(c.bid_id)) latestByBidId.set(c.bid_id, body);
+        countByBidId.set(c.bid_id, (countByBidId.get(c.bid_id) || 0) + 1);
         continue;
       }
       if (typeof c?.offer_url === 'string' && c.offer_url) {
@@ -215,7 +224,12 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         (offer.bid_id && latestByBidId.get(offer.bid_id)) ||
         (offer.url && latestByUrl.get(offer.url)) ||
         offer.comment_preview;
-      return preview ? { ...offer, comment_preview: preview } : offer;
+      const commentCount = offer.bid_id ? (countByBidId.get(offer.bid_id) || 0) : 0;
+      return {
+        ...offer,
+        comment_preview: preview || offer.comment_preview,
+        comment_count: commentCount > 0 ? commentCount : offer.comment_count,
+      };
     });
   };
 
@@ -448,8 +462,27 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   };
 
   const handleShare = async (offer: Offer) => {
-    const link = offer.url || offer.click_url || '';
     try {
+      // If offer has a bid_id, create a backend share link
+      if (offer.bid_id) {
+        const res = await fetch('/api/shares', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('session_token') || '' : ''}`,
+          },
+          body: JSON.stringify({ resource_type: 'tile', resource_id: offer.bid_id }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const shareUrl = `${window.location.origin}/share/${data.token}`;
+          await navigator.clipboard.writeText(shareUrl);
+          onToast?.('Share link copied!', 'success');
+          return;
+        }
+      }
+      // Fallback: copy raw URL
+      const link = offer.url || offer.click_url || '';
       if (navigator?.clipboard && link) {
         await navigator.clipboard.writeText(link);
         onToast?.('Link copied.', 'success');
@@ -465,10 +498,26 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     try {
       if (typeof window === 'undefined') return;
 
-      // Create a shareable URL with the search query
+      // Try creating a backend share link for the row
+      const res = await fetch('/api/shares', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('session_token') || ''}`,
+        },
+        body: JSON.stringify({ resource_type: 'row', resource_id: row.id }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const shareUrl = `${window.location.origin}/share/${data.token}`;
+        await navigator.clipboard.writeText(shareUrl);
+        onToast?.('Share link copied!', 'success');
+        return;
+      }
+
+      // Fallback: copy search query URL
       const url = new URL(window.location.origin);
       url.searchParams.set('q', row.title);
-
       if (navigator?.clipboard) {
         await navigator.clipboard.writeText(url.toString());
         onToast?.('Search link copied to clipboard.', 'success');

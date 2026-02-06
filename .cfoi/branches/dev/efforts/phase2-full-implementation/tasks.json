@@ -1,0 +1,74 @@
+{
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Likes & Comments: Show counts on tiles + aria-pressed",
+      "status": "pending",
+      "files": ["apps/frontend/app/components/OfferTile.tsx", "apps/frontend/app/components/RowStrip.tsx"],
+      "description": "Add like_count and comment_count to Offer interface, pass counts through from merged likes/comments data, show count badges on OfferTile buttons, add aria-pressed to like button."
+    },
+    {
+      "id": "task-002",
+      "title": "Share Links: Create /share/[token] page + wire share buttons",
+      "status": "pending",
+      "files": ["apps/frontend/app/share/[token]/page.tsx", "apps/frontend/app/components/RowStrip.tsx", "apps/frontend/app/components/OfferTile.tsx"],
+      "description": "Create public share page that resolves token and renders read-only content. Wire tile share button to createShareLink API. Wire row share to createShareLink."
+    },
+    {
+      "id": "task-003",
+      "title": "Quote Intake: Generalize form to render dynamic choice factors",
+      "status": "pending",
+      "files": ["apps/frontend/app/quote/[token]/page.tsx"],
+      "description": "Replace hardcoded aircraft_type/catering fields with dynamic rendering of choice_factors from backend. Keep hardcoded fields as fallback for backward compat."
+    },
+    {
+      "id": "task-004",
+      "title": "WattData Outreach: Add unsubscribe endpoint + reminder email",
+      "status": "pending",
+      "files": ["apps/backend/routes/outreach.py", "apps/backend/services/email.py"],
+      "description": "Add GET /outreach/unsubscribe/{token} that sets opt_out=True. Add send_reminder_email function. Update email template unsubscribe link to point to real endpoint. Extract shared _send_email helper for DRY."
+    },
+    {
+      "id": "task-005",
+      "title": "Email Handoff: Add close-deal endpoint + UI",
+      "status": "pending",
+      "files": ["apps/backend/routes/quotes.py", "apps/frontend/app/components/RowStrip.tsx"],
+      "description": "Add PATCH /handoffs/{id}/close endpoint. Add 'Mark as Closed' button on selected tiles. Show deal status badge."
+    },
+    {
+      "id": "task-006",
+      "title": "Stripe Checkout: Add PurchaseEvent model + Buy Now tracking",
+      "status": "pending",
+      "files": ["apps/backend/models.py", "apps/backend/routes/clickout.py", "apps/frontend/app/components/OfferTile.tsx"],
+      "description": "Add PurchaseEvent model. Enhance clickout to distinguish Buy Now vs Browse. Add 'Buy Now' label on eligible retail tiles."
+    },
+    {
+      "id": "task-007",
+      "title": "Merchant Registry: Model + registration API + matching",
+      "status": "pending",
+      "files": ["apps/backend/models.py", "apps/backend/routes/merchants.py", "apps/backend/main.py"],
+      "description": "Create Merchant model with categories/service_areas. Add POST /merchants/register, GET /merchants/me, GET /merchants/me/rfps endpoints. Add priority matching to search."
+    },
+    {
+      "id": "task-008",
+      "title": "Merchant Registry: Frontend registration page + badges",
+      "status": "pending",
+      "files": ["apps/frontend/app/merchants/register/page.tsx", "apps/frontend/app/components/OfferTile.tsx"],
+      "description": "Create merchant registration page with form. Add 'Verified Partner' badge on tiles from registered merchants."
+    },
+    {
+      "id": "task-009",
+      "title": "DocuSign Contracts: Model + scaffold endpoints",
+      "status": "pending",
+      "files": ["apps/backend/models.py", "apps/backend/routes/contracts.py", "apps/backend/main.py"],
+      "description": "Create Contract model. Add contract creation, DocuSign envelope scaffold (demo mode), webhook handler for status updates."
+    },
+    {
+      "id": "task-010",
+      "title": "Backend tests for new endpoints",
+      "status": "pending",
+      "files": ["apps/backend/tests/test_phase2_endpoints.py"],
+      "description": "Tests for unsubscribe, close-handoff, merchant registration, contract creation, purchase event tracking."
+    }
+  ]
+}

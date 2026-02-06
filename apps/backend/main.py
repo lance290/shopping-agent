@@ -36,6 +36,8 @@ from routes.admin import router as admin_router
 from routes.shares import router as shares_router
 from routes.outreach import router as outreach_router
 from routes.quotes import router as quotes_router
+from routes.merchants import router as merchants_router
+from routes.contracts import router as contracts_router
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
@@ -107,6 +109,8 @@ app.include_router(admin_router)
 app.include_router(shares_router)
 app.include_router(outreach_router)
 app.include_router(quotes_router)
+app.include_router(merchants_router)
+app.include_router(contracts_router)
 
 # Lazy init sourcing repository
 _sourcing_repo = None

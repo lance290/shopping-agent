@@ -14,7 +14,7 @@ from models import (
 )
 from database import get_session
 from services.wattdata_mock import get_vendors, get_vendors_as_results, Vendor
-from services.email import send_outreach_email
+from services.email import send_outreach_email, send_reminder_email
 
 router = APIRouter(prefix="/outreach", tags=["outreach"])
 
@@ -378,5 +378,70 @@ async def persist_vendors_for_row(
     }
 
 
-# REMOVED: /check-service endpoint was heuristic-based (keyword matching)
-# All service detection is now handled by LLM via BFF's unified decision architecture
+@router.get("/unsubscribe/{token}")
+async def unsubscribe_vendor(token: str, session=Depends(get_session)):
+    """Vendor opts out of future outreach via email link."""
+    result = await session.execute(
+        select(OutreachEvent).where(OutreachEvent.quote_token == token)
+    )
+    event = result.scalar_one_or_none()
+    if not event:
+        return {"status": "not_found", "message": "Link not recognized."}
+
+    event.opt_out = True
+    await session.commit()
+    return {"status": "unsubscribed", "message": "You have been unsubscribed from future requests."}
+
+
+@router.post("/rows/{row_id}/reminders")
+async def send_reminders(
+    row_id: int,
+    session=Depends(get_session),
+):
+    """
+    Send reminder emails to vendors who haven't responded after 48h.
+    Skips opted-out vendors and those who already submitted quotes.
+    """
+    import json
+    result = await session.execute(select(Row).where(Row.id == row_id))
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    cutoff = datetime.utcnow() - timedelta(hours=48)
+    result = await session.execute(
+        select(OutreachEvent).where(
+            OutreachEvent.row_id == row_id,
+            OutreachEvent.sent_at != None,
+            OutreachEvent.sent_at < cutoff,
+            OutreachEvent.quote_submitted_at == None,
+            OutreachEvent.opt_out == False,
+        )
+    )
+    events = result.scalars().all()
+
+    if not events:
+        return {"status": "no_reminders", "sent": 0}
+
+    choice_factors = []
+    if row.choice_factors:
+        try:
+            choice_factors = json.loads(row.choice_factors)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    sent_count = 0
+    for event in events:
+        if not event.quote_token:
+            continue
+        email_result = await send_reminder_email(
+            to_email=event.vendor_email,
+            to_name=event.vendor_name or "",
+            company_name=event.vendor_company or "Vendor",
+            request_summary=row.title,
+            quote_token=event.quote_token,
+        )
+        if email_result.success:
+            sent_count += 1
+
+    return {"status": "reminders_sent", "sent": sent_count, "total_eligible": len(events)}

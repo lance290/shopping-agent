@@ -100,7 +100,7 @@ async def send_outreach_email(
         <p style="color: #999; font-size: 12px;">
             You received this because {company_name} was identified as a potential provider.
             <br>
-            <a href="#" style="color: #999;">Unsubscribe</a> from future requests.
+            <a href="{backend_url}/outreach/unsubscribe/{quote_token}" style="color: #999;">Unsubscribe</a> from future requests.
         </p>
         
         <img src="{tracking_url}" width="1" height="1" style="display:none;" alt="">
@@ -153,6 +153,77 @@ async def send_outreach_email(
     print(f"[DEMO EMAIL] Quote URL: {quote_url}")
     
     return EmailResult(success=True, message_id="demo-" + quote_token[:8])
+
+
+async def send_reminder_email(
+    to_email: str,
+    to_name: str,
+    company_name: str,
+    request_summary: str,
+    quote_token: str,
+) -> EmailResult:
+    """
+    Send a 48h reminder email to a vendor who hasn't responded.
+    """
+    quote_url = get_quote_url(quote_token)
+    backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+    
+    subject = f"Reminder: RFP for {request_summary}"
+    
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Friendly Reminder</h2>
+        
+        <p>Hi {to_name or 'there'},</p>
+        
+        <p>We sent you a request for quote 2 days ago and haven't heard back yet.</p>
+        
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">📋 Request Summary</h3>
+            <p><strong>{request_summary}</strong></p>
+        </div>
+        
+        <p>If you're interested, you can still submit your quote:</p>
+        
+        <p style="text-align: center; margin: 30px 0;">
+            <a href="{quote_url}" 
+               style="background: #2563eb; color: white; padding: 12px 24px; 
+                      text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Submit Your Quote
+            </a>
+        </p>
+        
+        <p style="color: #666; font-size: 14px;">
+            No worries if this isn't a fit — no action needed.
+        </p>
+        
+        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+        
+        <p style="color: #999; font-size: 12px;">
+            <a href="{backend_url}/outreach/unsubscribe/{quote_token}" style="color: #999;">Unsubscribe</a> from future requests.
+        </p>
+    </body>
+    </html>
+    """
+    
+    if RESEND_API_KEY and resend is not None:
+        try:
+            params: resend.Emails.SendParams = {
+                "from": f"{FROM_NAME} <{FROM_EMAIL}>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+            }
+            response = resend.Emails.send(params)
+            return EmailResult(success=True, message_id=response.get("id"))
+        except Exception as e:
+            print(f"[RESEND ERROR] {e}")
+            return EmailResult(success=False, error=str(e))
+    
+    print(f"[DEMO EMAIL] Reminder to: {to_email}")
+    print(f"[DEMO EMAIL] Subject: {subject}")
+    return EmailResult(success=True, message_id="demo-reminder-" + quote_token[:8])
 
 
 async def send_handoff_buyer_email(

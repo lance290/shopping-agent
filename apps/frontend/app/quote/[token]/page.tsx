@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 
 interface QuoteFormData {
   row_id: number;
@@ -15,7 +15,6 @@ interface QuoteFormData {
 
 export default function QuotePage() {
   const params = useParams();
-  const router = useRouter();
   const token = params.token as string;
 
   const [loading, setLoading] = useState(true);
@@ -27,10 +26,9 @@ export default function QuotePage() {
   // Form state
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
-  const [aircraftType, setAircraftType] = useState('');
-  const [includesCatering, setIncludesCatering] = useState(false);
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [factorAnswers, setFactorAnswers] = useState<Record<string, string | boolean>>({});
 
   useEffect(() => {
     async function loadFormData() {
@@ -69,11 +67,10 @@ export default function QuotePage() {
           price: parseFloat(price),
           currency: 'USD',
           description,
-          aircraft_type: aircraftType || null,
-          includes_catering: includesCatering,
           availability_confirmed: true,
           contact_name: contactName || null,
           contact_phone: contactPhone || null,
+          answers: Object.keys(factorAnswers).length > 0 ? factorAnswers : null,
         }),
       });
 
@@ -176,24 +173,54 @@ export default function QuotePage() {
             </div>
           </div>
 
-          {/* Aircraft Type (for private jet demo) */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Aircraft Type
-            </label>
-            <input
-              type="text"
-              value={aircraftType}
-              onChange={(e) => setAircraftType(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="e.g., Citation XLS, Gulfstream G450"
-            />
-          </div>
+          {/* Dynamic Choice Factors */}
+          {formData?.choice_factors && formData.choice_factors.length > 0 && (
+            <>
+              {formData.choice_factors.map((factor) => (
+                <div key={factor.name} className="mb-4">
+                  {factor.type === 'boolean' ? (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={factorAnswers[factor.name] === true}
+                        onChange={(e) =>
+                          setFactorAnswers((prev) => ({
+                            ...prev,
+                            [factor.name]: e.target.checked,
+                          }))
+                        }
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">{factor.label}</span>
+                    </label>
+                  ) : (
+                    <>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {factor.label}
+                      </label>
+                      <input
+                        type="text"
+                        value={(factorAnswers[factor.name] as string) || ''}
+                        onChange={(e) =>
+                          setFactorAnswers((prev) => ({
+                            ...prev,
+                            [factor.name]: e.target.value,
+                          }))
+                        }
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder={`Enter ${factor.label.toLowerCase()}`}
+                      />
+                    </>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
 
           {/* Description */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              What's Included *
+              What&apos;s Included *
             </label>
             <textarea
               value={description}
@@ -203,19 +230,6 @@ export default function QuotePage() {
               placeholder="Describe what's included in your quote (amenities, services, terms, etc.)"
               required
             />
-          </div>
-
-          {/* Includes Catering */}
-          <div className="mb-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={includesCatering}
-                onChange={(e) => setIncludesCatering(e.target.checked)}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700">Includes catering/refreshments</span>
-            </label>
           </div>
 
           <hr className="my-6" />

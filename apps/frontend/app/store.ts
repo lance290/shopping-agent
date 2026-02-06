@@ -25,6 +25,8 @@ export interface Offer {
   vendor_email?: string;
   vendor_name?: string;
   vendor_company?: string;
+  like_count?: number;
+  comment_count?: number;
 }
 
 const getOfferStableKey = (offer: Offer): string => {

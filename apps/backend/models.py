@@ -256,6 +256,39 @@ class ClickoutEvent(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class PurchaseEvent(SQLModel, table=True):
+    """Tracks completed purchases via Stripe Checkout or affiliate conversion."""
+    __tablename__ = "purchase_event"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    # Who purchased
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+
+    # What they purchased
+    bid_id: Optional[int] = Field(default=None, foreign_key="bid.id", index=True)
+    row_id: Optional[int] = Field(default=None, foreign_key="row.id", index=True)
+
+    # Purchase details
+    amount: float = 0.0
+    currency: str = "USD"
+    merchant_domain: Optional[str] = Field(default=None, index=True)
+
+    # Payment method
+    payment_method: str = "affiliate"  # "affiliate", "stripe_checkout", "external"
+    stripe_session_id: Optional[str] = Field(default=None, index=True)
+    stripe_payment_intent_id: Optional[str] = None
+
+    # Attribution
+    clickout_event_id: Optional[int] = Field(default=None, foreign_key="clickout_event.id")
+    share_token: Optional[str] = Field(default=None, index=True)
+
+    # Status
+    status: str = "completed"  # "pending", "completed", "refunded", "failed"
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Like(SQLModel, table=True):
     """
     Persisted user likes for offers/bids.
@@ -573,4 +606,77 @@ class DealHandoff(SQLModel, table=True):
     status: str = "introduced"  # introduced, closed, cancelled
     closed_at: Optional[datetime] = None
     
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Merchant(SQLModel, table=True):
+    """
+    Registered merchant in the preferred seller network.
+    Self-registered via /merchants/register.
+    """
+    __tablename__ = "merchant"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    # Business profile
+    business_name: str = Field(index=True)
+    contact_name: str
+    email: str = Field(unique=True, index=True)
+    phone: Optional[str] = None
+    website: Optional[str] = None
+
+    # Categories (JSON array of category slugs)
+    categories: Optional[str] = None  # JSON: ["electronics", "private_aviation"]
+
+    # Service areas (JSON array of regions/states)
+    service_areas: Optional[str] = None  # JSON: ["US-CA", "US-NY", "nationwide"]
+
+    # Verification
+    status: str = "pending"  # pending, verified, suspended
+    verified_at: Optional[datetime] = None
+
+    # Linked user account (optional)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+
+    # Linked seller record (for bid attribution)
+    seller_id: Optional[int] = Field(default=None, foreign_key="seller.id")
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Contract(SQLModel, table=True):
+    """
+    DocuSign contract for B2B transactions.
+    """
+    __tablename__ = "contract"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    # What this contract is for
+    bid_id: Optional[int] = Field(default=None, foreign_key="bid.id", index=True)
+    row_id: Optional[int] = Field(default=None, foreign_key="row.id", index=True)
+    quote_id: Optional[int] = Field(default=None, foreign_key="seller_quote.id")
+
+    # Parties
+    buyer_user_id: int = Field(foreign_key="user.id")
+    buyer_email: str
+    seller_email: str
+    seller_company: Optional[str] = None
+
+    # DocuSign
+    docusign_envelope_id: Optional[str] = Field(default=None, index=True)
+    template_id: Optional[str] = None
+
+    # Contract details
+    deal_value: Optional[float] = None
+    currency: str = "USD"
+
+    # Status tracking
+    status: str = "draft"  # draft, sent, viewed, signed, completed, declined, voided
+    sent_at: Optional[datetime] = None
+    viewed_at: Optional[datetime] = None
+    signed_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
     created_at: datetime = Field(default_factory=datetime.utcnow)

@@ -332,3 +332,32 @@ async def select_quote(
             "seller": seller_result.success,
         },
     }
+
+
+@router.patch("/handoffs/{handoff_id}/close")
+async def close_handoff(
+    handoff_id: int,
+    session=Depends(get_session),
+):
+    """
+    Mark a deal handoff as closed (deal completed).
+    """
+    result = await session.execute(
+        select(DealHandoff).where(DealHandoff.id == handoff_id)
+    )
+    handoff = result.scalar_one_or_none()
+    if not handoff:
+        raise HTTPException(status_code=404, detail="Handoff not found")
+
+    if handoff.status == "closed":
+        return {"status": "already_closed", "handoff_id": handoff_id}
+
+    handoff.status = "closed"
+    handoff.closed_at = datetime.utcnow()
+    await session.commit()
+
+    return {
+        "status": "closed",
+        "handoff_id": handoff_id,
+        "closed_at": handoff.closed_at.isoformat(),
+    }

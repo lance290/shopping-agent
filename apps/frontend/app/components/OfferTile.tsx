@@ -187,15 +187,20 @@ export default function OfferTile({
                   e.stopPropagation();
                   onToggleLike?.(offer);
                 }}
+                aria-pressed={isLiked}
                 className={cn(
-                  "h-7 w-7 rounded-full border border-warm-grey/70 flex items-center justify-center transition-colors",
+                  "h-7 rounded-full border border-warm-grey/70 flex items-center justify-center transition-colors gap-0.5",
                   isLiked
                     ? "bg-status-success/10 text-status-success border-status-success/40"
-                    : "bg-white text-onyx-muted hover:text-onyx"
+                    : "bg-white text-onyx-muted hover:text-onyx",
+                  offer.like_count && offer.like_count > 0 ? "w-auto px-1.5" : "w-7"
                 )}
                 title={isLiked ? 'Unlike' : 'Like'}
               >
                 <Heart size={12} className={cn(isLiked && "fill-current")} />
+                {offer.like_count != null && offer.like_count > 0 && (
+                  <span className="text-[9px] font-semibold">{offer.like_count}</span>
+                )}
               </button>
               <button
                 type="button"
@@ -204,10 +209,16 @@ export default function OfferTile({
                   e.stopPropagation();
                   onComment?.(offer);
                 }}
-                className="h-7 w-7 rounded-full border border-warm-grey/70 flex items-center justify-center bg-white text-onyx-muted hover:text-onyx transition-colors"
+                className={cn(
+                  "h-7 rounded-full border border-warm-grey/70 flex items-center justify-center bg-white text-onyx-muted hover:text-onyx transition-colors gap-0.5",
+                  offer.comment_count && offer.comment_count > 0 ? "w-auto px-1.5" : "w-7"
+                )}
                 title="Comment"
               >
                 <MessageSquare size={12} />
+                {offer.comment_count != null && offer.comment_count > 0 && (
+                  <span className="text-[9px] font-semibold">{offer.comment_count}</span>
+                )}
               </button>
               <button
                 type="button"
