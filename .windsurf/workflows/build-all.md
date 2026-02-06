@@ -34,6 +34,7 @@ This workflow does NOT stop to ask clarifying questions. Instead:
 2. **Search the web second** — best practices, library docs, security advisories
 3. **Document the assumption** — log what you decided and why in `DECISIONS.md`
 4. **Confidence threshold** — if after research you are <60% confident, log the assumption as `⚠️ LOW CONFIDENCE` in DECISIONS.md so the human can review it later. Never silently guess.
+5. **File/directory creation is authorized** — invoking `/build-all` grants permission to create required files and directories without asking, as long as changes stay within repo scope.
 
 ### Respect Existing Architecture
 When running in an existing repo (especially one scaffolded with `/bootup`):
@@ -364,7 +365,8 @@ For EACH task in the effort:
 ### 5E: Checkpoint After Effort
 After ALL tasks in an effort are complete:
 1. Run tests to verify everything works together
-2. Commit with descriptive message:
+2. Run `/review-loop` workflow logic scoped to files changed in this effort
+3. Commit with descriptive message:
    ```
    feat([effort-name]): implement [PRD title]
 
@@ -372,9 +374,9 @@ After ALL tasks in an effort are complete:
    - Tasks completed: [count]
    - PRD: [path]
    ```
-3. Update traceability matrix: set PRD status to `Done`
-4. Update `PROGRESS.md` with effort completion
-5. Switch to next effort (if more remain)
+4. Update traceability matrix: set PRD status to `Done`
+5. Update `PROGRESS.md` with effort completion
+6. Switch to next effort (if more remain)
 
 ---
 ## Step 6: Scope Creep Guard
@@ -518,15 +520,30 @@ Display final summary:
 ---
 ## Failure Handling
 
+### ⚠️ Band-Aid Loop Prevention (CRITICAL FOR BUILD-ALL)
+
+**Build-all is especially vulnerable to band-aid loops** because it runs autonomously and can burn hundreds of credits chasing symptoms instead of root causes.
+
+**The `/implement` workflow contains the full Root Cause Protocol.** The key rules that apply here:
+
+1. **2-attempt limit per issue** — after 2 failed fix attempts on the same error, trigger the mandatory diagnostic pause (stop coding, read full error, `git diff`, trace upstream)
+2. **Never suppress errors** — no `as any`, `@ts-ignore`, empty `try/catch`, `?.` where null shouldn't exist
+3. **Fix at the origin, not the symptom** — if you're patching where the error appears instead of where bad state originates, you're band-aiding
+4. **3 strikes = revert and rethink** — if 3 attempts fail, revert to last known-good commit and re-approach with a completely different strategy
+5. **Review-loop cap: 4 iterations** — if `/review-loop` hits 4 iterations and still has Critical/Major issues, HALT and generate a stuck-report
+
+**Credit budget awareness**: If you've spent 3+ fix attempts across a single effort without forward progress, the effort is likely blocked by a design issue. Mark it blocked and move on.
+
 ### Task Implementation Fails
 1. Log the failure in `PROGRESS.md`
-2. Attempt to fix (up to 3 retries per task, respecting error budget)
-3. If still failing after retries:
+2. Attempt to fix (up to 2 retries per task — **follow Root Cause Protocol, not random patches**)
+3. On each retry: write a root cause hypothesis BEFORE attempting the fix
+4. If still failing after retries:
    - Revert to last known-good commit for that effort
    - Mark task as `blocked` in `tasks.json`
-   - Log blocker in `DECISIONS.md` as `🚨 BLOCKED`
+   - Log blocker in `DECISIONS.md` as `🚨 BLOCKED` with root cause analysis
    - **Continue to next task** (don't halt the entire build)
-4. At the end, report all blocked tasks in the summary
+5. At the end, report all blocked tasks in the summary
 
 ### Effort Fails Entirely
 1. Revert the effort's changes
@@ -584,3 +601,5 @@ When `/build-all` is invoked and a previous run exists:
 9. **Checkpoint often** — commit after each effort completes
 10. **Preserve git integrity** — never use `--no-verify`
 11. **Ask before destructive actions** — `git reset --hard`, deleting volumes, removing `node_modules`
+12. **File/directory creation is authorized** — `/build-all` grants permission to create required files/dirs without asking
+13. **Root Cause Protocol enforced** — max 2 fix attempts per issue before diagnostic pause, max 4 review-loop iterations, never suppress errors with band-aids
