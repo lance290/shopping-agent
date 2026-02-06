@@ -170,7 +170,7 @@ async def stripe_webhook(request: Request):
     if webhook_secret:
         try:
             event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
-        except stripe.error.SignatureVerificationError:
+        except stripe.SignatureVerificationError:
             raise HTTPException(status_code=400, detail="Invalid signature")
         except Exception as e:
             logger.error(f"[STRIPE WEBHOOK] Error: {e}")
@@ -226,13 +226,7 @@ async def _handle_checkout_completed(event):
         logger.warning("[STRIPE WEBHOOK] Invalid metadata values")
         return
 
-    # Create PurchaseEvent
-    from database import engine
-    from sqlalchemy.orm import sessionmaker
-    from sqlmodel.ext.asyncio.session import AsyncSession as AS
-
-    async_session = sessionmaker(engine, class_=AS, expire_on_commit=False)
-    async with async_session() as db_session:
+    async for db_session in get_session():
         try:
             purchase = PurchaseEvent(
                 user_id=user_id,

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ArrowLeft, Inbox, FileText, User, RefreshCw } from 'lucide-react';
+import { authHeaders } from '../utils/auth';
 
 interface RFPSummary {
   row_id: number;
@@ -37,14 +38,6 @@ interface MerchantProfile {
 }
 
 type Tab = 'inbox' | 'quotes' | 'profile';
-
-function getToken() {
-  return typeof window !== 'undefined' ? localStorage.getItem('session_token') || '' : '';
-}
-
-function authHeaders() {
-  return { Authorization: `Bearer ${getToken()}` };
-}
 
 export default function SellerDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('inbox');

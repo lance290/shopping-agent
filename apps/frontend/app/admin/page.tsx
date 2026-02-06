@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { ArrowLeft, RefreshCw, Users, ShoppingCart, MousePointerClick, DollarSign, Store, Mail, Bug } from 'lucide-react';
+import { getToken } from '../utils/auth';
 
 interface AdminStats {
   users: { total: number; last_7_days: number };
@@ -13,10 +14,6 @@ interface AdminStats {
   merchants: { total: number };
   outreach: { sent: number; quoted: number };
   bugs: { total: number; open: number };
-}
-
-function getToken() {
-  return typeof window !== 'undefined' ? localStorage.getItem('session_token') || '' : '';
 }
 
 export default function AdminDashboard() {

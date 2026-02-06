@@ -1,46 +1,54 @@
-# Review Findings - parallel-llm-openrouter
+# Review Findings - Phase 3 Build-All (Pass 1)
 
 ## Summary
-- **Files reviewed:** 5
-- **Critical issues:** 2 (fixed)
-- **Major issues:** 1 (DRY - deferred)
-- **Minor issues:** 1 (test default - fixed)
+- **Files reviewed:** 22
+- **Critical issues:** 4 (all fixed)
+- **Medium issues:** 2 fixed, 2 deferred
+- **False alarms:** 1
 
-## Issues Found & Fixed
+## CRITICAL — Fixed
 
-### 1. Wrong API Key Check in intent/index.ts ✅ FIXED
-**Location:** `apps/bff/src/intent/index.ts:205`
-**Issue:** Checked `GOOGLE_GENERATIVE_AI_API_KEY` but we switched to OpenRouter
-**Fix:** Changed to check `OPENROUTER_API_KEY`
+### 1. Stripe v7 error class path ✅
+- **File:** `routes/checkout.py:173`
+- **Issue:** `stripe.error.SignatureVerificationError` — Stripe SDK v7+ removed `.error` namespace
+- **Fix:** Changed to `stripe.SignatureVerificationError`
 
-### 2. Wrong API Key Check in llm.ts ✅ FIXED
-**Location:** `apps/bff/src/llm.ts:237`
-**Issue:** `triageProviderQuery` checked wrong env var
-**Fix:** Changed to check `OPENROUTER_API_KEY`
+### 2. Webhook session management ✅
+- **File:** `routes/checkout.py:229`
+- **Issue:** `_handle_checkout_completed` created raw `sessionmaker(engine)` bypassing DI cleanup
+- **Fix:** Changed to `async for db_session in get_session():`
 
-### 3. Test Default Mismatch ✅ FIXED
-**Location:** `apps/backend/tests/test_provider_initialization.py`
-**Issue:** Test expected 8s default but streaming uses 30s
-**Fix:** Updated test to expect 30s default
+### 3. N+1 in seller inbox ✅
+- **File:** `routes/seller.py:148-173`
+- **Issue:** Quote count query inside for-loop over rows
+- **Fix:** Single `GROUP BY` batch query
 
-## Deferred (Architectural)
+### 4. N+1 in seller quotes ✅
+- **File:** `routes/seller.py:199-225`
+- **Issue:** `session.get(Row)` per quote in loop
+- **Fix:** Batch `SELECT ... WHERE id IN (...)`
 
-### 4. DRY Violation: Fetch Utilities Duplicated (Major)
-**Location:** `llm.ts` and `index.ts`
-**Description:** `fetchJsonWithTimeout`, `fetchJsonWithTimeoutRetry`, `sleep`, `isRetryableFetchError` are duplicated
-**Recommendation:** Extract to shared `utils/fetch.ts`
-**Status:** Deferred - would require module restructuring
+## MEDIUM — Fixed
 
-## Security Review
-- ✅ Auth checks present on all protected endpoints
-- ✅ No hardcoded secrets (uses env vars)
-- ✅ Input validation on API endpoints
-- ✅ OpenRouter API key loaded from env
+### 5. DRY: getToken/authHeaders duplicated ✅
+- **Files:** `seller/page.tsx`, `admin/page.tsx`
+- **Fix:** Extracted to `utils/auth.ts`, pages import shared module
 
-## Performance Review
-- ✅ Parallel LLM calls for title extraction + factors
-- ✅ Streaming search results (non-blocking)
-- ✅ 30s timeout allows slow providers to complete
+### 6. Admin stats inner imports ✅
+- **File:** `routes/admin.py:6,14-18`
+- **Issue:** `timedelta` and model imports inside function body
+- **Fix:** Moved to module top level
 
-## Verdict
-**PASS** - Critical API key issues fixed. DRY violation deferred.
+## MEDIUM — Deferred
+
+### 7. API proxy BACKEND_URL duplication
+- All 6 new proxy routes repeat `const BACKEND_URL = ...`
+- Pre-existing pattern across 15+ routes. Separate cleanup effort.
+
+### 8. OfferTile Buy Now silent failure
+- Non-ok checkout response shows no user feedback
+- Needs toast/notification system (not yet in codebase)
+
+## Verification
+- Backend: 285 passed, 0 failed
+- Frontend type-check: Only pre-existing errors

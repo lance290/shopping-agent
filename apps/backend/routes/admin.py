@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 
 from sqlmodel import select
@@ -11,7 +11,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy import func, text
 
 from database import get_session
-from models import User, AuthSession, AuditLog, hash_token, generate_session_token
+from models import (
+    User, AuthSession, AuditLog, hash_token, generate_session_token,
+    Row, Bid, ClickoutEvent, PurchaseEvent, Merchant,
+    OutreachEvent, BugReport, SellerQuote,
+)
 from dependencies import require_admin
 from routes.rate_limit import check_rate_limit
 
@@ -87,12 +91,6 @@ async def admin_stats(
     session: AsyncSession = Depends(get_session),
 ):
     """Get platform overview statistics (admin only)."""
-    from datetime import timedelta
-    from models import (
-        Row, Bid, ClickoutEvent, PurchaseEvent, Merchant,
-        OutreachEvent, BugReport, SellerQuote,
-    )
-
     now = datetime.utcnow()
     week_ago = now - timedelta(days=7)
 

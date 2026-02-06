@@ -58,6 +58,14 @@ export const logout = async (): Promise<void> => {
   // Cookie is HttpOnly — server clears it via the proxy route response.
 };
 
+export function getToken(): string {
+  return typeof window !== 'undefined' ? localStorage.getItem('session_token') || '' : '';
+}
+
+export function authHeaders(): Record<string, string> {
+  return { Authorization: `Bearer ${getToken()}` };
+}
+
 export const getMe = async (): Promise<AuthMeResponse | null> => {
   try {
     const res = await fetch('/api/auth/me');

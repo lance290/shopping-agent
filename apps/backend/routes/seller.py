@@ -145,25 +145,30 @@ async def seller_inbox(
     result = await session.exec(query)
     rows = result.all()
 
-    # Get quote counts for each row
-    summaries: List[RFPSummary] = []
-    for row in rows:
-        count_result = await session.exec(
-            select(func.count(SellerQuote.id)).where(SellerQuote.row_id == row.id)
-        )
-        quote_count = count_result.one()
+    if not rows:
+        return []
 
-        summaries.append(
-            RFPSummary(
-                row_id=row.id,
-                title=row.title,
-                status=row.status,
-                service_category=row.service_category,
-                choice_factors=row.choice_factors,
-                created_at=row.created_at,
-                quote_count=quote_count,
-            )
+    # Batch fetch quote counts in a single query
+    row_ids = [r.id for r in rows]
+    quote_counts_result = await session.exec(
+        select(SellerQuote.row_id, func.count(SellerQuote.id).label("cnt"))
+        .where(SellerQuote.row_id.in_(row_ids))
+        .group_by(SellerQuote.row_id)
+    )
+    quote_counts = {row_id: cnt for row_id, cnt in quote_counts_result}
+
+    summaries: List[RFPSummary] = [
+        RFPSummary(
+            row_id=row.id,
+            title=row.title,
+            status=row.status,
+            service_category=row.service_category,
+            choice_factors=row.choice_factors,
+            created_at=row.created_at,
+            quote_count=quote_counts.get(row.id, 0),
         )
+        for row in rows
+    ]
 
     return summaries
 
@@ -191,21 +196,31 @@ async def seller_quotes(
     )
     quotes = quotes_result.all()
 
-    summaries: List[QuoteSummary] = []
-    for q in quotes:
-        # Get row title
-        row = await session.get(Row, q.row_id) if q.row_id else None
-        summaries.append(
-            QuoteSummary(
-                id=q.id,
-                row_id=q.row_id,
-                row_title=row.title if row else None,
-                price=q.price,
-                description=q.description,
-                status=q.status or "pending",
-                created_at=q.created_at,
-            )
+    if not quotes:
+        return []
+
+    # Batch fetch row titles in a single query
+    quote_row_ids = list({q.row_id for q in quotes if q.row_id})
+    if quote_row_ids:
+        rows_result = await session.exec(
+            select(Row.id, Row.title).where(Row.id.in_(quote_row_ids))
         )
+        row_titles = {row_id: title for row_id, title in rows_result}
+    else:
+        row_titles = {}
+
+    summaries: List[QuoteSummary] = [
+        QuoteSummary(
+            id=q.id,
+            row_id=q.row_id,
+            row_title=row_titles.get(q.row_id),
+            price=q.price,
+            description=q.description,
+            status=q.status or "pending",
+            created_at=q.created_at,
+        )
+        for q in quotes
+    ]
 
     return summaries
 
