@@ -4,7 +4,7 @@ Handles magic link validation and quote-to-bid conversion.
 """
 from datetime import datetime
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 from sqlmodel import select
 
@@ -12,6 +12,7 @@ from models import (
     Row, SellerQuote, OutreachEvent, Bid, DealHandoff, User,
 )
 from database import get_session
+from dependencies import get_current_session
 from services.email import send_handoff_buyer_email, send_handoff_seller_email
 
 router = APIRouter(prefix="/quotes", tags=["quotes"])
@@ -337,11 +338,15 @@ async def select_quote(
 @router.patch("/handoffs/{handoff_id}/close")
 async def close_handoff(
     handoff_id: int,
+    authorization: Optional[str] = Header(None),
     session=Depends(get_session),
 ):
     """
     Mark a deal handoff as closed (deal completed).
     """
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     result = await session.execute(
         select(DealHandoff).where(DealHandoff.id == handoff_id)
     )

@@ -1,16 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-function normalizeBaseUrl(url: string): string {
-  const trimmed = url.trim();
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-  return `http://${trimmed}`;
-}
-
-const BFF_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
-);
+import { BFF_URL } from '../../utils/bff';
 
 function getAuthHeader(request: NextRequest): string | null {
   const direct = request.cookies.get('sa_session')?.value;

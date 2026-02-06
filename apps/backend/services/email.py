@@ -55,6 +55,7 @@ async def send_outreach_email(
     """
     quote_url = get_quote_url(quote_token)
     tracking_url = get_tracking_pixel_url(quote_token)
+    backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
     
     # Build choice factors HTML
     factors_html = ""

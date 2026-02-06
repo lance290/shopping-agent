@@ -150,6 +150,8 @@ async def search_merchants(
     Search verified merchants by category and/or service area.
     Used by the matching algorithm to prioritize registered merchants.
     """
+    # TODO: Push category/area filtering to DB query (e.g. JSON contains or
+    # a categories join table) once merchant volume justifies it.
     query = select(Merchant).where(Merchant.status == "verified")
 
     result = await session.execute(query)
@@ -170,7 +172,6 @@ async def search_merchants(
             "id": m.id,
             "business_name": m.business_name,
             "contact_name": m.contact_name,
-            "email": m.email,
             "website": m.website,
             "categories": cats,
             "service_areas": areas,

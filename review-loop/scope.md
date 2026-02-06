@@ -1,53 +1,29 @@
-# Review Scope - enhancement-bug-report-triage
+# Review Scope - phase2-full-implementation (Iteration 1)
 
 ## Files to Review
 
 ### Backend (modified)
-- `apps/backend/models.py` (modified)
-- `apps/backend/routes/bugs.py` (modified)
-- `apps/backend/services/email.py` (modified)
+- `apps/backend/main.py` (modified — router registration)
+- `apps/backend/models.py` (modified — Merchant, Contract, PurchaseEvent models)
+- `apps/backend/routes/outreach.py` (modified — unsubscribe + reminders)
+- `apps/backend/routes/quotes.py` (modified — close-handoff endpoint)
+- `apps/backend/services/email.py` (modified — reminder email + unsubscribe link fix)
 
 ### Backend (added)
-- `apps/backend/scripts/migrate_triage_columns.py` (added)
-- `apps/backend/scripts/verify_triage_models.py` (added)
-- `apps/backend/scripts/manual_verify_triage.py` (added)
-- `apps/backend/tests/test_bug_triage.py` (added)
+- `apps/backend/routes/contracts.py` (added)
+- `apps/backend/routes/merchants.py` (added)
+- `apps/backend/tests/test_phase2_endpoints.py` (added)
 
-### Effort Docs (added)
-- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/ASSUMPTIONS.md`
-- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/DECISIONS.md`
-- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/ERRORS.md`
-- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/NOTES.md`
-- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/PROGRESS.md`
-- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/effort.json`
-- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/metrics.json`
-- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/plan.md`
-- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/product-north-star.md`
-- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/tasks.json`
-- `.cfoi/branches/dev/efforts/enhancement-bug-report-triage/tasks.md`
-- `.cfoi/branches/dev/proof/task-001/build-log.md`
-- `.cfoi/branches/dev/proof/task-002/alignment.md`
-- `.cfoi/branches/dev/proof/task-002/build-log.md`
-- `.cfoi/branches/dev/proof/task-002/tests.md`
-- `.cfoi/branches/dev/proof/task-003/alignment.md`
-- `.cfoi/branches/dev/proof/task-003/build-log.md`
-- `.cfoi/branches/dev/proof/task-004/alignment.md`
-- `.cfoi/branches/dev/proof/task-004/build-log.md`
+### Frontend (modified)
+- `apps/frontend/app/components/OfferTile.tsx` (modified — aria-pressed, count badges)
+- `apps/frontend/app/components/RowStrip.tsx` (modified — mergeLikes/mergeComments, share wiring)
+- `apps/frontend/app/quote/[token]/page.tsx` (modified — dynamic choice_factors)
+- `apps/frontend/app/store.ts` (modified — like_count, comment_count)
 
-## Out of Scope (unchanged)
-- `apps/backend/routes/rows_search.py`
-- `apps/backend/sourcing/choice_filter.py`
-- `apps/backend/tests/test_choice_filter.py`
-- `apps/backend/tests/test_rows_search.py`
-- `apps/backend/tests/test_rows_search_persistence.py`
-- `apps/bff/src/llm.ts`
-- `apps/frontend/app/components/Chat.tsx`
-- `apps/frontend/app/components/ChoiceFactorPanel.tsx`
-- `apps/frontend/app/components/RequestTile.tsx`
-- `apps/frontend/app/components/RowStrip.tsx`
-- `apps/frontend/app/store.ts`
-- `apps/frontend/app/tests/board-display.test.ts`
-- `apps/frontend/app/tests/row-strip-errors.test.tsx`
-- `apps/frontend/app/utils/api.ts`
+### Frontend (added)
+- `apps/frontend/app/api/shares/route.ts` (added)
+- `apps/frontend/app/api/shares/[token]/route.ts` (added)
+- `apps/frontend/app/share/[token]/page.tsx` (added)
+- `apps/frontend/app/merchants/register/page.tsx` (added)
 
-## Review Started: 2026-02-05T11:05:00-08:00
+## Review Started: 2026-02-06T11:56:00-08:00

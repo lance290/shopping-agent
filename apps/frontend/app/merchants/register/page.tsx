@@ -39,8 +39,7 @@ export default function MerchantRegisterPage() {
     setError(null);
 
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://127.0.0.1:8081';
-      const res = await fetch(`${backendUrl}/merchants/register`, {
+      const res = await fetch('/api/merchants/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
