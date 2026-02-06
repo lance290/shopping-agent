@@ -43,12 +43,27 @@ class MerchantResponse(BaseModel):
 @router.post("/register")
 async def register_merchant(
     registration: MerchantRegistration,
+    authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
     """
     Register a new merchant in the preferred seller network.
-    No auth required — public registration.
+    Requires authentication so the merchant is linked to the user account.
     """
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Login required to register as a seller")
+
+    # Check if user already has a merchant profile
+    existing_user = await session.execute(
+        select(Merchant).where(Merchant.user_id == auth_session.user_id)
+    )
+    if existing_user.scalar_one_or_none():
+        raise HTTPException(
+            status_code=409,
+            detail="You already have a merchant profile."
+        )
+
     # Check for duplicate email
     result = await session.execute(
         select(Merchant).where(Merchant.email == registration.email)
@@ -82,6 +97,7 @@ async def register_merchant(
         categories=json.dumps(registration.categories) if registration.categories else None,
         service_areas=json.dumps(registration.service_areas) if registration.service_areas else None,
         seller_id=seller.id,
+        user_id=auth_session.user_id,
         status="pending",
     )
     session.add(merchant)

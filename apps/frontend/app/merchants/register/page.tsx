@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Building2, CheckCircle, Loader2 } from 'lucide-react';
+import { getToken } from '../../utils/auth';
 
 const CATEGORIES = [
   { slug: 'electronics', label: 'Electronics' },
@@ -39,9 +40,19 @@ export default function MerchantRegisterPage() {
     setError(null);
 
     try {
+      const token = getToken();
+      if (!token) {
+        setError('Please log in before registering as a seller.');
+        setSubmitting(false);
+        return;
+      }
+
       const res = await fetch('/api/merchants/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           business_name: businessName,
           contact_name: contactName,

@@ -9,14 +9,15 @@ import pytest
 import json
 from datetime import datetime
 
-from models import Merchant, Contract, PurchaseEvent
+from models import Merchant, Contract, PurchaseEvent, User, AuthSession, hash_token, generate_session_token
 
 
 # ─── Merchant Registration ─────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_merchant_register_success(client):
+async def test_merchant_register_success(client, auth_user_and_token):
     """Test successful merchant registration."""
+    user, token = auth_user_and_token
     response = await client.post(
         "/merchants/register",
         json={
@@ -28,6 +29,7 @@ async def test_merchant_register_success(client):
             "categories": ["electronics", "automotive"],
             "service_areas": ["US-CA", "US-NY"],
         },
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 200
     data = response.json()
@@ -36,9 +38,41 @@ async def test_merchant_register_success(client):
 
 
 @pytest.mark.asyncio
-async def test_merchant_register_duplicate_email(client):
+async def test_merchant_register_requires_auth(client):
+    """Test that merchant registration requires authentication."""
+    response = await client.post(
+        "/merchants/register",
+        json={
+            "business_name": "Unauth Co",
+            "contact_name": "Nobody",
+            "email": "nobody@example.com",
+            "categories": ["electronics"],
+        },
+    )
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_merchant_register_duplicate_email(client, session):
     """Test duplicate email registration is rejected."""
     unique_email = f"dup-{datetime.utcnow().timestamp()}@example.com"
+
+    # Create two separate users
+    user1 = User(email="duptest1@example.com", is_admin=False)
+    user2 = User(email="duptest2@example.com", is_admin=False)
+    session.add(user1)
+    session.add(user2)
+    await session.commit()
+    await session.refresh(user1)
+    await session.refresh(user2)
+
+    token1 = generate_session_token()
+    s1 = AuthSession(email=user1.email, user_id=user1.id, session_token_hash=hash_token(token1))
+    token2 = generate_session_token()
+    s2 = AuthSession(email=user2.email, user_id=user2.id, session_token_hash=hash_token(token2))
+    session.add(s1)
+    session.add(s2)
+    await session.commit()
 
     await client.post(
         "/merchants/register",
@@ -48,6 +82,7 @@ async def test_merchant_register_duplicate_email(client):
             "email": unique_email,
             "categories": ["electronics"],
         },
+        headers={"Authorization": f"Bearer {token1}"},
     )
 
     response = await client.post(
@@ -58,6 +93,7 @@ async def test_merchant_register_duplicate_email(client):
             "email": unique_email,
             "categories": ["automotive"],
         },
+        headers={"Authorization": f"Bearer {token2}"},
     )
     assert response.status_code == 409
 

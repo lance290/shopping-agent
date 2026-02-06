@@ -7,10 +7,14 @@ function getBackendUrl(): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const auth = request.headers.get('authorization') || '';
 
     const response = await fetch(`${getBackendUrl()}/merchants/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: auth,
+      },
       body: JSON.stringify(body),
     });
 
