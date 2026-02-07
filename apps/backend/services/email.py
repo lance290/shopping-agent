@@ -104,6 +104,10 @@ async def send_outreach_email(
             <a href="{backend_url}/outreach/unsubscribe/{quote_token}" style="color: #999;">Unsubscribe</a> from future requests.
         </p>
         
+        <p style="color: #bbb; font-size: 10px; margin-top: 20px;">
+            BuyAnything.ai is a marketplace platform. We may earn a referral fee or commission when transactions are completed through our platform.
+        </p>
+        
         <img src="{tracking_url}" width="1" height="1" style="display:none;" alt="">
     </body>
     </html>
@@ -125,6 +129,8 @@ async def send_outreach_email(
     
     --
     BuyAnything Team
+    
+    Disclosure: BuyAnything.ai may earn a referral fee or commission on transactions completed through our platform.
     """
     
     # If Resend is configured, send real email
@@ -203,6 +209,10 @@ async def send_reminder_email(
         
         <p style="color: #999; font-size: 12px;">
             <a href="{backend_url}/outreach/unsubscribe/{quote_token}" style="color: #999;">Unsubscribe</a> from future requests.
+        </p>
+        
+        <p style="color: #bbb; font-size: 10px; margin-top: 20px;">
+            BuyAnything.ai is a marketplace platform. We may earn a referral fee or commission when transactions are completed through our platform.
         </p>
     </body>
     </html>

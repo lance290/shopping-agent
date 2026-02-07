@@ -65,6 +65,15 @@ const unifiedDecisionSchema = z.object({
     z.object({
       type: z.literal('vendor_outreach'),
     }),
+    // Disambiguation — user query is ambiguous, offer options (PRD 02)
+    z.object({
+      type: z.literal('disambiguate'),
+      options: z.array(z.object({
+        label: z.string(),
+        search_query: z.string(),
+        category: z.enum(['product', 'service']),
+      })).min(2).max(4),
+    }),
   ]),
 });
 
@@ -137,10 +146,11 @@ SERVICE vs PRODUCT:
 === ACTION TYPES ===
 1. "create_row" - Create new request (no active row, or after clarification)
 2. "update_row" - Refine active row (same topic: price, color, size)
-3. "context_switch" - User wants something COMPLETELY DIFFERENT from active row
+3. "context_switch" - User switched to completely different topic - create new row, clear chat
 4. "ask_clarification" - Need essential info before proceeding (use sparingly)
 5. "search" - Refresh search on current row
 6. "vendor_outreach" - Reach out to vendors for quotes
+7. "disambiguate" - Query is genuinely ambiguous (e.g., "apple" could be fruit or tech). Offer 2-4 options with label, search_query, category. Use SPARINGLY — only when truly ambiguous.
 
 RULES:
 - Active row exists AND user asks for UNRELATED thing → context_switch

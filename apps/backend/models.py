@@ -141,6 +141,14 @@ class Bid(SQLModel, table=True):
     is_selected: bool = False
     is_service_provider: bool = False
 
+    # Personalized Ranking (PRD 11) — score dimensions persisted from scorer
+    combined_score: Optional[float] = None
+    relevance_score: Optional[float] = None
+    price_score: Optional[float] = None
+    quality_score: Optional[float] = None
+    diversity_bonus: Optional[float] = None
+    source_tier: Optional[str] = None  # "registered", "outreach", "marketplace"
+
     # Unified Closing Layer (Phase 4)
     closing_status: Optional[str] = None  # None, "pending", "payment_initiated", "paid", "shipped", "delivered", "contract_sent", "contract_signed", "refunded"
     contact_name: Optional[str] = None
@@ -164,6 +172,9 @@ class User(SQLModel, table=True):
     # Referral attribution for share links
     referral_share_token: Optional[str] = Field(default=None, index=True)
     signup_source: Optional[str] = Field(default=None)  # "share", "direct", etc.
+
+    # Anti-Fraud & Reputation (PRD 10)
+    trust_level: str = "standard"  # "new", "standard", "trusted"
 
 
 class AuditLog(SQLModel, table=True):
@@ -254,6 +265,11 @@ class ClickoutEvent(SQLModel, table=True):
     # Share attribution
     share_token: Optional[str] = Field(default=None, index=True)  # tracks share attribution
     referral_user_id: Optional[int] = Field(default=None, foreign_key="user.id")  # creator of the share link
+
+    # Anti-Fraud (PRD 10)
+    is_suspicious: bool = False
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
 
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -616,6 +632,12 @@ class OutreachEvent(SQLModel, table=True):
     
     # Opt-out
     opt_out: bool = False
+
+    # Vendor Unresponsiveness (PRD 12)
+    status: str = "pending"  # "pending", "sent", "delivered", "opened", "responded", "expired"
+    timeout_hours: int = 48  # Hours before marking as expired
+    expired_at: Optional[datetime] = None
+    followup_sent_at: Optional[datetime] = None
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -691,6 +713,10 @@ class Merchant(SQLModel, table=True):
     stripe_onboarding_complete: bool = False
     default_commission_rate: float = 0.05  # 5% default platform fee
 
+    # Anti-Fraud & Reputation (PRD 10)
+    verification_level: str = "unverified"  # "unverified", "email_verified", "identity_verified", "premium"
+    reputation_score: float = 0.0  # 0.0-5.0 based on deal history
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -728,5 +754,61 @@ class Contract(SQLModel, table=True):
     viewed_at: Optional[datetime] = None
     signed_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# =============================================================================
+# PERSONALIZED RANKING MODELS (PRD 11)
+# =============================================================================
+
+class UserSignal(SQLModel, table=True):
+    """
+    Tracks user interaction signals for ranking personalization.
+    Signals: thumbs_up, thumbs_down, click, select, skip, dwell.
+    """
+    __tablename__ = "user_signal"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    bid_id: Optional[int] = Field(default=None, foreign_key="bid.id", index=True)
+    row_id: Optional[int] = Field(default=None, foreign_key="row.id", index=True)
+
+    signal_type: str = Field(index=True)  # "thumbs_up", "thumbs_down", "click", "select", "skip"
+    value: float = 1.0  # Signal strength (e.g., 1.0 for positive, -1.0 for negative)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserPreference(SQLModel, table=True):
+    """
+    Learned user preferences from signal aggregation.
+    E.g., preference for certain brands, price ranges, merchants.
+    """
+    __tablename__ = "user_preference"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+
+    preference_key: str = Field(index=True)  # "brand", "merchant", "price_range", "category"
+    preference_value: str  # The specific value (e.g., "Nike", "amazon.com", "50-200")
+    weight: float = 1.0  # Learned weight for this preference
+
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# =============================================================================
+# SELLER BOOKMARK MODEL (PRD 04)
+# =============================================================================
+
+class SellerBookmark(SQLModel, table=True):
+    """
+    Seller bookmarks for buyer RFPs they're interested in.
+    """
+    __tablename__ = "seller_bookmark"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    merchant_id: int = Field(foreign_key="merchant.id", index=True)
+    row_id: int = Field(foreign_key="row.id", index=True)
 
     created_at: datetime = Field(default_factory=datetime.utcnow)

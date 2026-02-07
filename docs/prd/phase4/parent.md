@@ -4,18 +4,23 @@ _Source copy of the parent PRD for traceability._
 
 ---
 
-## Phase 4 Child PRDs (Updated 2026-02-06)
+## Phase 4 Child PRDs (Updated 2026-02-07)
 
-| # | PRD | Status | Key Gap |
-|---|-----|--------|---------|
-| 00 | [Revenue & Monetization](./00-revenue-monetization.md) | 🚨 P0 — Not built | Zero revenue capture (affiliate tags empty, no Stripe Connect) |
-| 01 | [Search Architecture v2](./01-search-architecture-v2.md) | ~75% done | Missing: scoring/ranking, eBay, low-confidence handling |
-| 02 | [AI Procurement Agent](./02-ai-procurement-agent.md) | Partial | Missing: structured RFP builder, disambiguation flow |
-| 03 | [Multi-Channel Sourcing](./03-multi-channel-sourcing-outreach.md) | Mostly done | Missing: instant vs quote badges, WattData blocked |
-| 04 | [Seller Tiles + Quote Intake](./04-seller-tiles-quote-intake.md) | Partial | Missing: seller RFP discovery, notifications, bookmarks |
-| 05 | [Unified Closing Layer](./05-unified-closing-layer.md) | Scaffold | Missing: platform fees, multi-vendor, DocuSign API |
-| 06 | [Viral Growth Flywheel](./06-viral-growth-flywheel.md) | Mostly not built | Missing: seller→buyer prompt, referral graph, K-factor |
-| 07 | [Workspace + Tile Provenance](./07-workspace-tile-provenance.md) | Substantially done | Missing: tile detail panel (frontend), collaborator permissions |
+| # | PRD | Status | Notes |
+|---|-----|--------|-------|
+| 00 | [Revenue & Monetization](./00-revenue-monetization.md) | ✅ Complete | Stripe Connect, platform fees, revenue tracking |
+| 01 | [Search Architecture v2](./01-search-architecture-v2.md) | ✅ Complete | Scorer, eBay adapter, score persistence |
+| 02 | [AI Procurement Agent](./02-ai-procurement-agent.md) | ✅ Complete | Structured RFP builder prompt, disambiguation |
+| 03 | [Multi-Channel Sourcing](./03-multi-channel-sourcing-outreach.md) | ✅ Complete | Instant offer badges, WattData scaffold |
+| 04 | [Seller Tiles + Quote Intake](./04-seller-tiles-quote-intake.md) | ✅ Complete | Seller discovery, notifications, bookmarks |
+| 05 | [Unified Closing Layer](./05-unified-closing-layer.md) | ✅ Complete | Closing status, batch checkout, platform fees |
+| 06 | [Viral Growth Flywheel](./06-viral-growth-flywheel.md) | ✅ Complete | Referral capture, K-factor, seller→buyer prompt |
+| 07 | [Workspace + Tile Provenance](./07-workspace-tile-provenance.md) | ✅ Complete | Permission field, tile detail panel |
+| 08 | [Affiliate Disclosure UI](./08-affiliate-disclosure-ui.md) | ✅ Complete | Board, tile, share page, merchant, email disclosure |
+| 09 | [Analytics & Success Metrics](./09-analytics-success-metrics.md) | ✅ Complete | M1-M9 metrics, admin dashboard, funnel |
+| 10 | [Anti-Fraud & Reputation](./10-anti-fraud-reputation.md) | ✅ Complete | Fraud detection, reputation scoring, trust levels |
+| 11 | [Personalized Ranking](./11-personalized-ranking.md) | ✅ Complete | Score persistence, signals, user preferences |
+| 12 | [Vendor Unresponsiveness](./12-vendor-unresponsiveness.md) | ✅ Complete | Timeout detection, follow-up, alternatives |
 
 **Gap Analysis:** [GAP-ANALYSIS.md](./GAP-ANALYSIS.md)
 

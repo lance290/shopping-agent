@@ -63,6 +63,12 @@ async def clickout_redirect(
     
     resolved = link_resolver.resolve(url, context)
     
+    # Anti-Fraud assessment (PRD 10)
+    client_ip = request.client.host if request.client else None
+    client_ua = request.headers.get("user-agent")
+    from services.fraud import assess_clickout
+    is_suspicious = assess_clickout(client_ip, client_ua, user_id)
+
     async def log_clickout():
         try:
             from database import engine
@@ -81,6 +87,9 @@ async def clickout_redirect(
                     handler_name=resolved.handler_name,
                     affiliate_tag=resolved.affiliate_tag,
                     source=source,
+                    is_suspicious=is_suspicious,
+                    ip_address=client_ip,
+                    user_agent=client_ua[:500] if client_ua else None,
                 )
                 log_session.add(event)
                 await log_session.commit()

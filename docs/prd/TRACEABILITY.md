@@ -36,3 +36,14 @@
 | phase4 | 04-seller-tiles-quote-intake.md | P0 | v4.0 | 6 | Partial | 07-workspace-tile-provenance.md |
 | phase4 | 05-unified-closing-layer.md | P1 | v4.0 | 7 | Scaffold | 00-revenue-monetization.md, 04-seller-tiles-quote-intake.md |
 | phase4 | 06-viral-growth-flywheel.md | P2 | v4.0 | 8 | Deferred to Phase 5 | 04-seller-tiles-quote-intake.md |
+| phase4 | 08-affiliate-disclosure-ui.md | P0 | v4.0 | 9 | Not Started | 00-revenue-monetization.md |
+| phase4 | 09-analytics-success-metrics.md | P1 | v4.0 | 10 | Not Started | 00-revenue-monetization.md |
+| phase4 | 10-anti-fraud-reputation.md | P2 | v4.0 | 11 | Not Started | 04-seller-tiles-quote-intake.md |
+| phase4 | 11-personalized-ranking.md | P2 | v4.0 | 12 | Not Started | 01-search-architecture-v2.md |
+| phase4 | 12-vendor-unresponsiveness.md | P2 | v4.0 | 13 | Not Started | 03-multi-channel-sourcing-outreach.md |
+| phase5 | 00-notification-system.md | P1 | v5.0 | 1 | Not Started | phase4/04-seller-tiles-quote-intake.md, phase4/12-vendor-unresponsiveness.md |
+| phase5 | 01-tile-detail-panel.md | P1 | v5.0 | 2 | Not Started | phase4/07-workspace-tile-provenance.md, phase4/11-personalized-ranking.md |
+| phase5 | 02-admin-affiliate-provider-mgmt.md | P2 | v5.0 | 3 | Not Started | phase4/00-revenue-monetization.md, phase4/09-analytics-success-metrics.md |
+| phase5 | 03-entitlement-tiers.md | P2 | v5.0 | 4 | Not Started | phase4/00-revenue-monetization.md |
+| phase5 | 04-lead-fees-merchant-monetization.md | P2 | v5.0 | 5 | Not Started | phase4/00-revenue-monetization.md, phase4/04-seller-tiles-quote-intake.md |
+| phase5 | 05-priority-matching-waterfall.md | P2 | v5.0 | 6 | Not Started | phase4/03-multi-channel-sourcing-outreach.md, phase4/11-personalized-ranking.md |

@@ -95,3 +95,32 @@
   7. PRD 05 (Unified Closing) — depends on 00 (revenue)
   8. PRD 06 (Viral Flywheel) — defer to Phase 5
 - **Confidence**: High
+
+---
+# Phase 4 Gap-Fill Decisions (2026-02-07)
+
+## Gap-Fill Audit - 2026-02-07
+- **Context**: Build-all re-run found all 13 PRDs had backend implementations but 6 frontend proxy routes were missing, reputation service wasn't created, and email disclosure was absent.
+- **Decision**: Fill all gaps in-place without restructuring existing code.
+- **Confidence**: High
+
+## Missing Frontend Proxies - 2026-02-07
+- **Gap**: Admin metrics dashboard page fetches `/api/admin/metrics` but no Next.js route handler existed. Same for signals, bookmarks, batch checkout, and earnings.
+- **Resolution**: Created 6 new proxy routes following the existing pattern (see `admin/revenue/route.ts` as template).
+- **Confidence**: High
+
+## Reputation Service Design - 2026-02-07
+- **Gap**: PRD 10 R2 requires reputation scoring for merchants. `Merchant.reputation_score` field existed but no computation logic.
+- **Decision**: Created `services/reputation.py` with 5-dimension weighted scoring: response rate (25%), quote acceptance (25%), transaction completion (30%), account maturity (10%), verification level (10%).
+- **Source**: PRD 10 R2 scoring criteria + existing model fields
+- **Confidence**: High
+
+## Email Disclosure Scope - 2026-02-07
+- **Gap**: PRD 08 R4 requires affiliate disclosure in outreach emails. No disclosure text existed in any email template.
+- **Decision**: Added disclosure footer to both `send_outreach_email()` (HTML + text) and `send_reminder_email()` (HTML). Text: "BuyAnything.ai is a marketplace platform. We may earn a referral fee or commission when transactions are completed through our platform."
+- **Confidence**: High
+
+## Bug Fix: send_reminder_email Signature - 2026-02-07
+- **Gap**: `outreach_monitor.py::send_followup()` called `send_reminder_email()` with wrong keyword args (`vendor_name`, `row_id`), which would cause TypeError at runtime.
+- **Resolution**: Fixed to use correct params (`to_name`, `company_name`, `request_summary`, `quote_token`). Added `Row` fetch to get `request_summary`.
+- **Confidence**: High

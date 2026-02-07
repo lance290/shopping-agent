@@ -335,6 +335,21 @@ class SourcingService:
 
             provenance_json = self._build_enriched_provenance(res, row)
 
+            # Extract score dimensions from provenance (PRD 11)
+            score_data = res.provenance.get("score", {}) if res.provenance else {}
+            combined_score = score_data.get("combined")
+            price_score_val = score_data.get("price")
+            relevance_score_val = score_data.get("relevance")
+            quality_score_val = score_data.get("quality")
+            diversity_bonus_val = score_data.get("diversity")
+
+            # Determine source tier
+            source_tier = "marketplace"  # default
+            if res.source in ("seller_quote", "wattdata"):
+                source_tier = "outreach"
+            elif res.source == "registered_merchant":
+                source_tier = "registered"
+
             if existing_bid:
                 # Update
                 existing_bid.price = res.price if res.price is not None else existing_bid.price
@@ -346,6 +361,12 @@ class SourcingService:
                 existing_bid.seller_id = seller.id
                 existing_bid.canonical_url = res.canonical_url
                 existing_bid.provenance = provenance_json
+                existing_bid.combined_score = combined_score
+                existing_bid.price_score = price_score_val
+                existing_bid.relevance_score = relevance_score_val
+                existing_bid.quality_score = quality_score_val
+                existing_bid.diversity_bonus = diversity_bonus_val
+                existing_bid.source_tier = source_tier
                 
                 self.session.add(existing_bid)
                 processed_bids.append(existing_bid)
@@ -364,7 +385,13 @@ class SourcingService:
                     source=res.source,
                     canonical_url=res.canonical_url,
                     is_selected=False,
-                    provenance=provenance_json
+                    provenance=provenance_json,
+                    combined_score=combined_score,
+                    price_score=price_score_val,
+                    relevance_score=relevance_score_val,
+                    quality_score=quality_score_val,
+                    diversity_bonus=diversity_bonus_val,
+                    source_tier=source_tier,
                 )
                 self.session.add(new_bid)
                 # Add to maps to prevent duplicates within the same batch

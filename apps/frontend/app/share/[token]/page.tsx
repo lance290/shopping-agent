@@ -175,6 +175,12 @@ export default function SharePage() {
           )}
         </div>
 
+        {/* Affiliate Disclosure (PRD 08) */}
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 text-xs text-amber-800">
+          <strong>Disclosure:</strong> Some links on this page may be affiliate links. BuyAnything.ai may earn a commission from qualifying purchases at no extra cost to you.{' '}
+          <Link href="/disclosure" className="underline hover:text-amber-900">Learn more</Link>
+        </div>
+
         {/* CTA */}
         <div className="bg-white rounded-lg shadow-lg p-6 text-center">
           <h3 className="font-semibold text-gray-900 mb-2">Want to find deals like this?</h3>

@@ -255,6 +255,13 @@ export default function OfferTile({
                 </div>
               )}
 
+              {/* Affiliate Disclosure (PRD 08) — shown on marketplace clickout tiles */}
+              {!isServiceProvider && !isSellerQuote && !isBiddable && (
+                <div className="text-[8px] text-onyx-muted/50 leading-tight" title="BuyAnything.ai may earn a commission from purchases made through this link.">
+                  Ad · May earn commission
+                </div>
+              )}
+
               {hasRating && (
                 <div className="flex items-center gap-1 text-[10px] text-onyx-muted font-medium">
                   <Star size={9} className="fill-[#F9AB00] text-[#F9AB00]" />

@@ -1066,6 +1066,17 @@ export function buildApp() {
         return;
       }
 
+      if (action.type === 'disambiguate') {
+        // Ambiguous query — present options to user (PRD 02)
+        writeEvent('disambiguate', {
+          options: (action as any).options,
+          title: title,
+        });
+        writeEvent('done', {});
+        reply.raw.end();
+        return;
+      }
+
       if (action.type === 'context_switch') {
         // User switched topics - create NEW row with NEW intent
         writeEvent('action_started', { type: 'create_row', title });

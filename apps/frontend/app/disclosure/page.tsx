@@ -35,6 +35,26 @@ export default function DisclosurePage() {
           </li>
         </ul>
         
+        <h2 className="text-xl font-semibold mb-3 text-gray-900">Platform Fees for Sellers</h2>
+        <p className="mb-4">
+          BuyAnything.ai uses Stripe Connect to process payments between buyers and sellers.
+          When a transaction is completed through our platform, a 5% platform fee is deducted
+          from the sale amount before funds are transferred to the seller&apos;s connected Stripe account.
+        </p>
+        <ul className="list-disc pl-5 mb-4 space-y-2">
+          <li>
+            <strong>Standard Rate:</strong> 5% of the transaction total (configurable per merchant agreement).
+          </li>
+          <li>
+            <strong>Stripe Processing Fees:</strong> Standard Stripe processing fees (approximately 2.9% + $0.30)
+            are charged separately by Stripe.
+          </li>
+          <li>
+            <strong>No Hidden Fees:</strong> There are no monthly subscription fees, listing fees, or
+            setup charges for sellers.
+          </li>
+        </ul>
+
         <p className="text-sm text-gray-500 mt-8 pt-4 border-t border-gray-200">
           Last updated: January 2026
         </p>

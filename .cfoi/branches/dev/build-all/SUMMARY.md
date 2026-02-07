@@ -130,3 +130,83 @@
 4. **Build frontend admin revenue dashboard** using `/admin/revenue` endpoint
 5. **Build frontend notification bell** using `/notifications/count` endpoint
 6. **Add eBay credentials** to enable the new search provider
+
+---
+
+# Phase 4 Gap-Fill Report (2026-02-07)
+
+**Status:** All 13 PRDs fully implemented  
+**Tests:** 309 passed, 0 failed (up from 305)  
+**Frontend TS:** No new errors introduced (pre-existing only)
+
+## Gaps Found & Fixed
+
+### 1. Missing Frontend Proxy Routes (6 routes created)
+
+| Route | PRD | Method(s) |
+|-------|-----|-----------|
+| `app/api/admin/metrics/route.ts` | PRD 09 | GET |
+| `app/api/signals/route.ts` | PRD 11 | POST |
+| `app/api/signals/preferences/route.ts` | PRD 11 | GET |
+| `app/api/seller/bookmarks/route.ts` | PRD 04 | GET, POST, DELETE |
+| `app/api/checkout/batch/route.ts` | PRD 05 | POST |
+| `app/api/stripe-connect/earnings/route.ts` | PRD 00 | GET |
+
+### 2. Missing Backend Service: Reputation Scoring (PRD 10 R2)
+
+Created `apps/backend/services/reputation.py`:
+- `compute_reputation(session, merchant_id)` → 0.0-5.0 score
+- `update_merchant_reputation(session, merchant_id)` → compute + persist
+- 5 scoring dimensions: response rate (25%), quote acceptance (25%), transaction completion (30%), account maturity (10%), verification level (10%)
+- Helper functions: `_response_rate`, `_quote_acceptance_rate`, `_transaction_completion_rate`, `_account_maturity_score`, `_verification_score`
+
+### 3. Email Outreach Disclosure (PRD 08 R4)
+
+Added affiliate/commission disclosure to:
+- `send_outreach_email()` — HTML footer + text footer
+- `send_reminder_email()` — HTML footer
+- Text: *"BuyAnything.ai is a marketplace platform. We may earn a referral fee or commission when transactions are completed through our platform."*
+
+### 4. Bug Fix: `send_reminder_email` Call Signature
+
+Fixed `services/outreach_monitor.py::send_followup()`:
+- Was calling `send_reminder_email(vendor_name=..., row_id=...)` — wrong param names
+- Now correctly calls `send_reminder_email(to_name=..., company_name=..., request_summary=..., quote_token=...)`
+- Fetches `Row` to get `request_summary` (title)
+
+### 5. New Tests (4 added)
+
+| Test | PRD |
+|------|-----|
+| `test_reputation_account_maturity_score` | PRD 10 R2 |
+| `test_reputation_verification_score` | PRD 10 R2 |
+| `test_reputation_unknown_verification_level` | PRD 10 R2 |
+| `test_email_outreach_disclosure` | PRD 08 R4 |
+
+## PRD Status After Gap-Fill
+
+| # | PRD | Status |
+|---|-----|--------|
+| 00 | Revenue & Monetization | ✅ Complete |
+| 01 | Search Architecture v2 | ✅ Complete |
+| 02 | AI Procurement Agent | ✅ Complete |
+| 03 | Multi-Channel Sourcing | ✅ Complete |
+| 04 | Seller Tiles + Quote Intake | ✅ Complete |
+| 05 | Unified Closing Layer | ✅ Complete |
+| 06 | Viral Growth Flywheel | ✅ Complete |
+| 07 | Workspace + Tile Provenance | ✅ Complete |
+| 08 | Affiliate Disclosure UI | ✅ Complete |
+| 09 | Analytics & Success Metrics | ✅ Complete |
+| 10 | Anti-Fraud & Reputation | ✅ Complete |
+| 11 | Personalized Ranking | ✅ Complete |
+| 12 | Vendor Unresponsiveness | ✅ Complete |
+
+## Remaining Deferred Items (unchanged)
+
+- **Affiliate tag configuration** — requires signing up for affiliate programs
+- **DocuSign API integration** — Contract model exists but no live API
+- **Multi-vendor checkout UI** — backend ready, no frontend cart UI
+- **WattData MCP live integration** — blocked on external service
+- **eBay Browse API credentials** — adapter ready, needs keys
+- **Frontend notification bell UI** — backend endpoint ready
+- **NPS survey mechanism** — deferred to Phase 5

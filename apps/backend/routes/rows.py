@@ -212,6 +212,15 @@ async def create_row(
     )
     session.add(db_spec)
     await session.commit()
+
+    # PRD 04: Notify matching merchants about this new buyer need
+    try:
+        from services.notify import notify_matching_merchants
+        await notify_matching_merchants(session, db_row)
+        await session.commit()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"[ROWS] Merchant notification failed (non-fatal): {e}")
     
     await session.refresh(db_row)
     return db_row

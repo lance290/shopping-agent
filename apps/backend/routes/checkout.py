@@ -180,6 +180,105 @@ async def create_checkout_session(
     )
 
 
+# ── Simple checkout alias (frontend calls POST /api/checkout) ───────────
+
+@router.post("/api/checkout", response_model=CheckoutCreateResponse)
+async def create_checkout_alias(
+    body: CheckoutCreateRequest,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """Alias for /api/checkout/create-session to match frontend expectations."""
+    return await create_checkout_session(body, authorization, session)
+
+
+# ── Multi-Vendor Batch Checkout (PRD 05) ────────────────────────────────
+
+
+class BatchCheckoutRequest(BaseModel):
+    bid_ids: list[int]
+    row_id: int
+    success_url: str = ""
+    cancel_url: str = ""
+
+
+class BatchCheckoutResponse(BaseModel):
+    sessions: list[dict]
+    total_amount: float
+    currency: str
+
+
+@router.post("/api/checkout/batch", response_model=BatchCheckoutResponse)
+async def batch_checkout(
+    body: BatchCheckoutRequest,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Create multiple Stripe Checkout Sessions for a batch of bids (PRD 05).
+    Each bid gets its own session so different merchants can receive separate payouts.
+    """
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if not body.bid_ids:
+        raise HTTPException(status_code=400, detail="No bids specified")
+
+    if len(body.bid_ids) > 10:
+        raise HTTPException(status_code=400, detail="Maximum 10 bids per batch")
+
+    # Verify row belongs to user
+    row_result = await session.exec(
+        select(Row).where(Row.id == body.row_id, Row.user_id == auth_session.user_id)
+    )
+    row = row_result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found or access denied")
+
+    sessions_created = []
+    total = 0.0
+    currency = "USD"
+
+    for bid_id in body.bid_ids:
+        bid = await session.get(Bid, bid_id)
+        if not bid or bid.row_id != body.row_id:
+            continue
+        if bid.price is None or bid.price <= 0:
+            continue
+
+        # Create individual checkout for this bid
+        single_req = CheckoutCreateRequest(
+            bid_id=bid_id,
+            row_id=body.row_id,
+            success_url=body.success_url,
+            cancel_url=body.cancel_url,
+        )
+        try:
+            result = await create_checkout_session(single_req, authorization, session)
+            sessions_created.append({
+                "bid_id": bid_id,
+                "checkout_url": result.checkout_url,
+                "session_id": result.session_id,
+                "amount": bid.price,
+                "title": bid.item_title,
+            })
+            total += bid.price
+            currency = (bid.currency or "USD").upper()
+        except HTTPException as e:
+            logger.warning(f"[BATCH CHECKOUT] Skipped bid {bid_id}: {e.detail}")
+            continue
+
+    if not sessions_created:
+        raise HTTPException(status_code=400, detail="No valid bids for checkout")
+
+    return BatchCheckoutResponse(
+        sessions=sessions_created,
+        total_amount=round(total, 2),
+        currency=currency,
+    )
+
+
 # ── Stripe Webhook ──────────────────────────────────────────────────────
 
 

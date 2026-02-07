@@ -16,6 +16,7 @@ from models import (
     Bid,
     Merchant,
     Row,
+    SellerBookmark,
     SellerQuote,
     User,
     generate_magic_link_token,
@@ -381,3 +382,105 @@ async def update_profile(
         service_areas=merchant.service_areas,
         website=merchant.website,
     )
+
+
+# ── Bookmarks (PRD 04) ─────────────────────────────────────────────────
+
+
+@router.get("/bookmarks")
+async def list_bookmarks(
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """List seller's bookmarked RFPs."""
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    merchant = await _get_merchant(session, auth_session.user_id)
+
+    result = await session.exec(
+        select(SellerBookmark)
+        .where(SellerBookmark.merchant_id == merchant.id)
+        .order_by(SellerBookmark.created_at.desc())
+    )
+    bookmarks = result.all()
+
+    if not bookmarks:
+        return []
+
+    row_ids = [b.row_id for b in bookmarks]
+    rows_result = await session.exec(
+        select(Row).where(Row.id.in_(row_ids))
+    )
+    rows_map = {r.id: r for r in rows_result.all()}
+
+    return [
+        {
+            "bookmark_id": bm.id,
+            "row_id": bm.row_id,
+            "title": rows_map[bm.row_id].title if bm.row_id in rows_map else None,
+            "status": rows_map[bm.row_id].status if bm.row_id in rows_map else None,
+            "created_at": bm.created_at,
+        }
+        for bm in bookmarks
+    ]
+
+
+@router.post("/bookmarks/{row_id}")
+async def add_bookmark(
+    row_id: int,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """Bookmark a buyer RFP for later."""
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    merchant = await _get_merchant(session, auth_session.user_id)
+
+    row = await session.get(Row, row_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    existing = await session.exec(
+        select(SellerBookmark).where(
+            SellerBookmark.merchant_id == merchant.id,
+            SellerBookmark.row_id == row_id,
+        )
+    )
+    if existing.first():
+        return {"status": "already_bookmarked"}
+
+    bookmark = SellerBookmark(merchant_id=merchant.id, row_id=row_id)
+    session.add(bookmark)
+    await session.commit()
+
+    return {"status": "bookmarked", "bookmark_id": bookmark.id}
+
+
+@router.delete("/bookmarks/{row_id}")
+async def remove_bookmark(
+    row_id: int,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """Remove a bookmark."""
+    from sqlmodel import delete as sql_delete
+
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    merchant = await _get_merchant(session, auth_session.user_id)
+
+    await session.exec(
+        sql_delete(SellerBookmark).where(
+            SellerBookmark.merchant_id == merchant.id,
+            SellerBookmark.row_id == row_id,
+        )
+    )
+    await session.commit()
+
+    return {"status": "removed"}
