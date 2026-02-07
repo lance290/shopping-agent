@@ -116,8 +116,21 @@ def get_storage_provider() -> IStorageProvider:
     if provider_type == "bucket":
         return BucketStorageProvider()
     else:
-        # Default to disk
-        storage_path = os.getenv("STORAGE_PATH", "/data/uploads")
-        # In main.py, we had some fallback logic for UPLOAD_DIR. 
-        # We'll use a simpler version here or let main.py pass it.
-        return DiskStorageProvider(storage_path)
+        # Use STORAGE_PATH env var, then same fallback chain as main.py
+        candidate_paths = [
+            os.getenv("STORAGE_PATH"),
+            os.getenv("UPLOAD_DIR"),
+            "/data/uploads" if os.path.exists("/data") and os.access("/data", os.W_OK) else None,
+            "uploads",
+            "/tmp/uploads",
+        ]
+        for p in candidate_paths:
+            if not p:
+                continue
+            try:
+                Path(p).mkdir(parents=True, exist_ok=True)
+                return DiskStorageProvider(p)
+            except Exception:
+                continue
+        # Last resort
+        return DiskStorageProvider("/tmp/uploads")

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, ChangeEvent, useEffect } from 'react';
-import { X, Bug, Upload, Image as ImageIcon, Trash2, Check } from 'lucide-react';
+import { useState, useRef, useCallback, useMemo, ChangeEvent, ClipboardEvent, DragEvent, useEffect } from 'react';
+import { X, Bug, Upload, Clipboard, Image as ImageIcon, Check, AlertCircle } from 'lucide-react';
 import { useShoppingStore } from '../store';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
@@ -10,6 +10,9 @@ import { getDiagnostics, redactDiagnostics, addBreadcrumb } from '../utils/diagn
 
 type Severity = 'low' | 'medium' | 'high' | 'blocking';
 type Category = 'ui' | 'data' | 'auth' | 'payments' | 'performance' | 'other';
+
+const MAX_ATTACHMENTS = 8;
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 export default function ReportBugModal() {
   const isOpen = useShoppingStore((state) => state.isReportBugModalOpen);
@@ -25,11 +28,25 @@ export default function ReportBugModal() {
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedId, setSubmittedId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen) {
+      setNotes('');
+      setExpected('');
+      setActual('');
+      setSeverity('low');
+      setCategory('ui');
+      setIncludeDiagnostics(true);
+      setAttachments([]);
+      setIsSubmitting(false);
+      setSubmittedId(null);
+      setErrorMessage(null);
+      setIsDragging(false);
       addBreadcrumb({
         type: 'ui',
         message: 'Opened Report Bug modal',
@@ -38,24 +55,97 @@ export default function ReportBugModal() {
     }
   }, [isOpen]);
 
-  // Reset form when opening/closing would be ideal, but for now we rely on component unmount if conditionally rendered?
-  // Actually it is conditionally rendered in page.tsx via store flag? No, it's always rendered but returns null if !isOpen.
-  // We should reset state when closing.
+  const blobUrls = useMemo(
+    () => attachments.map(f => URL.createObjectURL(f)),
+    [attachments]
+  );
+
+  useEffect(() => {
+    return () => {
+      blobUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [blobUrls]);
+
   const handleClose = () => {
     close(false);
-    // Reset state after a delay to avoid flicker
-    setTimeout(() => {
-        setNotes('');
-        setExpected('');
-        setActual('');
-        setSeverity('low');
-        setCategory('ui');
-        setIncludeDiagnostics(true);
-        setAttachments([]);
-        setIsSubmitting(false);
-        setSubmittedId(null);
-    }, 200);
   };
+
+  const addFiles = useCallback((files: File[]) => {
+    const imageFiles = files.filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
+
+    const oversized = imageFiles.filter(f => f.size > MAX_FILE_SIZE);
+    if (oversized.length > 0) {
+      setErrorMessage(`File too large (max 10 MB): ${oversized.map(f => f.name).join(', ')}`);
+      return;
+    }
+
+    setAttachments(prev => {
+      const remaining = MAX_ATTACHMENTS - prev.length;
+      if (remaining <= 0) {
+        setErrorMessage(`Maximum ${MAX_ATTACHMENTS} attachments allowed.`);
+        return prev;
+      }
+      const toAdd = imageFiles.slice(0, remaining);
+      if (toAdd.length < imageFiles.length) {
+        setErrorMessage(`Only ${remaining} more attachment(s) allowed — some files were skipped.`);
+      } else {
+        setErrorMessage(null);
+      }
+      return [...prev, ...toAdd];
+    });
+
+    addBreadcrumb({
+      type: 'ui',
+      message: `Attached ${imageFiles.length} file(s)`,
+      details: imageFiles.map(f => f.name),
+      timestamp: new Date().toISOString(),
+    });
+  }, []);
+
+  const handlePaste = useCallback((e: ClipboardEvent<HTMLDivElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageFiles: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          const ext = file.type.split('/')[1] || 'png';
+          const named = new File([file], `pasted-image-${Date.now()}.${ext}`, { type: file.type });
+          imageFiles.push(named);
+        }
+      }
+    }
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      addFiles(imageFiles);
+    }
+  }, [addFiles]);
+
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dropZoneRef.current && !dropZoneRef.current.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer?.files) {
+      addFiles(Array.from(e.dataTransfer.files));
+    }
+  }, [addFiles]);
 
   if (!isOpen) return null;
 
@@ -63,18 +153,8 @@ export default function ReportBugModal() {
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      setAttachments(prev => [...prev, ...newFiles]);
-      if (newFiles.length > 0) {
-        addBreadcrumb({
-          type: 'ui',
-          message: `Attached ${newFiles.length} file(s)` ,
-          details: newFiles.map(file => file.name),
-          timestamp: new Date().toISOString(),
-        });
-      }
+      addFiles(Array.from(e.target.files));
     }
-    // Reset value so same file can be selected again if needed
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -86,6 +166,7 @@ export default function ReportBugModal() {
     if (!isValid || isSubmitting) return;
     
     setIsSubmitting(true);
+    setErrorMessage(null);
     addBreadcrumb({
       type: 'ui',
       message: 'Submitted bug report',
@@ -121,12 +202,12 @@ export default function ReportBugModal() {
         if (result && result.id) {
             setSubmittedId(result.id);
         } else {
-            alert('Failed to submit bug report. Please try again.');
+            setErrorMessage('Failed to submit bug report. Please try again.');
             setIsSubmitting(false);
         }
     } catch (err) {
         console.error('Submit error:', err);
-        alert('An error occurred while submitting.');
+        setErrorMessage('Network error — check your connection and try again.');
         setIsSubmitting(false);
     }
   };
@@ -163,6 +244,7 @@ export default function ReportBugModal() {
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
       onClick={handleClose}
+      onPaste={handlePaste}
     >
       <div
         className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-warm-grey overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
@@ -196,19 +278,27 @@ export default function ReportBugModal() {
         {/* Scrollable Content */}
         <div className="p-6 overflow-y-auto space-y-6">
           
-          {/* 1. Screenshots (Optional) */}
-          <div>
+          {/* 1. Screenshots (Optional) — upload, paste, or drag */}
+          <div
+            ref={dropZoneRef}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
             <div className="flex justify-between items-baseline mb-2">
               <label className={labelClasses}>Screenshots</label>
               <span className="text-[10px] text-ink-muted">{attachments.length} attached</span>
             </div>
             
-            <div className="grid grid-cols-4 gap-3">
+            <div className={cn(
+              "grid grid-cols-4 gap-3 rounded-xl p-2 -m-2 transition-colors",
+              isDragging && "bg-agent-blurple/10 ring-2 ring-agent-blurple/30"
+            )}>
               {attachments.map((file, idx) => (
                 <div key={idx} className="relative group aspect-square rounded-xl border border-warm-grey overflow-hidden bg-warm-light">
                   {file.type.startsWith('image/') ? (
                     <img 
-                      src={URL.createObjectURL(file)} 
+                      src={blobUrls[idx]} 
                       alt="Preview" 
                       className="w-full h-full object-cover"
                     />
@@ -228,12 +318,16 @@ export default function ReportBugModal() {
               
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="aspect-square rounded-xl border-2 border-dashed border-warm-grey hover:border-agent-blurple hover:bg-agent-blurple/5 transition-colors flex flex-col items-center justify-center gap-2 text-ink-muted hover:text-agent-blurple"
+                className="aspect-square rounded-xl border-2 border-dashed border-warm-grey hover:border-agent-blurple hover:bg-agent-blurple/5 transition-colors flex flex-col items-center justify-center gap-1.5 text-ink-muted hover:text-agent-blurple"
               >
-                <Upload size={20} />
-                <span className="text-xs font-medium">Add Image</span>
+                <Upload size={18} />
+                <span className="text-[10px] font-medium leading-tight text-center">Upload or<br/>Paste</span>
               </button>
             </div>
+            <p className="text-[10px] text-ink-muted mt-1.5 flex items-center gap-1">
+              <Clipboard size={10} />
+              Tip: Paste a screenshot from your clipboard ({typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent) ? '⌘' : 'Ctrl'}+V)
+            </p>
             <input
               type="file"
               ref={fileInputRef}
@@ -339,17 +433,25 @@ export default function ReportBugModal() {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-warm-light/30 border-t border-warm-grey/50 flex justify-end gap-3 shrink-0">
-          <Button variant="secondary" onClick={handleClose}>
-            Cancel
-          </Button>
-          <Button 
-            disabled={!isValid} 
-            onClick={handleSubmit}
-            className="w-32"
-          >
-            Submit
-          </Button>
+        <div className="px-6 py-4 bg-warm-light/30 border-t border-warm-grey/50 shrink-0">
+          {errorMessage && (
+            <div className="flex items-center gap-2 text-rose-600 text-xs mb-3 p-2 bg-rose-50 rounded-lg border border-rose-200">
+              <AlertCircle size={14} className="shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={handleClose}>
+              Cancel
+            </Button>
+            <Button 
+              disabled={!isValid || isSubmitting} 
+              onClick={handleSubmit}
+              className="w-32"
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit'}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
