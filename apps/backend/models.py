@@ -155,6 +155,8 @@ class Bid(SQLModel, table=True):
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
     
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
     row: Row = Relationship(back_populates="bids")
     seller: Optional[Seller] = Relationship(back_populates="bids")
 

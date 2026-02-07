@@ -14,6 +14,9 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Bid — created_at timestamp (was missing)
+    op.add_column('bid', sa.Column('created_at', sa.DateTime(), server_default=sa.func.now(), nullable=False))
+
     # Bid — Personalized Ranking (PRD 11)
     op.add_column('bid', sa.Column('combined_score', sa.Float(), nullable=True))
     op.add_column('bid', sa.Column('relevance_score', sa.Float(), nullable=True))
@@ -98,3 +101,4 @@ def downgrade() -> None:
     op.drop_column('bid', 'price_score')
     op.drop_column('bid', 'relevance_score')
     op.drop_column('bid', 'combined_score')
+    op.drop_column('bid', 'created_at')
