@@ -319,7 +319,7 @@ async def get_email_template_endpoint():
 
 
 @router.get("/vendors/{category}")
-async def get_vendors_for_category(category: str, limit: int = 10):
+async def get_vendors_for_category(category: str, limit: int = 15):
     """Get vendors for a category as search result tiles."""
     vendors = get_vendors_as_results(category)
     return {

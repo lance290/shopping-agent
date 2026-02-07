@@ -708,6 +708,17 @@ Return ONLY the JSON array, no explanation.`;
 
         return f;
       });
+
+      // R7: Ensure every constraint key has a matching factor name
+      if (existingConstraints && typeof existingConstraints === 'object') {
+        const factorNames = new Set(factors.map((f: any) => f?.name));
+        for (const key of Object.keys(existingConstraints)) {
+          if (!factorNames.has(key)) {
+            const label = key.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            factors.push({ name: key, label, type: 'text', required: false });
+          }
+        }
+      }
     }
     
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };

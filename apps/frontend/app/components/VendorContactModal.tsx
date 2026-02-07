@@ -13,6 +13,7 @@ interface VendorContactModalProps {
   rowId: number;
   rowTitle: string;
   rowChoiceAnswers?: string;
+  serviceCategory?: string;
   vendorName: string;
   vendorCompany: string;
   vendorEmail: string;
@@ -24,10 +25,12 @@ export default function VendorContactModal({
   rowId,
   rowTitle,
   rowChoiceAnswers,
+  serviceCategory,
   vendorName,
   vendorCompany,
   vendorEmail,
 }: VendorContactModalProps) {
+  const isAviation = serviceCategory === 'private_aviation';
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
   const updateRow = useShoppingStore((s) => s.updateRow);
@@ -66,14 +69,24 @@ export default function VendorContactModal({
     const to = fields.to_airport || extract('to', 'destination', 'arrival', 'to_airport', 'arrival_airport');
     const date = fields.date || extract('date', 'dates', 'when', 'departure_date', 'travel_date');
     const pax = typeof fields.passengers === 'number' ? fields.passengers : extract('passengers', 'pax', 'travelers', 'people', 'seats');
+    const timeExtracted = fields.time_fixed || extract('wheels_up', 'wheels_up_time', 'departure_time', 'time', 'wheels_up_time_leg1');
+    const tripType = fields.trip_type || extract('trip_type') || '';
+    const returnFrom = fields.return_from || extract('return_from', 'return_origin', 'return_departure');
+    const returnTo = fields.return_to || extract('return_to', 'return_destination', 'return_arrival');
+    const returnDate = fields.return_date || extract('return_date', 'return_dates');
+    const returnTime = fields.return_time || extract('return_time', 'return_wheels_up', 'return_departure_time');
+    const returnPax = fields.return_passengers || extract('return_passengers', 'return_pax', 'pax_return');
+    const passengerNames = fields.passenger_names || extract('passenger_names', 'passengers_outbound', 'attendees', 'guest_list');
+    const returnPassengerNames = fields.return_passenger_names || extract('return_passenger_names', 'passengers_return', 'return_attendees', 'return_guest_list');
+    const replyToEmail = fields.reply_to_email || extract('reply_to_email', 'reply_to', 'email') || '';
 
     const subjectTemplate = typeof existingOutreach?.subject_template === 'string'
       ? existingOutreach.subject_template
-      : 'Charter request — {from} to {to} on {date}';
+      : 'Quote request — {from} to {to} on {date}';
 
     const bodyTemplate = typeof existingOutreach?.body_template === 'string'
       ? existingOutreach.body_template
-      : `Hi {provider},\n\nI’m reaching out on behalf of my boss. We’re looking to arrange a private charter:\nRoute: {from} → {to}\nDate: {date}\nWheels up: {time}\nPassengers: {pax}\n\nAre you able to quote this? If so, what availability/pricing do you have?\n\nThanks,\n{persona_name}\n{persona_role}`;
+      : null; // Will use getDefaultBodyTemplate() at init time
 
     return {
       persona_name: personaName,
@@ -84,12 +97,21 @@ export default function VendorContactModal({
         from_airport: from,
         to_airport: to,
         date,
-        time_mode: fields.time_mode || 'window',
-        time_fixed: fields.time_fixed || '',
+        time_mode: timeExtracted ? 'fixed' : (fields.time_mode || 'window'),
+        time_fixed: timeExtracted || fields.time_fixed || '',
         time_earliest: fields.time_earliest || '',
         time_latest: fields.time_latest || '',
         passengers: pax ? Number(pax) || pax : '',
         notes: fields.notes || '',
+        trip_type: tripType,
+        return_from: returnFrom,
+        return_to: returnTo,
+        return_date: returnDate,
+        return_time: returnTime,
+        return_passengers: returnPax,
+        passenger_names: passengerNames,
+        return_passenger_names: returnPassengerNames,
+        reply_to_email: replyToEmail,
       },
     };
   }, [existingAnswers]);
@@ -109,6 +131,68 @@ export default function VendorContactModal({
   const [notes, setNotes] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [bodyEdited, setBodyEdited] = useState<string | null>(null); // null = use template
+  const [tripType, setTripType] = useState<'one-way' | 'round-trip'>('one-way');
+  const [returnFrom, setReturnFrom] = useState<string>('');
+  const [returnTo, setReturnTo] = useState<string>('');
+  const [returnDate, setReturnDate] = useState<string>('');
+  const [returnTime, setReturnTime] = useState<string>('');
+  const [returnPassengers, setReturnPassengers] = useState<string>('');
+  const [passengerNames, setPassengerNames] = useState<string>('');
+  const [returnPassengerNames, setReturnPassengerNames] = useState<string>('');
+  const [replyToEmail, setReplyToEmail] = useState<string>('');
+  const [copiedBody, setCopiedBody] = useState(false);
+
+  const getDefaultBodyTemplate = (tt: string) => {
+    if (tt === 'round-trip') {
+      return `Hi {provider},
+
+I'm reaching out on behalf of my client regarding a quote:
+
+LEG 1 — OUTBOUND
+Route: {from} → {to}
+Date: {date}
+Departure: {time}
+Passengers: {pax}
+{passenger_names}
+
+LEG 2 — RETURN
+Route: {return_from} → {return_to}
+Date: {return_date}
+Departure: {return_time}
+Passengers: {return_pax}
+{return_passenger_names}
+
+Please include in your quote:
+• All-in price
+• Cancellation/change policy
+• Quote validity window
+
+Please send your quote to: {reply_to_email}
+
+Thanks,
+{persona_name}
+{persona_role}`;
+    }
+    return `Hi {provider},
+
+I'm reaching out on behalf of my client regarding a quote:
+Route: {from} → {to}
+Date: {date}
+Departure: {time}
+Passengers: {pax}
+{passenger_names}
+
+Please include in your quote:
+• All-in price
+• Cancellation/change policy
+• Quote validity window
+
+Please send your quote to: {reply_to_email}
+
+Thanks,
+{persona_name}
+{persona_role}`;
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -119,6 +203,7 @@ export default function VendorContactModal({
 
     const d = defaultOutreach;
     const f = d.fields;
+    const resolvedTripType = f.trip_type === 'round-trip' ? 'round-trip' : 'one-way';
 
     setPersonaName(d.persona_name || 'Betty');
     setPersonaRole(d.persona_role || 'Executive Assistant, BuyAnything');
@@ -131,10 +216,19 @@ export default function VendorContactModal({
     setTimeLatest(f.time_latest || '');
     setPassengers(String(f.passengers ?? ''));
     setNotes(f.notes || '');
+    setTripType(resolvedTripType);
+    setReturnFrom(f.return_from || '');
+    setReturnTo(f.return_to || '');
+    setReturnDate(f.return_date || '');
+    setReturnTime(f.return_time || '');
+    setReturnPassengers(String(f.return_passengers ?? ''));
+    setPassengerNames(f.passenger_names || '');
+    setReturnPassengerNames(f.return_passenger_names || '');
+    setReplyToEmail(f.reply_to_email || '');
 
     // Store raw templates for re-rendering
-    setSubjectTemplateRaw(d.subject_template || 'Charter request — {from} to {to} on {date}');
-    setBodyTemplateRaw(d.body_template || `Hi {provider},\n\nI'm reaching out on behalf of my boss. We're looking to arrange a private charter:\nRoute: {from} → {to}\nDate: {date}\nWheels up: {time}\nPassengers: {pax}\n\nAre you able to quote this? If so, what availability/pricing do you have?\n\nThanks,\n{persona_name}\n{persona_role}`);
+    setSubjectTemplateRaw(d.subject_template || 'Quote request — {from} to {to} on {date}');
+    setBodyTemplateRaw(d.body_template || getDefaultBodyTemplate(resolvedTripType));
     setBodyEdited(null); // Reset to template mode when modal opens
 
   }, [isOpen, defaultOutreach]);
@@ -152,6 +246,14 @@ export default function VendorContactModal({
       .replaceAll('{date}', date || '')
       .replaceAll('{time}', time)
       .replaceAll('{pax}', passengers || '')
+      .replaceAll('{passenger_names}', passengerNames ? `Names: ${passengerNames}` : '')
+      .replaceAll('{return_from}', (returnFrom || toAirport || '').toUpperCase())
+      .replaceAll('{return_to}', (returnTo || fromAirport || '').toUpperCase())
+      .replaceAll('{return_date}', returnDate || '')
+      .replaceAll('{return_time}', returnTime || '')
+      .replaceAll('{return_pax}', returnPassengers || passengers || '')
+      .replaceAll('{return_passenger_names}', returnPassengerNames ? `Names: ${returnPassengerNames}` : '')
+      .replaceAll('{reply_to_email}', replyToEmail || '')
       .replaceAll('{persona_name}', personaName)
       .replaceAll('{persona_role}', personaRole)
       .replaceAll('{row_title}', rowTitle);
@@ -202,6 +304,15 @@ export default function VendorContactModal({
         time_latest: timeLatest,
         passengers: passengers ? Number(passengers) : null,
         notes,
+        trip_type: tripType,
+        return_from: returnFrom,
+        return_to: returnTo,
+        return_date: returnDate,
+        return_time: returnTime,
+        return_passengers: returnPassengers ? Number(returnPassengers) : null,
+        passenger_names: passengerNames,
+        return_passenger_names: returnPassengerNames,
+        reply_to_email: replyToEmail,
       },
     };
 
@@ -220,7 +331,7 @@ export default function VendorContactModal({
         onClick={onClose}
       />
 
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[85vh] flex flex-col">
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">Contact Provider</h2>
@@ -262,7 +373,7 @@ export default function VendorContactModal({
           </div>
         )}
 
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 overflow-y-auto flex-1">
           <div className="space-y-2">
             <div className="text-[10px] uppercase tracking-wider text-onyx-muted font-semibold">Message</div>
 
@@ -299,48 +410,45 @@ export default function VendorContactModal({
               <textarea
                 value={bodyRendered}
                 onChange={(e) => setBodyEdited(e.target.value)}
-                rows={6}
-                className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none resize-none"
+                rows={14}
+                className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none resize-y"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <div className="text-xs text-onyx-muted mb-1">From (airport code)</div>
-                <input
-                  value={fromAirport}
-                  onChange={(e) => setFromAirport(e.target.value.toUpperCase())}
-                  placeholder="BNA"
-                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-                />
-              </div>
-              <div>
-                <div className="text-xs text-onyx-muted mb-1">To (airport code)</div>
-                <input
-                  value={toAirport}
-                  onChange={(e) => setToAirport(e.target.value.toUpperCase())}
-                  placeholder="TEB"
-                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-                />
-              </div>
+            <div>
+              <div className="text-xs text-onyx-muted mb-1">Trip type</div>
+              <select
+                value={tripType}
+                onChange={(e) => {
+                  const tt = e.target.value as 'one-way' | 'round-trip';
+                  setTripType(tt);
+                  if (bodyEdited === null) setBodyTemplateRaw(getDefaultBodyTemplate(tt));
+                }}
+                className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+              >
+                <option value="one-way">One-way</option>
+                <option value="round-trip">Round-trip</option>
+              </select>
             </div>
+
+            <div className="text-[10px] uppercase tracking-wider text-onyx-muted font-semibold mt-2">{isAviation ? 'Leg 1 — Outbound' : 'Details'}</div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <div className="text-xs text-onyx-muted mb-1">Date</div>
+                <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'From (airport)' : 'Origin'}</div>
                 <input
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  placeholder="2026-02-10"
+                  value={fromAirport}
+                  onChange={(e) => setFromAirport(e.target.value.toUpperCase())}
+                  placeholder={isAviation ? 'BNA' : 'Origin'}
                   className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
                 />
               </div>
               <div>
-                <div className="text-xs text-onyx-muted mb-1">Passengers</div>
+                <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'To (airport)' : 'Destination'}</div>
                 <input
-                  value={passengers}
-                  onChange={(e) => setPassengers(e.target.value)}
-                  placeholder="4"
+                  value={toAirport}
+                  onChange={(e) => setToAirport(e.target.value.toUpperCase())}
+                  placeholder={isAviation ? 'FWA' : 'Destination'}
                   className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
                 />
               </div>
@@ -348,57 +456,125 @@ export default function VendorContactModal({
 
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <div className="text-xs text-onyx-muted mb-1">Time mode</div>
-                <select
-                  value={timeMode}
-                  onChange={(e) => setTimeMode(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-                >
-                  <option value="window">Window</option>
-                  <option value="fixed">Fixed</option>
-                </select>
-              </div>
-              <div>
-                <div className="text-xs text-onyx-muted mb-1">Earliest</div>
+                <div className="text-xs text-onyx-muted mb-1">Date</div>
                 <input
-                  disabled={timeMode !== 'window'}
-                  value={timeEarliest}
-                  onChange={(e) => setTimeEarliest(e.target.value)}
-                  placeholder="09:00"
-                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none disabled:opacity-50"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  placeholder="2026-02-13"
+                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
                 />
               </div>
               <div>
-                <div className="text-xs text-onyx-muted mb-1">Latest</div>
+                <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'Wheels up' : 'Time'}</div>
                 <input
-                  disabled={timeMode !== 'window'}
-                  value={timeLatest}
-                  onChange={(e) => setTimeLatest(e.target.value)}
-                  placeholder="12:00"
-                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none disabled:opacity-50"
+                  value={timeFixed}
+                  onChange={(e) => { setTimeFixed(e.target.value); setTimeMode('fixed'); }}
+                  placeholder="2:00 PM CT"
+                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                />
+              </div>
+              <div>
+                <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'Passengers' : 'Attendees'}</div>
+                <input
+                  value={passengers}
+                  onChange={(e) => setPassengers(e.target.value)}
+                  placeholder="2"
+                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
                 />
               </div>
             </div>
 
-            {timeMode === 'fixed' && (
-              <div>
-                <div className="text-xs text-onyx-muted mb-1">Wheels up (fixed)</div>
-                <input
-                  value={timeFixed}
-                  onChange={(e) => setTimeFixed(e.target.value)}
-                  placeholder="10:30"
-                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-                />
-              </div>
+            <div>
+              <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'Passenger names' : 'Attendee names'}</div>
+              <input
+                value={passengerNames}
+                onChange={(e) => setPassengerNames(e.target.value)}
+                placeholder={isAviation ? 'e.g. Wendy Connors, Margaret Oppelt' : 'Names (comma-separated)'}
+                className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+              />
+            </div>
+
+            {tripType === 'round-trip' && (
+              <>
+                <div className="text-[10px] uppercase tracking-wider text-onyx-muted font-semibold mt-3 pt-3 border-t border-warm-grey/40">{isAviation ? 'Leg 2 — Return' : 'Return'}</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'From (airport)' : 'Origin'}</div>
+                    <input
+                      value={returnFrom}
+                      onChange={(e) => setReturnFrom(e.target.value.toUpperCase())}
+                      placeholder={toAirport || (isAviation ? 'FWA' : 'Return origin')}
+                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'To (airport)' : 'Destination'}</div>
+                    <input
+                      value={returnTo}
+                      onChange={(e) => setReturnTo(e.target.value.toUpperCase())}
+                      placeholder={fromAirport || (isAviation ? 'BNA' : 'Return dest')}
+                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <div className="text-xs text-onyx-muted mb-1">Return date</div>
+                    <input
+                      value={returnDate}
+                      onChange={(e) => setReturnDate(e.target.value)}
+                      placeholder="2026-02-15"
+                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'Wheels up' : 'Time'}</div>
+                    <input
+                      value={returnTime}
+                      onChange={(e) => setReturnTime(e.target.value)}
+                      placeholder="2:30 PM ET"
+                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'Passengers' : 'Attendees'}</div>
+                    <input
+                      value={returnPassengers}
+                      onChange={(e) => setReturnPassengers(e.target.value)}
+                      placeholder={passengers || '3'}
+                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'Return passenger names' : 'Return attendee names'}</div>
+                  <input
+                    value={returnPassengerNames}
+                    onChange={(e) => setReturnPassengerNames(e.target.value)}
+                    placeholder={isAviation ? 'e.g. Timothy Connors, Wendy Connors, Margaret Oppelt' : 'Names (comma-separated)'}
+                    className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                  />
+                </div>
+              </>
             )}
+
+            <div className="pt-2 border-t border-warm-grey/40">
+              <div className="text-xs text-onyx-muted mb-1">Replies to (email)</div>
+              <input
+                value={replyToEmail}
+                onChange={(e) => setReplyToEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+              />
+            </div>
 
             <div>
               <div className="text-xs text-onyx-muted mb-1">Notes (optional)</div>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none resize-none"
+                rows={3}
+                className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none resize-y"
               />
             </div>
           </div>
@@ -459,6 +635,24 @@ export default function VendorContactModal({
             disabled={saving}
           >
             Save for this row
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              const subject = subjectRendered.trim();
+              let body = bodyRendered.trim();
+              if (notes?.trim()) body = `${body}\n\nNotes:\n${notes.trim()}`;
+              await navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
+              setCopiedBody(true);
+              setTimeout(() => setCopiedBody(false), 2000);
+            }}
+            className="flex-1 gap-2"
+          >
+            {copiedBody ? (
+              <><Check size={16} className="text-green-600" />Copied!</>
+            ) : (
+              <><Copy size={16} />Copy Body</>
+            )}
           </Button>
           <Button
             variant="primary"

@@ -343,6 +343,7 @@ export default function OfferTile({
           rowId={rowId}
           rowTitle={row.title}
           rowChoiceAnswers={row.choice_answers}
+          serviceCategory={row.service_category}
           vendorName={offer.vendor_name || 'Contact'}
           vendorCompany={offer.vendor_company || offer.merchant}
           vendorEmail={offer.vendor_email || ''}
