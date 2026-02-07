@@ -67,8 +67,8 @@ export default function MerchantRegisterPage() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || 'Registration failed');
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || data.error || data.message || `Registration failed (${res.status})`);
       }
 
       setSuccess(true);

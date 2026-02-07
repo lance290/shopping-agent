@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-function getBackendUrl(): string {
-  return process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
-}
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:8000';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +10,9 @@ export async function POST(request: NextRequest) {
       ? `Bearer ${cookieToken}`
       : (request.headers.get('authorization') || '');
 
-    const response = await fetch(`${getBackendUrl()}/merchants/register`, {
+    console.log(`[merchant-register] POST ${BACKEND_URL}/merchants/register auth=${auth ? 'present' : 'missing'}`);
+
+    const response = await fetch(`${BACKEND_URL}/merchants/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -21,10 +21,24 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.error(`[merchant-register] Non-JSON response (${response.status}):`, text.slice(0, 500));
+      return NextResponse.json({ detail: `Backend error (${response.status})` }, { status: 502 });
+    }
+
+    if (!response.ok) {
+      console.error(`[merchant-register] Backend ${response.status}:`, data);
+    }
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    console.error('Error registering merchant:', error);
-    return NextResponse.json({ error: 'Failed to register merchant' }, { status: 500 });
+    console.error('[merchant-register] Proxy error:', error);
+    return NextResponse.json(
+      { detail: error instanceof Error ? error.message : 'Failed to reach backend' },
+      { status: 502 },
+    );
   }
 }
