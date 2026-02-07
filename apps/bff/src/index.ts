@@ -459,6 +459,29 @@ export function buildApp() {
   }
 });
 
+  // ── Merchant register pass-through ──────────────────────────────────
+  fastify.post('/api/merchants/register', async (request, reply) => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (request.headers.authorization) {
+        headers['Authorization'] = request.headers.authorization as string;
+      }
+
+      const response = await fetch(`${BACKEND_URL}/merchants/register`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(request.body),
+      });
+
+      const data = await response.json();
+      reply.status(response.status).send(data);
+    } catch (err) {
+      fastify.log.error(err);
+      const msg = err instanceof Error ? err.message : String(err);
+      reply.status(502).send({ detail: msg || 'Failed to reach backend' });
+    }
+  });
+
   fastify.post('/api/search', async (request, reply) => {
     try {
       const body = request.body as any;
