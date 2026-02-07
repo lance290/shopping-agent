@@ -551,7 +551,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   setMoreResultsIncoming: (rowId, incoming) => set((state) => ({
     moreResultsIncoming: { ...state.moreResultsIncoming, [rowId]: incoming },
   })),
-  clearSearch: () => set({ searchResults: [], rowResults: {}, currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
+  clearSearch: () => set({ searchResults: [], rowResults: {}, rowProviderStatuses: {}, rowSearchErrors: {}, moreResultsIncoming: {}, currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
   setCardClickQuery: (query) => set({ cardClickQuery: query }),
   
   // Find a row that matches the query, or return null if we need to create one
