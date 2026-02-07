@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ArrowLeft, Inbox, FileText, User, RefreshCw } from 'lucide-react';
@@ -102,9 +103,9 @@ export default function SellerDashboard() {
       <header className="bg-white border-b border-warm-grey/60 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <a href="/" className="text-onyx-muted hover:text-onyx transition-colors">
+            <Link href="/" className="text-onyx-muted hover:text-onyx transition-colors">
               <ArrowLeft size={20} />
-            </a>
+            </Link>
             <h1 className="text-xl font-bold text-onyx">Seller Dashboard</h1>
           </div>
           <div className="flex gap-2">

@@ -1,7 +1,7 @@
 """add_revenue_tracking_fields
 
-Revision ID: a1b2c3d4e5f6
-Revises: 0d5ad283564a
+Revision ID: c9f8e7d6b5a4
+Revises: b7c1d2e3f4a5
 Create Date: 2026-02-06 16:30:00.000000
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'a1b2c3d4e5f6'
-down_revision: Union[str, Sequence[str], None] = '0d5ad283564a'
+revision: str = 'c9f8e7d6b5a4'
+down_revision: Union[str, Sequence[str], None] = 'b7c1d2e3f4a5'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

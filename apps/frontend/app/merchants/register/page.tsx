@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Building2, CheckCircle, Loader2 } from 'lucide-react';
 import { getToken } from '../../utils/auth';
 
@@ -88,12 +89,12 @@ export default function MerchantRegisterPage() {
             Thank you for registering. We&apos;ll review your application and contact you
             within 1-2 business days.
           </p>
-          <a
+          <Link
             href="/"
             className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
           >
             Back to Home
-          </a>
+          </Link>
         </div>
       </div>
     );

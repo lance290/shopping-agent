@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { Share2, ExternalLink, ShoppingBag, Package, DollarSign } from 'lucide-react';
 
 interface ShareContent {
@@ -60,13 +61,13 @@ export default function SharePage() {
           <Share2 className="mx-auto text-gray-400 mb-4" size={48} />
           <h1 className="text-xl font-bold text-gray-900 mb-2">Link Not Found</h1>
           <p className="text-gray-600 mb-6">{error || 'This share link is no longer available.'}</p>
-          <a
+          <Link
             href="/"
             className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
           >
             <ShoppingBag size={16} />
             Start Shopping
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -180,13 +181,13 @@ export default function SharePage() {
           <p className="text-sm text-gray-600 mb-4">
             BuyAnything helps you find the best deals across the internet.
           </p>
-          <a
+          <Link
             href="/"
             className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
           >
             <ShoppingBag size={16} />
             Start Shopping
-          </a>
+          </Link>
         </div>
       </div>
     </div>
