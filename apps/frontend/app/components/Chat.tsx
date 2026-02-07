@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, LogOut } from 'lucide-react';
+import { Send, Bot, User, LogOut, Store } from 'lucide-react';
 import { useShoppingStore } from '../store';
 import { fetchRowsFromDb, fetchProjectsFromDb, fetchSingleRowFromDb, saveChatHistory } from '../utils/api';
 import { Button } from '../../components/ui/Button';
@@ -461,6 +461,14 @@ export default function Chat() {
           <div className="text-xs text-onyx-muted hidden sm:block">
             {userEmail || userPhone || 'User'}
           </div>
+          <a
+            href="/merchants/register"
+            className="flex items-center gap-1.5 text-xs text-onyx-muted hover:text-agent-blurple transition-colors"
+            title="Become a seller"
+          >
+            <Store className="w-4 h-4" />
+            <span className="hidden sm:inline">Sell</span>
+          </a>
           <Button
             type="button"
             variant="ghost"

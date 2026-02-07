@@ -7,12 +7,14 @@ from typing import Dict, Iterable, List
 from sourcing.adapters.base import ProviderQueryAdapter
 from sourcing.adapters.google_cse import GoogleCSEQueryAdapter
 from sourcing.adapters.rainforest import RainforestQueryAdapter
+from sourcing.adapters.ebay import EbayBrowseQueryAdapter
 from sourcing.models import ProviderQueryMap, SearchIntent
 
 
 ADAPTERS: Dict[str, ProviderQueryAdapter] = {
     "rainforest": RainforestQueryAdapter(),
     "google_cse": GoogleCSEQueryAdapter(),
+    "ebay_browse": EbayBrowseQueryAdapter(),
 }
 
 

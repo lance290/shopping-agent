@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Plus, ShoppingBag, Bug, FolderPlus, Trash2, Share2 } from 'lucide-react';
+import { Plus, ShoppingBag, Bug, FolderPlus, Trash2, Share2, Store } from 'lucide-react';
 import { useShoppingStore, Project, Row } from '../store';
 import { createRowInDb, createProjectInDb, deleteProjectFromDb } from '../utils/api';
 import RowStrip from './RowStrip';
@@ -194,6 +194,16 @@ export default function ProcurementBoard() {
           <div className="text-[10px] font-medium text-onyx uppercase tracking-[0.16em]">
             {projects.length} project{projects.length !== 1 ? 's' : ''}, {rows.length} active request{rows.length !== 1 ? 's' : ''}
           </div>
+          <a href="/merchants/register">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Store size={16} />
+              Become a Seller
+            </Button>
+          </a>
           <Button
             variant="secondary"
             size="sm"

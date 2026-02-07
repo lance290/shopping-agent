@@ -18,6 +18,7 @@ class ShareLinkCreate(BaseModel):
     """Request model for creating a share link."""
     resource_type: str  # "project", "row", "tile"
     resource_id: int
+    permission: str = "view_only"  # "view_only", "can_comment", "can_select"
 
 
 class ShareLinkResponse(BaseModel):
@@ -191,11 +192,16 @@ async def create_share_link(
         token = generate_share_token()
 
     # Create share link
+    # Validate permission value
+    valid_permissions = ["view_only", "can_comment", "can_select"]
+    perm = share_create.permission if share_create.permission in valid_permissions else "view_only"
+
     share_link = ShareLink(
         token=token,
         resource_type=share_create.resource_type,
         resource_id=share_create.resource_id,
         created_by=auth_session.user_id,
+        permission=perm,
         created_at=datetime.utcnow()
     )
 

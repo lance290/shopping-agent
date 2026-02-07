@@ -10,9 +10,10 @@ from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models import Bid, Row, Seller
-from sourcing.models import NormalizedResult, ProviderStatusSnapshot
+from sourcing.models import NormalizedResult, ProviderStatusSnapshot, SearchIntent
 from sourcing.repository import SourcingRepository
 from sourcing.metrics import get_metrics_collector, log_search_start
+from sourcing.scorer import score_results
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +167,16 @@ class SourcingService:
             f"[SourcingService] Row {row_id}: Got {len(normalized_results)} normalized results from {len(provider_statuses)} providers"
         )
 
-        # 2. Persist Results
+        # 2. Score & Rank Results
+        search_intent = self._parse_search_intent(row) if row else None
+        normalized_results = score_results(
+            normalized_results,
+            intent=search_intent,
+            min_price=min_price,
+            max_price=max_price,
+        )
+
+        # 3. Persist Results
         bids = await self._persist_results(row_id, normalized_results, row)
         
         # Record persistence metrics
@@ -174,6 +184,18 @@ class SourcingService:
         metrics.record_persistence(created=len(bids), updated=0)
 
         return bids, provider_statuses, user_message
+
+    def _parse_search_intent(self, row: Row) -> Optional[SearchIntent]:
+        """Parse SearchIntent from row's stored search_intent JSON."""
+        if not row or not row.search_intent:
+            return None
+        try:
+            payload = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
+            if isinstance(payload, dict):
+                return SearchIntent(**payload)
+        except Exception as e:
+            logger.debug(f"[SourcingService] Could not parse SearchIntent: {e}")
+        return None
 
     def _build_enriched_provenance(self, res: NormalizedResult, row: Optional["Row"]) -> str:
         """Merge normalizer provenance with search intent context, choice factors, and chat excerpts."""

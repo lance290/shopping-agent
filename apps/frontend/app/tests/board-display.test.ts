@@ -83,8 +83,8 @@ describe('ProcurementBoard Display Logic', () => {
 
     render(React.createElement(ProcurementBoard));
 
-    // Get all links that are NOT the disclosure link
-    const links = screen.getAllByRole('link').filter(l => l.getAttribute('href') !== '/disclosure');
+    // Get only clickout links (exclude disclosure, navigation, etc.)
+    const links = screen.getAllByRole('link').filter(l => (l.getAttribute('href') || '').includes('/api/clickout'));
 
     // Check href format: /api/clickout?url=...
     const href = links[0].getAttribute('href');

@@ -1,4 +1,5 @@
 """Authentication routes - login, verify, session management."""
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel, EmailStr, validator, model_validator
 from typing import Optional
@@ -19,10 +20,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import (
-    AuthLoginCode, AuthSession, User,
+    AuthLoginCode, AuthSession, User, ShareLink,
     hash_token, generate_verification_code, generate_session_token
 )
 from dependencies import get_current_session
+
+logger = logging.getLogger(__name__)
 from audit import audit_log
 
 router = APIRouter(tags=["auth"])
@@ -258,6 +261,7 @@ class AuthVerifyRequest(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     code: str
+    referral_token: Optional[str] = None  # Viral Flywheel (PRD 06): share token that brought this user
 
     @validator('phone')
     def validate_phone(cls, v):
@@ -497,10 +501,47 @@ async def auth_verify(
                 await session.commit()
 
     if not user:
-        user = User(email=next(iter(emails), None), phone_number=phone)
+        # Viral Flywheel (PRD 06): capture referral attribution on signup
+        referral_share_token = request.referral_token
+        signup_source = "share" if referral_share_token else "direct"
+
+        user = User(
+            email=next(iter(emails), None),
+            phone_number=phone,
+            referral_share_token=referral_share_token,
+            signup_source=signup_source,
+        )
         session.add(user)
         await session.commit()
         await session.refresh(user)
+
+        # If referred, increment ShareLink.signup_conversion_count and notify referrer
+        if referral_share_token:
+            try:
+                share_result = await session.exec(
+                    select(ShareLink).where(ShareLink.token == referral_share_token)
+                )
+                share_link = share_result.first()
+                if share_link:
+                    share_link.signup_conversion_count = (share_link.signup_conversion_count or 0) + 1
+                    session.add(share_link)
+
+                    # Notify the referrer
+                    if share_link.created_by:
+                        from routes.notifications import create_notification
+                        await create_notification(
+                            session,
+                            user_id=share_link.created_by,
+                            type="referral",
+                            title="Someone you shared with just joined!",
+                            body=f"A new user signed up via your share link.",
+                            resource_type="user",
+                            resource_id=user.id,
+                        )
+
+                    await session.commit()
+            except Exception as e:
+                logger.warning(f"Referral attribution error (non-fatal): {e}")
 
     updated = False
     if phone and not user.phone_number:

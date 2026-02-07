@@ -140,6 +140,9 @@ class Bid(SQLModel, table=True):
     source: str = "manual" # manual, searchapi, feed
     is_selected: bool = False
     is_service_provider: bool = False
+
+    # Unified Closing Layer (Phase 4)
+    closing_status: Optional[str] = None  # None, "pending", "payment_initiated", "paid", "shipped", "delivered", "contract_sent", "contract_signed", "refunded"
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
@@ -286,6 +289,11 @@ class PurchaseEvent(SQLModel, table=True):
     # Status
     status: str = "completed"  # "pending", "completed", "refunded", "failed"
 
+    # Revenue tracking (Phase 4)
+    platform_fee_amount: Optional[float] = None  # Amount BuyAnything.ai earns from this transaction
+    commission_rate: Optional[float] = None       # e.g., 0.05 for 5%
+    revenue_type: str = "affiliate"               # "affiliate", "stripe_connect", "transaction_fee"
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -408,6 +416,7 @@ class BidWithProvenance(SQLModel):
     source: str = "manual"
     is_selected: bool = False
     is_service_provider: bool = False
+    closing_status: Optional[str] = None
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
@@ -470,6 +479,9 @@ class ShareLink(SQLModel, table=True):
     created_by: int = Field(foreign_key="user.id", index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+    # Collaboration permissions (Phase 4)
+    permission: str = "view_only"  # "view_only", "can_comment", "can_select"
+
     # Engagement metrics
     access_count: int = Field(default=0)  # Total times accessed
     unique_visitors: int = Field(default=0)  # Unique viewers
@@ -492,6 +504,39 @@ class ShareSearchEvent(SQLModel, table=True):
 
     search_query: str
     search_success: bool = Field(default=False)  # Determined by existing search success criteria
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# =============================================================================
+# NOTIFICATION MODEL (Phase 4 — shared component)
+# =============================================================================
+
+class Notification(SQLModel, table=True):
+    """
+    In-app notifications for buyers and sellers.
+    Used by: seller RFP alerts, quote updates, viral referrals, purchase confirmations.
+    """
+    __tablename__ = "notification"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+
+    # Notification type
+    type: str = Field(index=True)  # "rfp_match", "quote_received", "quote_accepted", "referral", "purchase"
+
+    # Content
+    title: str
+    body: Optional[str] = None
+    action_url: Optional[str] = None  # Deep link for click-through
+
+    # Related resource
+    resource_type: Optional[str] = None  # "row", "bid", "quote", "share"
+    resource_id: Optional[int] = None
+
+    # State
+    read: bool = False
+    read_at: Optional[datetime] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -640,6 +685,11 @@ class Merchant(SQLModel, table=True):
 
     # Linked seller record (for bid attribution)
     seller_id: Optional[int] = Field(default=None, foreign_key="seller.id")
+
+    # Stripe Connect (Phase 4 — marketplace fee collection)
+    stripe_account_id: Optional[str] = Field(default=None, index=True)
+    stripe_onboarding_complete: bool = False
+    default_commission_rate: float = 0.05  # 5% default platform fee
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

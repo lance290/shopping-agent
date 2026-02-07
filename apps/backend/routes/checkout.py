@@ -11,7 +11,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from dependencies import get_current_session
-from models import Bid, Row, PurchaseEvent
+from models import Bid, Row, PurchaseEvent, Merchant, Seller
 from audit import audit_log
 
 logger = logging.getLogger(__name__)
@@ -119,18 +119,43 @@ async def create_checkout_session(
     success_url = body.success_url or f"{app_base}/?checkout=success&session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = body.cancel_url or f"{app_base}/?checkout=cancel"
 
-    try:
-        checkout_session = stripe.checkout.Session.create(
-            mode="payment",
-            line_items=[line_item],
-            success_url=success_url,
-            cancel_url=cancel_url,
-            metadata={
-                "bid_id": str(bid.id),
-                "row_id": str(row.id),
-                "user_id": str(auth_session.user_id),
-            },
+    # Check for Stripe Connect: look up merchant via bid's seller
+    connected_account_id = None
+    platform_fee_cents = 0
+    commission_rate = float(os.getenv("DEFAULT_PLATFORM_FEE_RATE", "0.05"))
+    if bid.seller_id:
+        merchant_result = await session.exec(
+            select(Merchant).where(Merchant.seller_id == bid.seller_id)
         )
+        merchant = merchant_result.first()
+        if merchant and merchant.stripe_account_id and merchant.stripe_onboarding_complete:
+            connected_account_id = merchant.stripe_account_id
+            commission_rate = merchant.default_commission_rate
+            platform_fee_cents = int(round(unit_amount * commission_rate))
+
+    session_params = {
+        "mode": "payment",
+        "line_items": [line_item],
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "metadata": {
+            "bid_id": str(bid.id),
+            "row_id": str(row.id),
+            "user_id": str(auth_session.user_id),
+            "commission_rate": str(commission_rate),
+        },
+    }
+
+    # Add Stripe Connect params if merchant has connected account
+    if connected_account_id:
+        session_params["payment_intent_data"] = {
+            "application_fee_amount": platform_fee_cents,
+        }
+        session_params["stripe_account"] = connected_account_id
+        session_params["metadata"]["connected_account"] = connected_account_id
+
+    try:
+        checkout_session = stripe.checkout.Session.create(**session_params)
     except Exception as e:
         logger.error(f"[CHECKOUT] Stripe session creation failed: {e}")
         raise HTTPException(status_code=502, detail="Failed to create checkout session")
@@ -228,16 +253,25 @@ async def _handle_checkout_completed(event):
 
     async for db_session in get_session():
         try:
+            # Calculate platform fee from metadata
+            fee_rate = float(metadata.get("commission_rate", "0.0"))
+            connected = metadata.get("connected_account")
+            amount_dollars = amount_total / 100.0
+            fee_amount = round(amount_dollars * fee_rate, 2) if fee_rate > 0 else None
+
             purchase = PurchaseEvent(
                 user_id=user_id,
                 bid_id=bid_id,
                 row_id=row_id,
-                amount=amount_total / 100.0,  # Convert from cents
+                amount=amount_dollars,
                 currency=currency.upper(),
                 payment_method="stripe_checkout",
                 stripe_session_id=stripe_session_id,
                 stripe_payment_intent_id=payment_intent_id,
                 status="completed",
+                platform_fee_amount=fee_amount,
+                commission_rate=fee_rate if fee_rate > 0 else None,
+                revenue_type="stripe_connect" if connected else "stripe_checkout",
             )
             db_session.add(purchase)
 
@@ -247,10 +281,11 @@ async def _handle_checkout_completed(event):
                 row.status = "purchased"
                 db_session.add(row)
 
-            # Mark bid as selected
+            # Mark bid as selected and update closing status
             bid = await db_session.get(Bid, bid_id)
             if bid:
                 bid.is_selected = True
+                bid.closing_status = "paid"
                 db_session.add(bid)
 
             await db_session.commit()

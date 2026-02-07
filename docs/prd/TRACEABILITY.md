@@ -28,3 +28,11 @@
 | phase3 | 05-social-polish.md | P1 | v3.0 | 5 | Implemented | - |
 | phase3 | 06-admin-dashboard.md | P2 | v3.0 | 6 | Implemented | - |
 | phase3 | 07-mobile-responsive.md | P2 | v3.0 | 7 | Implemented | - |
+| phase4 | 00-revenue-monetization.md | P0 | v4.0 | 1 | Not Started | - |
+| phase4 | 07-workspace-tile-provenance.md | P0 | v4.0 | 2 | Partial | - |
+| phase4 | 01-search-architecture-v2.md | P0 | v4.0 | 3 | Partial (~75%) | - |
+| phase4 | 03-multi-channel-sourcing-outreach.md | P0 | v4.0 | 4 | Partial | 07-workspace-tile-provenance.md |
+| phase4 | 02-ai-procurement-agent.md | P0 | v4.0 | 5 | Partial | 07-workspace-tile-provenance.md |
+| phase4 | 04-seller-tiles-quote-intake.md | P0 | v4.0 | 6 | Partial | 07-workspace-tile-provenance.md |
+| phase4 | 05-unified-closing-layer.md | P1 | v4.0 | 7 | Scaffold | 00-revenue-monetization.md, 04-seller-tiles-quote-intake.md |
+| phase4 | 06-viral-growth-flywheel.md | P2 | v4.0 | 8 | Deferred to Phase 5 | 04-seller-tiles-quote-intake.md |

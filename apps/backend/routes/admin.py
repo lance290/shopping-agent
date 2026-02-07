@@ -14,7 +14,7 @@ from database import get_session
 from models import (
     User, AuthSession, AuditLog, hash_token, generate_session_token,
     Row, Bid, ClickoutEvent, PurchaseEvent, Merchant,
-    OutreachEvent, BugReport, SellerQuote,
+    OutreachEvent, BugReport, SellerQuote, ShareLink,
 )
 from dependencies import require_admin
 from routes.rate_limit import check_rate_limit
@@ -126,15 +126,257 @@ async def admin_stats(
     total_bugs = await _count(BugReport)
     open_bugs = await _count(BugReport, BugReport.status.in_(["captured", "issue_created", "fix_in_progress"]))
 
+    # Revenue tracking (Phase 4)
+    revenue_result = await session.exec(
+        select(func.coalesce(func.sum(PurchaseEvent.platform_fee_amount), 0))
+    )
+    total_platform_revenue = float(revenue_result.one())
+
+    affiliate_clicks = await _count(
+        ClickoutEvent,
+        ClickoutEvent.affiliate_tag.isnot(None)
+    )
+
     return {
         "users": {"total": total_users, "last_7_days": users_7d},
         "rows": {"total": total_rows, "active": active_rows},
         "bids": {"total": total_bids},
-        "clickouts": {"total": total_clickouts, "last_7_days": clickouts_7d},
+        "clickouts": {"total": total_clickouts, "last_7_days": clickouts_7d, "with_affiliate_tag": affiliate_clicks},
         "purchases": {"total": total_purchases, "gmv": gmv},
+        "revenue": {"platform_total": total_platform_revenue},
         "merchants": {"total": total_merchants},
         "outreach": {"sent": total_outreach, "quoted": outreach_quoted},
         "bugs": {"total": total_bugs, "open": open_bugs},
+    }
+
+
+@router.get("/admin/revenue")
+async def admin_revenue(
+    admin: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get detailed revenue breakdown by stream (admin only)."""
+    now = datetime.utcnow()
+    month_ago = now - timedelta(days=30)
+    week_ago = now - timedelta(days=7)
+
+    # Revenue by type
+    revenue_by_type = await session.exec(
+        select(
+            PurchaseEvent.revenue_type,
+            func.count(PurchaseEvent.id),
+            func.coalesce(func.sum(PurchaseEvent.amount), 0),
+            func.coalesce(func.sum(PurchaseEvent.platform_fee_amount), 0),
+        ).group_by(PurchaseEvent.revenue_type)
+    )
+    streams = {}
+    for row in revenue_by_type.all():
+        rtype, count, total_amount, platform_fee = row
+        streams[rtype] = {
+            "count": count,
+            "total_amount": float(total_amount),
+            "platform_revenue": float(platform_fee),
+        }
+
+    # Clickout stats (affiliate performance)
+    total_clickouts_result = await session.exec(
+        select(func.count(ClickoutEvent.id))
+    )
+    total_clickouts = total_clickouts_result.one()
+
+    affiliate_clickouts_result = await session.exec(
+        select(func.count(ClickoutEvent.id)).where(
+            ClickoutEvent.affiliate_tag.isnot(None)
+        )
+    )
+    affiliate_clickouts = affiliate_clickouts_result.one()
+
+    clickouts_7d_result = await session.exec(
+        select(func.count(ClickoutEvent.id)).where(
+            ClickoutEvent.created_at >= week_ago
+        )
+    )
+    clickouts_7d = clickouts_7d_result.one()
+
+    # Merchant Stripe Connect status
+    connected_merchants_result = await session.exec(
+        select(func.count(Merchant.id)).where(
+            Merchant.stripe_onboarding_complete == True
+        )
+    )
+    connected_merchants = connected_merchants_result.one()
+
+    total_merchants_result = await session.exec(
+        select(func.count(Merchant.id))
+    )
+    total_merchants = total_merchants_result.one()
+
+    return {
+        "period": {"from": month_ago.isoformat(), "to": now.isoformat()},
+        "streams": streams,
+        "clickouts": {
+            "total": total_clickouts,
+            "with_affiliate_tag": affiliate_clickouts,
+            "last_7_days": clickouts_7d,
+            "affiliate_rate": round(affiliate_clickouts / max(total_clickouts, 1), 3),
+        },
+        "stripe_connect": {
+            "connected_merchants": connected_merchants,
+            "total_merchants": total_merchants,
+        },
+    }
+
+
+@router.get("/admin/growth")
+async def growth_metrics(
+    admin: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Viral Growth Flywheel metrics (PRD 06).
+    Returns K-factor, referral graph, seller-to-buyer conversion, collaborator funnel.
+    """
+    now = datetime.utcnow()
+    month_ago = now - timedelta(days=30)
+
+    # ── K-Factor Calculation ──
+    # K = avg(invitations_per_user) × avg(conversion_rate_per_invitation)
+
+    # Total users who created at least one share link
+    sharers_result = await session.exec(
+        select(func.count(func.distinct(ShareLink.created_by)))
+        .where(ShareLink.created_by.isnot(None))
+    )
+    total_sharers = sharers_result.one() or 0
+
+    # Total share links created
+    total_shares_result = await session.exec(
+        select(func.count(ShareLink.id))
+    )
+    total_shares = total_shares_result.one() or 0
+
+    # Total signups attributed to share links
+    total_referral_signups_result = await session.exec(
+        select(func.count(User.id))
+        .where(User.referral_share_token.isnot(None))
+    )
+    total_referral_signups = total_referral_signups_result.one() or 0
+
+    # Total share link clicks
+    total_clicks_result = await session.exec(
+        select(func.coalesce(func.sum(ShareLink.click_count), 0))
+    )
+    total_clicks = total_clicks_result.one() or 0
+
+    # K-factor
+    avg_shares_per_user = total_shares / max(total_sharers, 1)
+    conversion_rate = total_referral_signups / max(total_clicks, 1)
+    k_factor = round(avg_shares_per_user * conversion_rate, 4)
+
+    # ── Referral Graph (top referrers) ──
+    referral_graph_query = (
+        select(
+            ShareLink.created_by,
+            func.count(ShareLink.id).label("shares_created"),
+            func.coalesce(func.sum(ShareLink.signup_conversion_count), 0).label("signups_driven"),
+            func.coalesce(func.sum(ShareLink.click_count), 0).label("total_clicks"),
+        )
+        .where(ShareLink.created_by.isnot(None))
+        .group_by(ShareLink.created_by)
+        .order_by(func.coalesce(func.sum(ShareLink.signup_conversion_count), 0).desc())
+        .limit(25)
+    )
+    referral_graph_result = await session.exec(referral_graph_query)
+    referral_rows = referral_graph_result.all()
+
+    # Fetch user details for referrers
+    referrer_ids = [r[0] for r in referral_rows if r[0]]
+    referrer_details = {}
+    if referrer_ids:
+        users_result = await session.exec(
+            select(User.id, User.email, User.phone_number)
+            .where(User.id.in_(referrer_ids))
+        )
+        for uid, email, phone in users_result:
+            referrer_details[uid] = {"email": email, "phone": phone}
+
+    referral_graph = [
+        {
+            "user_id": row[0],
+            "email": referrer_details.get(row[0], {}).get("email"),
+            "shares_created": row[1],
+            "signups_driven": row[2],
+            "total_clicks": row[3],
+        }
+        for row in referral_rows
+    ]
+
+    # ── Seller-to-Buyer Conversion ──
+    # Users who are both merchants AND have created rows (they buy + sell)
+    merchant_user_ids_result = await session.exec(
+        select(Merchant.user_id).where(Merchant.user_id.isnot(None))
+    )
+    merchant_user_ids = [uid for uid in merchant_user_ids_result]
+
+    sellers_who_buy = 0
+    if merchant_user_ids:
+        sellers_who_buy_result = await session.exec(
+            select(func.count(func.distinct(Row.user_id)))
+            .where(Row.user_id.in_(merchant_user_ids))
+        )
+        sellers_who_buy = sellers_who_buy_result.one() or 0
+
+    total_merchants_result = await session.exec(select(func.count(Merchant.id)))
+    total_merchants = total_merchants_result.one() or 0
+
+    seller_to_buyer_rate = round(sellers_who_buy / max(total_merchants, 1), 4)
+
+    # ── Collaborator-to-Buyer Funnel ──
+    # Stage 1: Share link clicks (total_clicks computed above)
+    # Stage 2: Referral signups (total_referral_signups computed above)
+    # Stage 3: Referred users who created their own row
+    referred_buyers_result = await session.exec(
+        select(func.count(func.distinct(Row.user_id)))
+        .where(
+            Row.user_id.in_(
+                select(User.id).where(User.referral_share_token.isnot(None))
+            )
+        )
+    )
+    referred_buyers = referred_buyers_result.one() or 0
+
+    # ── Total users (for context) ──
+    total_users_result = await session.exec(select(func.count(User.id)))
+    total_users = total_users_result.one() or 0
+
+    return {
+        "period": {"from": month_ago.isoformat(), "to": now.isoformat()},
+        "k_factor": {
+            "value": k_factor,
+            "target": 1.2,
+            "components": {
+                "avg_shares_per_user": round(avg_shares_per_user, 2),
+                "click_to_signup_conversion": round(conversion_rate, 4),
+                "total_sharers": total_sharers,
+                "total_shares": total_shares,
+                "total_clicks": total_clicks,
+                "total_referral_signups": total_referral_signups,
+            },
+        },
+        "referral_graph": referral_graph,
+        "seller_to_buyer": {
+            "total_merchants": total_merchants,
+            "sellers_who_also_buy": sellers_who_buy,
+            "conversion_rate": seller_to_buyer_rate,
+        },
+        "collaborator_funnel": {
+            "share_clicks": total_clicks,
+            "referral_signups": total_referral_signups,
+            "referred_who_created_rows": referred_buyers,
+            "click_to_signup_rate": round(total_referral_signups / max(total_clicks, 1), 4),
+            "signup_to_buyer_rate": round(referred_buyers / max(total_referral_signups, 1), 4),
+        },
+        "total_users": total_users,
     }
 
 

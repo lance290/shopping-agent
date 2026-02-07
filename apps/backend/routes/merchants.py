@@ -3,6 +3,8 @@ Merchant Registry API routes.
 Self-registration for preferred seller network.
 """
 import json
+import logging
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header
@@ -13,6 +15,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from models import Merchant, Seller
 from database import get_session
 from dependencies import get_current_session
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/merchants", tags=["merchants"])
 
@@ -194,3 +198,121 @@ async def search_merchants(
         })
 
     return {"merchants": matched, "count": len(matched)}
+
+
+# ── Stripe Connect Onboarding ─────────────────────────────────────────
+
+# Lazy-init Stripe
+_stripe = None
+
+def _get_stripe():
+    global _stripe
+    if _stripe is None:
+        try:
+            import stripe as _stripe_mod
+            _stripe_mod.api_key = os.getenv("STRIPE_SECRET_KEY", "")
+            _stripe = _stripe_mod
+        except ImportError:
+            raise HTTPException(status_code=503, detail="Stripe SDK not installed")
+    if not _stripe.api_key:
+        raise HTTPException(status_code=503, detail="STRIPE_SECRET_KEY not configured")
+    return _stripe
+
+
+@router.post("/connect/onboard")
+async def start_stripe_connect_onboarding(
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Start Stripe Connect onboarding for the authenticated merchant.
+    Returns a Stripe-hosted onboarding URL.
+    """
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Find merchant for this user
+    result = await session.exec(
+        select(Merchant).where(Merchant.user_id == auth_session.user_id)
+    )
+    merchant = result.first()
+    if not merchant:
+        raise HTTPException(status_code=404, detail="No merchant profile found. Register first.")
+
+    stripe = _get_stripe()
+    app_base = os.getenv("APP_BASE_URL", "http://localhost:3003")
+
+    # Create or reuse Stripe Connect account
+    if not merchant.stripe_account_id:
+        try:
+            account = stripe.Account.create(
+                type="express",
+                email=merchant.email,
+                metadata={"merchant_id": str(merchant.id)},
+            )
+            merchant.stripe_account_id = account.id
+            session.add(merchant)
+            await session.commit()
+            await session.refresh(merchant)
+        except Exception as e:
+            logger.error(f"[STRIPE CONNECT] Account creation failed: {e}")
+            raise HTTPException(status_code=502, detail="Failed to create Stripe account")
+
+    # Create onboarding link
+    try:
+        account_link = stripe.AccountLink.create(
+            account=merchant.stripe_account_id,
+            refresh_url=f"{app_base}/seller?tab=profile&stripe=refresh",
+            return_url=f"{app_base}/seller?tab=profile&stripe=complete",
+            type="account_onboarding",
+        )
+    except Exception as e:
+        logger.error(f"[STRIPE CONNECT] Account link creation failed: {e}")
+        raise HTTPException(status_code=502, detail="Failed to create onboarding link")
+
+    return {"onboarding_url": account_link.url, "stripe_account_id": merchant.stripe_account_id}
+
+
+@router.get("/connect/status")
+async def stripe_connect_status(
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """Check Stripe Connect onboarding status for the authenticated merchant."""
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    result = await session.exec(
+        select(Merchant).where(Merchant.user_id == auth_session.user_id)
+    )
+    merchant = result.first()
+    if not merchant:
+        raise HTTPException(status_code=404, detail="No merchant profile found")
+
+    if not merchant.stripe_account_id:
+        return {"connected": False, "onboarding_complete": False}
+
+    # Check account status with Stripe
+    stripe = _get_stripe()
+    try:
+        account = stripe.Account.retrieve(merchant.stripe_account_id)
+        charges_enabled = account.charges_enabled
+        details_submitted = account.details_submitted
+
+        # Update local state if onboarding just completed
+        if charges_enabled and not merchant.stripe_onboarding_complete:
+            merchant.stripe_onboarding_complete = True
+            session.add(merchant)
+            await session.commit()
+
+        return {
+            "connected": True,
+            "onboarding_complete": charges_enabled and details_submitted,
+            "charges_enabled": charges_enabled,
+            "stripe_account_id": merchant.stripe_account_id,
+        }
+    except Exception as e:
+        logger.error(f"[STRIPE CONNECT] Status check failed: {e}")
+        return {"connected": True, "onboarding_complete": merchant.stripe_onboarding_complete}

@@ -1,4 +1,4 @@
-# Architecture Discovery - 2026-02-06
+# Architecture Discovery - 2026-02-06 (updated Phase 4)
 
 ## Tech Stack
 - **Frontend:** Next.js 15 (App Router, standalone output), React 18, TypeScript 5.3+
@@ -28,7 +28,8 @@
   - `models.py` — SQLModel ORM models
   - `main.py` — App entry, router registration
   - `affiliate.py` — Pluggable affiliate handler registry
-  - `sourcing.py` — Multi-provider search
+  - `sourcing.py` — Legacy multi-provider search (to be removed)
+  - `sourcing/` — New 5-layer search architecture (adapters, executors, normalizers, models, service, metrics)
 
 ## Patterns to Follow
 - **API proxy:** Frontend uses Next.js API routes (`/app/api/*/route.ts`) to proxy to backend/BFF
@@ -45,4 +46,8 @@
 - Frontend port 3003, BFF port 8081, Backend port 8000
 - pnpm for Node packages, uv for Python packages
 - `NEXT_PUBLIC_API_URL` for backend URL, `BFF_URL` for BFF URL
-- No Stripe package installed yet (needed for PRD-01)
+- Stripe SDK v7+ installed (`stripe>=7.0.0` in pyproject.toml)
+- Stripe keys in `apps/backend/.env` (STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET)
+- Affiliate tags empty: AMAZON_AFFILIATE_TAG, EBAY_CAMPAIGN_ID, SKIMLINKS_PUBLISHER_ID
+- No Stripe Connect configured (no application_fee, no connected accounts)
+- BFF uses OpenRouter/Gemini (`gemini-3-flash-preview`)

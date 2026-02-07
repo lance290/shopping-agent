@@ -122,10 +122,10 @@ async def seller_inbox(
         except (json.JSONDecodeError, TypeError):
             categories = [merchant.categories.strip().lower()]
 
-    # Build query for matching rows
+    # Build query for matching rows (both service and product rows)
+    active_statuses = ["sourcing", "inviting", "bids_arriving", "open", "active"]
     query = select(Row).where(
-        Row.is_service == True,
-        Row.status.in_(["sourcing", "inviting", "bids_arriving", "open"]),
+        Row.status.in_(active_statuses),
     )
 
     # Filter by category if merchant has categories
@@ -134,7 +134,12 @@ async def seller_inbox(
         for cat in categories:
             category_filters.append(Row.service_category.ilike(f"%{cat}%"))
             category_filters.append(Row.title.ilike(f"%{cat}%"))
+            # Also match search intent category
+            category_filters.append(Row.search_intent.ilike(f"%{cat}%"))
         query = query.where(or_(*category_filters))
+    else:
+        # If no categories set, only show service rows (legacy behavior)
+        query = query.where(Row.is_service == True)
 
     query = (
         query.order_by(Row.created_at.desc())
@@ -225,7 +230,7 @@ async def seller_quotes(
     return summaries
 
 
-@router.post("/quotes", response_model=QuoteSummary)
+@router.post("/quotes")
 async def submit_quote(
     body: SellerQuoteCreate,
     authorization: Optional[str] = Header(None),
@@ -271,17 +276,51 @@ async def submit_quote(
         is_selected=False,
     )
     session.add(bid)
+
+    # ── Viral Flywheel (PRD 06): notify buyer that a new quote arrived ──
+    if row.user_id:
+        try:
+            from routes.notifications import create_notification
+            await create_notification(
+                session,
+                user_id=row.user_id,
+                type="quote_received",
+                title=f"New quote from {merchant.business_name}",
+                body=f"You received a quote for \"{row.title}\"",
+                action_url=f"/projects?row={row.id}",
+                resource_type="quote",
+                resource_id=quote.id,
+            )
+        except Exception as e:
+            logger.warning(f"[SELLER] Quote notification failed (non-fatal): {e}")
+
     await session.commit()
 
-    return QuoteSummary(
-        id=quote.id,
-        row_id=quote.row_id,
-        row_title=row.title,
-        price=quote.price,
-        description=quote.description,
-        status=quote.status or "submitted",
-        created_at=quote.created_at,
+    # ── Viral Flywheel (PRD 06): seller-to-buyer conversion prompt ──
+    # Check if this seller has any rows of their own (are they also a buyer?)
+    seller_rows_result = await session.exec(
+        select(func.count(Row.id)).where(Row.user_id == auth_session.user_id)
     )
+    seller_row_count = seller_rows_result.one()
+
+    return {
+        **QuoteSummary(
+            id=quote.id,
+            row_id=quote.row_id,
+            row_title=row.title,
+            price=quote.price,
+            description=quote.description,
+            status=quote.status or "submitted",
+            created_at=quote.created_at,
+        ).model_dump(),
+        # Seller-to-buyer prompt — frontend renders this as a CTA
+        "buyer_prompt": {
+            "show": seller_row_count == 0,
+            "message": "Thanks for your quote! Do you have something you need to buy? We can source it for you too.",
+            "cta": "Post what you need",
+            "cta_url": "/",
+        },
+    }
 
 
 # ── Profile ──────────────────────────────────────────────────────────────

@@ -21,6 +21,11 @@ export default function SharePage() {
   const [content, setContent] = useState<ShareContent | null>(null);
 
   useEffect(() => {
+    // Viral Flywheel (PRD 06): store share token for referral attribution on signup
+    if (token && typeof window !== 'undefined') {
+      localStorage.setItem('referral_token', token);
+    }
+
     async function resolveShare() {
       try {
         const res = await fetch(`/api/shares/${token}`);

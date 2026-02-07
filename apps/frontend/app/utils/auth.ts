@@ -37,7 +37,12 @@ export const startAuth = async (phone: string): Promise<AuthStartResponse> => {
 };
 
 export const verifyAuth = async (phone: string, code: string): Promise<AuthVerifyResponse> => {
-  const body = { phone, code };
+  // Viral Flywheel (PRD 06): include referral token if user arrived via share link
+  const referralToken = typeof window !== 'undefined' ? localStorage.getItem('referral_token') : null;
+  const body: Record<string, string> = { phone, code };
+  if (referralToken) {
+    body.referral_token = referralToken;
+  }
 
   const res = await fetch('/api/auth/verify', {
     method: 'POST',
@@ -48,6 +53,11 @@ export const verifyAuth = async (phone: string, code: string): Promise<AuthVerif
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: 'Failed to verify code' }));
     throw new Error(error.detail || 'Failed to verify code');
+  }
+
+  // Clear referral token after successful signup
+  if (referralToken && typeof window !== 'undefined') {
+    localStorage.removeItem('referral_token');
   }
 
   return res.json();

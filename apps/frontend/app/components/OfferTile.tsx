@@ -107,6 +107,12 @@ export default function OfferTile({
               Negotiable
             </div>
           )}
+          {!isBiddable && !isSellerQuote && !isServiceProvider && (
+            <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-amber-500/10 text-amber-700 border border-amber-500/20">
+              <Truck size={10} />
+              Instant Offer
+            </div>
+          )}
         </div>
 
         <div className="absolute top-3 right-3 z-10 flex flex-col gap-1.5">
