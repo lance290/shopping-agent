@@ -249,7 +249,20 @@ async def startup_event():
             ALTER TABLE row ADD COLUMN IF NOT EXISTS chat_history TEXT;
         """))
         print("Migration check: chat_history column ensured")
-    
+
+    # ── Data integrity check — warn if vendor/user data is missing ──
+    async with engine.begin() as conn:
+        try:
+            seller_count = (await conn.execute(text('SELECT COUNT(*) FROM seller'))).scalar() or 0
+            user_count = (await conn.execute(text('SELECT COUNT(*) FROM "user"'))).scalar() or 0
+            if seller_count == 0:
+                print("⚠️  WARNING: seller table is EMPTY — vendor data may have been wiped!")
+                print("   Run: python scripts/seed_vendors.py  to restore early-adopter vendors.")
+            else:
+                print(f"✓  Data check: {seller_count} sellers, {user_count} users in DB")
+        except Exception as e:
+            print(f"⚠️  Data integrity check skipped (table may not exist yet): {e}")
+
     if is_production:
         return
 

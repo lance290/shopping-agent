@@ -2,6 +2,7 @@
 Outreach routes for vendor communication.
 Handles sending RFP emails and tracking outreach events.
 """
+import json
 from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -14,7 +15,11 @@ from models import (
 )
 from database import get_session
 from dependencies import get_current_session
-from services.wattdata_mock import get_vendors, get_vendors_as_results, Vendor
+from services.vendors import (
+    get_vendors, get_vendors_as_results, Vendor,
+    search_vendors, search_checklist, get_checklist_summary,
+    get_email_template, get_vendor_detail,
+)
 from services.email import send_outreach_email, send_reminder_email
 
 router = APIRouter(prefix="/outreach", tags=["outreach"])
@@ -254,6 +259,65 @@ async def track_email_open(token: str, session=Depends(get_session)):
     return Response(content=gif, media_type="image/gif")
 
 
+@router.get("/vendors/search")
+async def search_vendors_endpoint(q: str = "", category: Optional[str] = None, limit: int = 10):
+    """
+    Full-text search across all vendor data.
+    Searches company name, fleet, wifi, safety certs, notes, etc.
+    
+    Examples:
+      /outreach/vendors/search?q=starlink
+      /outreach/vendors/search?q=gulfstream+argus
+      /outreach/vendors/search?q=heavy&category=private_aviation
+    """
+    results = search_vendors(q, category=category, limit=limit)
+    return {
+        "query": q,
+        "category": category,
+        "total": len(results),
+        "vendors": results,
+    }
+
+
+@router.get("/vendors/detail/{company_name}")
+async def get_vendor_detail_endpoint(company_name: str):
+    """Get full detail for a specific vendor by company name (partial match)."""
+    detail = get_vendor_detail(company_name)
+    if not detail:
+        raise HTTPException(status_code=404, detail=f"Vendor not found: {company_name}")
+    return detail
+
+
+@router.get("/checklist")
+async def get_checklist_endpoint(q: str = "", must_have_only: bool = False):
+    """
+    Get or search the charter due-diligence checklist.
+    
+    Examples:
+      /outreach/checklist — full checklist
+      /outreach/checklist?must_have_only=true — must-have items only
+      /outreach/checklist?q=wifi — search for Wi-Fi items
+      /outreach/checklist?q=cancellation — search for cancellation items
+    """
+    if q:
+        items = search_checklist(q, must_have_only=must_have_only)
+        return {"query": q, "must_have_only": must_have_only, "total": len(items), "items": items}
+    
+    summary = get_checklist_summary()
+    if must_have_only:
+        items = search_checklist("", must_have_only=True)
+        return {"must_have_only": True, "total": len(items), "items": items, "summary": summary}
+    
+    items = search_checklist("")
+    return {"total": len(items), "items": items, "summary": summary}
+
+
+@router.get("/email-template")
+async def get_email_template_endpoint():
+    """Get the RFP email template for charter quote requests."""
+    return get_email_template()
+
+
 @router.get("/vendors/{category}")
 async def get_vendors_for_category(category: str, limit: int = 10):
     """Get vendors for a category as search result tiles."""
@@ -348,6 +412,15 @@ async def persist_vendors_for_row(
 
         price = vendor.get("price")
         normalized_price = float(price) if isinstance(price, (int, float)) else 0.0
+
+        # Store rich provider data in source_payload for frontend display
+        rich_fields = {}
+        for key in ("provider_type", "fleet", "jet_sizes", "wifi", "starlink",
+                     "pricing_info", "availability", "safety_certs", "notes",
+                     "website", "source_urls", "last_verified"):
+            if vendor.get(key):
+                rich_fields[key] = vendor[key]
+
         bid = Bid(
             row_id=row_id,
             seller_id=seller.id if seller else None,
@@ -362,6 +435,7 @@ async def persist_vendors_for_row(
             contact_name=vendor_name,
             contact_email=vendor_email,
             contact_phone=contact_phone,
+            source_payload=json.dumps(rich_fields) if rich_fields else None,
         )
         session.add(bid)
         created_bids.append(bid)

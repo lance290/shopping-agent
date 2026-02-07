@@ -69,17 +69,38 @@ async def mint_session(request: MintSessionRequest, session: AsyncSession = Depe
 
 @router.post("/test/reset-db")
 async def test_reset_db(session: AsyncSession = Depends(get_session)):
+    """
+    Test-only DB reset. Preserves seller/vendor data and outreach history.
+    Only enabled when E2E_TEST_MODE=1.
+    """
     if os.getenv("E2E_TEST_MODE") != "1":
         raise HTTPException(status_code=404, detail="Not Found")
 
+    # Hard block in production — even if E2E_TEST_MODE is accidentally set
+    if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("ENVIRONMENT") == "production":
+        raise HTTPException(status_code=403, detail="DB reset blocked in production")
+
     try:
+        # Reset user-generated data but PRESERVE the seller table (vendor registry).
+        #
+        # We avoid TRUNCATE ... CASCADE because "row" has NOT NULL FK children
+        # (outreach_event, seller_quote, deal_handoff, seller_bookmark) that
+        # CASCADE would silently wipe. Instead we truncate in dependency order:
+        #   1. Leaf tables with FK → row (outreach_event, seller_quote, etc.)
+        #   2. Other leaf tables (comment, like, bid, etc.)
+        #   3. Parent tables (row, project)
         await session.execute(
             text(
-                'TRUNCATE TABLE comment, "like", bid, request_spec, "row", project, clickout_event, bug_report, audit_log, auth_login_code, auth_session, "user" RESTART IDENTITY CASCADE;'
+                'TRUNCATE TABLE outreach_event, seller_quote, deal_handoff, '
+                'seller_bookmark, comment, "like", bid, request_spec, '
+                'clickout_event, bug_report, audit_log, auth_login_code, '
+                'auth_session, "row", project '
+                'RESTART IDENTITY;'
             )
         )
+        # Note: "user" and "seller" tables are NOT truncated.
         await session.commit()
-        return {"status": "ok"}
+        return {"status": "ok", "preserved": ["user", "seller"]}
     except Exception as e:
         await session.rollback()
         raise HTTPException(status_code=500, detail=f"DB reset failed: {str(e)}")

@@ -779,7 +779,7 @@ class WattDataMockProvider(SourcingProvider):
         pass
 
     async def search(self, query: str, **kwargs) -> List[SearchResult]:
-        from services.wattdata_mock import is_service_category, get_vendors, normalize_category
+        from services.vendors import is_service_category, get_vendors, normalize_category
         
         if not is_service_category(query):
             return []

@@ -1,5 +1,5 @@
 # Services package
-from .wattdata_mock import get_vendors, get_vendor_suggestions, Vendor
+from .vendors import get_vendors, get_vendor_suggestions, Vendor
 from .email import (
     send_outreach_email,
     send_handoff_buyer_email,

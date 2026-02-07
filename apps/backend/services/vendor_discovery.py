@@ -3,7 +3,7 @@ Vendor Discovery Adapter Layer
 
 Provides a pluggable interface for vendor/seller discovery.
 Backends:
-  - MockVendorAdapter: wraps existing wattdata_mock.py
+  - LocalVendorAdapter: wraps the local early-adopter vendor registry (vendors.py)
   - WattDataAdapter: connects to WattData MCP (when available)
 
 Usage:
@@ -71,11 +71,11 @@ class VendorDiscoveryAdapter(ABC):
         ...
 
 
-# ── Mock Adapter ─────────────────────────────────────────────────────────
+# ── Local Adapter (early-adopter registry) ──────────────────────────────────────────
 
 
-class MockVendorAdapter(VendorDiscoveryAdapter):
-    """Wraps the existing wattdata_mock.py for dev/testing."""
+class LocalVendorAdapter(VendorDiscoveryAdapter):
+    """Wraps the local early-adopter vendor registry (vendors.py)."""
 
     async def find_sellers(
         self,
@@ -83,9 +83,9 @@ class MockVendorAdapter(VendorDiscoveryAdapter):
         constraints: Optional[Dict[str, Any]] = None,
         limit: int = 10,
     ) -> List[Vendor]:
-        from services.wattdata_mock import get_vendors
+        from services.vendors import get_vendors
 
-        mock_vendors = get_vendors(category, limit)
+        registered = get_vendors(category, limit)
         return [
             Vendor(
                 name=v.name,
@@ -96,7 +96,7 @@ class MockVendorAdapter(VendorDiscoveryAdapter):
                 website=getattr(v, "website", None),
                 service_areas=getattr(v, "service_areas", None),
             )
-            for v in mock_vendors
+            for v in registered
         ]
 
     async def find_buyers(
@@ -104,7 +104,7 @@ class MockVendorAdapter(VendorDiscoveryAdapter):
         seller_profile: Dict[str, Any],
         limit: int = 10,
     ) -> List[BuyerNeed]:
-        # Mock adapter cannot discover buyers
+        # Local adapter cannot discover buyers
         return []
 
     async def health_check(self) -> bool:
@@ -179,15 +179,15 @@ async def get_vendor_adapter() -> VendorDiscoveryAdapter:
     Return the configured vendor discovery adapter.
 
     Reads VENDOR_DISCOVERY_BACKEND env var:
-      - "mock" (default): MockVendorAdapter
-      - "wattdata": WattDataAdapter (falls back to mock if unreachable)
+      - "local" (default): LocalVendorAdapter (early-adopter registry)
+      - "wattdata": WattDataAdapter (falls back to local if unreachable)
     """
     global _adapter_instance
 
     if _adapter_instance is not None:
         return _adapter_instance
 
-    backend = os.getenv("VENDOR_DISCOVERY_BACKEND", "mock").strip().lower()
+    backend = os.getenv("VENDOR_DISCOVERY_BACKEND", "local").strip().lower()
 
     if backend == "wattdata":
         adapter = WattDataAdapter()
@@ -199,15 +199,15 @@ async def get_vendor_adapter() -> VendorDiscoveryAdapter:
                 return adapter
             else:
                 logger.warning(
-                    "[VendorDiscovery] WattData MCP unreachable, falling back to mock"
+                    "[VendorDiscovery] WattData MCP unreachable, falling back to local registry"
                 )
         except Exception as e:
             logger.warning(
-                f"[VendorDiscovery] WattData init failed, falling back to mock: {e}"
+                f"[VendorDiscovery] WattData init failed, falling back to local registry: {e}"
             )
 
-    logger.info("[VendorDiscovery] Using mock vendor adapter")
-    _adapter_instance = MockVendorAdapter()
+    logger.info("[VendorDiscovery] Using local vendor adapter (early-adopter registry)")
+    _adapter_instance = LocalVendorAdapter()
     return _adapter_instance
 
 

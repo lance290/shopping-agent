@@ -158,15 +158,15 @@ async def test_admin_stats_requires_admin(client: AsyncClient, auth_user_and_tok
 
 
 @pytest.mark.asyncio
-async def test_mock_vendor_adapter():
-    """MockVendorAdapter returns vendors for known categories."""
-    from services.vendor_discovery import MockVendorAdapter
+async def test_local_vendor_adapter():
+    """LocalVendorAdapter returns vendors for known categories."""
+    from services.vendor_discovery import LocalVendorAdapter
 
-    adapter = MockVendorAdapter()
+    adapter = LocalVendorAdapter()
     assert await adapter.health_check() is True
 
     vendors = await adapter.find_sellers("private_aviation", limit=3)
-    # May return vendors if wattdata_mock has data for this category
+    # May return vendors if vendors.py has data for this category
     assert isinstance(vendors, list)
 
 
@@ -177,7 +177,7 @@ async def test_vendor_adapter_factory():
     from services.vendor_discovery import get_vendor_adapter, reset_adapter
 
     reset_adapter()
-    os.environ["VENDOR_DISCOVERY_BACKEND"] = "mock"
+    os.environ["VENDOR_DISCOVERY_BACKEND"] = "local"
 
     adapter = await get_vendor_adapter()
     assert adapter is not None
