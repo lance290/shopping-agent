@@ -119,12 +119,12 @@ export default function SharePage() {
                   </span>
                 </div>
               )}
-              {resource_data.condition && (
+              {!!resource_data.condition && (
                 <div className="text-sm text-gray-600 mb-2">
                   Condition: {String(resource_data.condition)}
                 </div>
               )}
-              {resource_data.item_url && (
+              {!!resource_data.item_url && (
                 <a
                   href={resource_data.item_url as string}
                   target="_blank"
@@ -147,7 +147,7 @@ export default function SharePage() {
                   {(resource_data.title as string) || 'Untitled Request'}
                 </h2>
               </div>
-              {resource_data.status && (
+              {!!resource_data.status && (
                 <div className="text-sm text-gray-600 mb-1">
                   Status: <span className="font-medium">{String(resource_data.status)}</span>
                 </div>
@@ -166,7 +166,7 @@ export default function SharePage() {
               <h2 className="font-semibold text-gray-900 mb-2">
                 {(resource_data.title as string) || 'Untitled Project'}
               </h2>
-              {resource_data.created_at && (
+              {!!resource_data.created_at && (
                 <div className="text-sm text-gray-500">
                   Created: {new Date(String(resource_data.created_at)).toLocaleDateString()}
                 </div>
