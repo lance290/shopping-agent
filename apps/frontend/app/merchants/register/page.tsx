@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Building2, CheckCircle, Loader2, Bug } from 'lucide-react';
-import { getToken } from '../../utils/auth';
+import { Building2, CheckCircle, Loader2, Bug, LogIn } from 'lucide-react';
+import { getMe } from '../../utils/auth';
 import ReportBugModal from '../../components/ReportBugModal';
 import { useShoppingStore } from '../../store';
 
@@ -34,6 +34,11 @@ export default function MerchantRegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    getMe().then((me) => setAuthenticated(me?.authenticated ?? false));
+  }, []);
 
   const toggleCategory = (slug: string) => {
     setSelectedCategories((prev) =>
@@ -47,19 +52,9 @@ export default function MerchantRegisterPage() {
     setError(null);
 
     try {
-      const token = getToken();
-      if (!token) {
-        setError('Please log in before registering as a seller.');
-        setSubmitting(false);
-        return;
-      }
-
       const res = await fetch('/api/merchants/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           business_name: businessName,
           contact_name: contactName,
@@ -84,6 +79,37 @@ export default function MerchantRegisterPage() {
       setSubmitting(false);
     }
   };
+
+  if (authenticated === null) {
+    return (
+      <div className="min-h-screen bg-gray-50 text-ink flex items-center justify-center">
+        <Loader2 className="animate-spin text-agent-blurple" size={32} />
+      </div>
+    );
+  }
+
+  if (authenticated === false) {
+    return (
+      <div className="min-h-screen bg-gray-50 text-ink flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <div className="bg-agent-blurple/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <LogIn className="text-agent-blurple" size={28} />
+          </div>
+          <h1 className="text-2xl font-bold text-ink mb-2">Sign In Required</h1>
+          <p className="text-ink-muted mb-6">
+            Please log in before registering as a seller.
+          </p>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 bg-agent-blurple text-white px-6 py-2 rounded-lg font-medium hover:bg-agent-blurple/90 transition-colors"
+          >
+            Go to Login
+          </Link>
+        </div>
+        <ReportBugModal />
+      </div>
+    );
+  }
 
   if (success) {
     return (

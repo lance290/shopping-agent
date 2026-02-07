@@ -7,7 +7,10 @@ function getBackendUrl(): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const auth = request.headers.get('authorization') || '';
+    const cookieToken = request.cookies.get('sa_session')?.value;
+    const auth = cookieToken
+      ? `Bearer ${cookieToken}`
+      : (request.headers.get('authorization') || '');
 
     const response = await fetch(`${getBackendUrl()}/merchants/register`, {
       method: 'POST',
