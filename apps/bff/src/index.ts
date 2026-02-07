@@ -473,8 +473,14 @@ export function buildApp() {
         body: JSON.stringify(request.body),
       });
 
-      const data = await response.json();
-      reply.status(response.status).send(data);
+      const text = await response.text();
+      let data: any;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+      reply.status(data ? response.status : 502).send(data ?? { detail: `Backend error (${response.status})` });
     } catch (err) {
       fastify.log.error(err);
       const msg = err instanceof Error ? err.message : String(err);

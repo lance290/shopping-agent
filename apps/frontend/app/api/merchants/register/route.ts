@@ -10,12 +10,14 @@ export async function POST(request: NextRequest) {
       ? `Bearer ${cookieToken}`
       : (request.headers.get('authorization') || '');
 
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (auth) {
+      headers['Authorization'] = auth;
+    }
+
     const response = await fetch(`${BFF_URL}/api/merchants/register`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: auth,
-      },
+      headers,
       body: JSON.stringify(body),
     });
 
