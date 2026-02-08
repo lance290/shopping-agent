@@ -741,6 +741,44 @@ Return ONLY the JSON array, no explanation.`;
     return factors;
   } catch (e) {
     console.error("Error generating factors:", e);
+
+    // Fallback: for aviation service rows, use hardcoded factors so the demo isn't blocked
+    if (serviceCategory === 'private_aviation') {
+      console.warn("Using hardcoded aviation factors as fallback");
+      const fallbackFactors = [
+        { name: "from_airport", label: "Departure Airport", type: "text", required: true },
+        { name: "to_airport", label: "Arrival Airport", type: "text", required: true },
+        { name: "departure_date", label: "Departure Date", type: "text", required: true },
+        { name: "wheels_up_time", label: "Wheels Up Time", type: "text", required: true },
+        { name: "trip_type", label: "Trip Type", type: "select", options: ["one-way", "round-trip"], required: true },
+        { name: "passengers", label: "Passengers", type: "number", required: true },
+        { name: "aircraft_class", label: "Aircraft Class", type: "select", options: ["light jet", "midsize jet", "super-midsize jet", "heavy jet", "ultra-long-range"], required: false },
+        { name: "wifi", label: "Wi-Fi Required", type: "select", options: ["yes", "no", "preferred"], required: false },
+      ];
+      // Also inject any existing constraint keys not already covered
+      if (existingConstraints && typeof existingConstraints === 'object') {
+        const factorNames = new Set(fallbackFactors.map(f => f.name));
+        for (const key of Object.keys(existingConstraints)) {
+          if (!factorNames.has(key)) {
+            const label = key.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            fallbackFactors.push({ name: key, label, type: 'text', required: false } as any);
+          }
+        }
+      }
+      try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (authorization) headers['Authorization'] = authorization;
+        await fetchJsonWithTimeoutRetry(
+          `${BACKEND_URL}/rows/${rowId}`,
+          { method: 'PATCH', headers, body: JSON.stringify({ choice_factors: JSON.stringify(fallbackFactors) }) },
+          20000, 1, 500
+        );
+        return fallbackFactors;
+      } catch (saveErr) {
+        console.error("Failed to save fallback aviation factors:", saveErr);
+      }
+    }
+
     return null;
   }
 }

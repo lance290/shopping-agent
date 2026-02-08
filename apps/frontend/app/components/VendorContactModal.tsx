@@ -6,6 +6,7 @@ import { X, Copy, Check, Mail, Building2, User } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { parseChoiceAnswers, useShoppingStore } from '../store';
 import { saveOutreachToDb } from '../utils/api';
+import { getMe } from '../utils/auth';
 
 interface VendorContactModalProps {
   isOpen: boolean;
@@ -294,9 +295,17 @@ Thanks,
     setReturnPassengers(String(f.return_passengers ?? ''));
     setPassengerNames(f.passenger_names || '');
     setReturnPassengerNames(f.return_passenger_names || '');
-    setReplyToEmail(f.reply_to_email || '');
     setAircraftClass(f.aircraft_class || '');
     setRequirements(f.requirements || '');
+
+    // Default reply-to to logged-in user's email if not already set
+    if (f.reply_to_email) {
+      setReplyToEmail(f.reply_to_email);
+    } else {
+      getMe().then(user => {
+        if (user?.email) setReplyToEmail(user.email);
+      }).catch(() => {});
+    }
 
     // Store raw templates for re-rendering
     setSubjectTemplateRaw(d.subject_template || 'Quote request — {from} to {to} on {date}');
