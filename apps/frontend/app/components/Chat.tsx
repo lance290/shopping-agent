@@ -420,6 +420,18 @@ export default function Chat() {
         saveCurrentChat(currentMsgs);
         return currentMsgs;
       });
+      // Belt-and-suspenders: force-refetch active row after stream ends
+      // to ensure factors/answers are loaded even if SSE events were missed
+      const finalRowId = store.activeRowId;
+      if (finalRowId) {
+        console.log('[Chat] Stream ended, force-refetching row', finalRowId);
+        fetchSingleRowFromDb(finalRowId).then(freshRow => {
+          if (freshRow) {
+            console.log('[Chat] Post-stream refetch got row, factors:', typeof freshRow.choice_factors, freshRow.choice_factors?.length);
+            store.updateRow(freshRow.id, freshRow);
+          }
+        }).catch(() => {});
+      }
     }
   };
   
