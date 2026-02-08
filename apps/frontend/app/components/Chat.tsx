@@ -219,14 +219,14 @@ export default function Chat() {
                 // Only preserve chat history if this was a clarification flow completion
                 // (pendingClarification was active). Otherwise it's a new unrelated request.
                 if (pendingClarification) {
-                  const currentMessages = [...messages, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
+                  const currentMessages = [...messages, userMessage, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
                   saveChatHistory(row.id, currentMessages);
                   const rowWithHistory = { ...row, chat_history: JSON.stringify(currentMessages) };
                   const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
                   store.setRows(mergedRows);
                 } else {
                   // New request - preserve full conversation including user message
-                  const currentMessages = [...messages, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
+                  const currentMessages = [...messages, userMessage, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
                   saveChatHistory(row.id, currentMessages);
                   const rowWithHistory = { ...row, chat_history: JSON.stringify(currentMessages) };
                   const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
