@@ -8,8 +8,8 @@ function normalizeBaseUrl(url: string): string {
   return `http://${trimmed}`;
 }
 
-const BFF_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
+const BACKEND_URL = normalizeBaseUrl(
+  process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 );
 
 function getAuthHeader(request: NextRequest): string | null {
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     }
     const rowId = request.nextUrl.searchParams.get('row_id');
     
-    const url = rowId ? `${BFF_URL}/api/likes?row_id=${rowId}` : `${BFF_URL}/api/likes`;
+    const url = rowId ? `${BACKEND_URL}/likes?row_id=${rowId}` : `${BACKEND_URL}/likes`;
 
     const response = await fetch(url, {
       method: 'GET',
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
     const body = await request.json();
 
-    const response = await fetch(`${BFF_URL}/api/likes`, {
+    const response = await fetch(`${BACKEND_URL}/likes`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -91,7 +91,7 @@ export async function DELETE(request: NextRequest) {
     }
     const params = request.nextUrl.searchParams.toString();
 
-    const response = await fetch(`${BFF_URL}/api/likes?${params}`, {
+    const response = await fetch(`${BACKEND_URL}/likes?${params}`, {
       method: 'DELETE',
       headers: {
         Authorization: authHeader,

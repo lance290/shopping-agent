@@ -8,8 +8,8 @@ function normalizeBaseUrl(url: string): string {
   return `http://${trimmed}`;
 }
 
-const BFF_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
+const BACKEND_URL = normalizeBaseUrl(
+  process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 );
 
 function getAuthHeader(request: NextRequest): string | null {
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'row_id is required' }, { status: 400 });
     }
 
-    const response = await fetch(`${BFF_URL}/api/likes/counts?row_id=${rowId}`, {
+    const response = await fetch(`${BACKEND_URL}/likes/counts?row_id=${rowId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
