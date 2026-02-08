@@ -261,9 +261,12 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         return;
     }
 
+    // Don't auto-search for service rows — vendors come from BFF SSE stream
+    if (row.is_service) return;
+
     didAutoLoadRef.current = true;
     refresh('all');
-  }, [isActive, row.id, isSearching, moreResultsIncoming]);
+  }, [isActive, row.id, isSearching, moreResultsIncoming, row.is_service]);
 
   const sortOffers = (list: Offer[]) => {
     if (!list || list.length === 0) return [];
