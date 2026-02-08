@@ -438,39 +438,26 @@ export const saveChatHistory = async (rowId: number, messages: Array<{id: string
   }
 };
 
-// Helper: Toggle like (persist)
+// Helper: Toggle like — ONE function, ONE endpoint
 export const toggleLikeApi = async (
-  rowId: number,
-  isLiked: boolean,
+  _rowId: number,
+  _isLiked: boolean,
   bidId?: number,
-  offerUrl?: string
 ): Promise<boolean> => {
+  if (!bidId) {
+    console.error('[API] toggleLikeApi: no bid_id — cannot toggle');
+    return false;
+  }
   try {
-    if (isLiked) {
-      const res = await fetchWithAuth('/api/likes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ row_id: rowId, bid_id: bidId, offer_url: offerUrl }),
-      });
-      if (res.ok) return true;
-      if (res.status === 409) return true;
-      const body = await readResponseBodySafe(res);
-      console.error('[API] Toggle like failed:', res.status, body);
-      return false;
-    } else {
-      const params = new URLSearchParams({ row_id: String(rowId) });
-      if (bidId) params.append('bid_id', String(bidId));
-      if (offerUrl) params.append('offer_url', offerUrl);
-
-      const res = await fetchWithAuth(`/api/likes?${params.toString()}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) return true;
-      if (res.status === 404) return true;
-      const body = await readResponseBodySafe(res);
-      console.error('[API] Toggle unlike failed:', res.status, body);
-      return false;
-    }
+    const res = await fetchWithAuth('/api/likes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bid_id: bidId }),
+    });
+    if (res.ok) return true;
+    const body = await readResponseBodySafe(res);
+    console.error('[API] Toggle like failed:', res.status, body);
+    return false;
   } catch (err) {
     console.error('[API] Toggle like error:', err);
     return false;

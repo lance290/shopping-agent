@@ -318,16 +318,14 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
     setRowResults(row.id, updatedOffers);
     
-    // Call API
-    // Use bid_id if available, otherwise canonical URL
+    // Call API — ONE toggle endpoint
     const success = await toggleLikeApi(
       row.id,
       newIsLiked,
       offer.bid_id || undefined,
-      canonicalUrl || undefined
     );
     
-    console.log('[Like] toggled:', { rowId: row.id, bidId: offer.bid_id, url: canonicalUrl, newIsLiked, success });
+    console.log('[Like] toggled:', { rowId: row.id, bidId: offer.bid_id, newIsLiked, success });
     
     if (success) {
       onToast?.(newIsLiked ? 'Liked this offer.' : 'Removed like.', 'success');

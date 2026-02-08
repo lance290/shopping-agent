@@ -55,63 +55,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const body = await request.json();
+    const bidId = body?.bid_id;
 
-    const response = await fetch(`${BACKEND_URL}/likes`, {
+    if (!bidId) {
+      return NextResponse.json({ error: 'bid_id required' }, { status: 400 });
+    }
+
+    // ONE endpoint: toggle like on/off
+    const response = await fetch(`${BACKEND_URL}/likes/${bidId}/toggle`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: authHeader,
       },
-      body: JSON.stringify(body),
     });
 
-    let data;
-    try {
-      data = await response.json();
-    } catch (parseError) {
-      console.error('Error parsing response:', parseError);
-      return NextResponse.json(
-        { error: 'Invalid response from server' },
-        { status: response.status || 500 }
-      );
-    }
-
+    const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    console.error('Error creating like:', error);
-    return NextResponse.json({ error: 'Failed to create like' }, { status: 500 });
+    console.error('Error toggling like:', error);
+    return NextResponse.json({ error: 'Failed to toggle like' }, { status: 500 });
   }
 }
 
-export async function DELETE(request: NextRequest) {
-  try {
-    const authHeader = getAuthHeader(request);
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const params = request.nextUrl.searchParams.toString();
-
-    const response = await fetch(`${BACKEND_URL}/likes?${params}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: authHeader,
-      },
-    });
-
-    let data;
-    try {
-      data = await response.json();
-    } catch (parseError) {
-      console.error('Error parsing response:', parseError);
-      return NextResponse.json(
-        { error: 'Invalid response from server' },
-        { status: response.status || 500 }
-      );
-    }
-
-    return NextResponse.json(data, { status: response.status });
-  } catch (error) {
-    console.error('Error deleting like:', error);
-    return NextResponse.json({ error: 'Failed to delete like' }, { status: 500 });
-  }
-}
