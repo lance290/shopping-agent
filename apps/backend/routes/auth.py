@@ -454,7 +454,7 @@ async def auth_verify(
         except Exception as e:
             print(f"[AUTH] Unexpected error checking Verify code: {e}")
             is_valid = False
-    else:
+    elif not is_valid:
         is_valid = hash_token(request.code) == login_code.code_hash
 
     if not is_valid:
