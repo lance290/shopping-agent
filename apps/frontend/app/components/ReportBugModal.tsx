@@ -254,7 +254,7 @@ export default function ReportBugModal() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-warm-grey/50 flex justify-between items-center bg-warm-light/50 shrink-0">
+        <div className="px-6 py-4 border-b border-warm-grey/50 flex justify-between items-center bg-warm-grey/30 shrink-0">
           <div className="flex items-center gap-2 text-ink">
             <div className="p-1.5 bg-rose-100 text-rose-600 rounded-lg">
               <Bug size={18} />
