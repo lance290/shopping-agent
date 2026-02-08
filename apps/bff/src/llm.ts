@@ -106,7 +106,7 @@ export async function makeUnifiedDecision(ctx: ChatContext): Promise<UnifiedDeci
 
 INPUTS:
 - User message: "${userMessage}"
-- Active row: ${activeRow ? JSON.stringify({ id: activeRow.id, title: activeRow.title }) : 'none'}
+- Active row: ${activeRow ? JSON.stringify({ id: activeRow.id, title: activeRow.title, constraints: activeRow.constraints, is_service: activeRow.is_service, service_category: activeRow.service_category }) : 'none'}
 - Active project: ${activeProject ? JSON.stringify({ id: activeProject.id, title: activeProject.title }) : 'none'}
 - Pending clarification: ${pendingClarification ? JSON.stringify(pendingClarification) : 'none'}
 - Recent conversation:
@@ -153,11 +153,14 @@ SERVICE vs PRODUCT:
 7. "disambiguate" - Query is genuinely ambiguous (e.g., "apple" could be fruit or tech). Offer 2-4 options with label, search_query, category. Use SPARINGLY — only when truly ambiguous.
 
 RULES:
-- Active row exists AND user asks for UNRELATED thing → context_switch
-- Active row exists AND user refines it → update_row
+- Active row exists AND user asks for UNRELATED thing (completely different product/service) → context_switch
+- Active row exists AND user refines/adds to it (same topic) → update_row. THIS INCLUDES: adding round-trip details, changing dates, adding passengers, specifying aircraft, updating any constraint. If in doubt and same topic, ALWAYS use update_row.
 - NO active row → create_row
-- pending_clarification exists AND user provides info → create_row (merge intent)
+- pending_clarification exists AND active row exists AND user provides info → update_row (merge intent into active row)
+- pending_clarification exists AND NO active row AND user provides info → create_row (merge intent)
 - pending_clarification exists BUT user asks for something else → context_switch
+
+CRITICAL: If an active row exists and the user's message relates to the SAME category/topic, you MUST use update_row. NEVER create a duplicate row for the same request. "Make it round trip", "add return leg", "change date", "2 passengers" — these are ALL update_row when an active row exists.
 
 === STRUCTURED RFP BUILDER (Phase 4) ===
 You are NOT just a chatbot. You are a procurement agent. For every request, follow this pattern:
@@ -688,7 +691,7 @@ Return ONLY the JSON array, no explanation.`;
       factors = JSON.parse(cleanedText);
     } catch (e) {
       console.error("Failed to parse factors JSON:", text);
-      return null;
+      throw new Error(`Failed to parse factors JSON: ${(e as Error).message}`);
     }
 
     if (Array.isArray(factors)) {
