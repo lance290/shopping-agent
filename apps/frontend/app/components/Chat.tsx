@@ -388,12 +388,20 @@ export default function Chat() {
               }
             } else if (eventName === 'done') {
               store.setIsSearching(false);
-              // Clear clarification context if row was created successfully
-              // (done event after row_created means we completed the flow)
+              // Clear loading spinners for the active row — covers cases where
+              // vendors_loaded or search_results never arrived (e.g. fetch failed)
+              const doneRowId = store.activeRowId;
+              if (doneRowId) {
+                store.setMoreResultsIncoming(doneRowId, false);
+              }
             } else if (eventName === 'error') {
               const msg = typeof data?.message === 'string' ? data.message : 'Something went wrong.';
               assistantContent = msg;
               store.setIsSearching(false);
+              const errorRowId = data?.row_id ?? store.activeRowId;
+              if (errorRowId) {
+                store.setMoreResultsIncoming(errorRowId, false);
+              }
             }
 
             setMessages(prev =>

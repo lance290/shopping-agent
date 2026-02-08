@@ -1154,9 +1154,13 @@ export function buildApp() {
               } catch (persistErr: any) {
                 fastify.log.warn({ err: persistErr }, 'Failed to persist vendors as bids');
               }
+            } else {
+              fastify.log.warn({ status: vendorRes.status, category: serviceCategory }, 'Vendor fetch returned non-ok or non-array (context_switch)');
+              writeEvent('vendors_loaded', { row_id: rowId, category: serviceCategory, vendors: [] });
             }
           } catch (err: any) {
             fastify.log.error({ err }, 'Failed to fetch vendors for context_switch');
+            writeEvent('vendors_loaded', { row_id: rowId, category: serviceCategory, vendors: [] });
           }
         } else {
           // Product search — use intent.search_query
@@ -1272,9 +1276,11 @@ export function buildApp() {
               }
             } else {
               fastify.log.warn({ status: vendorRes.status, category: serviceCategory }, 'Vendor fetch returned non-ok or non-array');
+              writeEvent('vendors_loaded', { row_id: rowId, category: serviceCategory, vendors: [] });
             }
           } catch (err: any) {
             fastify.log.error({ err }, 'Failed to fetch vendors');
+            writeEvent('vendors_loaded', { row_id: rowId, category: serviceCategory, vendors: [] });
           }
         } else if (isService && !serviceCategory) {
           fastify.log.warn({ title }, 'Service but no category - using search_query from intent');
@@ -1434,9 +1440,13 @@ export function buildApp() {
               } catch (persistErr: any) {
                 fastify.log.warn({ err: persistErr }, 'Failed to persist vendors as bids');
               }
+            } else {
+              fastify.log.warn({ status: vendorRes.status, category: rowServiceCategory }, 'Vendor fetch returned non-ok or non-array (update_row)');
+              writeEvent('vendors_loaded', { row_id: activeRowId, category: rowServiceCategory, vendors: [] });
             }
           } catch (err: any) {
             fastify.log.error({ err }, 'Failed to fetch vendors for update_row');
+            writeEvent('vendors_loaded', { row_id: activeRowId, category: rowServiceCategory, vendors: [] });
           }
         } else if (searchQuery) {
           // Use intent.search_query for products
