@@ -268,6 +268,8 @@ async def search_row_listings(
                 source=bid.source,
                 bid_id=bid.id,
                 is_selected=bid.is_selected,
+                is_liked=bid.is_liked,
+                liked_at=bid.liked_at.isoformat() if bid.liked_at else None,
                 # Optional fields that might be missing in Bid but exist in SearchResult
                 shipping_info=None, # Bid has shipping_cost (float), SearchResult has shipping_info (str)
                 rating=None, 

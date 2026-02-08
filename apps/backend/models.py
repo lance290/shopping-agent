@@ -154,6 +154,10 @@ class Bid(SQLModel, table=True):
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
+
+    # Like status — stored directly on the bid for reliable persistence
+    is_liked: bool = False
+    liked_at: Optional[datetime] = None
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

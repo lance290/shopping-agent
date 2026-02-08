@@ -4,7 +4,7 @@ import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import ProviderStatusBadge from './ProviderStatusBadge';
 import { Archive, RefreshCw, FlaskConical, Undo2, Link2, X } from 'lucide-react';
-import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, fetchLikesApi, createCommentApi, fetchCommentsApi } from '../utils/api';
+import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, createCommentApi, fetchCommentsApi } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -40,8 +40,6 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didAutoLoadRef = useRef<boolean>(false);
-  const didLoadLikesRef = useRef<boolean>(false);
-  const loadedLikesRef = useRef<any[]>([]);
   const didLoadCommentsRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -112,11 +110,8 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         setLocalSearchError(searchResponse.userMessage);
       }
       
-      // Re-fetch likes after search to ensure sync.
-      const likes = await fetchLikesApi(row.id);
-      const mergedResults = mergeLikes(searchResponse.results, likes);
-      
-      setRowResults(row.id, mergedResults, searchResponse.providerStatuses);
+      // is_liked comes directly from the Bid now — no separate merge needed
+      setRowResults(row.id, searchResponse.results, searchResponse.providerStatuses);
 
       const freshRow = await fetchSingleRowFromDb(row.id);
       if (freshRow) {
@@ -127,76 +122,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     }
   };
 
-  // Helper to merge likes into offers
-  const mergeLikes = (currentOffers: Offer[], likes: any[]): Offer[] => {
-    if (!likes || likes.length === 0) return currentOffers;
-
-    // Create maps to store both liked status and timestamp
-    const likedBidData = new Map(
-      likes.filter(l => l.bid_id).map(l => [l.bid_id, l.created_at])
-    );
-    const likedUrlData = new Map(
-      likes.filter(l => l.offer_url).map(l => [l.offer_url, l.created_at])
-    );
-
-    // Count likes per bid_id
-    const likeCountByBid = new Map<number, number>();
-    likes.filter(l => l.bid_id).forEach(l => {
-      likeCountByBid.set(l.bid_id, (likeCountByBid.get(l.bid_id) || 0) + 1);
-    });
-
-    return currentOffers.map((offer) => {
-      const canonical = getCanonicalOfferUrl(offer);
-      let likedAt: string | undefined;
-      let isLiked = false;
-
-      if (offer.bid_id && likedBidData.has(offer.bid_id)) {
-        isLiked = true;
-        likedAt = likedBidData.get(offer.bid_id);
-      } else if (canonical && likedUrlData.has(canonical)) {
-        isLiked = true;
-        likedAt = likedUrlData.get(canonical);
-      }
-
-      return {
-        ...offer,
-        is_liked: isLiked,
-        liked_at: likedAt,
-        like_count: offer.bid_id ? (likeCountByBid.get(offer.bid_id) || 0) : (isLiked ? 1 : 0),
-      };
-    });
-  };
-
-  // Load likes when active (once)
-  useEffect(() => {
-    if (isActive && !didLoadLikesRef.current && row.id) {
-      didLoadLikesRef.current = true;
-      console.log('[Like] fetching likes for row:', row.id);
-      fetchLikesApi(row.id).then(likes => {
-        console.log('[Like] fetched likes:', likes);
-        loadedLikesRef.current = Array.isArray(likes) ? likes : [];
-        if (likes.length > 0) {
-          const merged = mergeLikes(offers, likes);
-          console.log('[Like] merged offers with likes, matched:', merged.filter(o => o.is_liked).length);
-          if (JSON.stringify(merged) !== JSON.stringify(offers)) {
-            setRowResults(row.id, merged);
-          }
-        }
-      });
-    }
-  }, [isActive, row.id, offers, setRowResults]);
-
-  // Vendor tiles are now handled by BFF via LLM decision - no frontend heuristics
-
-  useEffect(() => {
-    if (!isActive || !row.id) return;
-    if (!loadedLikesRef.current || loadedLikesRef.current.length === 0) return;
-
-    const merged = mergeLikes(offers, loadedLikesRef.current);
-    if (JSON.stringify(merged) !== JSON.stringify(offers)) {
-      setRowResults(row.id, merged);
-    }
-  }, [isActive, row.id, offers, setRowResults]);
+  // is_liked now comes directly from the Bid via search results — no separate fetch/merge needed
 
   // Helper to merge comment previews into offers (latest comment wins)
   const mergeComments = (currentOffers: Offer[], comments: any[]): Offer[] => {
@@ -308,26 +234,6 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     return `fallback:${offer.title}-${offer.merchant}-${offer.price}-${idx}`;
   };
 
-  const updateLoadedLikes = (rowId: number, isLiked: boolean, bidId?: number, offerUrl?: string) => {
-    if (!rowId) return;
-    const current = Array.isArray(loadedLikesRef.current) ? [...loadedLikesRef.current] : [];
-    const matches = (like: any) => {
-      if (bidId && like?.bid_id === bidId) return true;
-      if (offerUrl && like?.offer_url === offerUrl) return true;
-      return false;
-    };
-    const filtered = current.filter((like) => !matches(like));
-    if (isLiked) {
-      filtered.push({
-        row_id: rowId,
-        bid_id: bidId,
-        offer_url: offerUrl,
-        created_at: new Date().toISOString()
-      });
-    }
-    loadedLikesRef.current = filtered;
-  };
-
   const sortedOffers = applyLikedOrdering(sortOffers(offers));
 
   const handleSelectOffer = async (offer: Offer) => {
@@ -420,7 +326,6 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     console.log('[Like] toggled:', { rowId: row.id, bidId: offer.bid_id, url: canonicalUrl, newIsLiked, success });
     
     if (success) {
-      updateLoadedLikes(row.id, newIsLiked, offer.bid_id || undefined, canonicalUrl || undefined);
       onToast?.(newIsLiked ? 'Liked this offer.' : 'Removed like.', 'success');
     } else {
       // Revert on failure

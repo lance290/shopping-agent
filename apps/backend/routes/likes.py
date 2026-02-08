@@ -81,6 +81,15 @@ async def create_like(
             offer_url=like_in.offer_url
         )
         session.add(db_like)
+
+        # Also set is_liked directly on the Bid for reliable persistence
+        if like_in.bid_id:
+            bid_obj = await session.get(Bid, like_in.bid_id)
+            if bid_obj:
+                bid_obj.is_liked = True
+                bid_obj.liked_at = datetime.utcnow()
+                session.add(bid_obj)
+
         await session.commit()
         await session.refresh(db_like)
         return db_like
@@ -139,6 +148,15 @@ async def delete_like(
             raise HTTPException(status_code=404, detail="Like not found")
 
         await session.delete(like)
+
+        # Also clear is_liked on the Bid
+        if bid_id:
+            bid_obj = await session.get(Bid, bid_id)
+            if bid_obj:
+                bid_obj.is_liked = False
+                bid_obj.liked_at = None
+                session.add(bid_obj)
+
         await session.commit()
         return {"status": "deleted"}
     except HTTPException:
@@ -258,6 +276,9 @@ async def toggle_like(
         if existing_like:
             # Unlike
             await session.delete(existing_like)
+            bid.is_liked = False
+            bid.liked_at = None
+            session.add(bid)
             await session.commit()
             is_liked = False
         else:
@@ -268,6 +289,9 @@ async def toggle_like(
                 bid_id=bid_id
             )
             session.add(new_like)
+            bid.is_liked = True
+            bid.liked_at = datetime.utcnow()
+            session.add(bid)
             await session.commit()
             is_liked = True
 

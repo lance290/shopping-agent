@@ -61,6 +61,8 @@ class SearchResult(BaseModel):
     source: str
     bid_id: Optional[int] = None
     is_selected: bool = False
+    is_liked: bool = False
+    liked_at: Optional[str] = None
 
 
 class SearchResultWithStatus(BaseModel):

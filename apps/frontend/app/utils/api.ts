@@ -236,6 +236,8 @@ export const runSearchApiWithStatus = async (
         match_score: typeof r?.match_score === 'number' ? r.match_score : undefined,
         bid_id: typeof r?.bid_id === 'number' ? r.bid_id : undefined,
         is_selected: typeof r?.is_selected === 'boolean' ? r.is_selected : undefined,
+        is_liked: r?.is_liked === true,
+        liked_at: typeof r?.liked_at === 'string' ? r.liked_at : undefined,
         is_service_provider: isServiceProvider,
         vendor_email: typeof r?.vendor_email === 'string' ? r.vendor_email : undefined,
         vendor_name: typeof r?.vendor_name === 'string' ? r.vendor_name : undefined,
