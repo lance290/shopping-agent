@@ -199,17 +199,13 @@ Return ONLY valid JSON:
   "action": { "type": "..." }
 }`;
 
-  // Use generateText instead of generateObject to avoid AI SDK structured output bugs
-  // that cause hangs on specific prompt patterns
-  const { text } = await generateText({
+  const { object } = await generateObject({
     model: getModel(),
+    schema: unifiedDecisionSchema,
     prompt,
   });
 
-  // Parse and validate the response
-  const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
-  const parsed = JSON.parse(cleaned);
-  return unifiedDecisionSchema.parse(parsed);
+  return object;
 }
 
 // ============================================================================
