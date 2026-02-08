@@ -105,11 +105,17 @@ async def classify_report(
 
 async def create_github_issue_task(bug_id: int):
     """Background task to create GitHub issue for a bug report."""
-    
+
     async for session in get_session():
         try:
             bug = await session.get(BugReport, bug_id)
             if not bug or bug.github_issue_url:
+                return
+
+            # Skip test data to prevent test bug reports from creating issues
+            test_markers = ["[TEST DATA]", "Verification Test Bug", "DO NOT CREATE GITHUB ISSUE"]
+            if bug.notes and any(marker.lower() in bug.notes.lower() for marker in test_markers):
+                print(f"[BUG] Skipping GitHub issue creation for test bug report {bug_id}")
                 return
 
             body = f"### Description\n{bug.notes}\n\n"
