@@ -1687,10 +1687,10 @@ export function buildApp() {
       const itemName = row?.title || row?.request_spec?.item_name || 'product';
       const rowIsService = row?.is_service === true;
       const rowServiceCategory = row?.service_category || null;
-      if (!process.env.OPENROUTER_API_KEY) {
-        await saveChoiceFactorsToBackend(Number(id), buildBasicChoiceFactors(itemName), request.headers.authorization as string | undefined);
-      } else {
+      if (process.env.OPENROUTER_API_KEY) {
         await generateAndSaveChoiceFactors(itemName, Number(id), request.headers.authorization as string | undefined, merged, rowIsService, rowServiceCategory);
+      } else {
+        fastify.log.warn({ id }, 'No OPENROUTER_API_KEY — cannot regenerate choice factors');
       }
 
       const updatedRes = await fetch(`${BACKEND_URL}/rows/${id}`, { headers });

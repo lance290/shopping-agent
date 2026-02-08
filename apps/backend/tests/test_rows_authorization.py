@@ -403,13 +403,8 @@ async def test_row_creation_populates_choice_factors_by_default(client: AsyncCli
 
     factors = json.loads(created["choice_factors"])
     assert isinstance(factors, list)
-    assert len(factors) > 0
-
-    names = {f.get("name") for f in factors}
-    assert "condition" in names
-    assert "min_price" in names
-    assert "max_price" in names
-    assert "edition" in names
+    # Backend returns empty factors — BFF LLM generates proper contextual factors
+    assert len(factors) == 0
 
 
 @pytest.mark.asyncio

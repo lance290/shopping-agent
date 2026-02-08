@@ -275,13 +275,18 @@ export default function Chat() {
               const row = data?.row;
               const rowId = row?.id ?? data?.row_id;
               if (row) {
-                const mergedRows = [...store.rows.filter((r) => r.id !== row.id), row];
-                store.setRows(mergedRows);
+                // Merge factors + answers into existing row — preserve local bids/chat_history
+                store.updateRow(row.id, {
+                  choice_factors: row.choice_factors,
+                  choice_answers: row.choice_answers,
+                });
               } else if (rowId) {
                 const freshRow = await fetchSingleRowFromDb(rowId);
                 if (freshRow) {
-                  const mergedRows = [...store.rows.filter((r) => r.id !== freshRow.id), freshRow];
-                  store.setRows(mergedRows);
+                  store.updateRow(freshRow.id, {
+                    choice_factors: freshRow.choice_factors,
+                    choice_answers: freshRow.choice_answers,
+                  });
                 }
               }
             } else if (eventName === 'search_results') {
