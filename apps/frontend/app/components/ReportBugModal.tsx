@@ -410,7 +410,7 @@ export default function ReportBugModal() {
           </div>
 
           {/* 5. Diagnostics Toggle */}
-          <div className="flex items-start gap-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+          <div className="flex items-start gap-3 p-3 bg-agent-blurple/5 rounded-xl border border-agent-blurple/20">
             <div className="mt-0.5">
               <input
                 type="checkbox"
