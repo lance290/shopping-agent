@@ -298,13 +298,16 @@ export const fetchSingleRowFromDb = async (rowId: number): Promise<Row | null> =
 // Helper: Fetch all rows from DB
 export const fetchRowsFromDb = async (): Promise<Row[] | null> => {
   try {
+    console.log('[API] fetchRowsFromDb: calling /api/rows');
     const res = await fetchWithAuth('/api/rows');
+    console.log('[API] fetchRowsFromDb: status', res.status);
     if (res.ok) {
       const rows = await res.json();
       return Array.isArray(rows) ? rows : [];
     }
     
-    console.error('[API] fetchRowsFromDb failed:', res.status);
+    const errText = await res.text().catch(() => '');
+    console.error('[API] fetchRowsFromDb failed:', res.status, errText);
   } catch (err) {
     console.error('[API] Fetch rows error:', err);
   }

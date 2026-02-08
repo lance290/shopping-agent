@@ -104,7 +104,9 @@ export default function Chat() {
   // Load rows on mount
   useEffect(() => {
     const loadData = async () => {
+      console.log('[Chat] Loading rows on mount...');
       const rows = await fetchRowsFromDb();
+      console.log('[Chat] fetchRowsFromDb returned:', rows?.length ?? 'null', 'rows');
       if (rows) {
         store.setRows(rows);
       }
@@ -274,12 +276,14 @@ export default function Chat() {
             } else if (eventName === 'factors_updated') {
               const row = data?.row;
               const rowId = row?.id ?? data?.row_id;
+              console.log('[Chat] factors_updated event:', { rowId, hasRow: !!row, factorsType: typeof row?.choice_factors, factorsLen: row?.choice_factors?.length });
               if (row) {
                 // Merge factors + answers into existing row — preserve local bids/chat_history
                 store.updateRow(row.id, {
                   choice_factors: row.choice_factors,
                   choice_answers: row.choice_answers,
                 });
+                console.log('[Chat] Updated row with factors, choice_factors type:', typeof row.choice_factors);
               } else if (rowId) {
                 const freshRow = await fetchSingleRowFromDb(rowId);
                 if (freshRow) {
