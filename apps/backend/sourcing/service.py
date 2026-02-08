@@ -80,13 +80,21 @@ class SourcingService:
         if row and (min_price is not None or max_price is not None):
             # Do not delete service-provider bids (wattdata) when applying price filters.
             # These results typically have no fixed price.
+            # Also protect liked and selected bids — user explicitly chose these.
             cond = (Bid.price <= 0) & (Bid.source != "wattdata")
             if min_price is not None:
                 cond = cond | (Bid.price < min_price)
             if max_price is not None:
                 cond = cond | (Bid.price > max_price)
 
-            await self.session.exec(delete(Bid).where(Bid.row_id == row_id, cond))
+            await self.session.exec(
+                delete(Bid).where(
+                    Bid.row_id == row_id,
+                    cond,
+                    Bid.is_liked == False,
+                    Bid.is_selected == False,
+                )
+            )
             await self.session.commit()
 
         # 1. Execute Search with metrics tracking

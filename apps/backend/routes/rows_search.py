@@ -8,6 +8,7 @@ import re
 import json
 import logging
 
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -242,9 +243,25 @@ async def search_row_listings(
         providers=body.providers,
     )
 
+    # Merge in any liked/selected bids that weren't returned by the new search.
+    # This ensures user-chosen bids survive re-searches even if providers don't return them.
+    search_bid_ids = {b.id for b in bids}
+    preserved_stmt = (
+        select(Bid)
+        .where(
+            Bid.row_id == row_id,
+            Bid.id.notin_(search_bid_ids) if search_bid_ids else True,
+            (Bid.is_liked == True) | (Bid.is_selected == True),
+        )
+        .options(selectinload(Bid.seller))
+    )
+    preserved_res = await session.exec(preserved_stmt)
+    preserved_bids = preserved_res.all()
+    all_bids = list(bids) + list(preserved_bids)
+
     # Convert Bids back to SearchResults for response compatibility and UI filtering
     results: List[SearchResult] = []
-    for bid in bids:
+    for bid in all_bids:
         # Construct click_url with row_id tracking
         click_url = bid.item_url or ""
         if click_url:
