@@ -928,8 +928,8 @@ export function buildApp() {
       };
       const authorization = request.headers.authorization;
 
-      if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-        reply.status(500).send({ error: 'LLM not configured - GOOGLE_GENERATIVE_AI_API_KEY required' });
+      if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY && !process.env.GEMINI_API_KEY) {
+        reply.status(500).send({ error: 'LLM not configured - GOOGLE_GENERATIVE_AI_API_KEY or GEMINI_API_KEY required' });
         return;
       }
 
@@ -1687,10 +1687,10 @@ export function buildApp() {
       const itemName = row?.title || row?.request_spec?.item_name || 'product';
       const rowIsService = row?.is_service === true;
       const rowServiceCategory = row?.service_category || null;
-      if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      if (process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY) {
         await generateAndSaveChoiceFactors(itemName, Number(id), request.headers.authorization as string | undefined, merged, rowIsService, rowServiceCategory);
       } else {
-        fastify.log.warn({ id }, 'No GOOGLE_GENERATIVE_AI_API_KEY — cannot regenerate choice factors');
+        fastify.log.warn({ id }, 'No Gemini API key — cannot regenerate choice factors');
       }
 
       const updatedRes = await fetch(`${BACKEND_URL}/rows/${id}`, { headers });

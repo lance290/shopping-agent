@@ -2,14 +2,15 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { streamText, generateText, generateObject } from 'ai';
 import { z } from 'zod';
 
-export const GEMINI_MODEL_NAME = 'gemini-2.5-flash-preview-05-20';
+export const GEMINI_MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 
 // Lazy-initialize Google Gemini client (env may not be loaded at import time)
+const getGeminiApiKey = () => process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY || '';
 let _google: ReturnType<typeof createGoogleGenerativeAI> | null = null;
 function getGoogle() {
   if (!_google) {
     _google = createGoogleGenerativeAI({
-      apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+      apiKey: getGeminiApiKey(),
     });
   }
   return _google;
@@ -436,8 +437,8 @@ export async function generateChatPlan(input: {
   activeRowTitle?: string | null;
   projectTitle?: string | null;
 }): Promise<ChatPlan> {
-  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-    throw new Error('LLM not configured - GOOGLE_GENERATIVE_AI_API_KEY required');
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY && !process.env.GEMINI_API_KEY) {
+    throw new Error('LLM not configured - GOOGLE_GENERATIVE_AI_API_KEY or GEMINI_API_KEY required');
   }
 
   const lastUserMessage = Array.isArray(input.messages)
@@ -566,7 +567,7 @@ export async function triageProviderQuery(params: {
     return q;
   };
 
-  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY && !process.env.GEMINI_API_KEY) {
     return heuristic();
   }
 
