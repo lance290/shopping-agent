@@ -4,7 +4,7 @@ import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import User, Row, Bid, Like, Comment, AuthSession, hash_token, generate_session_token
+from models import User, Row, Bid, Comment, AuthSession, hash_token, generate_session_token
 
 
 # ============== LIKE TESTS ==============
@@ -37,9 +37,11 @@ async def test_toggle_like_removes_like(
     user, token = auth_user_and_token
     bid = test_bid
 
-    # Create initial like
-    like = Like(user_id=user.id, bid_id=bid.id, row_id=bid.row_id)
-    session.add(like)
+    # Set bid as liked directly
+    bid.is_liked = True
+    from datetime import datetime
+    bid.liked_at = datetime.utcnow()
+    session.add(bid)
     await session.commit()
 
     # Toggle should remove it
@@ -62,26 +64,30 @@ async def test_toggle_like_unauthorized(client: AsyncClient, test_bid):
 
 
 @pytest.mark.asyncio
-async def test_get_likes_for_bid(
+async def test_get_likes_for_row(
     session: AsyncSession, client: AsyncClient, auth_user_and_token, test_bid
 ):
-    """Test GET /likes returns likes for a bid."""
+    """Test GET /likes returns liked bids for a row."""
     user, token = auth_user_and_token
     bid = test_bid
 
-    # Create some likes
-    like = Like(user_id=user.id, bid_id=bid.id, row_id=bid.row_id)
-    session.add(like)
+    # Set bid as liked
+    bid.is_liked = True
+    from datetime import datetime
+    bid.liked_at = datetime.utcnow()
+    session.add(bid)
     await session.commit()
 
     response = await client.get(
-        f"/likes?bid_id={bid.id}",
+        f"/likes?row_id={bid.row_id}",
         headers={"Authorization": f"Bearer {token}"}
     )
 
     assert response.status_code == 200
     data = response.json()
     assert len(data) >= 1
+    assert data[0]["bid_id"] == bid.id
+    assert data[0]["is_liked"] is True
 
 
 # ============== COMMENT TESTS ==============
@@ -232,15 +238,18 @@ async def test_get_bid_social_data(
     user, token = auth_user_and_token
     bid = test_bid
 
-    # Create like and comment
-    like = Like(user_id=user.id, bid_id=bid.id, row_id=bid.row_id)
+    # Set bid as liked and create comment
+    from datetime import datetime
+    bid.is_liked = True
+    bid.liked_at = datetime.utcnow()
     comment = Comment(
         user_id=user.id,
         bid_id=bid.id,
         row_id=bid.row_id,
         body="Great product!"
     )
-    session.add_all([like, comment])
+    session.add(bid)
+    session.add(comment)
     await session.commit()
 
     response = await client.get(

@@ -1,57 +1,52 @@
 
 import pytest
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @pytest.mark.asyncio
-async def test_likes_crud(client, monkeypatch):
-    # 1. Setup user & session
-    monkeypatch.setenv("E2E_TEST_MODE", "1")
-    phone = "+16505550113"
-    mint_res = await client.post("/test/mint-session", json={"phone": phone})
-    assert mint_res.status_code == 200
-    token = mint_res.json()["session_token"]
-    
-    # 2. Create a row to like items in
-    row_res = await client.post(
-        "/rows",
-        json={
-            "title": "Test Row for Likes",
-            "status": "sourcing",
-            "request_spec": {
-                "item_name": "Test Item",
-                "constraints": "{}"
-            }
-        },
-        headers={"Authorization": f"Bearer {token}"}
-    )
-    assert row_res.status_code == 200
-    row_data = row_res.json()
-    row_id = row_data["id"]
+async def test_likes_crud(client: AsyncClient, auth_user_and_token, test_bid):
+    """Test full like CRUD via Bid.is_liked (likes stored directly on the bid)."""
+    user, token = auth_user_and_token
+    bid = test_bid
+    bid_id = bid.id
+    row_id = bid.row_id
 
-    # 3. Create a Like (by URL)
-    like_payload = {
-        "row_id": row_id,
-        "offer_url": "https://example.com/awesome-deal"
-    }
-    create_res = await client.post(
-        "/likes",
-        json=like_payload,
+    # 1. Like via toggle
+    like_res = await client.post(
+        f"/likes/{bid_id}/toggle",
         headers={"Authorization": f"Bearer {token}"}
     )
-    assert create_res.status_code == 200
-    like_data = create_res.json()
-    assert like_data["offer_url"] == "https://example.com/awesome-deal"
-    assert like_data["row_id"] == row_id
-        
-    # 4. Verify duplicate like is blocked
+    assert like_res.status_code == 200
+    assert like_res.json()["is_liked"] is True
+    assert like_res.json()["bid_id"] == bid_id
+
+    # 2. Toggle again → unlike
+    unlike_res = await client.post(
+        f"/likes/{bid_id}/toggle",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert unlike_res.status_code == 200
+    assert unlike_res.json()["is_liked"] is False
+
+    # 3. Like via POST /likes
+    like_res2 = await client.post(
+        "/likes",
+        json={"bid_id": bid_id, "row_id": row_id},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert like_res2.status_code == 200
+    assert like_res2.json()["is_liked"] is True
+
+    # 4. Duplicate blocked
     dup_res = await client.post(
         "/likes",
-        json=like_payload,
+        json={"bid_id": bid_id, "row_id": row_id},
         headers={"Authorization": f"Bearer {token}"}
     )
     assert dup_res.status_code == 409
 
-    # 5. List likes
+    # 5. List likes for row
     list_res = await client.get(
         f"/likes?row_id={row_id}",
         headers={"Authorization": f"Bearer {token}"}
@@ -59,11 +54,11 @@ async def test_likes_crud(client, monkeypatch):
     assert list_res.status_code == 200
     likes = list_res.json()
     assert len(likes) == 1
-    assert likes[0]["offer_url"] == "https://example.com/awesome-deal"
+    assert likes[0]["bid_id"] == bid_id
 
-    # 6. Delete like
+    # 6. Unlike via DELETE
     del_res = await client.delete(
-        f"/likes?row_id={row_id}&offer_url=https://example.com/awesome-deal",
+        f"/likes?bid_id={bid_id}",
         headers={"Authorization": f"Bearer {token}"}
     )
     assert del_res.status_code == 200

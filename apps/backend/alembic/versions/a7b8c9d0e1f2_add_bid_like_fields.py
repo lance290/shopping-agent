@@ -29,7 +29,25 @@ def upgrade() -> None:
         if 'liked_at' not in existing:
             op.add_column('bid', sa.Column('liked_at', sa.DateTime(), nullable=True))
 
+    # Drop the old like table — likes are now stored directly on the bid
+    if 'like' in inspector.get_table_names():
+        op.drop_table('like')
+
 
 def downgrade() -> None:
     op.drop_column('bid', 'liked_at')
     op.drop_column('bid', 'is_liked')
+    # Recreate the old like table
+    op.create_table(
+        'like',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=True),
+        sa.Column('bid_id', sa.Integer(), nullable=True),
+        sa.Column('offer_url', sa.String(), nullable=True),
+        sa.Column('row_id', sa.Integer(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(['bid_id'], ['bid.id']),
+        sa.ForeignKeyConstraint(['row_id'], ['row.id']),
+        sa.ForeignKeyConstraint(['user_id'], ['user.id']),
+        sa.PrimaryKeyConstraint('id'),
+    )

@@ -1,16 +1,14 @@
-"""Likes routes - like/unlike offers."""
+"""Likes routes - like/unlike offers via Bid.is_liked."""
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 from datetime import datetime
-from sqlalchemy import func
 import logging
 
-from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
-from models import Like, Row, Bid
+from models import Row, Bid
 from dependencies import get_current_session
 
 logger = logging.getLogger(__name__)
@@ -24,81 +22,63 @@ class LikeCreate(BaseModel):
     offer_url: Optional[str] = None
 
 
-class LikeRead(BaseModel):
-    id: int
+class LikeResponse(BaseModel):
+    bid_id: int
     row_id: int
-    bid_id: Optional[int] = None
-    offer_url: Optional[str] = None
-    created_at: datetime
+    is_liked: bool
+    liked_at: Optional[datetime] = None
 
 
-@router.post("/likes", response_model=LikeRead)
+async def _resolve_bid(
+    session: AsyncSession, bid_id: Optional[int], row_id: Optional[int], user_id: int
+) -> Bid:
+    """Resolve and authorize a bid from bid_id or row_id."""
+    if bid_id:
+        bid = await session.get(Bid, bid_id)
+        if not bid:
+            raise HTTPException(status_code=404, detail="Bid not found")
+    else:
+        raise HTTPException(status_code=400, detail="Must provide bid_id")
+
+    row = await session.get(Row, bid.row_id)
+    if not row or row.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    return bid
+
+
+@router.post("/likes")
 async def create_like(
     like_in: LikeCreate,
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
-
-
     try:
         auth_session = await get_current_session(authorization, session)
         if not auth_session:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
-        effective_row_id: Optional[int] = like_in.row_id
-        if effective_row_id is None and like_in.bid_id is not None:
-            bid = await session.get(Bid, like_in.bid_id)
-            if not bid:
-                raise HTTPException(status_code=404, detail="Bid not found")
-            effective_row_id = bid.row_id
+        bid = await _resolve_bid(session, like_in.bid_id, like_in.row_id, auth_session.user_id)
 
-        if effective_row_id is None:
-            raise HTTPException(status_code=400, detail="Must provide row_id or bid_id")
-
-        row = await session.get(Row, effective_row_id)
-        if not row or row.user_id != auth_session.user_id:
-            raise HTTPException(status_code=404, detail="Row not found")
-
-        query = select(Like).where(
-            Like.user_id == auth_session.user_id,
-            Like.row_id == effective_row_id
-        )
-        if like_in.bid_id:
-            query = query.where(Like.bid_id == like_in.bid_id)
-        elif like_in.offer_url:
-            query = query.where(Like.offer_url == like_in.offer_url)
-        else:
-            raise HTTPException(status_code=400, detail="Must provide bid_id or offer_url")
-
-        existing = await session.exec(query)
-        if existing.first():
+        if bid.is_liked:
             raise HTTPException(status_code=409, detail="Already liked")
 
-        db_like = Like(
-            user_id=auth_session.user_id,
-            row_id=effective_row_id,
-            bid_id=like_in.bid_id,
-            offer_url=like_in.offer_url
-        )
-        session.add(db_like)
-
-        # Also set is_liked directly on the Bid for reliable persistence
-        if like_in.bid_id:
-            bid_obj = await session.get(Bid, like_in.bid_id)
-            if bid_obj:
-                bid_obj.is_liked = True
-                bid_obj.liked_at = datetime.utcnow()
-                session.add(bid_obj)
-
+        bid.is_liked = True
+        bid.liked_at = datetime.utcnow()
+        session.add(bid)
         await session.commit()
-        await session.refresh(db_like)
-        return db_like
+        await session.refresh(bid)
+
+        return LikeResponse(
+            bid_id=bid.id, row_id=bid.row_id,
+            is_liked=True, liked_at=bid.liked_at
+        )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to create like for row_id={like_in.row_id}, bid_id={like_in.bid_id}, offer_url={like_in.offer_url}: {str(e)}", exc_info=True)
+        logger.error(f"Failed to create like: {e}", exc_info=True)
         await session.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create like: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create like: {e}")
 
 
 @router.delete("/likes")
@@ -109,86 +89,66 @@ async def delete_like(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
-
-
     try:
         auth_session = await get_current_session(authorization, session)
         if not auth_session:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
-        effective_row_id: Optional[int] = row_id
-        if effective_row_id is None and bid_id is not None:
-            bid = await session.get(Bid, bid_id)
-            if not bid:
-                raise HTTPException(status_code=404, detail="Bid not found")
-            effective_row_id = bid.row_id
+        bid = await _resolve_bid(session, bid_id, row_id, auth_session.user_id)
 
-        if effective_row_id is None:
-            raise HTTPException(status_code=400, detail="Must provide row_id or bid_id")
-
-        row = await session.get(Row, effective_row_id)
-        if not row or row.user_id != auth_session.user_id:
-            raise HTTPException(status_code=404, detail="Row not found")
-
-        query = select(Like).where(
-            Like.user_id == auth_session.user_id,
-            Like.row_id == effective_row_id
-        )
-        if bid_id:
-            query = query.where(Like.bid_id == bid_id)
-        elif offer_url:
-            query = query.where(Like.offer_url == offer_url)
-        else:
-            raise HTTPException(status_code=400, detail="Must provide bid_id or offer_url")
-
-        result = await session.exec(query)
-        like = result.first()
-
-        if not like:
+        if not bid.is_liked:
             raise HTTPException(status_code=404, detail="Like not found")
 
-        await session.delete(like)
-
-        # Also clear is_liked on the Bid
-        if bid_id:
-            bid_obj = await session.get(Bid, bid_id)
-            if bid_obj:
-                bid_obj.is_liked = False
-                bid_obj.liked_at = None
-                session.add(bid_obj)
-
+        bid.is_liked = False
+        bid.liked_at = None
+        session.add(bid)
         await session.commit()
         return {"status": "deleted"}
     except HTTPException:
         raise
     except Exception as e:
         await session.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to delete like: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete like: {e}")
 
 
-@router.get("/likes", response_model=List[LikeRead])
+@router.get("/likes")
 async def list_likes(
     row_id: Optional[int] = None,
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
-
+    """Return liked bids for the user, optionally filtered by row_id."""
+    from sqlmodel import select
 
     try:
         auth_session = await get_current_session(authorization, session)
         if not auth_session:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
-        query = select(Like).where(Like.user_id == auth_session.user_id)
+        query = select(Bid).where(Bid.is_liked == True)
         if row_id:
-            query = query.where(Like.row_id == row_id)
+            # Verify row ownership
+            row = await session.get(Row, row_id)
+            if not row or row.user_id != auth_session.user_id:
+                raise HTTPException(status_code=404, detail="Row not found")
+            query = query.where(Bid.row_id == row_id)
+        else:
+            # Filter to user's rows
+            query = query.join(Row).where(Row.user_id == auth_session.user_id)
 
         result = await session.exec(query)
-        return result.all()
+        bids = result.all()
+        return [
+            LikeResponse(
+                bid_id=b.id, row_id=b.row_id,
+                is_liked=True, liked_at=b.liked_at
+            )
+            for b in bids
+        ]
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch likes: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch likes: {e}")
 
 
 @router.get("/likes/counts")
@@ -197,47 +157,27 @@ async def get_like_counts(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ) -> Dict[str, int]:
-    """Get like counts for all offers in a row, grouped by bid_id or offer_url."""
-
+    """Get like counts for all liked bids in a row."""
+    from sqlmodel import select
 
     try:
         auth_session = await get_current_session(authorization, session)
         if not auth_session:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
-        # Verify row access
         row = await session.get(Row, row_id)
         if not row or row.user_id != auth_session.user_id:
             raise HTTPException(status_code=404, detail="Row not found")
 
-        # Get counts for bid_id likes
-        bid_counts_query = (
-            select(Like.bid_id, func.count(Like.id).label('count'))
-            .where(Like.row_id == row_id, Like.bid_id.is_not(None))
-            .group_by(Like.bid_id)
-        )
-        bid_results = await session.exec(bid_counts_query)
+        query = select(Bid).where(Bid.row_id == row_id, Bid.is_liked == True)
+        result = await session.exec(query)
+        liked_bids = result.all()
 
-        # Get counts for offer_url likes
-        url_counts_query = (
-            select(Like.offer_url, func.count(Like.id).label('count'))
-            .where(Like.row_id == row_id, Like.offer_url.is_not(None))
-            .group_by(Like.offer_url)
-        )
-        url_results = await session.exec(url_counts_query)
-
-        # Build response dict
-        counts = {}
-        for bid_id, count in bid_results:
-            counts[f"bid_{bid_id}"] = count
-        for url, count in url_results:
-            counts[f"url_{url}"] = count
-
-        return counts
+        return {f"bid_{b.id}": 1 for b in liked_bids}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get like counts: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get like counts: {e}")
 
 
 @router.post("/likes/{bid_id}/toggle")
@@ -246,68 +186,32 @@ async def toggle_like(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ) -> Dict[str, Any]:
-    """Toggle like on a bid. Returns liked status and updated counts."""
-
-    from models import Bid
-
+    """Toggle like on a bid. Returns liked status."""
     try:
         auth_session = await get_current_session(authorization, session)
         if not auth_session:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
-        # Verify bid exists and get row_id
-        bid = await session.get(Bid, bid_id)
-        if not bid:
-            raise HTTPException(status_code=404, detail="Bid not found")
+        bid = await _resolve_bid(session, bid_id, None, auth_session.user_id)
 
-        # Verify user has access to the row
-        row = await session.get(Row, bid.row_id)
-        if not row or row.user_id != auth_session.user_id:
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        # Check if already liked
-        query = select(Like).where(
-            Like.user_id == auth_session.user_id,
-            Like.bid_id == bid_id
-        )
-        result = await session.exec(query)
-        existing_like = result.first()
-
-        if existing_like:
-            # Unlike
-            await session.delete(existing_like)
+        if bid.is_liked:
             bid.is_liked = False
             bid.liked_at = None
-            session.add(bid)
-            await session.commit()
-            is_liked = False
         else:
-            # Like
-            new_like = Like(
-                user_id=auth_session.user_id,
-                row_id=bid.row_id,
-                bid_id=bid_id
-            )
-            session.add(new_like)
             bid.is_liked = True
             bid.liked_at = datetime.utcnow()
-            session.add(bid)
-            await session.commit()
-            is_liked = True
 
-        # Get updated count for this bid
-        count_query = select(func.count(Like.id)).where(Like.bid_id == bid_id)
-        count_result = await session.exec(count_query)
-        like_count = count_result.one()
+        session.add(bid)
+        await session.commit()
 
         return {
-            "is_liked": is_liked,
-            "like_count": like_count,
+            "is_liked": bid.is_liked,
+            "like_count": 1 if bid.is_liked else 0,
             "bid_id": bid_id
         }
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to toggle like for bid_id={bid_id}: {str(e)}", exc_info=True)
+        logger.error(f"Failed to toggle like for bid_id={bid_id}: {e}", exc_info=True)
         await session.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to toggle like: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to toggle like: {e}")

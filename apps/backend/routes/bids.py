@@ -8,7 +8,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
-from models import Bid, BidWithProvenance, Like, Comment
+from models import Bid, BidWithProvenance, Comment
 from dependencies import get_current_session
 
 router = APIRouter(tags=["bids"])
@@ -111,22 +111,10 @@ async def get_bids_social_batch(
     if len(ids) > 100:
         raise HTTPException(status_code=400, detail="Max 100 bid IDs per request")
 
-    # Batch fetch like counts
-    like_counts_query = (
-        select(Like.bid_id, func.count(Like.id).label("cnt"))
-        .where(Like.bid_id.in_(ids))
-        .group_by(Like.bid_id)
-    )
-    like_counts_result = await session.exec(like_counts_query)
-    like_counts = {bid_id: cnt for bid_id, cnt in like_counts_result}
-
-    # Batch fetch user's likes
-    user_likes_query = select(Like.bid_id).where(
-        Like.bid_id.in_(ids),
-        Like.user_id == auth_session.user_id,
-    )
-    user_likes_result = await session.exec(user_likes_query)
-    user_liked_ids = set(user_likes_result.all())
+    # Batch fetch bids to get is_liked status
+    bids_query = select(Bid).where(Bid.id.in_(ids))
+    bids_result = await session.exec(bids_query)
+    bids_by_id = {b.id: b for b in bids_result.all()}
 
     # Batch fetch comments
     comments_query = (
@@ -155,10 +143,11 @@ async def get_bids_social_batch(
     result = {}
     for bid_id in ids:
         comments = comments_by_bid.get(bid_id, [])
+        bid_obj = bids_by_id.get(bid_id)
         result[str(bid_id)] = BidSocialData(
             bid_id=bid_id,
-            like_count=like_counts.get(bid_id, 0),
-            is_liked=bid_id in user_liked_ids,
+            like_count=1 if bid_obj and bid_obj.is_liked else 0,
+            is_liked=bid_obj.is_liked if bid_obj else False,
             comment_count=len(comments),
             comments=comments,
         )
@@ -198,19 +187,6 @@ async def get_bid_social(
     if not bid:
         raise HTTPException(status_code=404, detail="Bid not found")
 
-    # Get like count
-    like_count_query = select(func.count(Like.id)).where(Like.bid_id == bid_id)
-    like_count_result = await session.exec(like_count_query)
-    like_count = like_count_result.one()
-
-    # Check if current user liked this bid
-    user_like_query = select(Like).where(
-        Like.bid_id == bid_id,
-        Like.user_id == auth_session.user_id
-    )
-    user_like_result = await session.exec(user_like_query)
-    is_liked = user_like_result.first() is not None
-
     # Get comments
     comments_query = (
         select(Comment)
@@ -232,8 +208,8 @@ async def get_bid_social(
 
     return BidSocialData(
         bid_id=bid_id,
-        like_count=like_count,
-        is_liked=is_liked,
+        like_count=1 if bid.is_liked else 0,
+        is_liked=bid.is_liked,
         comment_count=len(comment_data),
         comments=comment_data
     )
