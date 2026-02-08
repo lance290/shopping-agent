@@ -10,9 +10,9 @@ function normalizeBaseUrl(url: string): string {
   return `http://${trimmed}`;
 }
 
-// Bug reports go directly to backend (skip BFF) — consistent with POST route
-const BACKEND_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://127.0.0.1:8000'
+// Bug reports route through BFF which proxies to backend
+const BFF_URL = normalizeBaseUrl(
+  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
 );
 
 function getAuthHeader(request: NextRequest): string | null {
@@ -44,7 +44,7 @@ export async function GET(
         return NextResponse.json({ error: 'Missing bug ID' }, { status: 400 });
     }
 
-    const response = await fetch(`${BACKEND_URL}/api/bugs/${id}`, {
+    const response = await fetch(`${BFF_URL}/api/bugs/${id}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
