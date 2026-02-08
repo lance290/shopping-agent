@@ -156,3 +156,58 @@ async def test_triage_low_confidence_ambiguous(session, test_user):
         # Verify Email called (because confidence < threshold)
         mock_email.assert_called_once()
         assert mock_email.call_args.kwargs['confidence'] == 0.5
+
+
+@pytest.mark.asyncio
+async def test_triage_missing_api_key(session, test_user):
+    """
+    Test that when OPENROUTER_API_KEY is not configured, the system gracefully
+    defaults to bug classification with confidence 0.0 and a clear message.
+    """
+    # Setup
+    bug = BugReport(
+        notes="Test bug from CLI",
+        user_id=test_user.id,
+        status="captured",
+        severity="low",
+        category="ui"
+    )
+    session.add(bug)
+    await session.commit()
+    await session.refresh(bug)
+
+    # Mocks
+    mock_github = AsyncMock()
+    mock_github.create_issue.return_value = {"html_url": "https://github.com/owner/repo/issues/88"}
+
+    mock_email = AsyncMock()
+
+    # We patch OPENROUTER_API_KEY to be None to simulate missing config
+    with patch("routes.bugs.OPENROUTER_API_KEY", None), \
+         patch("routes.bugs.github_client", mock_github), \
+         patch("routes.bugs.send_triage_notification_email", mock_email), \
+         patch("routes.bugs.get_session", return_value=mock_get_session_gen(session)):
+
+        await create_github_issue_task(bug.id)
+
+        # Verify DB updates
+        await session.refresh(bug)
+        assert bug.classification == "bug"
+        assert bug.classification_confidence == 0.0
+        assert bug.github_issue_url == "https://github.com/owner/repo/issues/88"
+        assert bug.status == "sent"
+
+        # Verify GitHub called with proper issue body
+        mock_github.create_issue.assert_called_once()
+        call_args = mock_github.create_issue.call_args
+        assert "[Bug] Test bug from CLI..." in call_args.kwargs['title']
+        body = call_args.kwargs['body']
+        assert "### Triage" in body
+        assert "**Classification**: bug" in body
+        assert "**Confidence**: 0.00" in body
+        assert "AI classification disabled (OPENROUTER_API_KEY not configured)" in body
+
+        # Verify Email called (because confidence is 0.0 < threshold)
+        mock_email.assert_called_once()
+        assert mock_email.call_args.kwargs['classification'] == "bug"
+        assert mock_email.call_args.kwargs['confidence'] == 0.0

@@ -59,7 +59,7 @@ async def classify_report(
     Defaults to bug on failure or missing API key.
     """
     if not OPENROUTER_API_KEY:
-        return {"type": "bug", "confidence": 0.0, "reasoning": "OPENROUTER_API_KEY not configured"}
+        return {"type": "bug", "confidence": 0.0, "reasoning": "AI classification disabled (OPENROUTER_API_KEY not configured)"}
 
     prompt = (
         "You are classifying user reports as BUG or FEATURE REQUEST.\n\n"
