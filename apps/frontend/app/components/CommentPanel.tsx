@@ -2,7 +2,6 @@
 
 import { X, Trash2, Send } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { useShoppingStore, CommentData } from '../store';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -12,21 +11,15 @@ interface CommentPanelProps {
   onClose: () => void;
 }
 
+// NOTE: This component is currently unused and references removed social data state.
+// Kept as stub for potential future re-implementation.
 export function CommentPanel({ bidId, isOpen, onClose }: CommentPanelProps) {
   const [commentText, setCommentText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const bidSocialData = useShoppingStore((state) => state.bidSocialData[bidId]);
-  const addComment = useShoppingStore((state) => state.addComment);
-  const deleteComment = useShoppingStore((state) => state.deleteComment);
-  const loadBidSocial = useShoppingStore((state) => state.loadBidSocial);
-
-  useEffect(() => {
-    if (isOpen && bidId) {
-      loadBidSocial(bidId);
-    }
-  }, [isOpen, bidId, loadBidSocial]);
+  // Stub data - social features removed in simplification
+  const comments: Array<{ id: number; body: string; created_at: string }> = [];
 
   useEffect(() => {
     if (isOpen && textareaRef.current) {
@@ -40,7 +33,8 @@ export function CommentPanel({ bidId, isOpen, onClose }: CommentPanelProps) {
 
     setIsSubmitting(true);
     try {
-      await addComment(bidId, commentText.trim());
+      // Stub - social features removed
+      console.log('Comment submission not implemented:', bidId, commentText.trim());
       setCommentText('');
     } catch (error) {
       console.error('Failed to add comment:', error);
@@ -53,15 +47,14 @@ export function CommentPanel({ bidId, isOpen, onClose }: CommentPanelProps) {
     if (!window.confirm('Delete this comment?')) return;
 
     try {
-      await deleteComment(bidId, commentId);
+      // Stub - social features removed
+      console.log('Comment deletion not implemented:', bidId, commentId);
     } catch (error) {
       console.error('Failed to delete comment:', error);
     }
   };
 
   if (!isOpen) return null;
-
-  const comments = bidSocialData?.comments || [];
 
   return (
     <>

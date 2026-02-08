@@ -74,6 +74,8 @@ export interface Bid {
   image_url: string | null;
   source: string;
   is_selected: boolean;
+  is_liked?: boolean;
+  liked_at?: string | null;
   is_service_provider?: boolean;
   contact_name?: string | null;
   contact_email?: string | null;
@@ -139,6 +141,8 @@ export function mapBidToOffer(bid: Bid): Offer {
     click_url: `/api/clickout?url=${encodeURIComponent(bid.item_url || '')}`,
     bid_id: bid.id,
     is_selected: bid.is_selected,
+    is_liked: bid.is_liked,
+    liked_at: bid.liked_at ?? undefined,
     is_service_provider: bid.is_service_provider === true,
     vendor_company: bid.seller?.name, // Use seller name as company for service providers
     vendor_name: bid.contact_name || parsedName, // Prefer explicit contact name
@@ -217,10 +221,6 @@ interface ShoppingState {
   isSearching: boolean;           // Loading state for search
   cardClickQuery: string | null;  // Query from card click (triggers chat append)
 
-  // Social features state
-  bidSocialData: Record<number, BidSocialData>; // Social data by bid_id
-  socialDataLoading: Record<number, boolean>;    // Loading state for social data
-
   // Actions
   setCurrentQuery: (query: string) => void;
   setActiveRowId: (id: number | null) => void;
@@ -242,12 +242,6 @@ interface ShoppingState {
   setMoreResultsIncoming: (rowId: number, incoming: boolean) => void;
   clearSearch: () => void;
   setCardClickQuery: (query: string | null) => void;  // For card click -> chat append
-
-  // Social actions
-  loadBidSocial: (bidId: number) => Promise<void>;
-  toggleLike: (bidId: number) => Promise<void>;
-  addComment: (bidId: number, body: string) => Promise<void>;
-  deleteComment: (bidId: number, commentId: number) => Promise<void>;
 
   // UI State
   isSidebarOpen: boolean;
@@ -281,8 +275,6 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   moreResultsIncoming: {},
   isSearching: false,
   cardClickQuery: null,
-  bidSocialData: {},
-  socialDataLoading: {},
   isSidebarOpen: false, // Default closed
 
   pendingRowDelete: null,
@@ -469,53 +461,26 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     activeRowId: state.activeRowId === id ? null : state.activeRowId,
   })),
   setSearchResults: (results) => set({ searchResults: results, isSearching: false }),
-  setRowResults: (rowId, results, providerStatuses, moreIncoming = false, userMessage) => set((state) => ({
-    rowResults: {
-      ...state.rowResults,
-      [rowId]: (() => {
-        const existing = state.rowResults[rowId] || [];
-        if (!existing || existing.length === 0) return results;
+  setRowResults: (rowId, results, providerStatuses, moreIncoming = false, userMessage) => set((state) => {
+    const existing = state.rowResults[rowId] || [];
 
-        const existingByKey = new Map<string, Offer>();
-        for (const o of existing) {
-          existingByKey.set(getOfferStableKey(o), o);
-        }
+    // Preserve service providers (mailto: links) when incoming results don't include them
+    const incomingHasServiceProviders = results.some((o) => o.is_service_provider);
+    const preservedServiceProviders = incomingHasServiceProviders
+      ? []
+      : existing.filter((o) => o.is_service_provider);
 
-        const incomingHasServiceProviders = results.some((o) => o.is_service_provider);
-        const preservedServiceProviders = incomingHasServiceProviders
-          ? []
-          : existing.filter((o) => o.is_service_provider);
-
-        const merged: Offer[] = [];
-        const seen = new Set<string>();
-
-        const pushMerged = (offer: Offer) => {
-          const key = getOfferStableKey(offer);
-          if (seen.has(key)) return;
-          seen.add(key);
-
-          const prev = existingByKey.get(key);
-          merged.push({
-            ...offer,
-            is_liked:
-              typeof offer.is_liked === 'boolean'
-                ? offer.is_liked
-                : (prev?.is_liked ?? offer.is_liked),
-            liked_at: offer.liked_at ?? prev?.liked_at,
-            comment_preview: offer.comment_preview ?? prev?.comment_preview,
-          });
-        };
-
-        for (const sp of preservedServiceProviders) pushMerged(sp);
-        for (const r of results) pushMerged(r);
-        return merged;
-      })(),
-    },
-    rowProviderStatuses: providerStatuses ? { ...state.rowProviderStatuses, [rowId]: providerStatuses } : state.rowProviderStatuses,
-    rowSearchErrors: { ...state.rowSearchErrors, [rowId]: userMessage || null },
-    moreResultsIncoming: { ...state.moreResultsIncoming, [rowId]: moreIncoming },
-    isSearching: moreIncoming, // Keep searching state while more results incoming
-  })),
+    return {
+      rowResults: {
+        ...state.rowResults,
+        [rowId]: [...preservedServiceProviders, ...results],
+      },
+      rowProviderStatuses: providerStatuses ? { ...state.rowProviderStatuses, [rowId]: providerStatuses } : state.rowProviderStatuses,
+      rowSearchErrors: { ...state.rowSearchErrors, [rowId]: userMessage || null },
+      moreResultsIncoming: { ...state.moreResultsIncoming, [rowId]: moreIncoming },
+      isSearching: moreIncoming,
+    };
+  }),
   appendRowResults: (rowId, results, providerStatuses, moreIncoming = false, userMessage) => set((state) => {
     const existingResults = state.rowResults[rowId] || [];
     const existingStatuses = state.rowProviderStatuses[rowId] || [];
@@ -553,7 +518,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   })),
   clearSearch: () => set({ searchResults: [], rowResults: {}, rowProviderStatuses: {}, rowSearchErrors: {}, moreResultsIncoming: {}, currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
   setCardClickQuery: (query) => set({ cardClickQuery: query }),
-  
+
   // Find a row that matches the query, or return null if we need to create one
   selectOrCreateRow: (query, existingRows) => {
     const lowerQuery = query.toLowerCase().trim();
@@ -602,129 +567,6 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     });
 
     return match || null;
-  },
-
-  // Social actions
-  loadBidSocial: async (bidId) => {
-    set((state) => ({
-      socialDataLoading: { ...state.socialDataLoading, [bidId]: true },
-    }));
-
-    try {
-      const res = await fetch(`/api/bids/${bidId}/social`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('session_token') || ''}`,
-        },
-      });
-
-      if (!res.ok) throw new Error('Failed to load social data');
-
-      const data: BidSocialData = await res.json();
-      set((state) => ({
-        bidSocialData: { ...state.bidSocialData, [bidId]: data },
-        socialDataLoading: { ...state.socialDataLoading, [bidId]: false },
-      }));
-    } catch (error) {
-      console.error('Failed to load social data:', error);
-      set((state) => ({
-        socialDataLoading: { ...state.socialDataLoading, [bidId]: false },
-      }));
-    }
-  },
-
-  toggleLike: async (bidId) => {
-    const currentData = get().bidSocialData[bidId];
-    if (!currentData) return;
-
-    // Optimistic update
-    const optimisticData: BidSocialData = {
-      ...currentData,
-      is_liked: !currentData.is_liked,
-      like_count: currentData.is_liked
-        ? currentData.like_count - 1
-        : currentData.like_count + 1,
-    };
-
-    set((state) => ({
-      bidSocialData: { ...state.bidSocialData, [bidId]: optimisticData },
-    }));
-
-    try {
-      const desiredLiked = !currentData.is_liked;
-      const token = localStorage.getItem('session_token') || '';
-
-      const res = desiredLiked
-        ? await fetch(`/api/likes`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ bid_id: bidId }),
-          })
-        : await fetch(`/api/likes?bid_id=${encodeURIComponent(String(bidId))}`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          });
-
-      if (!res.ok && !(desiredLiked && res.status === 409) && !(!desiredLiked && res.status === 404)) {
-        throw new Error('Failed to toggle like');
-      }
-
-      // We already did optimistic update; no further data required here.
-    } catch (error) {
-      console.error('Failed to toggle like:', error);
-      // Revert optimistic update
-      set((state) => ({
-        bidSocialData: { ...state.bidSocialData, [bidId]: currentData },
-      }));
-    }
-  },
-
-  addComment: async (bidId, body) => {
-    try {
-      const res = await fetch(`/api/comments`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('session_token') || ''}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          bid_id: bidId,
-          body,
-          row_id: 0, // Will be set by backend
-        }),
-      });
-
-      if (!res.ok) throw new Error('Failed to add comment');
-
-      // Reload social data to get the new comment
-      await get().loadBidSocial(bidId);
-    } catch (error) {
-      console.error('Failed to add comment:', error);
-      throw error;
-    }
-  },
-
-  deleteComment: async (bidId, commentId) => {
-    try {
-      const res = await fetch(`/api/comments/${commentId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('session_token') || ''}`,
-        },
-      });
-
-      if (!res.ok) throw new Error('Failed to delete comment');
-
-      // Reload social data to reflect deletion
-      await get().loadBidSocial(bidId);
-    } catch (error) {
-      console.error('Failed to delete comment:', error);
-      throw error;
-    }
   },
 }));
 

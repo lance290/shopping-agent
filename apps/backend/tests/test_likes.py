@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 @pytest.mark.asyncio
 async def test_likes_crud(client: AsyncClient, auth_user_and_token, test_bid):
-    """Test full like CRUD via Bid.is_liked (likes stored directly on the bid)."""
+    """Test like toggle via simplified POST /likes/{bid_id}/toggle endpoint."""
     user, token = auth_user_and_token
     bid = test_bid
     bid_id = bid.id
@@ -21,32 +21,7 @@ async def test_likes_crud(client: AsyncClient, auth_user_and_token, test_bid):
     assert like_res.json()["is_liked"] is True
     assert like_res.json()["bid_id"] == bid_id
 
-    # 2. Toggle again → unlike
-    unlike_res = await client.post(
-        f"/likes/{bid_id}/toggle",
-        headers={"Authorization": f"Bearer {token}"}
-    )
-    assert unlike_res.status_code == 200
-    assert unlike_res.json()["is_liked"] is False
-
-    # 3. Like via POST /likes
-    like_res2 = await client.post(
-        "/likes",
-        json={"bid_id": bid_id, "row_id": row_id},
-        headers={"Authorization": f"Bearer {token}"}
-    )
-    assert like_res2.status_code == 200
-    assert like_res2.json()["is_liked"] is True
-
-    # 4. Duplicate blocked
-    dup_res = await client.post(
-        "/likes",
-        json={"bid_id": bid_id, "row_id": row_id},
-        headers={"Authorization": f"Bearer {token}"}
-    )
-    assert dup_res.status_code == 409
-
-    # 5. List likes for row
+    # 2. Verify like persisted - list likes for row
     list_res = await client.get(
         f"/likes?row_id={row_id}",
         headers={"Authorization": f"Bearer {token}"}
@@ -55,17 +30,28 @@ async def test_likes_crud(client: AsyncClient, auth_user_and_token, test_bid):
     likes = list_res.json()
     assert len(likes) == 1
     assert likes[0]["bid_id"] == bid_id
+    assert likes[0]["is_liked"] is True
 
-    # 6. Unlike via DELETE
-    del_res = await client.delete(
-        f"/likes?bid_id={bid_id}",
+    # 3. Toggle again → unlike
+    unlike_res = await client.post(
+        f"/likes/{bid_id}/toggle",
         headers={"Authorization": f"Bearer {token}"}
     )
-    assert del_res.status_code == 200
+    assert unlike_res.status_code == 200
+    assert unlike_res.json()["is_liked"] is False
 
-    # 7. Verify deletion
+    # 4. Verify unliked - list should be empty
     list_res_2 = await client.get(
         f"/likes?row_id={row_id}",
         headers={"Authorization": f"Bearer {token}"}
     )
+    assert list_res_2.status_code == 200
     assert len(list_res_2.json()) == 0
+
+    # 5. Toggle back to liked
+    like_res3 = await client.post(
+        f"/likes/{bid_id}/toggle",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert like_res3.status_code == 200
+    assert like_res3.json()["is_liked"] is True

@@ -47,70 +47,6 @@ async def _resolve_bid(
     return bid
 
 
-@router.post("/likes")
-async def create_like(
-    like_in: LikeCreate,
-    authorization: Optional[str] = Header(None),
-    session: AsyncSession = Depends(get_session)
-):
-    try:
-        auth_session = await get_current_session(authorization, session)
-        if not auth_session:
-            raise HTTPException(status_code=401, detail="Not authenticated")
-
-        bid = await _resolve_bid(session, like_in.bid_id, like_in.row_id, auth_session.user_id)
-
-        if bid.is_liked:
-            raise HTTPException(status_code=409, detail="Already liked")
-
-        bid.is_liked = True
-        bid.liked_at = datetime.utcnow()
-        session.add(bid)
-        await session.commit()
-        await session.refresh(bid)
-
-        return LikeResponse(
-            bid_id=bid.id, row_id=bid.row_id,
-            is_liked=True, liked_at=bid.liked_at
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to create like: {e}", exc_info=True)
-        await session.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create like: {e}")
-
-
-@router.delete("/likes")
-async def delete_like(
-    row_id: Optional[int] = None,
-    bid_id: Optional[int] = None,
-    offer_url: Optional[str] = None,
-    authorization: Optional[str] = Header(None),
-    session: AsyncSession = Depends(get_session)
-):
-    try:
-        auth_session = await get_current_session(authorization, session)
-        if not auth_session:
-            raise HTTPException(status_code=401, detail="Not authenticated")
-
-        bid = await _resolve_bid(session, bid_id, row_id, auth_session.user_id)
-
-        if not bid.is_liked:
-            raise HTTPException(status_code=404, detail="Like not found")
-
-        bid.is_liked = False
-        bid.liked_at = None
-        session.add(bid)
-        await session.commit()
-        return {"status": "deleted"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        await session.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to delete like: {e}")
-
-
 @router.get("/likes")
 async def list_likes(
     row_id: Optional[int] = None,
@@ -149,35 +85,6 @@ async def list_likes(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch likes: {e}")
-
-
-@router.get("/likes/counts")
-async def get_like_counts(
-    row_id: int,
-    authorization: Optional[str] = Header(None),
-    session: AsyncSession = Depends(get_session)
-) -> Dict[str, int]:
-    """Get like counts for all liked bids in a row."""
-    from sqlmodel import select
-
-    try:
-        auth_session = await get_current_session(authorization, session)
-        if not auth_session:
-            raise HTTPException(status_code=401, detail="Not authenticated")
-
-        row = await session.get(Row, row_id)
-        if not row or row.user_id != auth_session.user_id:
-            raise HTTPException(status_code=404, detail="Row not found")
-
-        query = select(Bid).where(Bid.row_id == row_id, Bid.is_liked == True)
-        result = await session.exec(query)
-        liked_bids = result.all()
-
-        return {f"bid_{b.id}": 1 for b in liked_bids}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get like counts: {e}")
 
 
 @router.post("/likes/{bid_id}/toggle")

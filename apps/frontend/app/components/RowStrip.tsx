@@ -83,10 +83,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   };
 
   const refresh = async (mode: 'all' | 'rainforest') => {
-    console.log('[RowStrip] refresh() called, mode:', mode, 'canRefresh:', canRefresh(), 'cooldownUntil:', cooldownUntil, 'now:', Date.now());
-
     if (!canRefresh()) {
-      console.log('[RowStrip] refresh blocked by cooldown');
       return;
     }
 
@@ -97,19 +94,17 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
     setIsSearching(true);
     setLocalSearchError(null);
-    console.log('[RowStrip] calling runSearchApiWithStatus for row:', row.id, 'title:', row.title);
     try {
       const searchResponse = await runSearchApiWithStatus(
         row.title,
         row.id,
         mode === 'rainforest' ? { providers: ['rainforest'] } : undefined
       );
-      console.log('[RowStrip] searchResponse:', searchResponse.results.length, 'results, userMessage:', searchResponse.userMessage);
-      
+
       if (searchResponse.userMessage) {
         setLocalSearchError(searchResponse.userMessage);
       }
-      
+
       // is_liked comes directly from the Bid now — no separate merge needed
       setRowResults(row.id, searchResponse.results, searchResponse.providerStatuses);
 
@@ -268,82 +263,32 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const handleToggleLike = async (offer: Offer) => {
     const previousOffers = [...offers];
     const optimisticIsLiked = !offer.is_liked;
-
-    const canonicalUrl = getCanonicalOfferUrl(offer);
     const offerBidId = offer.bid_id;
-    
-    console.log('[Like] handleToggleLike called:', {
-      offerTitle: offer.title,
-      offerBidId,
-      canonicalUrl,
-      offerPrice: offer.price,
-      offersCount: offers.length,
-    });
-    
-    // Optimistic update - match by bid_id, canonical URL, or object reference
-    const updatedOffers = offers.map((item, idx) => {
-      const itemUrl = getCanonicalOfferUrl(item);
 
-      // Match by bid_id if available
+    // Optimistic update - match by bid_id only
+    const updatedOffers = offers.map((item) => {
       if (offerBidId && item.bid_id === offerBidId) {
-        console.log('[Like] matched by bid_id at index', idx);
         return {
           ...item,
           is_liked: optimisticIsLiked,
-          liked_at: optimisticIsLiked ? new Date().toISOString() : undefined
         };
-      }
-      // Match by canonical URL if no bid_id on clicked offer
-      if (!offerBidId && canonicalUrl && itemUrl === canonicalUrl) {
-        console.log('[Like] matched by URL at index', idx);
-        return {
-          ...item,
-          is_liked: optimisticIsLiked,
-          liked_at: optimisticIsLiked ? new Date().toISOString() : undefined
-        };
-      }
-      // Fallback: match by title + price + merchant
-      if (!offerBidId && !canonicalUrl) {
-        if (item.title === offer.title && item.price === offer.price && item.merchant === offer.merchant) {
-          console.log('[Like] matched by title/price/merchant at index', idx);
-          return {
-            ...item,
-            is_liked: optimisticIsLiked,
-            liked_at: optimisticIsLiked ? new Date().toISOString() : undefined
-          };
-        }
       }
       return item;
     });
 
     setRowResults(row.id, updatedOffers);
-    
+
     // Call API — ONE toggle endpoint
     const toggled = await toggleLikeApi(
       row.id,
       optimisticIsLiked,
       offer.bid_id || undefined,
     );
-    
-    console.log('[Like] toggled:', { rowId: row.id, bidId: offer.bid_id, optimisticIsLiked, toggled });
-    
+
     if (toggled) {
-      const finalIsLiked = !!toggled.is_liked;
-      const reconciledOffers = updatedOffers.map((item) => {
-        if (toggled.bid_id && item.bid_id === toggled.bid_id) {
-          return {
-            ...item,
-            is_liked: finalIsLiked,
-            liked_at: finalIsLiked ? new Date().toISOString() : undefined,
-          };
-        }
-        return item;
-      });
-      setRowResults(row.id, reconciledOffers);
-      onToast?.(finalIsLiked ? 'Liked this offer.' : 'Removed like.', 'success');
+      onToast?.(toggled.is_liked ? 'Liked this offer.' : 'Removed like.', 'success');
     } else {
       // Revert on failure
-      console.error('[RowStrip] Failed to save like');
       setRowResults(row.id, previousOffers);
       onToast?.('Failed to save like.', 'error');
     }
