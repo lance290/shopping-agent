@@ -4,7 +4,7 @@ import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import ProviderStatusBadge from './ProviderStatusBadge';
 import { Archive, RefreshCw, FlaskConical, Undo2, Link2, X } from 'lucide-react';
-import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, createCommentApi, fetchCommentsApi } from '../utils/api';
+import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, createCommentApi, fetchCommentsApi, fetchAndPersistServiceVendors } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -182,12 +182,22 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         return;
     }
 
-    // Don't auto-search for service rows — vendors come from BFF SSE stream
-    if (row.is_service) return;
+    // For service rows, fetch and persist vendors if none loaded yet
+    if (row.is_service) {
+      if (row.service_category) {
+        didAutoLoadRef.current = true;
+        fetchAndPersistServiceVendors(row.id, row.service_category).then((vendorOffers) => {
+          if (vendorOffers.length > 0) {
+            setRowResults(row.id, vendorOffers);
+          }
+        });
+      }
+      return;
+    }
 
     didAutoLoadRef.current = true;
     refresh('all');
-  }, [isActive, row.id, isSearching, moreResultsIncoming, row.is_service]);
+  }, [isActive, row.id, isSearching, moreResultsIncoming, row.is_service, row.service_category, setRowResults]);
 
   const sortOffers = (list: Offer[]) => {
     if (!list || list.length === 0) return [];

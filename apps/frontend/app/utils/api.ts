@@ -676,3 +676,59 @@ export const getShareMetrics = async (token: string): Promise<ShareMetricsRespon
 // NOTE: All service detection is handled by the LLM via BFF.
 // No heuristic-based checkIfService or getVendors functions here.
 // Vendors are fetched by BFF based on LLM's is_service + service_category output.
+
+// Fallback: fetch vendors for a service row and persist as bids so they survive reload.
+export const fetchAndPersistServiceVendors = async (
+  rowId: number,
+  category: string,
+): Promise<Offer[]> => {
+  try {
+    // 1. Fetch vendor tiles from backend
+    const vendorRes = await fetchWithAuth(`/api/vendors/${encodeURIComponent(category)}`);
+    if (!vendorRes.ok) {
+      console.error('[API] Fetch vendors failed:', vendorRes.status);
+      return [];
+    }
+    const vendorData = await vendorRes.json();
+    const vendors: any[] = vendorData?.vendors ?? [];
+    if (vendors.length === 0) return [];
+
+    // 2. Persist vendors as bids for this row
+    try {
+      await fetchWithAuth(`/api/rows/${rowId}/vendors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, vendors }),
+      });
+    } catch (persistErr) {
+      console.warn('[API] Failed to persist vendors as bids:', persistErr);
+    }
+
+    // 3. Convert vendor tiles to Offer objects for immediate display
+    return vendors.map((v: any) => ({
+      title: v.title || v.vendor_company || v.merchant || 'Vendor',
+      price: typeof v.price === 'number' ? v.price : 0,
+      currency: v.currency || 'USD',
+      merchant: v.vendor_company || v.merchant || 'Unknown',
+      url: v.url || (v.vendor_email ? `mailto:${v.vendor_email}` : '#'),
+      image_url: v.image_url || null,
+      rating: null,
+      reviews_count: null,
+      shipping_info: null,
+      source: v.source || 'wattdata',
+      merchant_domain: v.merchant_domain || undefined,
+      click_url: undefined,
+      bid_id: undefined,
+      is_selected: false,
+      is_liked: false,
+      is_service_provider: true,
+      vendor_company: v.vendor_company || v.merchant,
+      vendor_name: v.vendor_name || v.contact_name,
+      vendor_email: v.vendor_email || v.contact_email,
+      vendor_phone: v.contact_phone,
+    } as Offer));
+  } catch (err) {
+    console.error('[API] fetchAndPersistServiceVendors error:', err);
+    return [];
+  }
+};

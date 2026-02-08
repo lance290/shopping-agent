@@ -73,6 +73,8 @@ class BidRead(BaseModel):
     image_url: Optional[str] = None
     source: str
     is_selected: bool = False
+    is_liked: bool = False
+    liked_at: Optional[datetime] = None
     is_service_provider: bool = False
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None
