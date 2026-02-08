@@ -1,79 +1,99 @@
 """Phase 4 model changes — scoring, fraud, timeout, signals, bookmarks
 
 Revision ID: p4_phase4_models
-Revises: 923cedba39d9
+Revises: d1e2f3a4b5c6
 Create Date: 2025-01-28
 """
 from alembic import op
 import sqlalchemy as sa
 
 revision = 'p4_phase4_models'
-down_revision = '923cedba39d9'
+down_revision = 'd1e2f3a4b5c6'
 branch_labels = None
 depends_on = None
 
 
+def _col_exists(table: str, column: str) -> bool:
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+    return any(c['name'] == column for c in insp.get_columns(table))
+
+
+def _table_exists(name: str) -> bool:
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+    return name in insp.get_table_names()
+
+
+def _safe_add_column(table: str, column: sa.Column) -> None:
+    if not _col_exists(table, column.name):
+        op.add_column(table, column)
+
+
 def upgrade() -> None:
     # Bid — created_at timestamp (was missing)
-    op.add_column('bid', sa.Column('created_at', sa.DateTime(), server_default=sa.func.now(), nullable=False))
+    _safe_add_column('bid', sa.Column('created_at', sa.DateTime(), server_default=sa.func.now(), nullable=False))
 
     # Bid — Personalized Ranking (PRD 11)
-    op.add_column('bid', sa.Column('combined_score', sa.Float(), nullable=True))
-    op.add_column('bid', sa.Column('relevance_score', sa.Float(), nullable=True))
-    op.add_column('bid', sa.Column('price_score', sa.Float(), nullable=True))
-    op.add_column('bid', sa.Column('quality_score', sa.Float(), nullable=True))
-    op.add_column('bid', sa.Column('diversity_bonus', sa.Float(), nullable=True))
-    op.add_column('bid', sa.Column('source_tier', sa.String(), nullable=True))
+    _safe_add_column('bid', sa.Column('combined_score', sa.Float(), nullable=True))
+    _safe_add_column('bid', sa.Column('relevance_score', sa.Float(), nullable=True))
+    _safe_add_column('bid', sa.Column('price_score', sa.Float(), nullable=True))
+    _safe_add_column('bid', sa.Column('quality_score', sa.Float(), nullable=True))
+    _safe_add_column('bid', sa.Column('diversity_bonus', sa.Float(), nullable=True))
+    _safe_add_column('bid', sa.Column('source_tier', sa.String(), nullable=True))
 
     # ClickoutEvent — Anti-Fraud (PRD 10)
-    op.add_column('clickout_event', sa.Column('is_suspicious', sa.Boolean(), server_default='false', nullable=False))
-    op.add_column('clickout_event', sa.Column('ip_address', sa.String(), nullable=True))
-    op.add_column('clickout_event', sa.Column('user_agent', sa.String(), nullable=True))
+    _safe_add_column('clickout_event', sa.Column('is_suspicious', sa.Boolean(), server_default='false', nullable=False))
+    _safe_add_column('clickout_event', sa.Column('ip_address', sa.String(), nullable=True))
+    _safe_add_column('clickout_event', sa.Column('user_agent', sa.String(), nullable=True))
 
     # User — Anti-Fraud (PRD 10)
-    op.add_column('user', sa.Column('trust_level', sa.String(), server_default='standard', nullable=False))
+    _safe_add_column('user', sa.Column('trust_level', sa.String(), server_default='standard', nullable=False))
 
     # Merchant — Anti-Fraud (PRD 10)
-    op.add_column('merchant', sa.Column('verification_level', sa.String(), server_default='unverified', nullable=False))
-    op.add_column('merchant', sa.Column('reputation_score', sa.Float(), server_default='0.0', nullable=False))
+    _safe_add_column('merchant', sa.Column('verification_level', sa.String(), server_default='unverified', nullable=False))
+    _safe_add_column('merchant', sa.Column('reputation_score', sa.Float(), server_default='0.0', nullable=False))
 
     # OutreachEvent — Vendor Unresponsiveness (PRD 12)
-    op.add_column('outreach_event', sa.Column('status', sa.String(), server_default='pending', nullable=False))
-    op.add_column('outreach_event', sa.Column('timeout_hours', sa.Integer(), server_default='48', nullable=False))
-    op.add_column('outreach_event', sa.Column('expired_at', sa.DateTime(), nullable=True))
-    op.add_column('outreach_event', sa.Column('followup_sent_at', sa.DateTime(), nullable=True))
+    _safe_add_column('outreach_event', sa.Column('status', sa.String(), server_default='pending', nullable=False))
+    _safe_add_column('outreach_event', sa.Column('timeout_hours', sa.Integer(), server_default='48', nullable=False))
+    _safe_add_column('outreach_event', sa.Column('expired_at', sa.DateTime(), nullable=True))
+    _safe_add_column('outreach_event', sa.Column('followup_sent_at', sa.DateTime(), nullable=True))
 
     # UserSignal (PRD 11)
-    op.create_table(
-        'user_signal',
-        sa.Column('id', sa.Integer(), primary_key=True),
-        sa.Column('user_id', sa.Integer(), sa.ForeignKey('user.id'), nullable=False, index=True),
-        sa.Column('bid_id', sa.Integer(), sa.ForeignKey('bid.id'), nullable=True, index=True),
-        sa.Column('row_id', sa.Integer(), sa.ForeignKey('row.id'), nullable=True, index=True),
-        sa.Column('signal_type', sa.String(), nullable=False, index=True),
-        sa.Column('value', sa.Float(), server_default='1.0', nullable=False),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.func.now(), nullable=False),
-    )
+    if not _table_exists('user_signal'):
+        op.create_table(
+            'user_signal',
+            sa.Column('id', sa.Integer(), primary_key=True),
+            sa.Column('user_id', sa.Integer(), sa.ForeignKey('user.id'), nullable=False, index=True),
+            sa.Column('bid_id', sa.Integer(), sa.ForeignKey('bid.id'), nullable=True, index=True),
+            sa.Column('row_id', sa.Integer(), sa.ForeignKey('row.id'), nullable=True, index=True),
+            sa.Column('signal_type', sa.String(), nullable=False, index=True),
+            sa.Column('value', sa.Float(), server_default='1.0', nullable=False),
+            sa.Column('created_at', sa.DateTime(), server_default=sa.func.now(), nullable=False),
+        )
 
     # UserPreference (PRD 11)
-    op.create_table(
-        'user_preference',
-        sa.Column('id', sa.Integer(), primary_key=True),
-        sa.Column('user_id', sa.Integer(), sa.ForeignKey('user.id'), nullable=False, index=True),
-        sa.Column('preference_key', sa.String(), nullable=False, index=True),
-        sa.Column('preference_value', sa.String(), nullable=False),
-        sa.Column('weight', sa.Float(), server_default='1.0', nullable=False),
-        sa.Column('updated_at', sa.DateTime(), server_default=sa.func.now(), nullable=False),
-    )
+    if not _table_exists('user_preference'):
+        op.create_table(
+            'user_preference',
+            sa.Column('id', sa.Integer(), primary_key=True),
+            sa.Column('user_id', sa.Integer(), sa.ForeignKey('user.id'), nullable=False, index=True),
+            sa.Column('preference_key', sa.String(), nullable=False, index=True),
+            sa.Column('preference_value', sa.String(), nullable=False),
+            sa.Column('weight', sa.Float(), server_default='1.0', nullable=False),
+            sa.Column('updated_at', sa.DateTime(), server_default=sa.func.now(), nullable=False),
+        )
 
     # SellerBookmark (PRD 04)
-    op.create_table(
-        'seller_bookmark',
-        sa.Column('id', sa.Integer(), primary_key=True),
-        sa.Column('merchant_id', sa.Integer(), sa.ForeignKey('merchant.id'), nullable=False, index=True),
-        sa.Column('row_id', sa.Integer(), sa.ForeignKey('row.id'), nullable=False, index=True),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.func.now(), nullable=False),
-    )
+    if not _table_exists('seller_bookmark'):
+        op.create_table(
+            'seller_bookmark',
+            sa.Column('id', sa.Integer(), primary_key=True),
+            sa.Column('merchant_id', sa.Integer(), sa.ForeignKey('merchant.id'), nullable=False, index=True),
+            sa.Column('row_id', sa.Integer(), sa.ForeignKey('row.id'), nullable=False, index=True),
+            sa.Column('created_at', sa.DateTime(), server_default=sa.func.now(), nullable=False),
+        )
 
 
 def downgrade() -> None:
