@@ -79,6 +79,8 @@ export default function VendorContactModal({
     const passengerNames = fields.passenger_names || extract('passenger_names', 'passengers_outbound', 'attendees', 'guest_list');
     const returnPassengerNames = fields.return_passenger_names || extract('return_passenger_names', 'passengers_return', 'return_attendees', 'return_guest_list');
     const replyToEmail = fields.reply_to_email || extract('reply_to_email', 'reply_to', 'email') || '';
+    const aircraftClass = fields.aircraft_class || extract('aircraft_class', 'aircraft_type', 'aircraft', 'jet_size', 'jet_type', 'aircraft_category');
+    const requirements = fields.requirements || extract('requirements', 'special_requirements', 'wifi', 'connectivity', 'notes_for_vendor');
 
     const subjectTemplate = typeof existingOutreach?.subject_template === 'string'
       ? existingOutreach.subject_template
@@ -112,6 +114,8 @@ export default function VendorContactModal({
         passenger_names: passengerNames,
         return_passenger_names: returnPassengerNames,
         reply_to_email: replyToEmail,
+        aircraft_class: aircraftClass,
+        requirements: requirements,
       },
     };
   }, [existingAnswers]);
@@ -140,9 +144,75 @@ export default function VendorContactModal({
   const [passengerNames, setPassengerNames] = useState<string>('');
   const [returnPassengerNames, setReturnPassengerNames] = useState<string>('');
   const [replyToEmail, setReplyToEmail] = useState<string>('');
+  const [aircraftClass, setAircraftClass] = useState<string>('');
+  const [requirements, setRequirements] = useState<string>('');
   const [copiedBody, setCopiedBody] = useState(false);
 
   const getDefaultBodyTemplate = (tt: string) => {
+    if (isAviation && tt === 'round-trip') {
+      return `Hi {provider},
+
+I'm reaching out on behalf of my client regarding a charter quote:
+
+LEG 1 — OUTBOUND
+Route: {from} → {to}
+Date: {date}
+Wheels up: {time}
+Passengers: {pax}
+{passenger_names}
+
+LEG 2 — RETURN
+Route: {return_from} → {return_to}
+Date: {return_date}
+Wheels up: {return_time}
+Passengers: {return_pax}
+{return_passenger_names}
+
+AIRCRAFT
+Category: {aircraft_class}
+Requirements: {requirements}
+
+Please include in your quote:
+• All-in price (incl. taxes, fuel, landing/handling, FBO, crew overnight)
+• Tail number + operator (Part 135 certificate holder)
+• Wi-Fi system type and whether Starlink is installed
+• Cancellation/change policy
+• Quote validity window
+
+Please send your quote to: {reply_to_email}
+
+Thanks,
+{persona_name}
+{persona_role}`;
+    }
+    if (isAviation) {
+      return `Hi {provider},
+
+I'm reaching out on behalf of my client regarding a charter quote:
+
+Route: {from} → {to}
+Date: {date}
+Wheels up: {time}
+Passengers: {pax}
+{passenger_names}
+
+AIRCRAFT
+Category: {aircraft_class}
+Requirements: {requirements}
+
+Please include in your quote:
+• All-in price (incl. taxes, fuel, landing/handling, FBO, crew overnight)
+• Tail number + operator (Part 135 certificate holder)
+• Wi-Fi system type and whether Starlink is installed
+• Cancellation/change policy
+• Quote validity window
+
+Please send your quote to: {reply_to_email}
+
+Thanks,
+{persona_name}
+{persona_role}`;
+    }
     if (tt === 'round-trip') {
       return `Hi {provider},
 
@@ -225,12 +295,15 @@ Thanks,
     setPassengerNames(f.passenger_names || '');
     setReturnPassengerNames(f.return_passenger_names || '');
     setReplyToEmail(f.reply_to_email || '');
+    setAircraftClass(f.aircraft_class || '');
+    setRequirements(f.requirements || '');
 
     // Store raw templates for re-rendering
     setSubjectTemplateRaw(d.subject_template || 'Quote request — {from} to {to} on {date}');
     setBodyTemplateRaw(d.body_template || getDefaultBodyTemplate(resolvedTripType));
     setBodyEdited(null); // Reset to template mode when modal opens
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, defaultOutreach]);
 
   // Re-render templates whenever fields change
@@ -254,6 +327,8 @@ Thanks,
       .replaceAll('{return_pax}', returnPassengers || passengers || '')
       .replaceAll('{return_passenger_names}', returnPassengerNames ? `Names: ${returnPassengerNames}` : '')
       .replaceAll('{reply_to_email}', replyToEmail || '')
+      .replaceAll('{aircraft_class}', aircraftClass || '')
+      .replaceAll('{requirements}', requirements || '')
       .replaceAll('{persona_name}', personaName)
       .replaceAll('{persona_role}', personaRole)
       .replaceAll('{row_title}', rowTitle);
@@ -313,6 +388,8 @@ Thanks,
         passenger_names: passengerNames,
         return_passenger_names: returnPassengerNames,
         reply_to_email: replyToEmail,
+        aircraft_class: aircraftClass,
+        requirements: requirements,
       },
     };
 
@@ -556,6 +633,32 @@ Thanks,
                   />
                 </div>
               </>
+            )}
+
+            {isAviation && (
+              <div className="pt-2 border-t border-warm-grey/40">
+                <div className="text-[10px] uppercase tracking-wider text-onyx-muted font-semibold mb-2">Aircraft</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <div className="text-xs text-onyx-muted mb-1">Aircraft category</div>
+                    <input
+                      value={aircraftClass}
+                      onChange={(e) => setAircraftClass(e.target.value)}
+                      placeholder="e.g. Light jet"
+                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-xs text-onyx-muted mb-1">Requirements</div>
+                    <input
+                      value={requirements}
+                      onChange={(e) => setRequirements(e.target.value)}
+                      placeholder="e.g. Wi-Fi (Starlink preferred)"
+                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
             )}
 
             <div className="pt-2 border-t border-warm-grey/40">
