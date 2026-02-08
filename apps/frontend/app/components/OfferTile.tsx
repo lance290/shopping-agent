@@ -318,12 +318,12 @@ export default function OfferTile({
                   }}
                   className="w-full h-8 text-xs"
                 >
-                  Select Deal
+                  Select
                 </Button>
               )}
               {isSelected && (
                 <div className="w-full py-2 text-center text-xs font-semibold text-status-success bg-status-success/10 rounded-full border border-status-success/20">
-                  Deal Selected
+                  Selected
                 </div>
               )}
             </div>

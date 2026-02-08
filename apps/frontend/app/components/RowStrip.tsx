@@ -210,6 +210,10 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     return list
       .map((offer, idx) => ({ offer, idx }))
       .sort((a, b) => {
+        // Selected items come FIRST (leftmost)
+        const selectDiff = Number(Boolean(b.offer.is_selected)) - Number(Boolean(a.offer.is_selected));
+        if (selectDiff !== 0) return selectDiff;
+
         // Liked items come before unliked items
         const likeDiff = Number(Boolean(b.offer.is_liked)) - Number(Boolean(a.offer.is_liked));
         if (likeDiff !== 0) return likeDiff;

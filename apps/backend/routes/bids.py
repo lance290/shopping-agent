@@ -4,6 +4,7 @@ from typing import Optional, Dict, List
 from pydantic import BaseModel
 from datetime import datetime
 from sqlalchemy import func
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -59,8 +60,10 @@ async def get_bid(
     if not auth_session:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    # Fetch the bid
-    result = await session.exec(select(Bid).where(Bid.id == bid_id))
+    # Fetch the bid with seller eagerly loaded (required for async SQLAlchemy)
+    result = await session.exec(
+        select(Bid).where(Bid.id == bid_id).options(selectinload(Bid.seller))
+    )
     bid = result.first()
 
     if not bid:
@@ -70,13 +73,51 @@ async def get_bid(
     if include_provenance:
         try:
             # Convert to BidWithProvenance for computed fields
-            bid_with_prov = BidWithProvenance.model_validate(bid)
-            return bid_with_prov
+            bid_dict = {
+                "id": bid.id,
+                "row_id": bid.row_id,
+                "seller_id": bid.seller_id,
+                "price": bid.price,
+                "shipping_cost": bid.shipping_cost,
+                "total_cost": bid.total_cost,
+                "currency": bid.currency,
+                "item_title": bid.item_title,
+                "item_url": bid.item_url,
+                "image_url": bid.image_url,
+                "canonical_url": bid.canonical_url,
+                "source_payload": bid.source_payload,
+                "search_intent_version": bid.search_intent_version,
+                "normalized_at": bid.normalized_at,
+                "provenance": bid.provenance,
+                "eta_days": bid.eta_days,
+                "return_policy": bid.return_policy,
+                "condition": bid.condition,
+                "source": bid.source,
+                "is_selected": bid.is_selected,
+                "is_service_provider": bid.is_service_provider,
+                "closing_status": bid.closing_status,
+                "contact_name": bid.contact_name,
+                "contact_email": bid.contact_email,
+                "contact_phone": bid.contact_phone,
+            }
+            bid_with_prov = BidWithProvenance(**bid_dict)
+            # Include seller info for frontend
+            response = bid_with_prov.model_dump()
+            if bid.seller:
+                response["seller"] = {
+                    "name": bid.seller.name,
+                    "domain": bid.seller.domain,
+                }
+            return response
         except Exception as e:
             # Log the error but return basic bid data as fallback
             print(f"Error parsing provenance for bid {bid_id}: {e}")
-            # Return the bid without provenance computed fields
-            return bid
+            return {
+                "id": bid.id, "item_title": bid.item_title,
+                "price": bid.price, "currency": bid.currency,
+                "item_url": bid.item_url, "image_url": bid.image_url,
+                "source": bid.source, "is_selected": bid.is_selected,
+            }
 
     return bid
 
