@@ -58,6 +58,19 @@ export default function Chat() {
 
     if (!activeRow) return;
     if (lastRowIdRef.current === store.activeRowId) return;
+
+    // Save outgoing row's chat before switching
+    const outgoingRowId = lastRowIdRef.current;
+    if (outgoingRowId) {
+      setMessages(currentMsgs => {
+        if (currentMsgs.length > 0) {
+          saveChatHistory(outgoingRowId, currentMsgs);
+          store.updateRow(outgoingRowId, { chat_history: JSON.stringify(currentMsgs) });
+        }
+        return currentMsgs;
+      });
+    }
+
     lastRowIdRef.current = store.activeRowId;
 
     // Only focus/clear on actual row switch
@@ -225,12 +238,18 @@ export default function Chat() {
                   const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
                   store.setRows(mergedRows);
                 } else {
-                  // New request - preserve full conversation including user message
-                  const currentMessages = [...messages, userMessage, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
-                  saveChatHistory(row.id, currentMessages);
-                  const rowWithHistory = { ...row, chat_history: JSON.stringify(currentMessages) };
+                  // New request — save outgoing row's chat, then start fresh for the new row
+                  const outgoingRowId = store.activeRowId;
+                  if (outgoingRowId && outgoingRowId !== row.id) {
+                    saveChatHistory(outgoingRowId, messages);
+                    store.updateRow(outgoingRowId, { chat_history: JSON.stringify(messages) });
+                  }
+                  const freshMessages = [userMessage, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
+                  saveChatHistory(row.id, freshMessages);
+                  const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages) };
                   const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
                   store.setRows(mergedRows);
+                  setMessages(freshMessages);
                 }
                 
                 store.setActiveRowId(row.id);
@@ -243,6 +262,12 @@ export default function Chat() {
               // User switched to completely different topic - new row, fresh chat for new topic
               const row = data?.row;
               if (row?.id) {
+                // Save outgoing row's chat before switching
+                const outgoingRowId = store.activeRowId;
+                if (outgoingRowId && outgoingRowId !== row.id) {
+                  saveChatHistory(outgoingRowId, messages);
+                  store.updateRow(outgoingRowId, { chat_history: JSON.stringify(messages) });
+                }
                 // Start fresh conversation with the CURRENT user message (not stale closure)
                 // userMessage is the message that triggered this context switch
                 const freshMessages = [
@@ -428,7 +453,11 @@ export default function Chat() {
         fetchSingleRowFromDb(finalRowId).then(freshRow => {
           if (freshRow) {
             console.log('[Chat] Post-stream refetch got row, factors:', typeof freshRow.choice_factors, freshRow.choice_factors?.length);
-            store.updateRow(freshRow.id, freshRow);
+            // Don't overwrite chat_history — it was just saved and the backend
+            // response may be stale (race between PATCH save and GET fetch)
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { chat_history: _, ...rowWithoutChat } = freshRow;
+            store.updateRow(freshRow.id, rowWithoutChat);
           }
         }).catch(() => {});
       }
