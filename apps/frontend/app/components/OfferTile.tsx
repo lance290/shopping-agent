@@ -165,7 +165,7 @@ export default function OfferTile({
           
           <div className="mt-auto">
             {isServiceProvider && (
-              <div className="text-xl font-bold text-white mb-3 text-center">
+              <div className="text-xl font-bold text-onyx mb-8 text-center">
                 Request Quote
               </div>
             )}
