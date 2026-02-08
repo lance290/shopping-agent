@@ -1,21 +1,20 @@
-import { createOpenAI } from '@ai-sdk/openai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { streamText, generateText, generateObject } from 'ai';
 import { z } from 'zod';
 
-export const GEMINI_MODEL_NAME = 'google/gemini-3-flash-preview';
+export const GEMINI_MODEL_NAME = 'gemini-2.5-flash-preview-05-20';
 
-// Lazy-initialize OpenRouter client (env may not be loaded at import time)
-let _openrouter: ReturnType<typeof createOpenAI> | null = null;
-function getOpenRouter() {
-  if (!_openrouter) {
-    _openrouter = createOpenAI({
-      baseURL: 'https://openrouter.ai/api/v1',
-      apiKey: process.env.OPENROUTER_API_KEY,
+// Lazy-initialize Google Gemini client (env may not be loaded at import time)
+let _google: ReturnType<typeof createGoogleGenerativeAI> | null = null;
+function getGoogle() {
+  if (!_google) {
+    _google = createGoogleGenerativeAI({
+      apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
     });
   }
-  return _openrouter;
+  return _google;
 }
-const getModel = () => getOpenRouter()(GEMINI_MODEL_NAME);
+const getModel = () => getGoogle()(GEMINI_MODEL_NAME);
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 // ============================================================================
@@ -199,7 +198,7 @@ Return ONLY valid JSON:
   "action": { "type": "..." }
 }`;
 
-  // generateObject hangs on Gemini/OpenRouter (tool-calling mode issue).
+  // generateObject hangs on some providers (tool-calling mode issue).
   // Use generateText with timeout + robust JSON extraction instead.
   const { text } = await Promise.race([
     generateText({
@@ -437,8 +436,8 @@ export async function generateChatPlan(input: {
   activeRowTitle?: string | null;
   projectTitle?: string | null;
 }): Promise<ChatPlan> {
-  if (!process.env.OPENROUTER_API_KEY) {
-    throw new Error('LLM not configured - OPENROUTER_API_KEY required');
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    throw new Error('LLM not configured - GOOGLE_GENERATIVE_AI_API_KEY required');
   }
 
   const lastUserMessage = Array.isArray(input.messages)
@@ -567,7 +566,7 @@ export async function triageProviderQuery(params: {
     return q;
   };
 
-  if (!process.env.OPENROUTER_API_KEY) {
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     return heuristic();
   }
 
