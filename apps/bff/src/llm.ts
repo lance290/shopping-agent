@@ -199,13 +199,46 @@ Return ONLY valid JSON:
   "action": { "type": "..." }
 }`;
 
-  const { object } = await generateObject({
-    model: getModel(),
-    schema: unifiedDecisionSchema,
-    prompt,
-  });
+  // generateObject hangs on Gemini/OpenRouter (tool-calling mode issue).
+  // Use generateText with timeout + robust JSON extraction instead.
+  const { text } = await Promise.race([
+    generateText({
+      model: getModel(),
+      prompt,
+    }),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('LLM decision timeout after 30s')), 30000)
+    ),
+  ]);
 
-  return object;
+  // Extract JSON from response (handle markdown code blocks, prose preamble, etc.)
+  let jsonStr = text;
+  // Strip markdown code fences
+  jsonStr = jsonStr.replace(/```(?:json)?\s*\n?/g, '').replace(/\n?```/g, '');
+  // Find first { to last } — ignore any prose before/after
+  const firstBrace = jsonStr.indexOf('{');
+  const lastBrace = jsonStr.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    jsonStr = jsonStr.slice(firstBrace, lastBrace + 1);
+  }
+
+  try {
+    const parsed = JSON.parse(jsonStr);
+    return unifiedDecisionSchema.parse(parsed);
+  } catch (e) {
+    console.error('Failed to parse LLM decision JSON:', text.slice(0, 500));
+    // Fallback: create a basic row from the user message
+    return {
+      message: `I'll help you find that. Let me set up a search for you.`,
+      intent: {
+        what: userMessage,
+        category: 'service' as const,
+        search_query: userMessage,
+        constraints: {},
+      },
+      action: { type: 'create_row' as const },
+    };
+  }
 }
 
 // ============================================================================
