@@ -111,6 +111,22 @@ def _default_choice_factors_for_row(row: Row) -> str:
     title = (getattr(row, "title", "") or "").strip()
     lowered = title.lower()
 
+    is_service = getattr(row, "is_service", False)
+    service_category = getattr(row, "service_category", None) or ""
+    is_aviation = service_category == "private_aviation" or any(
+        k in lowered for k in ("jet", "charter", "flight", "aviation", "aircraft")
+    )
+
+    if is_service or is_aviation:
+        return json.dumps([
+            {"name": "from_airport", "label": "Departure Airport", "type": "text", "required": True},
+            {"name": "to_airport", "label": "Arrival Airport", "type": "text", "required": True},
+            {"name": "date", "label": "Departure Date", "type": "text", "required": True},
+            {"name": "wheels_up_time", "label": "Wheels Up Time", "type": "text", "required": True},
+            {"name": "trip_type", "label": "Trip Type", "type": "select", "options": ["one-way", "round-trip"], "required": True},
+            {"name": "passengers", "label": "Passengers", "type": "number", "required": True},
+        ])
+
     base: list[dict] = [
         {
             "name": "condition",
