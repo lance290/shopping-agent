@@ -1125,29 +1125,64 @@ export function buildApp() {
           writeEvent('factors_updated', { row_id: rowId });
         }
 
-        // Use intent.search_query - NEVER conversation artifacts
-        const ctxSearchQuery = searchQuery;
-        writeEvent('action_started', { type: 'search', row_id: rowId, query: ctxSearchQuery });
-        try {
-          const final = await streamSearchResults(rowId, { query: ctxSearchQuery }, headers, (batch) => {
-            writeEvent('search_results', {
-              row_id: rowId,
-              results: batch.results,
-              provider_statuses: [batch.status],
-              more_incoming: batch.more_incoming,
-              provider: batch.provider,
-            });
-          });
-          if (final.user_message) {
-            writeEvent('search_results', {
-              row_id: rowId,
-              results: [],
-              more_incoming: false,
-              user_message: final.user_message,
-            });
+        // For services, fetch vendors. For products, search.
+        if (isService && serviceCategory) {
+          writeEvent('action_started', { type: 'fetch_vendors', row_id: rowId, category: serviceCategory });
+          try {
+            const vendorRes = await fetchJsonWithTimeoutRetry(
+              `${BACKEND_URL}/outreach/vendors/${serviceCategory}`,
+              { headers },
+              15000, 1, 500
+            );
+            if (vendorRes.ok && vendorRes.data?.vendors && Array.isArray(vendorRes.data.vendors)) {
+              const vendors = vendorRes.data.vendors;
+              writeEvent('vendors_loaded', {
+                row_id: rowId,
+                category: serviceCategory,
+                vendors,
+              });
+              try {
+                await fetchJsonWithTimeoutRetry(
+                  `${BACKEND_URL}/outreach/rows/${rowId}/vendors`,
+                  {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category: serviceCategory, vendors }),
+                  },
+                  10000, 1, 500
+                );
+              } catch (persistErr: any) {
+                fastify.log.warn({ err: persistErr }, 'Failed to persist vendors as bids');
+              }
+            }
+          } catch (err: any) {
+            fastify.log.error({ err }, 'Failed to fetch vendors for context_switch');
           }
-        } catch (err: any) {
-          writeEvent('error', { message: err?.message || 'Search failed' });
+        } else {
+          // Product search — use intent.search_query
+          const ctxSearchQuery = searchQuery;
+          writeEvent('action_started', { type: 'search', row_id: rowId, query: ctxSearchQuery });
+          try {
+            const final = await streamSearchResults(rowId, { query: ctxSearchQuery }, headers, (batch) => {
+              writeEvent('search_results', {
+                row_id: rowId,
+                results: batch.results,
+                provider_statuses: [batch.status],
+                more_incoming: batch.more_incoming,
+                provider: batch.provider,
+              });
+            });
+            if (final.user_message) {
+              writeEvent('search_results', {
+                row_id: rowId,
+                results: [],
+                more_incoming: false,
+                user_message: final.user_message,
+              });
+            }
+          } catch (err: any) {
+            writeEvent('error', { message: err?.message || 'Search failed' });
+          }
         }
 
         writeEvent('done', {});
@@ -2174,7 +2209,7 @@ const start = async () => {
         process.exit(1);
       }
       fastify.log.info(`Server listening at ${address}`);
-      const llmEnabled = Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+      const llmEnabled = Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY);
       fastify.log.info(
         {
           llmEnabled,

@@ -4,17 +4,18 @@ import { z } from 'zod';
 import type { ExtractSearchIntentResult, SearchIntent } from '../types';
 import { GEMINI_MODEL_NAME } from '../llm';
 
-// Use Google Gemini directly
+// Use Google Gemini directly (lazy-init: env may not be loaded at import time)
+const getGeminiApiKey = () => process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY || '';
 let _google: ReturnType<typeof createGoogleGenerativeAI> | null = null;
 function getGoogle() {
   if (!_google) {
     _google = createGoogleGenerativeAI({
-      apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+      apiKey: getGeminiApiKey(),
     });
   }
   return _google;
 }
-const model = getGoogle()(GEMINI_MODEL_NAME);
+const getModel = () => getGoogle()(GEMINI_MODEL_NAME);
 
 const featureValueSchema = z.union([
   z.string(),
@@ -200,14 +201,14 @@ Rules:
 - confidence should be 0-1.
 `;
 
-  const { text } = await generateText({ model, prompt });
+  const { text } = await generateText({ model: getModel(), prompt });
   const cleaned = String(text || '').replace(/```json\n?|\n?```/g, '').trim();
   const parsed = JSON.parse(cleaned);
   return searchIntentSchema.parse(parsed);
 }
 
 export async function extractSearchIntent(params: ExtractParams): Promise<ExtractSearchIntentResult> {
-  if (!process.env.OPENROUTER_API_KEY) {
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY && !process.env.GEMINI_API_KEY) {
     return buildHeuristicIntent(params);
   }
 

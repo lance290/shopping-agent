@@ -1,5 +1,5 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { streamText, generateText, generateObject } from 'ai';
+import { streamText, generateText } from 'ai';
 import { z } from 'zod';
 
 export const GEMINI_MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
