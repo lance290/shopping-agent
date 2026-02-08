@@ -443,10 +443,10 @@ export const toggleLikeApi = async (
   _rowId: number,
   _isLiked: boolean,
   bidId?: number,
-): Promise<boolean> => {
+): Promise<{ is_liked: boolean; like_count?: number; bid_id: number } | null> => {
   if (!bidId) {
     console.error('[API] toggleLikeApi: no bid_id — cannot toggle');
-    return false;
+    return null;
   }
   try {
     const res = await fetchWithAuth('/api/likes', {
@@ -454,13 +454,13 @@ export const toggleLikeApi = async (
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bid_id: bidId }),
     });
-    if (res.ok) return true;
+    if (res.ok) return await res.json();
     const body = await readResponseBodySafe(res);
     console.error('[API] Toggle like failed:', res.status, body);
-    return false;
+    return null;
   } catch (err) {
     console.error('[API] Toggle like error:', err);
-    return false;
+    return null;
   }
 };
 

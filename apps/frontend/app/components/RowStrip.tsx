@@ -267,7 +267,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
   const handleToggleLike = async (offer: Offer) => {
     const previousOffers = [...offers];
-    const newIsLiked = !offer.is_liked;
+    const optimisticIsLiked = !offer.is_liked;
 
     const canonicalUrl = getCanonicalOfferUrl(offer);
     const offerBidId = offer.bid_id;
@@ -289,8 +289,8 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         console.log('[Like] matched by bid_id at index', idx);
         return {
           ...item,
-          is_liked: newIsLiked,
-          liked_at: newIsLiked ? new Date().toISOString() : undefined
+          is_liked: optimisticIsLiked,
+          liked_at: optimisticIsLiked ? new Date().toISOString() : undefined
         };
       }
       // Match by canonical URL if no bid_id on clicked offer
@@ -298,8 +298,8 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         console.log('[Like] matched by URL at index', idx);
         return {
           ...item,
-          is_liked: newIsLiked,
-          liked_at: newIsLiked ? new Date().toISOString() : undefined
+          is_liked: optimisticIsLiked,
+          liked_at: optimisticIsLiked ? new Date().toISOString() : undefined
         };
       }
       // Fallback: match by title + price + merchant
@@ -308,8 +308,8 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
           console.log('[Like] matched by title/price/merchant at index', idx);
           return {
             ...item,
-            is_liked: newIsLiked,
-            liked_at: newIsLiked ? new Date().toISOString() : undefined
+            is_liked: optimisticIsLiked,
+            liked_at: optimisticIsLiked ? new Date().toISOString() : undefined
           };
         }
       }
@@ -319,16 +319,28 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     setRowResults(row.id, updatedOffers);
     
     // Call API — ONE toggle endpoint
-    const success = await toggleLikeApi(
+    const toggled = await toggleLikeApi(
       row.id,
-      newIsLiked,
+      optimisticIsLiked,
       offer.bid_id || undefined,
     );
     
-    console.log('[Like] toggled:', { rowId: row.id, bidId: offer.bid_id, newIsLiked, success });
+    console.log('[Like] toggled:', { rowId: row.id, bidId: offer.bid_id, optimisticIsLiked, toggled });
     
-    if (success) {
-      onToast?.(newIsLiked ? 'Liked this offer.' : 'Removed like.', 'success');
+    if (toggled) {
+      const finalIsLiked = !!toggled.is_liked;
+      const reconciledOffers = updatedOffers.map((item) => {
+        if (toggled.bid_id && item.bid_id === toggled.bid_id) {
+          return {
+            ...item,
+            is_liked: finalIsLiked,
+            liked_at: finalIsLiked ? new Date().toISOString() : undefined,
+          };
+        }
+        return item;
+      });
+      setRowResults(row.id, reconciledOffers);
+      onToast?.(finalIsLiked ? 'Liked this offer.' : 'Removed like.', 'success');
     } else {
       // Revert on failure
       console.error('[RowStrip] Failed to save like');
