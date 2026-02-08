@@ -275,7 +275,9 @@ Thanks,
     const d = defaultOutreach;
     const f = d.fields;
     const rawTT = (f.trip_type || '').toLowerCase().replace(/[_\s]/g, '-');
-    const resolvedTripType = rawTT.includes('round') ? 'round-trip' : 'one-way';
+    // Infer round-trip if trip_type says so OR if return fields exist
+    const hasReturnFields = !!(f.return_date || f.return_time || f.return_from || f.return_to);
+    const resolvedTripType = (rawTT.includes('round') || hasReturnFields) ? 'round-trip' : 'one-way';
 
     setPersonaName(d.persona_name || 'Betty');
     setPersonaRole(d.persona_role || 'Executive Assistant, BuyAnything');
