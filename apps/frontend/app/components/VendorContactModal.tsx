@@ -274,7 +274,8 @@ Thanks,
 
     const d = defaultOutreach;
     const f = d.fields;
-    const resolvedTripType = f.trip_type === 'round-trip' ? 'round-trip' : 'one-way';
+    const rawTT = (f.trip_type || '').toLowerCase().replace(/[_\s]/g, '-');
+    const resolvedTripType = rawTT.includes('round') ? 'round-trip' : 'one-way';
 
     setPersonaName(d.persona_name || 'Betty');
     setPersonaRole(d.persona_role || 'Executive Assistant, BuyAnything');
