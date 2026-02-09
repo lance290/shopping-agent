@@ -136,7 +136,7 @@ CRITICAL INTENT RULES:
 - If user says "private jet from SAN to EWR" then later "Feb 13, 7 people":
   - what: "private jet charter"
   - search_query: "private jet charter SAN to EWR"
-  - constraints: { origin: "SAN", destination: "EWR", date: "Feb 13", passengers: 7 }
+  - constraints: { origin: "SAN", destination: "EWR", date: "Feb 13", passengers: 7, passenger_names: "John Doe, Jane Doe" }
 - If pending_clarification exists, MERGE its intent with new info. The "what" comes from the ORIGINAL request.
 
 SERVICE vs PRODUCT:
@@ -168,7 +168,7 @@ You are NOT just a chatbot. You are a procurement agent. For every request, foll
 1. IDENTIFY CHOICE FACTORS for the category. Every product/service category has 3-6 key decision factors:
    - Electronics: brand, specs, budget, warranty, condition
    - Vehicles: make/model, year, mileage, budget, features
-   - Services (aviation): origin, destination, date, passengers, aircraft type
+   - Services (aviation): origin, destination, date, passengers, passenger_names, aircraft type
    - Services (catering): date, location, headcount, cuisine, dietary restrictions
    - Services (general): date, location, scope, budget, timeline
    - Apparel: size, color, material, brand, budget
@@ -187,7 +187,7 @@ You are NOT just a chatbot. You are a procurement agent. For every request, foll
 SERVICE REQUESTS:
 - Use ask_clarification to gather essential details first
 - Essential details by type:
-  - Private jets: origin, destination, date, passengers
+  - Private jets: origin, destination, date, passengers, passenger_names
   - Catering: date, location, headcount
   - Photography: date, location, event type
 - Then create_row with full intent
@@ -340,7 +340,7 @@ IMPORTANT RULES:
 1. Only ask for ABSOLUTE MINIMUM info needed to request a quote (usually: who, what, when, where)
 2. If user says "let's see", "let's go", "proceed", "get quotes", "what can you find" etc. → mark is_complete: true
 3. Nice-to-have details (luggage, preferences, equipment) are NOT required - never ask for them
-4. For private jets: only need origin, destination, date, and passengers. NOTHING ELSE.
+4. For private jets: only need origin, destination, date, and passengers. Passenger names are a bonus if provided but don't ask for them.
 5. For catering: only need date, headcount, location. Dietary restrictions are optional.
 6. When in doubt, mark is_complete: true and let the user add details later
 
@@ -358,6 +358,7 @@ Return JSON:
 
 Examples:
 - Private jet, "from SAN to EWR" -> missing: ["date", "passengers"], is_complete: false
+- Private jet, "Lance and Jane, BNA to FWA" -> constraints: { origin: "BNA", destination: "FWA", passenger_names: "Lance, Jane", passengers: 2 }, missing: ["date"], is_complete: false
 - Private jet, "Feb 13, 7 people" (with existing from/to) -> is_complete: true (we have everything essential)
 - Private jet, "let's see what we can get" -> is_complete: true (user wants to proceed)
 - Any service, "just get me some options" -> is_complete: true
@@ -700,7 +701,8 @@ Example for "private jet charter" or any flight/travel service:
   {"name": "departure_date", "label": "Departure Date", "type": "text", "required": true},
   {"name": "wheels_up_time", "label": "Wheels Up Time", "type": "text", "required": true},
   {"name": "trip_type", "label": "Trip Type", "type": "select", "options": ["one-way", "round-trip"], "required": true},
-  {"name": "passengers", "label": "Passengers", "type": "number", "required": true}
+  {"name": "passengers", "label": "Passengers", "type": "number", "required": true},
+  {"name": "passenger_names", "label": "Passenger Names", "type": "text", "required": false}
 ]
 
 IMPORTANT: If "Existing constraints" are provided, you MUST include a spec definition for each constraint key so the UI can display it.
@@ -784,6 +786,7 @@ Return ONLY the JSON array, no explanation.`;
         { name: "wheels_up_time", label: "Wheels Up Time", type: "text", required: true },
         { name: "trip_type", label: "Trip Type", type: "select", options: ["one-way", "round-trip"], required: true },
         { name: "passengers", label: "Passengers", type: "number", required: true },
+        { name: "passenger_names", label: "Passenger Names", type: "text", required: false },
         { name: "aircraft_class", label: "Aircraft Class", type: "select", options: ["light jet", "midsize jet", "super-midsize jet", "heavy jet", "ultra-long-range"], required: false },
         { name: "wifi", label: "Wi-Fi Required", type: "select", options: ["yes", "no", "preferred"], required: false },
       ];

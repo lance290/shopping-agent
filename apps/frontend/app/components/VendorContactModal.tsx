@@ -578,7 +578,7 @@ Thanks,
               <input
                 value={passengerNames}
                 onChange={(e) => setPassengerNames(e.target.value)}
-                placeholder={isAviation ? 'e.g. Wendy Connors, Margaret Oppelt' : 'Names (comma-separated)'}
+                placeholder={isAviation ? 'e.g. John Doe, Jane Doe' : 'Names (comma-separated)'}
                 className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
               />
             </div>
@@ -640,7 +640,7 @@ Thanks,
                   <input
                     value={returnPassengerNames}
                     onChange={(e) => setReturnPassengerNames(e.target.value)}
-                    placeholder={isAviation ? 'e.g. Timothy Connors, Wendy Connors, Margaret Oppelt' : 'Names (comma-separated)'}
+                    placeholder={isAviation ? 'e.g. John Doe, Jane Doe' : 'Names (comma-separated)'}
                     className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
                   />
                 </div>
