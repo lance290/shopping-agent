@@ -335,7 +335,9 @@ async def chat_endpoint(
             service_category = intent.service_type
             title = intent.what[0].upper() + intent.what[1:] if intent.what else intent.what
             search_query = intent.search_query
-            constraints = intent.constraints or {}
+            # Strip meta-fields that LLM may accidentally put in constraints
+            _META_KEYS = {"what", "is_service", "service_category", "search_query", "title", "category"}
+            constraints = {k: v for k, v in (intent.constraints or {}).items() if k not in _META_KEYS}
 
             # === HANDLE EACH ACTION TYPE ===
 
@@ -344,14 +346,7 @@ async def chat_endpoint(
                     "type": "clarification",
                     "service_type": service_category,
                     "title": title,
-                    "partial_constraints": {
-                        **constraints,
-                        "title": title,
-                        "what": intent.what,
-                        "is_service": is_service,
-                        "service_category": service_category,
-                        "search_query": search_query,
-                    },
+                    "partial_constraints": constraints,
                     "missing_fields": action.get("missing_fields", []),
                 })
                 yield sse_event("done", {})

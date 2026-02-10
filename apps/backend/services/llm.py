@@ -178,7 +178,7 @@ You MUST always return an "intent" object that captures WHAT THE USER WANTS:
     "category": "product" or "service",
     "service_type": "for services only: private_aviation, yacht_charter, catering, etc.",
     "search_query": "The query to find this - derived from WHAT, not conversation snippets",
-    "constraints": {{ structured data: origin, destination, date, size, color, price, etc. }}
+    "constraints": {{ structured data ONLY: origin, destination, date, size, color, price, recipient, etc. NEVER include 'what', 'is_service', 'service_category', 'search_query', or 'title' in constraints — those belong in the parent intent fields. }}
   }}
 }}
 
@@ -193,7 +193,8 @@ CRITICAL INTENT RULES:
 
 SERVICE vs PRODUCT:
 - SERVICE (category: "service"): User needs someone to DO something (fly them, cater, photograph, renovate)
-- PRODUCT (category: "product"): User wants to BUY a physical item (shoes, laptop, coat)
+- PRODUCT (category: "product"): User wants to BUY an item — physical OR digital. This includes: shoes, laptop, coat, gift cards, subscriptions, software licenses, digital downloads, game codes, etc.
+- GIFT CARDS ARE ALWAYS PRODUCTS, never services.
 
 === ACTION TYPES ===
 1. "create_row" - Create new request (no active row, or after clarification)
