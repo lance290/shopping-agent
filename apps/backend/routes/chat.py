@@ -7,6 +7,7 @@ All backend calls are now direct DB/service calls instead of HTTP round-trips.
 
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
@@ -28,6 +29,8 @@ from services.llm import (
 
 router = APIRouter(tags=["chat"])
 logger = logging.getLogger(__name__)
+
+_SELF_BASE_URL = f"http://127.0.0.1:{os.environ.get('PORT', '8000')}"
 
 
 # =============================================================================
@@ -158,7 +161,6 @@ async def _fetch_vendors(
 
     # Call the backend's own outreach endpoint internally
     # This is simpler than duplicating the vendor logic
-    base_url = "http://127.0.0.1:8000"
     headers: Dict[str, str] = {}
     if authorization:
         headers["Authorization"] = authorization
@@ -166,7 +168,7 @@ async def _fetch_vendors(
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
-                f"{base_url}/outreach/vendors/{service_category}",
+                f"{_SELF_BASE_URL}/outreach/vendors/{service_category}",
                 headers=headers,
                 timeout=15.0,
             )
@@ -176,7 +178,7 @@ async def _fetch_vendors(
                 if vendors:
                     # Persist vendors as bids
                     await client.post(
-                        f"{base_url}/outreach/rows/{row_id}/vendors",
+                        f"{_SELF_BASE_URL}/outreach/rows/{row_id}/vendors",
                         headers={**headers, "Content-Type": "application/json"},
                         json={"category": service_category, "vendors": vendors},
                         timeout=10.0,
@@ -199,7 +201,6 @@ async def _stream_search(
     """
     import httpx
 
-    base_url = "http://127.0.0.1:8000"
     headers: Dict[str, str] = {"Content-Type": "application/json"}
     if authorization:
         headers["Authorization"] = authorization
@@ -207,7 +208,7 @@ async def _stream_search(
     async with httpx.AsyncClient() as client:
         async with client.stream(
             "POST",
-            f"{base_url}/rows/{row_id}/search/stream",
+            f"{_SELF_BASE_URL}/rows/{row_id}/search/stream",
             headers=headers,
             json={"query": query},
             timeout=60.0,
