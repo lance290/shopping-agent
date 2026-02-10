@@ -491,25 +491,6 @@ class ShareLink(SQLModel, table=True):
     search_success_count: int = Field(default=0)  # Successful searches from this share
     signup_conversion_count: int = Field(default=0)  # Signups attributed to this share
 
-
-class ShareSearchEvent(SQLModel, table=True):
-    """
-    Tracks search events initiated from shared content.
-    Measures share-driven search success rates.
-    """
-    __tablename__ = "share_search_event"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    share_token: str = Field(foreign_key="share_link.token", index=True)
-    session_id: Optional[str] = Field(default=None, index=True)  # Anonymous tracking
-    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
-
-    search_query: str
-    search_success: bool = Field(default=False)  # Determined by existing search success criteria
-
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
 # =============================================================================
 # NOTIFICATION MODEL (Phase 4 — shared component)
 # =============================================================================

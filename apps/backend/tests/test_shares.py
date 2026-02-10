@@ -4,7 +4,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import (
-    User, Row, Bid, Project, ShareLink, ShareSearchEvent,
+    User, Row, Bid, Project, ShareLink,
     AuthSession, hash_token, generate_session_token
 )
 
@@ -210,41 +210,6 @@ async def test_anonymous_share_viewer_cannot_like(
     response = await client.post(f"/likes/{bid.id}/toggle")
 
     assert response.status_code == 401
-
-
-# ============== SEARCH TRACKING TESTS ==============
-
-@pytest.mark.asyncio
-async def test_share_search_event_tracked(
-    session: AsyncSession, client: AsyncClient, auth_user_and_token, test_row
-):
-    """Test searches from shares create ShareSearchEvent records."""
-    user, token = auth_user_and_token
-    row = test_row
-
-    share = ShareLink(
-        token="search_track_123456789012345678",
-        resource_type="row",
-        resource_id=row.id,
-        created_by=user.id
-    )
-    session.add(share)
-    await session.commit()
-
-    # This would need the actual search endpoint to support share_token param
-    # For now, verify the model exists and can be created
-    event = ShareSearchEvent(
-        share_token=share.token,
-        session_id="test-session-123",
-        search_query="test search",
-        search_success=True
-    )
-    session.add(event)
-    await session.commit()
-    await session.refresh(event)
-
-    assert event.id is not None
-    assert event.share_token == share.token
 
 
 # ============== REFERRAL ATTRIBUTION TESTS ==============

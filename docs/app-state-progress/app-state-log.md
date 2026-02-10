@@ -87,6 +87,57 @@
     - Frontend: `apps/frontend/app/tests/board-display.test.ts`
       - `Options Refresh triggers regenerate_choice_factors PATCH when factors missing`
 
+## Feb 8 2026 — Post-Demo Bug Fixes & Feature Audit
+
+### Bugs fixed this session
+1. **Chat history bleeding across rows** — Clicking row A then row B showed row A's chat. Root cause: stale closure in `useEffect` + race between SSE updates and row switch. Fixed with save-on-leave, load-on-enter, and guarding against stale backend overwrites.
+2. **"Finding vendors..." spinner stuck forever** — If vendor fetch failed, no event was emitted to clear `moreResultsIncoming[rowId]`. Fixed in both BFF (`index.ts` — emit empty `vendors_loaded` on failure in `create_row`, `context_switch`, `update_row`) and frontend (`Chat.tsx` — clear `moreResultsIncoming` on `done` and `error` SSE events).
+3. **Missing user messages in persisted chat** — Stale closure captured old `messages` array when saving. Fixed by using `useRef` to always capture latest messages.
+4. **White-on-white text on login page** — Phone input had no explicit text color. Added `bg-white text-gray-900 placeholder:text-gray-400`.
+5. **Boss's family names in placeholders** — `VendorContactModal` had hardcoded "Wendy Connors, Margaret Oppelt". Replaced with generic "John Doe, Jane Doe".
+6. **Passenger names not extracted by LLM** — The LLM prompt had no `passenger_names` constraint. Added to: intent examples, clarification prompt, choice factors spec template, and hardcoded aviation fallback factors in `llm.ts`.
+
+### Dev auth bypass (do not repeat mistakes)
+- **DEV_BYPASS_CODE** env var on backend: when `ENVIRONMENT=development` and `DEV_BYPASS_CODE` is set, `auth/start` skips Twilio SMS and `auth/verify` accepts the bypass code.
+- **Bug caught**: The `else` branch in `auth/verify` was overwriting `is_valid=True` (set by bypass) with a hash check that always failed. Fixed by changing `else:` → `elif not is_valid:`.
+- **Railway gotcha**: Phone numbers in `ALLOWED_USER_PHONES` must have NO spaces (e.g., `+15555550100` not `+ 15555550100`). Railway's multi-line env var editor can introduce spaces.
+- **Test credentials**: Phone `+15555550100`, code `000000`. These env vars must be set on the **Backend** service in Railway (not BFF, not frontend).
+
+### Feature gap analysis (Feb 8 2026)
+
+**Working end-to-end:**
+- AI chat → intent extraction → row creation → vendor discovery → options panel → contact modal → mailto/clipboard
+- Product search (Rainforest, Scale SERP, SerpAPI, Google CSE)
+- Service vendor discovery + bid persistence
+- Likes, comments, share links, quote intake, merchant registration
+- Seller dashboard, admin dashboard, bug reporting
+- Stripe checkout + Connect routes (code exists, not activated)
+- Affiliate clickout tracking (code exists, env vars empty)
+- Resend email service (SDK integrated, outreach UI still uses mailto:)
+
+**Built but not functional (quick wins):**
+- Affiliate env vars empty in prod → $0 revenue (30 min fix)
+- `search_merchants()` filters `status=="verified"` → always 0 results
+- `services/reputation.py` dead code — never called
+- Notifications route exists but no delivery triggers
+
+**Not built (real gaps, ordered by launch priority):**
+1. Real email send from platform (server-side, not mailto:) — P0
+2. Mobile responsive — P1
+3. Seller verification pipeline — P1
+4. Buyer-seller messaging — P1
+5. Help center / support tickets — P2
+6. SEO pages — P2
+7. Viral/referral mechanics — P3
+8. Entitlement tiers, lead fees, priority matching — P3
+
+### Architecture debt (noted, not blocking)
+- BFF `index.ts` is ~1900 lines — single file with all routes + SSE logic
+- Frontend `Chat.tsx` is ~500 lines — handles SSE, messages, search, row switching
+- `VendorContactModal.tsx` is ~700 lines — modal + templates + state
+- Backend has SQLAlchemy `session.execute()` deprecation warnings (should be `session.exec()`)
+- Multiple `any` type warnings in frontend components
+
 ## Chat state + response parsing (LLM-only)
 - Previous approach (do not return to): streaming plain text from chat and then having the frontend infer state transitions by parsing assistant text (regex/heuristics).
   - This is brittle under partial streams, retries, empty output, and LLM tool-call failures.

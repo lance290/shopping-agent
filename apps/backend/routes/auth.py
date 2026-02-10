@@ -223,7 +223,6 @@ async def _reassign_user_foreign_keys(
         ("comment", "user_id"),
         ("bug_report", "user_id"),
         ("share_link", "created_by"),
-        ("share_search_event", "user_id"),
         ("deal_handoff", "buyer_user_id"),
     ]
 

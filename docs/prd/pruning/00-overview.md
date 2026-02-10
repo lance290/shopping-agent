@@ -49,9 +49,9 @@ Every feature in the codebase was evaluated against the original vision doc. The
 
 ## Summary by Action
 
-### DELETE (~100 lines)
-- `AuditLog` model (never written to anywhere in the codebase)
+### DELETE (~50 lines)
 - `ShareSearchEvent` model (viral analytics with no tracking hooked up)
+- Note: `AuditLog` was initially flagged but is **actively used** — `audit.py` writes, `admin.py` reads, called from auth/checkout/clickout/error flows. It stays.
 
 ### SIMPLIFY (~3,000+ lines reduced)
 - Likes: 5 endpoints → 1 PATCH

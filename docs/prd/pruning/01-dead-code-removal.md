@@ -17,19 +17,21 @@ What's actually dead is very small:
 
 ## What to Delete
 
-### Models (in `models.py`, ~100 lines)
+### Models (in `models.py`, ~50 lines)
 
 | Model | Why Delete |
 |---|---|
-| `AuditLog` | Never written to anywhere in the codebase. No route, no service, no import references it beyond the model definition. True dead code. |
-| `ShareSearchEvent` | Tracks when shared links trigger searches. No code ever creates a `ShareSearchEvent` record. The `ShareLink` model's `search_initiated_count` / `search_success_count` columns are also never incremented. |
+| `ShareSearchEvent` | Tracks when shared links trigger searches. No code ever creates a `ShareSearchEvent` record. Imported in `routes/shares.py` but unused. The `ShareLink` model's `search_initiated_count` / `search_success_count` columns are also never incremented. |
+
+**NOT dead (correction from initial audit):**
+- `AuditLog` — actively used. `audit.py` writes entries, called from `routes/auth.py`, `routes/checkout.py`, `routes/clickout.py`, `dependencies.py` (admin access denied), and `main.py` (unhandled errors). `routes/admin.py` reads via `GET /admin/audit`. `retention.py` has cleanup logic. This is a well-wired feature.
 
 ### Approach
 
-- Remove the two model classes from `models.py`
-- Remove any relationship references to them from other models
-- Leave the DB tables in place (empty, inert) — no migration needed
-- Or optionally create a migration: `alembic revision --autogenerate -m "drop_unused_auditlog_sharesearchevent"`
+- Remove `ShareSearchEvent` class from `models.py`
+- Remove its import from `routes/shares.py`
+- Update `tests/test_shares.py` to remove the test that creates a `ShareSearchEvent` directly
+- Leave the DB table in place (empty, inert) — no migration needed
 
 ---
 

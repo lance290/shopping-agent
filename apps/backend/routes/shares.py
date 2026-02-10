@@ -8,7 +8,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
-from models import ShareLink, ShareSearchEvent, User, Row, Project, Bid
+from models import ShareLink, User, Row, Project, Bid
 from dependencies import get_current_session
 
 router = APIRouter(tags=["shares"])
