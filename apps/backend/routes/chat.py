@@ -419,7 +419,36 @@ async def chat_endpoint(
             # --- UPDATE ROW ---
             if action_type == "update_row":
                 if not active_row_id:
-                    yield sse_event("error", {"message": "No active row to update"})
+                    # No row exists yet (e.g. after ask_clarification).
+                    # Promote to create_row — we have everything we need.
+                    logger.info("update_row with no active row — promoting to create_row")
+                    yield sse_event("action_started", {"type": "create_row", "title": title})
+                    row = await _create_row(
+                        session, user_id, title, project_id,
+                        is_service, service_category, constraints,
+                    )
+                    yield sse_event("row_created", {"row": row_to_dict(row)})
+
+                    factors = await generate_choice_factors(
+                        title, constraints, is_service, service_category,
+                    )
+                    if factors:
+                        row = await _save_choice_factors(session, row, factors)
+                    yield sse_event("factors_updated", {"row": row_to_dict(row)})
+
+                    if is_service and service_category:
+                        yield sse_event("action_started", {"type": "fetch_vendors", "row_id": row.id, "category": service_category})
+                        vendors = await _fetch_vendors(session, row.id, service_category, authorization)
+                        yield sse_event("vendors_loaded", {"row_id": row.id, "category": service_category, "vendors": vendors})
+                    else:
+                        yield sse_event("action_started", {"type": "search", "row_id": row.id, "query": search_query})
+                        async for batch in _stream_search(row.id, search_query, authorization):
+                            if batch.get("event") == "complete":
+                                if batch.get("user_message"):
+                                    yield sse_event("search_results", {"row_id": row.id, "results": [], "more_incoming": False, "user_message": batch["user_message"]})
+                            else:
+                                yield sse_event("search_results", {"row_id": row.id, "results": batch.get("results", []), "provider_statuses": [batch.get("status")] if batch.get("status") else [], "more_incoming": batch.get("more_incoming", False), "provider": batch.get("provider")})
+
                     yield sse_event("done", {})
                     return
 
@@ -500,9 +529,22 @@ async def chat_endpoint(
             # --- SEARCH (on existing row) ---
             if action_type == "search":
                 if not active_row_id:
-                    yield sse_event("error", {"message": "No active row to search"})
-                    yield sse_event("done", {})
-                    return
+                    # No row exists — create one first, then search
+                    logger.info("search with no active row — creating row first")
+                    yield sse_event("action_started", {"type": "create_row", "title": title})
+                    row = await _create_row(
+                        session, user_id, title, project_id,
+                        is_service, service_category, constraints,
+                    )
+                    yield sse_event("row_created", {"row": row_to_dict(row)})
+                    active_row_id = row.id
+
+                    factors = await generate_choice_factors(
+                        title, constraints, is_service, service_category,
+                    )
+                    if factors:
+                        row = await _save_choice_factors(session, row, factors)
+                    yield sse_event("factors_updated", {"row": row_to_dict(row)})
 
                 yield sse_event("action_started", {"type": "search", "row_id": active_row_id, "query": search_query})
                 async for batch in _stream_search(active_row_id, search_query, authorization):
