@@ -673,9 +673,9 @@ export const getShareMetrics = async (token: string): Promise<ShareMetricsRespon
 };
 
 // Service/Vendor types
-// NOTE: All service detection is handled by the LLM via BFF.
+// NOTE: All service detection is handled by the LLM on the backend.
 // No heuristic-based checkIfService or getVendors functions here.
-// Vendors are fetched by BFF based on LLM's is_service + service_category output.
+// Vendors are fetched by the backend based on LLM's is_service + service_category output.
 
 // Fallback: fetch vendors for a service row and persist as bids so they survive reload.
 export const fetchAndPersistServiceVendors = async (

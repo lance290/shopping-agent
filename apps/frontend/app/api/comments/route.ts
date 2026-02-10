@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-function normalizeBaseUrl(url: string): string {
-  const trimmed = url.trim();
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-  return `http://${trimmed}`;
-}
-
-const BFF_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
-);
+import { BACKEND_URL } from '../../utils/bff';
 
 function getAuthHeader(request: NextRequest): string | null {
   const direct = request.cookies.get('sa_session')?.value;
@@ -34,7 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing row_id' }, { status: 400 });
     }
 
-    const response = await fetch(`${BFF_URL}/api/comments?row_id=${rowId}`, {
+    const response = await fetch(`${BACKEND_URL}/comments?row_id=${rowId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -67,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
     const body = await request.json();
     
-    const response = await fetch(`${BFF_URL}/api/comments`, {
+    const response = await fetch(`${BACKEND_URL}/comments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

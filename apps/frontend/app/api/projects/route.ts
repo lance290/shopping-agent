@@ -2,17 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-function normalizeBaseUrl(url: string): string {
-  const trimmed = url.trim();
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-  return `http://${trimmed}`;
-}
-
-const BFF_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
-);
+import { BACKEND_URL } from '../../utils/bff';
 
 function getAuthHeader(request: NextRequest): string | null {
   const direct = request.cookies.get('sa_session')?.value;
@@ -31,7 +21,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const response = await fetch(`${BFF_URL}/api/projects`, {
+    const response = await fetch(`${BACKEND_URL}/projects`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -56,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     
-    const response = await fetch(`${BFF_URL}/api/projects`, {
+    const response = await fetch(`${BACKEND_URL}/projects`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -67,8 +57,8 @@ export async function POST(request: NextRequest) {
     
     if (!response.ok) {
       const text = await response.text();
-      console.error(`[API/projects] BFF failed: status=${response.status}, body=${text}`);
-      return NextResponse.json({ error: text || 'BFF failed' }, { status: response.status });
+      console.error(`[API/projects] Backend failed: status=${response.status}, body=${text}`);
+      return NextResponse.json({ error: text || 'Backend failed' }, { status: response.status });
     }
 
     const data = await response.json();
@@ -93,7 +83,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing project ID' }, { status: 400 });
     }
     
-    const response = await fetch(`${BFF_URL}/api/projects/${id}`, {
+    const response = await fetch(`${BACKEND_URL}/projects/${id}`, {
       method: 'DELETE',
       headers: {
         Authorization: authHeader,

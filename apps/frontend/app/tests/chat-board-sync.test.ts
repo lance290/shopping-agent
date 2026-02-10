@@ -102,7 +102,6 @@ describe('Chat-Board Synchronization', () => {
 
   test('Projects API forwards sa_session cookie as Authorization header', async () => {
     vi.stubEnv('NEXT_PUBLIC_BACKEND_URL', 'http://127.0.0.1:8000');
-    vi.stubEnv('NEXT_PUBLIC_BFF_URL', 'http://127.0.0.1:8081');
 
     vi.resetModules();
 
@@ -110,7 +109,7 @@ describe('Chat-Board Synchronization', () => {
     const mockFetch = vi.fn(async (url: any, init?: any) => {
       calls.push({ url: String(url), init });
 
-      if (String(url).endsWith('/api/projects')) {
+      if (String(url).endsWith('/projects')) {
         const auth = init?.headers?.Authorization || init?.headers?.authorization;
         if (auth !== 'Bearer fake-session-token') {
           return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -154,7 +153,7 @@ describe('Chat-Board Synchronization', () => {
     const res = await projectsPost(req);
     expect(res.status).toBe(200);
 
-    expect(calls.some((c) => c.url.endsWith('/api/projects'))).toBe(true);
+    expect(calls.some((c) => c.url.endsWith('/projects'))).toBe(true);
   });
 
   test('Clicking a project selects it (persists as current project)', () => {

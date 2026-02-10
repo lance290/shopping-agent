@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ authenticated: false }, { status: 401 });
     }
     
-    const response = await fetch(`${BFF_URL}/api/auth/me`, {
+    const response = await fetch(`${BFF_URL}/auth/me`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${sessionToken}` },
     });

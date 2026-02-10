@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BFF_URL = process.env.BFF_URL || process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8080';
+import { BACKEND_URL } from '../../../../utils/bff';
 
 export async function POST(
   request: NextRequest,
@@ -10,7 +10,7 @@ export async function POST(
     const { token } = await params;
     const body = await request.json();
     
-    const res = await fetch(`${BFF_URL}/api/quotes/submit/${token}`, {
+    const res = await fetch(`${BACKEND_URL}/quotes/submit/${token}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

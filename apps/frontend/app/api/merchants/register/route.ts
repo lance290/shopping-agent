@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BFF_URL = process.env.BFF_URL || process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8081';
+import { BACKEND_URL } from '../../../utils/bff';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       headers['Authorization'] = auth;
     }
 
-    const response = await fetch(`${BFF_URL}/api/merchants/register`, {
+    const response = await fetch(`${BACKEND_URL}/merchants/register`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),

@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   
   if (sessionToken) {
     try {
-      const response = await fetch(`${BFF_URL}/api/auth/logout`, {
+      const response = await fetch(`${BFF_URL}/auth/logout`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${sessionToken}` },
       });

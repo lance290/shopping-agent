@@ -2,18 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-function normalizeBaseUrl(url: string): string {
-  const trimmed = url.trim();
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-  return `http://${trimmed}`;
-}
-
-// Bug reports route through BFF which proxies to backend
-const BFF_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
-);
+import { BACKEND_URL } from '../../utils/bff';
 
 function getAuthHeader(request: NextRequest): string | null {
   const direct = request.cookies.get('sa_session')?.value;
@@ -45,7 +34,7 @@ export async function POST(request: NextRequest) {
     
     const body = await request.arrayBuffer();
     
-    const response = await fetch(`${BFF_URL}/api/bugs`, {
+    const response = await fetch(`${BACKEND_URL}/api/bugs`, {
       method: 'POST',
       headers,
       body: Buffer.from(body),

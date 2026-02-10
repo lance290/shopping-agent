@@ -110,7 +110,7 @@ class RowUpdate(BaseModel):
 
 
 def _default_choice_factors_for_row(row: Row) -> str:
-    """Return empty factors — the BFF LLM generates proper contextual factors."""
+    """Return empty factors — LLM generates proper contextual factors via regenerate_choice_factors."""
     return "[]"
 
 
@@ -332,7 +332,27 @@ async def update_row(
         setattr(row, key, value)
 
     if regenerate_choice_factors:
-        row.choice_factors = _default_choice_factors_for_row(row)
+        try:
+            from services.llm import generate_choice_factors as _gen_factors
+            constraints_obj = {}
+            if row.choice_answers:
+                try:
+                    constraints_obj = json.loads(row.choice_answers)
+                except Exception:
+                    pass
+            item_name = row.title or "product"
+            factors = await _gen_factors(
+                item_name, constraints_obj,
+                row.is_service or False, row.service_category,
+            )
+            if factors:
+                row.choice_factors = json.dumps(factors)
+            else:
+                row.choice_factors = _default_choice_factors_for_row(row)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to regenerate choice factors: {e}")
+            row.choice_factors = _default_choice_factors_for_row(row)
         
     if request_spec_updates:
         result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))

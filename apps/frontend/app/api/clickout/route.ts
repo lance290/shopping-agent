@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const BFF_URL = process.env.BFF_URL || 'http://localhost:8081';
+import { BACKEND_URL } from '../../utils/bff';
 
 function getAuthHeader(request: NextRequest): string | null {
   const direct = request.cookies.get('sa_session')?.value;
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Fetch from BFF, don't follow redirects
-    const response = await fetch(`${BFF_URL}/api/out?${params}`, {
+    const response = await fetch(`${BACKEND_URL}/api/out?${params}`, {
       headers,
       redirect: 'manual',
     });

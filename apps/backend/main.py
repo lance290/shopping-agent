@@ -43,6 +43,8 @@ from routes.seller import router as seller_router
 from routes.notifications import router as notifications_router
 from routes.stripe_connect import router as stripe_connect_router
 from routes.signals import router as signals_router
+from routes.chat import router as chat_router
+from routes.search_enriched import router as search_enriched_router
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
@@ -121,6 +123,8 @@ app.include_router(seller_router)
 app.include_router(notifications_router)
 app.include_router(stripe_connect_router)
 app.include_router(signals_router)
+app.include_router(chat_router)
+app.include_router(search_enriched_router)
 
 # Lazy init sourcing repository
 _sourcing_repo = None

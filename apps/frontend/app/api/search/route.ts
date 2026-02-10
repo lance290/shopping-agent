@@ -2,17 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-function normalizeBaseUrl(url: string): string {
-  const trimmed = url.trim();
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-  return `http://${trimmed}`;
-}
-
-const BFF_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
-);
+import { BACKEND_URL } from '../../utils/bff';
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     
-    const response = await fetch(`${BFF_URL}/api/search`, {
+    const response = await fetch(`${BACKEND_URL}/api/search`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -2,17 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-function normalizeBaseUrl(url: string): string {
-  const trimmed = url.trim();
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-  return `http://${trimmed}`;
-}
-
-const BFF_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
-);
+import { BACKEND_URL } from '../../utils/bff';
 
 function getAuthHeader(request: NextRequest): string | null {
   const direct = request.cookies.get('sa_session')?.value;
@@ -34,7 +24,7 @@ export async function GET(request: NextRequest) {
     // Support fetching a single row by ID
     const url = new URL(request.url);
     const rowId = url.searchParams.get('id');
-    const bffUrl = rowId ? `${BFF_URL}/api/rows/${rowId}` : `${BFF_URL}/api/rows`;
+    const bffUrl = rowId ? `${BACKEND_URL}/rows/${rowId}` : `${BACKEND_URL}/rows`;
 
     const response = await fetch(bffUrl, {
       method: 'GET',
@@ -61,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     
-    const response = await fetch(`${BFF_URL}/api/rows`, {
+    const response = await fetch(`${BACKEND_URL}/rows`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -92,7 +82,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing row ID' }, { status: 400 });
     }
     
-    const response = await fetch(`${BFF_URL}/api/rows/${id}`, {
+    const response = await fetch(`${BACKEND_URL}/rows/${id}`, {
       method: 'DELETE',
       headers: {
         Authorization: authHeader,
@@ -122,7 +112,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Missing row ID' }, { status: 400 });
     }
     
-    const bffUrl = `${BFF_URL}/api/rows/${id}`;
+    const bffUrl = `${BACKEND_URL}/rows/${id}`;
 
     const response = await fetch(bffUrl, {
       method: 'PATCH',
@@ -134,10 +124,10 @@ export async function PATCH(request: NextRequest) {
     });
     
     if (!response.ok) {
-      console.error(`[API] BFF returned ${response.status} ${response.statusText}`);
+      console.error(`[API] Backend returned ${response.status} ${response.statusText}`);
       const text = await response.text();
-      console.error(`[API] BFF response body: ${text}`);
-      return NextResponse.json({ error: 'BFF failed' }, { status: response.status });
+      console.error(`[API] Backend response body: ${text}`);
+      return NextResponse.json({ error: 'Backend failed' }, { status: response.status });
     }
 
     const data = await response.json();

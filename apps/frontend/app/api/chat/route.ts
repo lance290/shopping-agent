@@ -8,8 +8,8 @@ function normalizeBaseUrl(url: string): string {
   return `http://${trimmed}`;
 }
 
-const BFF_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BFF_URL || process.env.BFF_URL || 'http://127.0.0.1:8081'
+const BACKEND_URL = normalizeBaseUrl(
+  process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://127.0.0.1:8000'
 );
 
 export async function POST(request: NextRequest) {
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
   
-  const response = await fetch(`${BFF_URL}/api/chat`, {
+  const response = await fetch(`${BACKEND_URL}/api/chat`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
