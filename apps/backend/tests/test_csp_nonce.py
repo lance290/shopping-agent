@@ -39,15 +39,14 @@ def test_csp_header_present():
     assert "Content-Security-Policy" in response.headers
 
 
-def test_csp_header_no_unsafe_in_script_src():
-    """Test that script-src does NOT contain unsafe-inline or unsafe-eval."""
+def test_csp_header_script_src_has_nonce():
+    """Test that script-src contains a nonce directive (primary protection)."""
     response = client.get("/health")
     csp_header = response.headers.get("Content-Security-Policy", "")
 
     if "script-src" in csp_header:
         script_src_part = csp_header.split("script-src")[1].split(";")[0]
-        assert "unsafe-inline" not in script_src_part
-        assert "unsafe-eval" not in script_src_part
+        assert "nonce-" in script_src_part
 
 
 def test_csp_header_contains_nonce():

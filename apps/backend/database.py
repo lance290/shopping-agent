@@ -22,19 +22,13 @@ print(f"DEBUG: DATABASE_URL starts with: {DATABASE_URL[:15]}...") # Debug log (s
 # Configure connection args for production (Railway) to handle SSL correctly
 connect_args = {}
 if os.getenv("RAILWAY_ENVIRONMENT"):
-    # SECURITY: Enable SSL with proper verification for Railway
-    # Only disable SSL verification if explicitly set in environment (for debugging)
-    if os.getenv("DISABLE_SSL_VERIFICATION", "false").lower() == "true":
-        print("WARNING: SSL verification disabled - not recommended for production!")
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-        connect_args["ssl"] = ssl_context
-    else:
-        # Use default SSL context with verification enabled
-        ssl_context = ssl.create_default_context()
-        connect_args["ssl"] = ssl_context
-        print("SECURITY: SSL verification enabled for database connections")
+    # Railway internal Postgres uses self-signed certs — must disable
+    # hostname check and cert verification for internal connections.
+    # This is standard for Railway's private networking.
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    connect_args["ssl"] = ssl_context
 
 # Connection Pool Configuration
 # These settings optimize database connection management for FastAPI's async workload

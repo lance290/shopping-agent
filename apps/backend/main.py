@@ -57,12 +57,21 @@ app = FastAPI(
 )
 
 # Configure CORS
+_default_origins = [
+    "http://localhost:3003",
+    "http://127.0.0.1:3003",
+]
+_extra = os.getenv("CORS_ORIGINS", "")
+if _extra:
+    _default_origins.extend([o.strip() for o in _extra.split(",") if o.strip()])
+# Always allow the Railway frontend if we're on Railway
+_railway_frontend = os.getenv("RAILWAY_FRONTEND_URL", "")
+if _railway_frontend and _railway_frontend not in _default_origins:
+    _default_origins.append(_railway_frontend)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3003",
-        "http://127.0.0.1:3003",
-    ],
+    allow_origins=_default_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
