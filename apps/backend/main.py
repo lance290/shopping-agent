@@ -5,6 +5,7 @@ Production-ready with modular routes
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from security.headers import SecurityHeadersMiddleware
+from security.csrf import CSRFProtectionMiddleware, set_csrf_secret
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -79,6 +80,23 @@ app.add_middleware(
 
 # Add security headers middleware (CSP with nonce-based protection)
 app.add_middleware(SecurityHeadersMiddleware)
+
+# Enable CSRF protection in ALL environments
+_csrf_secret = os.getenv("CSRF_SECRET_KEY")
+if _csrf_secret:
+    set_csrf_secret(_csrf_secret)
+else:
+    import logging
+    logging.warning(
+        "CSRF_SECRET_KEY not set — CSRF protection will be inactive. "
+        "Generate one with: openssl rand -hex 32"
+    )
+    _is_prod = os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("ENVIRONMENT") == "production"
+    if _is_prod:
+        raise RuntimeError("CSRF_SECRET_KEY is required in production")
+
+# Always register middleware; it skips validation when no secret is configured
+app.add_middleware(CSRFProtectionMiddleware)
 
 # Ensure uploads directory exists
 env_upload_dir = os.getenv("UPLOAD_DIR")
