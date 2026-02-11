@@ -1,6 +1,6 @@
 """Authentication routes - login, verify, session management."""
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, Response
 from pydantic import BaseModel, EmailStr, validator, model_validator
 from typing import Optional
 from datetime import datetime, timedelta
@@ -387,6 +387,7 @@ async def auth_start(
 async def auth_verify(
     request: AuthVerifyRequest,
     req: Request,
+    response: Response,
     session: AsyncSession = Depends(get_session),
 ):
     """Verify the code and create a session."""
@@ -587,7 +588,22 @@ async def auth_verify(
     )
     session.add(new_session)
     await session.commit()
-    
+
+    # Set secure session cookie (PRD-03a: Session Cookie Security Configuration)
+    # Detect production environment
+    is_production = os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("ENVIRONMENT") == "production"
+
+    # Set cookie with security attributes
+    response.set_cookie(
+        key="sa_session",
+        value=token,
+        httponly=True,           # Prevent XSS access
+        samesite="strict",       # Prevent CSRF attacks
+        secure=is_production,    # HTTPS-only in production
+        path="/",                # Available to all routes
+        max_age=604800,          # 7 days (matching session expiration)
+    )
+
     return {"status": "ok", "session_token": token, "user_id": user.id}
 
 
