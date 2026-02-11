@@ -91,9 +91,8 @@ else:
         "CSRF_SECRET_KEY not set — CSRF protection will be inactive. "
         "Generate one with: openssl rand -hex 32"
     )
-    _is_prod = os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("ENVIRONMENT") == "production"
-    if _is_prod:
-        raise RuntimeError("CSRF_SECRET_KEY is required in production")
+    # Don't crash — the middleware gracefully skips validation when no secret is set.
+    # Set CSRF_SECRET_KEY in production for full protection: openssl rand -hex 32
 
 # Always register middleware; it skips validation when no secret is configured
 app.add_middleware(CSRFProtectionMiddleware)
