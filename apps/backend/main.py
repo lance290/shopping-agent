@@ -4,6 +4,7 @@ Production-ready with modular routes
 """
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from security.headers import SecurityHeadersMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -66,6 +67,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add security headers middleware (CSP with nonce-based protection)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Ensure uploads directory exists
 env_upload_dir = os.getenv("UPLOAD_DIR")
