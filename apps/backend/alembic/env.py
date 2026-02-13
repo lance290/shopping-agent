@@ -1,6 +1,7 @@
 import asyncio
 from logging.config import fileConfig
 import os
+import ssl as _ssl
 import sys
 
 from sqlalchemy import pool
@@ -79,10 +80,19 @@ async def run_migrations_online() -> None:
     configuration = config.get_section(config.config_ini_section)
     configuration["sqlalchemy.url"] = get_url()
     
+    # Match database.py SSL logic: disable SSL for custom Postgres containers
+    connect_args = {}
+    if os.getenv("DB_SSL", "true").lower() != "false" and os.getenv("RAILWAY_ENVIRONMENT"):
+        ssl_context = _ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = _ssl.CERT_NONE
+        connect_args["ssl"] = ssl_context
+
     connectable = async_engine_from_config(
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=connect_args,
     )
 
     async with connectable.connect() as connection:

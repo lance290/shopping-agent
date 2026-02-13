@@ -20,11 +20,10 @@ elif DATABASE_URL.startswith("postgresql://"):
 print(f"DEBUG: DATABASE_URL starts with: {DATABASE_URL[:15]}...") # Debug log (safe)
 
 # Configure connection args for production (Railway) to handle SSL correctly
+# Set DB_SSL=false to disable SSL (e.g. when using a custom Postgres container
+# on Railway's private network that doesn't have SSL configured).
 connect_args = {}
-if os.getenv("RAILWAY_ENVIRONMENT"):
-    # Railway internal Postgres uses self-signed certs — must disable
-    # hostname check and cert verification for internal connections.
-    # This is standard for Railway's private networking.
+if os.getenv("DB_SSL", "true").lower() != "false" and os.getenv("RAILWAY_ENVIRONMENT"):
     ssl_context = ssl.create_default_context()
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
