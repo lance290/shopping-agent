@@ -220,45 +220,43 @@ async def migrate_data():
 
 
 async def merge_phone_to_user1():
-    """Merge phone +16503398297 from user 6 to user 1 (lance@xcor-cto.com)."""
+    """Ensure phone +16503398297 is on user 1 (lance@xcor-cto.com), not user 6."""
     from database import engine
     async with engine.begin() as conn:
-        # Check if user 1 already has the phone
+        # Log current state
         row = await conn.execute(text(
-            "SELECT phone_number FROM \"user\" WHERE id = 1"
+            "SELECT id, email, phone_number FROM \"user\" WHERE id IN (1, 6) ORDER BY id"
         ))
-        u1 = row.first()
-        if u1 and u1[0] == "+16503398297":
-            print("[MERGE] User 1 already has phone. Skipping.")
-            return
+        users = row.fetchall()
+        for u in users:
+            print(f"[MERGE] User {u[0]}: email={u[1]}, phone={u[2]}")
 
-        # Check user 6 has the phone
-        row = await conn.execute(text(
-            "SELECT phone_number FROM \"user\" WHERE id = 6"
+        # Always force: clear phone from ALL users except user 1
+        await conn.execute(text(
+            "UPDATE \"user\" SET phone_number = NULL WHERE phone_number = '+16503398297' AND id != 1"
         ))
-        u6 = row.first()
-        if not u6 or u6[0] != "+16503398297":
-            print("[MERGE] User 6 doesn't have expected phone. Skipping.")
-            return
-
-        # Move phone to user 1
+        # Set phone on user 1
         await conn.execute(text(
             "UPDATE \"user\" SET phone_number = '+16503398297' WHERE id = 1"
-        ))
-        await conn.execute(text(
-            "UPDATE \"user\" SET phone_number = NULL WHERE id = 6"
         ))
 
         # Reassign user 6's rows, projects, sessions to user 1
         for tbl in ["row", "project", "auth_session", "auth_login_code"]:
             try:
-                await conn.execute(text(
+                res = await conn.execute(text(
                     f'UPDATE "{tbl}" SET user_id = 1 WHERE user_id = 6'
                 ))
-            except Exception:
-                pass
+                if res.rowcount > 0:
+                    print(f"[MERGE] Reassigned {res.rowcount} {tbl} rows from user 6 -> 1")
+            except Exception as e:
+                print(f"[MERGE] {tbl}: {e}")
 
-        print("[MERGE] Merged phone +16503398297 from user 6 -> user 1")
+        # Verify
+        row = await conn.execute(text(
+            "SELECT phone_number FROM \"user\" WHERE id = 1"
+        ))
+        u1 = row.first()
+        print(f"[MERGE] Done. User 1 phone = {u1[0] if u1 else 'NOT FOUND'}")
 
 
 async def main():
