@@ -107,6 +107,8 @@ class RowUpdate(BaseModel):
     regenerate_choice_factors: Optional[bool] = None
     chat_history: Optional[str] = None
     reset_bids: Optional[bool] = None
+    is_service: Optional[bool] = None
+    service_category: Optional[str] = None
 
 
 def _default_choice_factors_for_row(row: Row) -> str:
