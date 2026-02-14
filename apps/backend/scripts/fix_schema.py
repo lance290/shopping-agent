@@ -37,12 +37,13 @@ EXPECTED_COLS = [
 ]
 
 # Tables to migrate (order matters for FK constraints)
+# Use tuple (old_name, new_name) for renamed tables
 MIGRATE_TABLES = [
     "user",
     "seller",
     "project",
     "row",
-    "requestspec",
+    ("requestspec", "request_spec"),  # renamed table
     "bid",
     "auth_login_code",
     "auth_session",
@@ -152,14 +153,20 @@ async def migrate_data():
         return
 
     # Migrate each table in its own transaction to avoid one failure killing all
-    for table in MIGRATE_TABLES:
+    for entry in MIGRATE_TABLES:
+        # Support tuple (old_name, new_name) for renamed tables
+        if isinstance(entry, tuple):
+            src_table, dst_table = entry
+        else:
+            src_table = dst_table = entry
+
         try:
             # Read from old DB
             async with old_engine.begin() as oconn:
                 cols_result = await oconn.execute(text(
                     "SELECT column_name FROM information_schema.columns "
                     "WHERE table_name = :t ORDER BY ordinal_position"
-                ), {"t": table})
+                ), {"t": src_table})
                 old_cols = [r[0] for r in cols_result.fetchall()]
                 if not old_cols:
                     continue
@@ -169,11 +176,11 @@ async def migrate_data():
                     tcols_result = await tconn.execute(text(
                         "SELECT column_name FROM information_schema.columns "
                         "WHERE table_name = :t ORDER BY ordinal_position"
-                    ), {"t": table})
+                    ), {"t": dst_table})
                     target_cols = set(r[0] for r in tcols_result.fetchall())
 
                 if not target_cols:
-                    print(f"[MIGRATE] Table {table} doesn't exist in target, skipping.")
+                    print(f"[MIGRATE] Table {dst_table} doesn't exist in target, skipping.")
                     continue
 
                 common_cols = [c for c in old_cols if c in target_cols]
@@ -183,17 +190,17 @@ async def migrate_data():
                 col_list = ", ".join(f'"{c}"' for c in common_cols)
 
                 # Fetch all data from old DB
-                rows = await oconn.execute(text(f'SELECT {col_list} FROM "{table}"'))
+                rows = await oconn.execute(text(f'SELECT {col_list} FROM "{src_table}"'))
                 all_rows = rows.fetchall()
 
             # Write to target DB in its own transaction
             async with target_engine.begin() as tconn:
                 await tconn.execute(text("SET session_replication_role = 'replica'"))
-                await tconn.execute(text(f'DELETE FROM "{table}"'))
+                await tconn.execute(text(f'DELETE FROM "{dst_table}"'))
 
                 if all_rows:
                     placeholders = ", ".join(f":c{i}" for i in range(len(common_cols)))
-                    insert_sql = f'INSERT INTO "{table}" ({col_list}) VALUES ({placeholders})'
+                    insert_sql = f'INSERT INTO "{dst_table}" ({col_list}) VALUES ({placeholders})'
 
                     for row_data in all_rows:
                         params = {f"c{i}": v for i, v in enumerate(row_data)}
@@ -202,18 +209,19 @@ async def migrate_data():
                 # Fix sequence for this table
                 try:
                     await tconn.execute(text(f"""
-                        SELECT setval(pg_get_serial_sequence('"{table}"', 'id'),
-                               COALESCE((SELECT MAX(id) FROM "{table}"), 1))
+                        SELECT setval(pg_get_serial_sequence('"{dst_table}"', 'id'),
+                               COALESCE((SELECT MAX(id) FROM "{dst_table}"), 1))
                     """))
                 except Exception:
                     pass
 
                 await tconn.execute(text("SET session_replication_role = 'origin'"))
 
-            print(f"[MIGRATE] {table}: {len(all_rows)} rows copied")
+            label = f"{src_table}->{dst_table}" if src_table != dst_table else dst_table
+            print(f"[MIGRATE] {label}: {len(all_rows)} rows copied")
 
         except Exception as e:
-            print(f"[MIGRATE] {table}: ERROR - {e}")
+            print(f"[MIGRATE] {dst_table}: ERROR - {e}")
 
     await old_engine.dispose()
     print("[MIGRATE] Data migration complete!")
