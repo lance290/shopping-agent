@@ -231,11 +231,54 @@ async def migrate_data():
     print("[MIGRATE] Data migration complete!")
 
 
+async def merge_phone_to_user1():
+    """Merge phone +16503398297 from user 6 to user 1 (lance@xcor-cto.com)."""
+    from database import engine
+    async with engine.begin() as conn:
+        # Check if user 1 already has the phone
+        row = await conn.execute(text(
+            "SELECT phone_number FROM \"user\" WHERE id = 1"
+        ))
+        u1 = row.first()
+        if u1 and u1[0] == "+16503398297":
+            print("[MERGE] User 1 already has phone. Skipping.")
+            return
+
+        # Check user 6 has the phone
+        row = await conn.execute(text(
+            "SELECT phone_number FROM \"user\" WHERE id = 6"
+        ))
+        u6 = row.first()
+        if not u6 or u6[0] != "+16503398297":
+            print("[MERGE] User 6 doesn't have expected phone. Skipping.")
+            return
+
+        # Move phone to user 1
+        await conn.execute(text(
+            "UPDATE \"user\" SET phone_number = '+16503398297' WHERE id = 1"
+        ))
+        await conn.execute(text(
+            "UPDATE \"user\" SET phone_number = NULL WHERE id = 6"
+        ))
+
+        # Reassign user 6's rows, projects, sessions to user 1
+        for tbl in ["row", "project", "auth_session", "auth_login_code"]:
+            try:
+                await conn.execute(text(
+                    f'UPDATE "{tbl}" SET user_id = 1 WHERE user_id = 6'
+                ))
+            except Exception:
+                pass
+
+        print("[MERGE] Merged phone +16503398297 from user 6 -> user 1")
+
+
 async def main():
     from database import engine
     async with engine.begin() as conn:
         await fix_schema(conn)
     await migrate_data()
+    await merge_phone_to_user1()
 
 
 if __name__ == "__main__":
