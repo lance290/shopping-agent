@@ -369,12 +369,6 @@ async def auth_start(
     session.add(new_login_code)
     await session.commit()
     
-    # Dev bypass: skip real SMS when DEV_BYPASS_CODE is set in development
-    dev_bypass = _get_env("DEV_BYPASS_CODE")
-    if _get_env("ENVIRONMENT") == "development" and dev_bypass:
-        print(f"[AUTH] DEV MODE: Use bypass code '{dev_bypass}' for {phone}. SMS skipped.")
-        return {"status": "sent"}
-
     sent = await send_verification_sms(phone, code)
     
     if not sent:
@@ -429,9 +423,9 @@ async def auth_verify(
     is_valid = False
     skip_twilio = os.getenv("PYTEST_CURRENT_TEST") or os.getenv("E2E_TEST_MODE") == "1"
 
-    # Dev bypass: accept DEV_BYPASS_CODE without Twilio in development
+    # Dev bypass: accept DEV_BYPASS_CODE without Twilio
     dev_bypass = _get_env("DEV_BYPASS_CODE")
-    if _get_env("ENVIRONMENT") == "development" and dev_bypass and request.code == dev_bypass:
+    if dev_bypass and request.code == dev_bypass:
         is_valid = True
         skip_twilio = True
         print(f"[AUTH] DEV MODE: Bypass code accepted for {phone}")
