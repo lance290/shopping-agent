@@ -346,8 +346,12 @@ Core models defined in `models.py`:
 - **Bid** - Product/service results from search
 - **Project** - Grouping for related rows
 
+### Vendor Directory
+- **VendorProfile** - Directory of service providers and high-end vendors (162 profiles, 14 categories)
+- **Merchant** - Onboarded/verified merchants (linked optionally from VendorProfile)
+
 ### Supporting
-- **Seller** - Vendor/merchant information
+- **Seller** - Legacy vendor/merchant information
 - **Comment** - User comments on bids
 - **AuditLog** - Activity tracking
 - **ClickoutEvent** - Affiliate link tracking
@@ -374,6 +378,8 @@ See [.env.example](.env.example) for complete list.
 
 **Database:**
 - `DATABASE_URL` - PostgreSQL connection string (required)
+- `DB_SSL` - Set `false` for custom Postgres without SSL (default: `true`)
+- `USE_PGVECTOR` - Set `true` when Postgres has `vector` extension (default: `false`)
 
 **Authentication:**
 - `RESEND_API_KEY` - Resend API key for email (required)
@@ -385,6 +391,12 @@ See [.env.example](.env.example) for complete list.
 - `VALUESERP_API_KEY`
 - `SEARCHAPI_API_KEY`
 - `GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_CX`
+
+**Vector Embeddings (Vendor Semantic Search):**
+- `EMBEDDING_MODEL` - Model name (default: `openai/text-embedding-3-small`)
+- `EMBEDDING_DIMENSIONS` - Vector dimensions (default: `1536`)
+
+Embeddings are routed through **OpenRouter** (uses `OPENROUTER_API_KEY`). The default model is **OpenAI `text-embedding-3-small`** (1536 dimensions) via the OpenRouter API. Embeddings are generated for `VendorProfile.profile_text` and stored in the `embedding` column via pgvector. Semantic vendor search uses cosine similarity over these embeddings. Lexical search (ILIKE) works as a fallback without embeddings.
 
 **LLM (optional):**
 - `OPENROUTER_API_KEY` - For chat features
