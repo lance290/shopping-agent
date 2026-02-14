@@ -369,6 +369,12 @@ async def auth_start(
     session.add(new_login_code)
     await session.commit()
     
+    # If dev bypass code is configured, skip Twilio entirely — code stored, user verifies with bypass
+    dev_bypass = _get_env("DEV_BYPASS_CODE")
+    if dev_bypass:
+        print(f"[AUTH] DEV MODE: Skipping SMS for {phone}, use bypass code")
+        return {"status": "sent"}
+
     sent = await send_verification_sms(phone, code)
     
     if not sent:
