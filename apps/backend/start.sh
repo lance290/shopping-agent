@@ -26,6 +26,12 @@ else
     fi
 fi
 
+# Patch any missing columns (idempotent)
+echo "[STARTUP] Running schema fix..."
+if ! su fastapi -s /bin/sh -c "python scripts/fix_schema.py"; then
+    echo "[STARTUP] WARNING: Schema fix failed, but continuing startup."
+fi
+
 # Run seed script
 echo "[STARTUP] Seeding vendor data..."
 if ! su fastapi -s /bin/sh -c "python scripts/seed_vendors.py"; then
