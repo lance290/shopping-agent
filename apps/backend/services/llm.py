@@ -17,17 +17,22 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001")
 
 
 def _get_gemini_api_key() -> str:
     return os.getenv("GOOGLE_GENERATIVE_AI_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
 
 
-async def call_gemini(prompt: str, timeout: float = 30.0) -> str:
-    """Call Gemini REST API and return the text response."""
+def _get_openrouter_api_key() -> str:
+    return os.getenv("OPENROUTER_API_KEY") or ""
+
+
+async def _call_gemini_direct(prompt: str, timeout: float = 30.0) -> str:
+    """Call Gemini REST API directly."""
     api_key = _get_gemini_api_key()
     if not api_key:
-        raise ValueError("No Gemini API key configured (GOOGLE_GENERATIVE_AI_API_KEY or GEMINI_API_KEY)")
+        raise ValueError("No Gemini API key")
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
@@ -49,7 +54,6 @@ async def call_gemini(prompt: str, timeout: float = 30.0) -> str:
         resp.raise_for_status()
         data = resp.json()
 
-    # Extract text from response
     candidates = data.get("candidates", [])
     if not candidates:
         raise ValueError("Gemini returned no candidates")
@@ -57,6 +61,51 @@ async def call_gemini(prompt: str, timeout: float = 30.0) -> str:
     if not parts:
         raise ValueError("Gemini returned no content parts")
     return parts[0].get("text", "")
+
+
+async def _call_openrouter(prompt: str, timeout: float = 30.0) -> str:
+    """Call OpenRouter API (OpenAI-compatible)."""
+    api_key = _get_openrouter_api_key()
+    if not api_key:
+        raise ValueError("No OpenRouter API key (OPENROUTER_API_KEY)")
+
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": OPENROUTER_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.2,
+        "max_tokens": 4096,
+    }
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(url, headers=headers, json=payload, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+
+    choices = data.get("choices", [])
+    if not choices:
+        raise ValueError("OpenRouter returned no choices")
+    return choices[0].get("message", {}).get("content", "")
+
+
+async def call_gemini(prompt: str, timeout: float = 30.0) -> str:
+    """Call LLM: try Gemini direct first, fall back to OpenRouter."""
+    # Try Gemini direct
+    if _get_gemini_api_key():
+        try:
+            return await _call_gemini_direct(prompt, timeout)
+        except Exception as e:
+            logger.warning(f"Gemini direct failed, trying OpenRouter: {e}")
+
+    # Fall back to OpenRouter
+    if _get_openrouter_api_key():
+        return await _call_openrouter(prompt, timeout)
+
+    raise ValueError("No LLM API key configured (GEMINI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or OPENROUTER_API_KEY)")
 
 
 def _extract_json(text: str) -> dict:
