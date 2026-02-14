@@ -123,19 +123,15 @@ async def migrate_data():
 
     from database import engine as target_engine
 
-    # Check if migration already happened (old DB has user with phone, new doesn't yet)
+    # Skip if migration + merge already completed (user 1 has the phone)
     async with target_engine.begin() as tconn:
         row = await tconn.execute(text(
-            "SELECT COUNT(*) FROM \"row\" WHERE title LIKE '%private jet%' OR title LIKE '%Private jet%'"
+            "SELECT phone_number FROM \"user\" WHERE id = 1"
         ))
-        count = row.scalar()
-        if count and count > 0:
-            # Check if it's the old local data or real production data
-            row2 = await tconn.execute(text("SELECT COUNT(*) FROM \"row\""))
-            total = row2.scalar()
-            if total and total >= 20:
-                print(f"[MIGRATE] Already have {total} rows including production data. Skipping.")
-                return
+        u1 = row.first()
+        if u1 and u1[0] == "+16503398297":
+            print("[MIGRATE] Migration already complete (user 1 has phone). Skipping.")
+            return
 
     # Normalize old URL for asyncpg
     old_url = OLD_DATABASE_URL
@@ -155,53 +151,47 @@ async def migrate_data():
         await old_engine.dispose()
         return
 
-    async with target_engine.begin() as tconn:
-        # Disable FK checks during migration
-        await tconn.execute(text("SET session_replication_role = 'replica'"))
+    # Migrate each table in its own transaction to avoid one failure killing all
+    for table in MIGRATE_TABLES:
+        try:
+            # Read from old DB
+            async with old_engine.begin() as oconn:
+                cols_result = await oconn.execute(text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = :t ORDER BY ordinal_position"
+                ), {"t": table})
+                old_cols = [r[0] for r in cols_result.fetchall()]
+                if not old_cols:
+                    continue
 
-        for table in MIGRATE_TABLES:
-            try:
-                # Get columns from old DB
-                async with old_engine.begin() as oconn:
-                    cols_result = await oconn.execute(text(
-                        "SELECT column_name FROM information_schema.columns "
-                        "WHERE table_name = :t ORDER BY ordinal_position"
-                    ), {"t": table})
-                    old_cols = [r[0] for r in cols_result.fetchall()]
-
-                    if not old_cols:
-                        continue
-
-                    # Get columns from target DB
+                # Read target columns in separate connection
+                async with target_engine.begin() as tconn:
                     tcols_result = await tconn.execute(text(
                         "SELECT column_name FROM information_schema.columns "
                         "WHERE table_name = :t ORDER BY ordinal_position"
                     ), {"t": table})
                     target_cols = set(r[0] for r in tcols_result.fetchall())
 
-                    if not target_cols:
-                        print(f"[MIGRATE] Table {table} doesn't exist in target, skipping.")
-                        continue
+                if not target_cols:
+                    print(f"[MIGRATE] Table {table} doesn't exist in target, skipping.")
+                    continue
 
-                    # Only copy columns that exist in both
-                    common_cols = [c for c in old_cols if c in target_cols]
-                    if not common_cols:
-                        continue
+                common_cols = [c for c in old_cols if c in target_cols]
+                if not common_cols:
+                    continue
 
-                    col_list = ", ".join(f'"{c}"' for c in common_cols)
+                col_list = ", ".join(f'"{c}"' for c in common_cols)
 
-                    # Truncate target table
-                    await tconn.execute(text(f'DELETE FROM "{table}"'))
+                # Fetch all data from old DB
+                rows = await oconn.execute(text(f'SELECT {col_list} FROM "{table}"'))
+                all_rows = rows.fetchall()
 
-                    # Fetch all rows from old DB
-                    rows = await oconn.execute(text(f'SELECT {col_list} FROM "{table}"'))
-                    all_rows = rows.fetchall()
+            # Write to target DB in its own transaction
+            async with target_engine.begin() as tconn:
+                await tconn.execute(text("SET session_replication_role = 'replica'"))
+                await tconn.execute(text(f'DELETE FROM "{table}"'))
 
-                    if not all_rows:
-                        print(f"[MIGRATE] {table}: 0 rows (empty)")
-                        continue
-
-                    # Insert in batches
+                if all_rows:
                     placeholders = ", ".join(f":c{i}" for i in range(len(common_cols)))
                     insert_sql = f'INSERT INTO "{table}" ({col_list}) VALUES ({placeholders})'
 
@@ -209,23 +199,21 @@ async def migrate_data():
                         params = {f"c{i}": v for i, v in enumerate(row_data)}
                         await tconn.execute(text(insert_sql), params)
 
-                    print(f"[MIGRATE] {table}: {len(all_rows)} rows copied")
+                # Fix sequence for this table
+                try:
+                    await tconn.execute(text(f"""
+                        SELECT setval(pg_get_serial_sequence('"{table}"', 'id'),
+                               COALESCE((SELECT MAX(id) FROM "{table}"), 1))
+                    """))
+                except Exception:
+                    pass
 
-            except Exception as e:
-                print(f"[MIGRATE] {table}: ERROR - {e}")
+                await tconn.execute(text("SET session_replication_role = 'origin'"))
 
-        # Fix sequences
-        for table in MIGRATE_TABLES:
-            try:
-                await tconn.execute(text(f"""
-                    SELECT setval(pg_get_serial_sequence('"{table}"', 'id'),
-                           COALESCE((SELECT MAX(id) FROM "{table}"), 1))
-                """))
-            except Exception:
-                pass  # Table may not have id column
+            print(f"[MIGRATE] {table}: {len(all_rows)} rows copied")
 
-        # Re-enable FK checks
-        await tconn.execute(text("SET session_replication_role = 'origin'"))
+        except Exception as e:
+            print(f"[MIGRATE] {table}: ERROR - {e}")
 
     await old_engine.dispose()
     print("[MIGRATE] Data migration complete!")
