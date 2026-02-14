@@ -10,15 +10,13 @@ from pydantic import BaseModel
 from sqlmodel import select
 
 from models import (
-    Row, SellerQuote, OutreachEvent, User,
+    Row, SellerQuote, OutreachEvent, VendorProfile,
     generate_magic_link_token,
 )
 from database import get_session
 from dependencies import get_current_session
 from services.vendors import (
-    get_vendors, get_vendors_as_results, Vendor,
-    search_vendors, search_checklist, get_checklist_summary,
-    get_email_template, get_vendor_detail,
+    search_checklist, get_checklist_summary, get_email_template,
 )
 from services.email import send_outreach_email, send_reminder_email
 
@@ -47,39 +45,41 @@ class VendorInfo(BaseModel):
     status: str  # sent, opened, clicked, quoted
 
 
-async def get_current_user(session=Depends(get_session)) -> User:
-    """Placeholder - integrate with actual auth."""
-    # For demo, return first user or create one
-    result = await session.execute(select(User).limit(1))
-    user = result.scalar_one_or_none()
-    if not user:
-        user = User(email="demo@buyanything.ai")
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
-    return user
-
-
 @router.post("/rows/{row_id}/trigger")
 async def trigger_outreach(
     row_id: int,
     request: OutreachRequest,
+    authorization: Optional[str] = Header(None),
     session=Depends(get_session),
-    user: User = Depends(get_current_user),
 ):
     """
     Trigger vendor outreach for a row.
     Creates OutreachEvents and SellerQuotes (with magic links).
     """
-    # Get the row
-    result = await session.execute(select(Row).where(Row.id == row_id))
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Get the row owned by the authenticated user
+    result = await session.execute(
+        select(Row).where(
+            Row.id == row_id,
+            Row.user_id == auth_session.user_id,
+        )
+    )
     row = result.scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
     
-    # Get vendors from mock WattData
-    vendors: List[Vendor] = get_vendors(request.category, request.vendor_limit)
-    if not vendors:
+    # Get vendors from VendorProfile directory
+    normalized_category = request.category.lower().strip() if request.category else ""
+    result = await session.execute(
+        select(VendorProfile)
+        .where(VendorProfile.category == normalized_category)
+        .limit(request.vendor_limit)
+    )
+    vendor_profiles = result.scalars().all()
+    if not vendor_profiles:
         raise HTTPException(
             status_code=404, 
             detail=f"No vendors found for category: {request.category}"
@@ -87,7 +87,10 @@ async def trigger_outreach(
     
     # Create outreach events and seller quotes for each vendor
     created_events = []
-    for vendor in vendors:
+    for vp in vendor_profiles:
+        if not vp.contact_email:
+            continue
+
         # Generate magic link token for this vendor
         token = generate_magic_link_token()
         
@@ -96,9 +99,9 @@ async def trigger_outreach(
             row_id=row_id,
             token=token,
             token_expires_at=datetime.utcnow() + timedelta(days=7),
-            seller_email=vendor.email,
-            seller_name=vendor.name,
-            seller_company=vendor.company,
+            seller_email=vp.contact_email,
+            seller_name=None,
+            seller_company=vp.company,
             status="pending",
         )
         session.add(quote)
@@ -106,28 +109,36 @@ async def trigger_outreach(
         # Create outreach event
         event = OutreachEvent(
             row_id=row_id,
-            vendor_email=vendor.email,
-            vendor_name=vendor.name,
-            vendor_company=vendor.company,
-            vendor_source=vendor.source,
+            vendor_email=vp.contact_email,
+            vendor_name=None,
+            vendor_company=vp.company,
+            vendor_source="directory",
             quote_token=token,
             # sent_at will be set when email actually sends
         )
         session.add(event)
         created_events.append({
-            "vendor": vendor.company,
-            "email": vendor.email,
+            "vendor": vp.company,
+            "email": vp.contact_email,
             "token": token,
         })
     
     # Update row status
     row.outreach_status = "in_progress"
-    row.outreach_count = len(vendors)
+    row.outreach_count = len(created_events)
     
+    if not created_events:
+        return {
+            "status": "warning",
+            "row_id": row_id,
+            "vendors_contacted": 0,
+            "detail": "All vendors for this category lack contact emails.",
+            "events": [],
+        }
+
     await session.commit()
     
     # Send emails (after commit so we have IDs)
-    import json
     choice_factors = []
     if row.choice_factors:
         try:
@@ -260,32 +271,93 @@ async def track_email_open(token: str, session=Depends(get_session)):
 
 
 @router.get("/vendors/search")
-async def search_vendors_endpoint(q: str = "", category: Optional[str] = None, limit: int = 10):
+async def search_vendors_endpoint(
+    q: str = "",
+    category: Optional[str] = None,
+    limit: int = 10,
+    session=Depends(get_session),
+):
     """
-    Full-text search across all vendor data.
-    Searches company name, fleet, wifi, safety certs, notes, etc.
-    
+    Full-text search across vendor directory (VendorProfile table).
+    Searches company, description, specialties, and profile_text via ILIKE.
+
     Examples:
       /outreach/vendors/search?q=starlink
       /outreach/vendors/search?q=gulfstream+argus
       /outreach/vendors/search?q=heavy&category=private_aviation
     """
-    results = search_vendors(q, category=category, limit=limit)
+    from sqlalchemy import or_
+
+    stmt = select(VendorProfile)
+    if category:
+        stmt = stmt.where(VendorProfile.category == category.lower().strip())
+    if q:
+        pattern = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(
+                VendorProfile.company.ilike(pattern),
+                VendorProfile.description.ilike(pattern),
+                VendorProfile.specialties.ilike(pattern),
+                VendorProfile.profile_text.ilike(pattern),
+                VendorProfile.tagline.ilike(pattern),
+            )
+        )
+    stmt = stmt.limit(limit)
+    result = await session.execute(stmt)
+    profiles = result.scalars().all()
+
+    vendors = []
+    for vp in profiles:
+        vendors.append({
+            "title": vp.company,
+            "description": vp.tagline or vp.description,
+            "price": None,
+            "url": vp.website or (f"mailto:{vp.contact_email}" if vp.contact_email else None),
+            "image_url": vp.image_url,
+            "source": "directory",
+            "is_service_provider": True,
+            "vendor_company": vp.company,
+            "vendor_email": vp.contact_email,
+            "category": vp.category,
+            "website": vp.website,
+        })
     return {
         "query": q,
         "category": category,
-        "total": len(results),
-        "vendors": results,
+        "total": len(vendors),
+        "vendors": vendors,
     }
 
 
 @router.get("/vendors/detail/{company_name}")
-async def get_vendor_detail_endpoint(company_name: str):
+async def get_vendor_detail_endpoint(
+    company_name: str,
+    session=Depends(get_session),
+):
     """Get full detail for a specific vendor by company name (partial match)."""
-    detail = get_vendor_detail(company_name)
-    if not detail:
+    result = await session.execute(
+        select(VendorProfile).where(
+            VendorProfile.company.ilike(f"%{company_name}%")
+        )
+    )
+    vp = result.scalar_one_or_none()
+    if not vp:
         raise HTTPException(status_code=404, detail=f"Vendor not found: {company_name}")
-    return detail
+    return {
+        "id": vp.id,
+        "company": vp.company,
+        "category": vp.category,
+        "website": vp.website,
+        "contact_email": vp.contact_email,
+        "contact_phone": vp.contact_phone,
+        "service_areas": vp.service_areas,
+        "specialties": vp.specialties,
+        "description": vp.description,
+        "tagline": vp.tagline,
+        "image_url": vp.image_url,
+        "merchant_id": vp.merchant_id,
+        "created_at": vp.created_at.isoformat() if vp.created_at else None,
+    }
 
 
 @router.get("/checklist")
@@ -318,13 +390,78 @@ async def get_email_template_endpoint():
     return get_email_template()
 
 
+@router.get("/check-service")
+async def check_service(
+    query: str = "",
+    session=Depends(get_session),
+):
+    """
+    Check whether a query maps to a known service category.
+    Returns is_service=True and the matching category slug if found.
+    """
+    normalized = query.lower().strip()
+    if not normalized:
+        return {"query": query, "is_service": False, "category": None}
+
+    # Check for known category keywords in the query
+    result = await session.execute(
+        select(VendorProfile.category).distinct()
+    )
+    categories = [row[0] for row in result.all()]
+
+    # Simple keyword matching against known categories
+    CATEGORY_KEYWORDS = {
+        "private_aviation": [
+            "private jet", "jet charter", "charter flight", "aviation",
+            "private flight", "air charter", "jet rental",
+        ],
+    }
+
+    for cat in categories:
+        keywords = CATEGORY_KEYWORDS.get(cat, [cat.replace("_", " ")])
+        for kw in keywords:
+            if kw in normalized:
+                return {"query": query, "is_service": True, "category": cat}
+
+    return {"query": query, "is_service": False, "category": None}
+
+
 @router.get("/vendors/{category}")
-async def get_vendors_for_category(category: str, limit: int = 15):
+async def get_vendors_for_category(
+    category: str,
+    limit: int = 15,
+    session=Depends(get_session),
+):
     """Get vendors for a category as search result tiles."""
-    vendors = get_vendors_as_results(category)
+    normalized = category.lower().strip()
+    result = await session.execute(
+        select(VendorProfile)
+        .where(VendorProfile.category == normalized)
+        .limit(limit)
+    )
+    profiles = result.scalars().all()
+    vendors = []
+    for vp in profiles:
+        vendors.append(
+            {
+                "title": vp.company,
+                "description": vp.tagline or vp.description,
+                "price": None,
+                "url": vp.website or (f"mailto:{vp.contact_email}" if vp.contact_email else None),
+                "image_url": vp.image_url,
+                "source": "directory",
+                "is_service_provider": True,
+                "vendor_company": vp.company,
+                "vendor_email": vp.contact_email,
+                "contact_email": vp.contact_email,
+                "contact_phone": vp.contact_phone,
+                "website": vp.website,
+                "category": vp.category,
+            }
+        )
     return {
         "category": category,
-        "vendors": vendors[:limit],
+        "vendors": vendors,
         "is_service": True,
     }
 
@@ -338,17 +475,27 @@ class PersistVendorsRequest(BaseModel):
 async def persist_vendors_for_row(
     row_id: int,
     request: PersistVendorsRequest,
+    authorization: Optional[str] = Header(None),
     session=Depends(get_session),
 ):
     """
     Persist vendor tiles as bids for a row.
     This ensures vendor tiles survive page reload.
     """
-    from models import Bid, Seller
+    from models import Bid
     from sqlmodel import delete
     
-    # Verify row exists
-    result = await session.execute(select(Row).where(Row.id == row_id))
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Verify row exists and is owned by the authenticated user
+    result = await session.execute(
+        select(Row).where(
+            Row.id == row_id,
+            Row.user_id == auth_session.user_id,
+        )
+    )
     row = result.scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
@@ -369,47 +516,6 @@ async def persist_vendors_for_row(
         vendor_email = vendor.get("vendor_email") or vendor.get("contact_email")
         contact_phone = vendor.get("contact_phone")
         image_url = vendor.get("image_url")
-        merchant_domain = vendor.get("merchant_domain")
-
-        seller = None
-        if vendor_company:
-            seller_result = await session.execute(select(Seller).where(Seller.name == vendor_company))
-            seller = seller_result.scalar_one_or_none()
-            if not seller:
-                seller = Seller(
-                    name=vendor_company,
-                    email=vendor_email,
-                    domain=merchant_domain,
-                    image_url=image_url,
-                    category=request.category,
-                    contact_name=vendor_name,
-                    phone=contact_phone,
-                )
-                session.add(seller)
-                await session.flush()
-            else:
-                updated = False
-                if vendor_email and not seller.email:
-                    seller.email = vendor_email
-                    updated = True
-                if merchant_domain and not seller.domain:
-                    seller.domain = merchant_domain
-                    updated = True
-                if image_url and not seller.image_url:
-                    seller.image_url = image_url
-                    updated = True
-                if vendor_name and not seller.contact_name:
-                    seller.contact_name = vendor_name
-                    updated = True
-                if contact_phone and not seller.phone:
-                    seller.phone = contact_phone
-                    updated = True
-                if request.category and not seller.category:
-                    seller.category = request.category
-                    updated = True
-                if updated:
-                    session.add(seller)
-
         price = vendor.get("price")
         normalized_price = float(price) if isinstance(price, (int, float)) else 0.0
 
@@ -423,7 +529,7 @@ async def persist_vendors_for_row(
 
         bid = Bid(
             row_id=row_id,
-            seller_id=seller.id if seller else None,
+            seller_id=None,
             price=normalized_price,
             total_cost=normalized_price,
             currency=vendor.get("currency", "USD"),
@@ -481,7 +587,6 @@ async def send_reminders(
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    import json
     result = await session.execute(select(Row).where(Row.id == row_id))
     row = result.scalar_one_or_none()
     if not row:

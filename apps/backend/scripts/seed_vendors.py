@@ -1,12 +1,13 @@
 """
-Seed script to populate the database with early-adopter vendors from vendors.py.
+Seed script to populate VendorProfile directory from the in-memory vendor registry.
 
-Safe to run repeatedly — uses upsert logic (match by email, update all fields).
-Never deletes existing sellers; only creates or updates.
+Safe to run repeatedly — uses upsert logic (match by email, then company+category).
+Never deletes existing records; only creates or updates.
 """
 import sys
 import os
 import asyncio
+from datetime import datetime
 from sqlmodel import select
 
 # Add parent directory to path so we can import from app
@@ -15,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database import engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
-from models import Seller
+from models import VendorProfile
 from services.vendors import VENDORS
 
 
@@ -36,47 +37,76 @@ async def seed_vendors():
             print(f"  Category: {category} ({len(vendors)} vendors)")
             for v in vendors:
                 try:
-                    # Match by email first (most reliable), then by company name
-                    query = select(Seller).where(Seller.email == v.email)
-                    result = await session.execute(query)
-                    existing = result.scalar_one_or_none()
+                    vendor_email = getattr(v, "email", None)
+                    vendor_company = getattr(v, "company", None)
+                    if not vendor_company:
+                        raise ValueError("Missing vendor company")
 
-                    if not existing:
-                        # Try matching by company name as fallback
-                        query = select(Seller).where(Seller.name == v.company)
+                    existing = None
+                    if vendor_email:
+                        query = select(VendorProfile).where(
+                            VendorProfile.contact_email == vendor_email
+                        )
                         result = await session.execute(query)
                         existing = result.scalar_one_or_none()
 
-                    # Extract domain from website or email
-                    domain = None
-                    if v.website:
-                        domain = v.website.replace("https://", "").replace("http://", "").split("/")[0]
-                    elif "@" in v.email:
-                        domain = v.email.split("@")[1]
+                    if not existing:
+                        query = select(VendorProfile).where(
+                            VendorProfile.company == vendor_company,
+                            VendorProfile.category == category,
+                        )
+                        result = await session.execute(query)
+                        existing = result.scalar_one_or_none()
+
+                    website = getattr(v, "website", None)
+                    phone = getattr(v, "phone", None)
+                    contact_name = getattr(v, "name", None)
+
+                    profile_text_parts = [
+                        vendor_company,
+                        contact_name or "",
+                        vendor_email or "",
+                        category,
+                        phone or "",
+                        website or "",
+                        getattr(v, "provider_type", None) or "",
+                        getattr(v, "fleet", None) or "",
+                        getattr(v, "jet_sizes", None) or "",
+                        getattr(v, "wifi", None) or "",
+                        getattr(v, "starlink", None) or "",
+                        getattr(v, "pricing_info", None) or "",
+                        getattr(v, "availability", None) or "",
+                        getattr(v, "safety_certs", None) or "",
+                        getattr(v, "notes", None) or "",
+                    ]
+                    profile_text = " ".join(p for p in profile_text_parts if p).strip() or None
 
                     if existing:
-                        # Update all fields — always bring DB in sync with vendors.py
-                        existing.name = v.company
-                        existing.contact_name = v.name
-                        existing.email = v.email
-                        existing.image_url = v.image_url
                         existing.category = category
-                        existing.phone = v.phone
-                        existing.domain = domain
-                        existing.is_verified = True
+                        existing.company = vendor_company
+                        existing.website = website
+                        existing.contact_email = vendor_email
+                        existing.contact_phone = phone
+                        existing.specialties = getattr(v, "provider_type", None)
+                        existing.description = getattr(v, "notes", None)
+                        existing.image_url = getattr(v, "image_url", None)
+                        existing.profile_text = profile_text
+                        existing.updated_at = datetime.utcnow()
                         updated += 1
                     else:
-                        new_seller = Seller(
-                            name=v.company,
-                            contact_name=v.name,
-                            email=v.email,
-                            image_url=v.image_url,
-                            category=category,
-                            phone=v.phone,
-                            is_verified=True,
-                            domain=domain,
+                        session.add(
+                            VendorProfile(
+                                category=category,
+                                company=vendor_company,
+                                website=website,
+                                contact_email=vendor_email,
+                                contact_phone=phone,
+                                specialties=getattr(v, "provider_type", None),
+                                description=getattr(v, "notes", None),
+                                image_url=getattr(v, "image_url", None),
+                                profile_text=profile_text,
+                            )
                         )
-                        session.add(new_seller)
                         created += 1
                 except Exception as e:
                     print(f"    ⚠️  Error seeding {v.company}: {e}")

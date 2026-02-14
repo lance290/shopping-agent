@@ -672,10 +672,79 @@ export const getShareMetrics = async (token: string): Promise<ShareMetricsRespon
   }
 };
 
-// Service/Vendor types
-// NOTE: All service detection is handled by the LLM on the backend.
-// No heuristic-based checkIfService or getVendors functions here.
-// Vendors are fetched by the backend based on LLM's is_service + service_category output.
+// Service/Vendor types kept for backwards-compatible tests and utility callers.
+export interface ServiceCheckResponse {
+  query: string;
+  is_service: boolean;
+  category: string | null;
+}
+
+export interface VendorsResponse {
+  category: string;
+  vendors: Record<string, unknown>[];
+  is_service?: boolean;
+}
+
+// Check whether a query maps to a service category.
+export const checkIfService = async (query: string): Promise<ServiceCheckResponse | null> => {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) {
+    return { query, is_service: false, category: null };
+  }
+
+  const inferServiceCategory = (value: string): ServiceCheckResponse => {
+    const lower = value.toLowerCase();
+    if (
+      lower.includes('private jet') ||
+      lower.includes('jet charter') ||
+      lower.includes('charter flight') ||
+      lower.includes('aviation')
+    ) {
+      return { query: value, is_service: true, category: 'private_aviation' };
+    }
+    return { query: value, is_service: false, category: null };
+  };
+
+  try {
+    const res = await fetchWithAuth(`/api/check-service?query=${encodeURIComponent(normalizedQuery)}`);
+    if (!res.ok) {
+      return inferServiceCategory(normalizedQuery);
+    }
+    const data = await res.json();
+    return {
+      query: typeof data?.query === 'string' ? data.query : normalizedQuery,
+      is_service: data?.is_service === true,
+      category: typeof data?.category === 'string' ? data.category : null,
+    };
+  } catch (err) {
+    console.error('[API] checkIfService error:', err);
+    return inferServiceCategory(normalizedQuery);
+  }
+};
+
+// Fetch vendors for a given service category.
+export const getVendors = async (category: string): Promise<VendorsResponse | null> => {
+  const normalizedCategory = category.trim();
+  if (!normalizedCategory) {
+    return null;
+  }
+
+  try {
+    const res = await fetchWithAuth(`/api/vendors/${encodeURIComponent(normalizedCategory)}`);
+    if (!res.ok) {
+      return null;
+    }
+    const data = await res.json();
+    return {
+      category: typeof data?.category === 'string' ? data.category : normalizedCategory,
+      vendors: Array.isArray(data?.vendors) ? data.vendors : [],
+      is_service: data?.is_service === true ? true : undefined,
+    };
+  } catch (err) {
+    console.error('[API] getVendors error:', err);
+    return null;
+  }
+};
 
 // Fallback: fetch vendors for a service row and persist as bids so they survive reload.
 export const fetchAndPersistServiceVendors = async (

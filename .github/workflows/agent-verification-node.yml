@@ -21,20 +21,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Locate Node Project
+        id: locate-project
+        run: |
+          if [ -f "apps/frontend/package.json" ]; then
+            echo "project_dir=apps/frontend" >> $GITHUB_OUTPUT
+          elif [ -f "package.json" ]; then
+            echo "project_dir=." >> $GITHUB_OUTPUT
+          else
+            echo "No Node project found (missing package.json)." >&2
+            exit 1
+          fi
+
       - name: Detect Package Manager
         id: detect-pm
         run: |
-          if [ -f "yarn.lock" ]; then
+          PROJECT_DIR="${{ steps.locate-project.outputs.project_dir }}"
+          if [ -f "$PROJECT_DIR/yarn.lock" ]; then
             echo "manager=yarn" >> $GITHUB_OUTPUT
             echo "command=install" >> $GITHUB_OUTPUT
             echo "runner=yarn" >> $GITHUB_OUTPUT
-          elif [ -f "pnpm-lock.yaml" ]; then
+          elif [ -f "$PROJECT_DIR/pnpm-lock.yaml" ]; then
             echo "manager=pnpm" >> $GITHUB_OUTPUT
             echo "command=install" >> $GITHUB_OUTPUT
             echo "runner=pnpm" >> $GITHUB_OUTPUT
-          else
+          elif [ -f "$PROJECT_DIR/package-lock.json" ]; then
             echo "manager=npm" >> $GITHUB_OUTPUT
             echo "command=ci" >> $GITHUB_OUTPUT
+            echo "runner=npm" >> $GITHUB_OUTPUT
+          else
+            echo "manager=npm" >> $GITHUB_OUTPUT
+            echo "command=install" >> $GITHUB_OUTPUT
             echo "runner=npm" >> $GITHUB_OUTPUT
           fi
 
@@ -43,45 +60,64 @@ jobs:
         with:
           node-version: 'lts/*'
           cache: ${{ steps.detect-pm.outputs.manager }}
+          cache-dependency-path: |
+            ${{ steps.locate-project.outputs.project_dir }}/package-lock.json
+            ${{ steps.locate-project.outputs.project_dir }}/pnpm-lock.yaml
+            ${{ steps.locate-project.outputs.project_dir }}/yarn.lock
 
       - name: Install pnpm
         if: steps.detect-pm.outputs.manager == 'pnpm'
         uses: pnpm/action-setup@v3
         with:
-          version: 8
+          version: 9
 
       - name: Install Dependencies
         id: install
         run: ${{ steps.detect-pm.outputs.runner }} ${{ steps.detect-pm.outputs.command }}
+        working-directory: ${{ steps.locate-project.outputs.project_dir }}
 
       - name: Check Scripts
         id: check-scripts
         run: |
+          PACKAGE_JSON="${{ steps.locate-project.outputs.project_dir }}/package.json"
           # Use jq to check for script existence in package.json
-          echo "has_build=$(jq -r 'if .scripts.build then "true" else "false" end' package.json)" >> $GITHUB_OUTPUT
-          echo "has_test=$(jq -r 'if .scripts.test then "true" else "false" end' package.json)" >> $GITHUB_OUTPUT
-          echo "has_typecheck=$(jq -r 'if .scripts.typecheck then "true" else "false" end' package.json)" >> $GITHUB_OUTPUT
-          echo "has_lint=$(jq -r 'if .scripts.lint then "true" else "false" end' package.json)" >> $GITHUB_OUTPUT
+          echo "has_build=$(jq -r 'if .scripts.build then "true" else "false" end' "$PACKAGE_JSON")" >> $GITHUB_OUTPUT
+          echo "has_test=$(jq -r 'if .scripts.test then "true" else "false" end' "$PACKAGE_JSON")" >> $GITHUB_OUTPUT
+          if jq -e '.scripts.typecheck' "$PACKAGE_JSON" > /dev/null; then
+            echo "has_typecheck=true" >> $GITHUB_OUTPUT
+            echo "typecheck_script=typecheck" >> $GITHUB_OUTPUT
+          elif jq -e '.scripts["type-check"]' "$PACKAGE_JSON" > /dev/null; then
+            echo "has_typecheck=true" >> $GITHUB_OUTPUT
+            echo "typecheck_script=type-check" >> $GITHUB_OUTPUT
+          else
+            echo "has_typecheck=false" >> $GITHUB_OUTPUT
+            echo "typecheck_script=" >> $GITHUB_OUTPUT
+          fi
+          echo "has_lint=$(jq -r 'if .scripts.lint then "true" else "false" end' "$PACKAGE_JSON")" >> $GITHUB_OUTPUT
 
       - name: Build
         id: build
         if: steps.check-scripts.outputs.has_build == 'true'
         run: ${{ steps.detect-pm.outputs.runner }} run build
+        working-directory: ${{ steps.locate-project.outputs.project_dir }}
 
       - name: Test
         id: test
         if: steps.check-scripts.outputs.has_test == 'true'
         run: ${{ steps.detect-pm.outputs.runner }} run test
+        working-directory: ${{ steps.locate-project.outputs.project_dir }}
 
       - name: Typecheck
         id: typecheck
         if: steps.check-scripts.outputs.has_typecheck == 'true'
-        run: ${{ steps.detect-pm.outputs.runner }} run typecheck
+        run: ${{ steps.detect-pm.outputs.runner }} run ${{ steps.check-scripts.outputs.typecheck_script }}
+        working-directory: ${{ steps.locate-project.outputs.project_dir }}
 
       - name: Lint
         id: lint
         if: steps.check-scripts.outputs.has_lint == 'true'
         run: ${{ steps.detect-pm.outputs.runner }} run lint
+        working-directory: ${{ steps.locate-project.outputs.project_dir }}
 
       # --- Reporting ---
 

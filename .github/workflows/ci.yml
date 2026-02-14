@@ -31,6 +31,7 @@ env:
   NODE_VERSION: '18'
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  FRONTEND_DIR: apps/frontend
 
 jobs:
   # Environment Validation
@@ -49,10 +50,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
         
     - name: 📦 Install dependencies
-      run: npm ci
+      run: npm install
+      working-directory: ${{ env.FRONTEND_DIR }}
       
     - name: 🔍 Determine environment
       id: env
@@ -124,10 +125,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
         
     - name: 📦 Install dependencies
-      run: npm ci
+      run: npm install
+      working-directory: ${{ env.FRONTEND_DIR }}
       
     - name: 🔍 Run secrets validation
       run: |
@@ -155,6 +156,7 @@ jobs:
         else
           echo "✅ No obvious secrets found in code"
         fi
+      working-directory: ${{ env.FRONTEND_DIR }}
         
     - name: 📊 Code quality checks
       run: |
@@ -176,6 +178,7 @@ jobs:
             echo "⚠️ Script '$script' not found"
           fi
         done
+      working-directory: ${{ env.FRONTEND_DIR }}
         
     - name: 🔍 Lint and format
       run: |
@@ -192,6 +195,7 @@ jobs:
         else
           echo "⚠️ Type checking not configured or failed"
         fi
+      working-directory: ${{ env.FRONTEND_DIR }}
 
   # Unit Tests
   unit-tests:
@@ -232,10 +236,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
         
     - name: 📦 Install dependencies
-      run: npm ci
+      run: npm install
+      working-directory: ${{ env.FRONTEND_DIR }}
       
     - name: 🐳 Setup test databases
       run: |
@@ -266,6 +270,7 @@ jobs:
           echo "❌ Unit tests failed"
           exit 1
         fi
+      working-directory: ${{ env.FRONTEND_DIR }}
         
     - name: 📊 Test coverage
       run: |
@@ -275,12 +280,13 @@ jobs:
         else
           echo "⚠️ Coverage not configured"
         fi
+      working-directory: ${{ env.FRONTEND_DIR }}
         
     - name: 📋 Upload coverage reports
       uses: codecov/codecov-action@v3
       if: success()
       with:
-        file: ./coverage/lcov.info
+        file: ./apps/frontend/coverage/lcov.info
         flags: unittests
         name: codecov-umbrella
 
@@ -333,10 +339,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
         
     - name: 📦 Install dependencies
-      run: npm ci
+      run: npm install
+      working-directory: ${{ env.FRONTEND_DIR }}
       
     - name: 🔧 Install test tools
       run: |
@@ -392,10 +398,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
         
     - name: 📦 Install dependencies
-      run: npm ci
+      run: npm install
+      working-directory: ${{ env.FRONTEND_DIR }}
       
     - name: 🏗️ Build application
       run: |
@@ -405,6 +411,7 @@ jobs:
         else
           echo "⚠️ Build not configured or failed"
         fi
+      working-directory: ${{ env.FRONTEND_DIR }}
         
     - name: 🐳 Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -465,10 +472,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
         
     - name: 📦 Install dependencies
-      run: npm ci
+      run: npm install
+      working-directory: ${{ env.FRONTEND_DIR }}
       
     - name: 🧪 Run deployment tests
       run: |
@@ -515,10 +522,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
         
     - name: 📦 Install dependencies
-      run: npm ci
+      run: npm install
+      working-directory: ${{ env.FRONTEND_DIR }}
       
     - name: 🚂 Setup Railway CLI
       run: npm install -g @railway/cli
@@ -671,10 +678,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
         
     - name: 📦 Install dependencies
-      run: npm ci
+      run: npm install
+      working-directory: ${{ env.FRONTEND_DIR }}
       
     - name: 🏥 Run health checks
       run: |

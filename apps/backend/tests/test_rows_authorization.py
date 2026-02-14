@@ -564,7 +564,11 @@ async def test_persist_vendors_creates_service_bids(client: AsyncClient, session
         ],
     }
 
-    persist = await client.post(f"/outreach/rows/{row.id}/vendors", json=vendor_payload)
+    persist = await client.post(
+        f"/outreach/rows/{row.id}/vendors",
+        json=vendor_payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert persist.status_code == 200
 
     resp = await client.get(
@@ -577,11 +581,5 @@ async def test_persist_vendors_creates_service_bids(client: AsyncClient, session
     assert bids[0]["is_service_provider"] is True
     assert bids[0]["contact_email"] == "team@jetright.com"
     assert bids[0]["contact_phone"] == "+16505550199"
-
-    seller = (await session.exec(select(Seller).where(Seller.name == "JetRight"))).first()
-    assert seller is not None
-    assert seller.contact_name == "Alexis"
-    assert seller.email == "team@jetright.com"
-    assert seller.phone == "+16505550199"
 
 

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import ReportBugModal from './ReportBugModal';
 import { useShoppingStore } from '../store';
 
@@ -17,7 +17,7 @@ vi.mock('../utils/api', () => ({
 // Mock diagnostics
 vi.mock('../utils/diagnostics', () => ({
   getDiagnostics: vi.fn(() => ({})),
-  redactDiagnostics: vi.fn((d) => d),
+  redactDiagnostics: vi.fn((d: unknown) => d),
   addBreadcrumb: vi.fn(),
 }));
 
