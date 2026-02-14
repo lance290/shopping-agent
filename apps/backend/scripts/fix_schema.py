@@ -195,18 +195,21 @@ async def migrate_data():
                 rows = await oconn.execute(text(f'SELECT {col_list} FROM "{src_table}"'))
                 all_rows = rows.fetchall()
 
-            # Write to target DB in its own transaction
+            # Write to target DB — NEVER delete existing data
             async with target_engine.begin() as tconn:
                 await tconn.execute(text("SET session_replication_role = 'replica'"))
-                await tconn.execute(text(f'DELETE FROM "{dst_table}"'))
 
+                inserted = 0
                 if all_rows:
                     placeholders = ", ".join(f":c{i}" for i in range(len(common_cols)))
-                    insert_sql = f'INSERT INTO "{dst_table}" ({col_list}) VALUES ({placeholders})'
-
+                    insert_sql = (
+                        f'INSERT INTO "{dst_table}" ({col_list}) VALUES ({placeholders}) '
+                        f'ON CONFLICT DO NOTHING'
+                    )
                     for row_data in all_rows:
                         params = {f"c{i}": v for i, v in enumerate(row_data)}
-                        await tconn.execute(text(insert_sql), params)
+                        res = await tconn.execute(text(insert_sql), params)
+                        inserted += res.rowcount
 
                 # Fix sequence for this table
                 try:
@@ -220,7 +223,8 @@ async def migrate_data():
                 await tconn.execute(text("SET session_replication_role = 'origin'"))
 
             label = f"{src_table}->{dst_table}" if src_table != dst_table else dst_table
-            print(f"[MIGRATE] {label}: {len(all_rows)} rows copied")
+            skipped = len(all_rows) - inserted if all_rows else 0
+            print(f"[MIGRATE] {label}: {inserted} inserted, {skipped} already existed")
 
         except Exception as e:
             print(f"[MIGRATE] {dst_table}: ERROR - {e}")
