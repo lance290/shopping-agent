@@ -162,10 +162,12 @@ async def seed_from_research():
     if len(sys.argv) > 1:
         research_path = sys.argv[1]
     else:
-        # Try repo root (local dev) then /app (Railway container)
+        # Try: same dir as this script, repo root, /app (Railway container)
         candidates = [
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor-research.md"),
             os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "docs", "vendor-research.md"),
             os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "vendor-research.md"),
+            "/app/scripts/vendor-research.md",
             "/app/docs/vendor-research.md",
         ]
         research_path = next((p for p in candidates if os.path.exists(p)), None)

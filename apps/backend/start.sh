@@ -32,10 +32,16 @@ if ! su fastapi -s /bin/sh -c "python scripts/fix_schema.py"; then
     echo "[STARTUP] WARNING: Schema fix failed, but continuing startup."
 fi
 
-# Run seed script
+# Run seed script (early-adopter vendors from vendors.py)
 echo "[STARTUP] Seeding vendor data..."
 if ! su fastapi -s /bin/sh -c "python scripts/seed_vendors.py"; then
     echo "[STARTUP] WARNING: Vendor seeding failed, but continuing startup."
+fi
+
+# Run research seed script (full vendor directory from vendor-research.md)
+echo "[STARTUP] Seeding research vendor data..."
+if ! su fastapi -s /bin/sh -c "python scripts/seed_from_research.py"; then
+    echo "[STARTUP] WARNING: Research vendor seeding failed, but continuing startup."
 fi
 
 # Start application
