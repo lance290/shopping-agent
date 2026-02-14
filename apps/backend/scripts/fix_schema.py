@@ -124,14 +124,16 @@ async def migrate_data():
 
     from database import engine as target_engine
 
-    # Skip if migration + merge already completed (user 1 has the phone)
+    # Skip if migration fully completed (user 1 has phone AND request_spec has data)
     async with target_engine.begin() as tconn:
         row = await tconn.execute(text(
             "SELECT phone_number FROM \"user\" WHERE id = 1"
         ))
         u1 = row.first()
-        if u1 and u1[0] == "+16503398297":
-            print("[MIGRATE] Migration already complete (user 1 has phone). Skipping.")
+        rs = await tconn.execute(text("SELECT COUNT(*) FROM request_spec"))
+        rs_count = rs.scalar() or 0
+        if u1 and u1[0] == "+16503398297" and rs_count > 0:
+            print(f"[MIGRATE] Migration already complete (user 1 has phone, {rs_count} request_specs). Skipping.")
             return
 
     # Normalize old URL for asyncpg
