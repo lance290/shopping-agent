@@ -6,6 +6,7 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
+import sqlalchemy
 from sqlalchemy.pool import NullPool
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -17,20 +18,44 @@ from main import app, get_session
 
 @pytest_asyncio.fixture(name="session", scope="function")
 async def session_fixture():
-    # Use NullPool for tests to avoid asyncpg InterfaceError: cannot perform operation: another operation is in progress
-    # This ensures each test gets a fresh connection that is closed at the end
-    # Pass the URL object directly to avoid password masking in string representation
-    
+    # Use a SEPARATE test database to avoid nuking dev data.
+    # Derive test DB URL from the main engine URL by appending "_test".
+    from urllib.parse import urlparse, urlunparse
+
+    main_url = engine.url.render_as_string(hide_password=False)
+    parsed = urlparse(main_url)
+
+    # Replace DB name: /shopping_agent -> /shopping_agent_test
+    test_path = parsed.path
+    if "/shopping_agent" in test_path and "_test" not in test_path:
+        test_path = test_path.replace("/shopping_agent", "/shopping_agent_test")
+    test_url = urlunparse(parsed._replace(path=test_path))
+
+    # Admin URL: swap DB name to /postgres (keep query params like ?ssl=disable)
+    admin_url = urlunparse(parsed._replace(path="/postgres"))
+    admin_engine = create_async_engine(admin_url, poolclass=NullPool, isolation_level="AUTOCOMMIT")
+    try:
+        async with admin_engine.connect() as conn:
+            result = await conn.execute(
+                sqlalchemy.text("SELECT 1 FROM pg_database WHERE datname = 'shopping_agent_test'")
+            )
+            if not result.scalar():
+                await conn.execute(sqlalchemy.text("CREATE DATABASE shopping_agent_test"))
+    finally:
+        await admin_engine.dispose()
+
     test_engine = create_async_engine(
-        engine.url, 
-        echo=False, 
-        future=True, 
-        poolclass=NullPool
+        test_url,
+        echo=False,
+        future=True,
+        poolclass=NullPool,
     )
-    
+
     # Re-init DB on the test engine to ensure schema
+    # Use raw DROP/CREATE SCHEMA to handle FK dependencies cleanly
     async with test_engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.drop_all)
+        await conn.execute(sqlalchemy.text("DROP SCHEMA public CASCADE"))
+        await conn.execute(sqlalchemy.text("CREATE SCHEMA public"))
         await conn.run_sync(SQLModel.metadata.create_all)
 
     async_session = sessionmaker(
@@ -38,7 +63,7 @@ async def session_fixture():
     )
     async with async_session() as session:
         yield session
-    
+
     await test_engine.dispose()
 
 @pytest_asyncio.fixture(name="test_user")

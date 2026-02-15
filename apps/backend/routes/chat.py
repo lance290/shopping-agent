@@ -20,6 +20,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from database import get_session
 from dependencies import get_current_session
 from models import Row, RequestSpec, Project
+from utils.json_utils import safe_json_loads
 from services.llm import (
     ChatContext,
     UnifiedDecision,
@@ -62,6 +63,7 @@ def row_to_dict(row: Row) -> dict:
         "project_id": row.project_id,
         "is_service": row.is_service,
         "service_category": row.service_category,
+        "desire_tier": row.desire_tier,
         "choice_factors": row.choice_factors,
         "choice_answers": row.choice_answers,
         "created_at": row.created_at.isoformat() if row.created_at else None,
@@ -73,6 +75,29 @@ def row_to_dict(row: Row) -> dict:
 # INTERNAL HELPERS (replace BFF HTTP calls with direct DB ops)
 # =============================================================================
 
+def _build_search_intent_json(title: str, search_query: str, constraints: Dict[str, Any], service_category: Optional[str]) -> str:
+    """Build a SearchIntent JSON from LLM intent fields so the scorer can rank by relevance."""
+    # Extract keywords from the title (the core "what")
+    stop_words = {"a", "an", "the", "for", "my", "i", "me", "to", "and", "or", "of", "in", "on", "with"}
+    keywords = [w for w in title.lower().split() if w not in stop_words and len(w) > 1]
+
+    intent_data = {
+        "product_category": service_category or title.lower().replace(" ", "_"),
+        "product_name": title,
+        "brand": constraints.get("brand") or constraints.get("preferred_brand"),
+        "keywords": keywords,
+        "min_price": constraints.get("min_price"),
+        "max_price": constraints.get("max_price") or constraints.get("budget") or constraints.get("max_budget"),
+        "raw_input": search_query or title,
+        "features": {k: v for k, v in constraints.items()
+                     if k not in ("brand", "preferred_brand", "min_price", "max_price", "budget", "max_budget")
+                     and v is not None and str(v).lower() != "not answered"},
+    }
+    # Remove None values
+    intent_data = {k: v for k, v in intent_data.items() if v is not None}
+    return json.dumps(intent_data)
+
+
 async def _create_row(
     session: AsyncSession,
     user_id: int,
@@ -81,6 +106,8 @@ async def _create_row(
     is_service: bool,
     service_category: Optional[str],
     constraints: Dict[str, Any],
+    search_query: Optional[str] = None,
+    desire_tier: Optional[str] = None,
 ) -> Row:
     """Create a new Row directly in DB."""
     row = Row(
@@ -90,6 +117,9 @@ async def _create_row(
         project_id=project_id,
         is_service=is_service,
         service_category=service_category or None,
+        desire_tier=desire_tier,
+        structured_constraints=json.dumps(constraints) if constraints else None,
+        search_intent=_build_search_intent_json(title, search_query or title, constraints, service_category),
     )
     session.add(row)
     await session.flush()
@@ -148,46 +178,6 @@ async def _save_choice_factors(session: AsyncSession, row: Row, factors: list) -
     await session.commit()
     await session.refresh(row)
     return row
-
-
-async def _fetch_vendors(
-    session: AsyncSession,
-    row_id: int,
-    service_category: str,
-    authorization: Optional[str],
-) -> List[Dict[str, Any]]:
-    """Fetch vendors for a service category. Uses the outreach route's logic."""
-    import httpx
-
-    # Call the backend's own outreach endpoint internally
-    # This is simpler than duplicating the vendor logic
-    headers: Dict[str, str] = {}
-    if authorization:
-        headers["Authorization"] = authorization
-
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{_SELF_BASE_URL}/outreach/vendors/{service_category}",
-                headers=headers,
-                timeout=15.0,
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                vendors = data.get("vendors", [])
-                if vendors:
-                    # Persist vendors as bids
-                    await client.post(
-                        f"{_SELF_BASE_URL}/outreach/rows/{row_id}/vendors",
-                        headers={**headers, "Content-Type": "application/json"},
-                        json={"category": service_category, "vendors": vendors},
-                        timeout=10.0,
-                    )
-                return vendors
-    except Exception as e:
-        logger.error(f"Failed to fetch vendors: {e}")
-
-    return []
 
 
 async def _stream_search(
@@ -290,10 +280,7 @@ async def chat_endpoint(
                 if active_row:
                     choice_answers = {}
                     if active_row.choice_answers:
-                        try:
-                            choice_answers = json.loads(active_row.choice_answers)
-                        except Exception:
-                            pass
+                        choice_answers = safe_json_loads(active_row.choice_answers, {})
                     active_row_data = {
                         "id": active_row_id,
                         "title": active_row.title or "",
@@ -336,7 +323,7 @@ async def chat_endpoint(
             title = intent.what[0].upper() + intent.what[1:] if intent.what else intent.what
             search_query = intent.search_query
             # Strip meta-fields that LLM may accidentally put in constraints
-            _META_KEYS = {"what", "is_service", "service_category", "search_query", "title", "category"}
+            _META_KEYS = {"what", "is_service", "service_category", "search_query", "title", "category", "desire_tier", "desire_confidence"}
             constraints = {k: v for k, v in (intent.constraints or {}).items() if k not in _META_KEYS}
 
             # === HANDLE EACH ACTION TYPE ===
@@ -363,13 +350,21 @@ async def chat_endpoint(
             # --- CREATE ROW (also used for context_switch) ---
             if action_type in ("create_row", "context_switch"):
                 event_name = "context_switch" if action_type == "context_switch" else "row_created"
+                tier = decision.desire_tier
 
                 yield sse_event("action_started", {"type": "create_row", "title": title})
                 row = await _create_row(
                     session, user_id, title, project_id,
-                    is_service, service_category, constraints,
+                    is_service, service_category, constraints, search_query,
+                    desire_tier=tier,
                 )
                 yield sse_event(event_name, {"row": row_to_dict(row)})
+                yield sse_event("desire_tier_classified", {
+                    "row_id": row.id,
+                    "desire_tier": tier,
+                    "desire_confidence": intent.desire_confidence,
+                    "skip_web_search": decision.skip_web_search,
+                })
 
                 # Generate choice factors
                 factors = await generate_choice_factors(
@@ -379,17 +374,10 @@ async def chat_endpoint(
                     row = await _save_choice_factors(session, row, factors)
                 yield sse_event("factors_updated", {"row": row_to_dict(row)})
 
-                # For services, fetch vendors. For products, search.
-                if is_service and service_category:
-                    yield sse_event("action_started", {"type": "fetch_vendors", "row_id": row.id, "category": service_category})
-                    vendors = await _fetch_vendors(session, row.id, service_category, authorization)
-                    yield sse_event("vendors_loaded", {
-                        "row_id": row.id,
-                        "category": service_category,
-                        "vendors": vendors,
-                    })
-                else:
-                    # Product search
+                # Search — routed by desire tier
+                # Vendor directory search runs for ALL tiers (handled inside search pipeline)
+                # Web search (Amazon/eBay/Google) only runs for commodity/considered tiers
+                if tier != "advisory":
                     yield sse_event("action_started", {"type": "search", "row_id": row.id, "query": search_query})
                     async for batch in _stream_search(row.id, search_query, authorization):
                         if batch.get("event") == "complete":
@@ -408,12 +396,22 @@ async def chat_endpoint(
                                 "more_incoming": batch.get("more_incoming", False),
                                 "provider": batch.get("provider"),
                             })
+                else:
+                    # Advisory tier — no search, flag for human review
+                    yield sse_event("search_results", {
+                        "row_id": row.id,
+                        "results": [],
+                        "more_incoming": False,
+                        "user_message": "This request needs specialized advisory services. I'll help connect you with the right professionals.",
+                    })
 
                 yield sse_event("done", {})
                 return
 
             # --- UPDATE ROW ---
             if action_type == "update_row":
+                tier = decision.desire_tier
+
                 if not active_row_id:
                     # No row exists yet (e.g. after ask_clarification).
                     # Promote to create_row — we have everything we need.
@@ -421,9 +419,16 @@ async def chat_endpoint(
                     yield sse_event("action_started", {"type": "create_row", "title": title})
                     row = await _create_row(
                         session, user_id, title, project_id,
-                        is_service, service_category, constraints,
+                        is_service, service_category, constraints, search_query,
+                        desire_tier=tier,
                     )
                     yield sse_event("row_created", {"row": row_to_dict(row)})
+                    yield sse_event("desire_tier_classified", {
+                        "row_id": row.id,
+                        "desire_tier": tier,
+                        "desire_confidence": intent.desire_confidence,
+                        "skip_web_search": decision.skip_web_search,
+                    })
 
                     factors = await generate_choice_factors(
                         title, constraints, is_service, service_category,
@@ -432,11 +437,7 @@ async def chat_endpoint(
                         row = await _save_choice_factors(session, row, factors)
                     yield sse_event("factors_updated", {"row": row_to_dict(row)})
 
-                    if is_service and service_category:
-                        yield sse_event("action_started", {"type": "fetch_vendors", "row_id": row.id, "category": service_category})
-                        vendors = await _fetch_vendors(session, row.id, service_category, authorization)
-                        yield sse_event("vendors_loaded", {"row_id": row.id, "category": service_category, "vendors": vendors})
-                    else:
+                    if tier != "advisory":
                         yield sse_event("action_started", {"type": "search", "row_id": row.id, "query": search_query})
                         async for batch in _stream_search(row.id, search_query, authorization):
                             if batch.get("event") == "complete":
@@ -460,12 +461,13 @@ async def chat_endpoint(
                 title_changed = (row.title or "").strip().lower() != title.strip().lower()
                 existing_constraints = {}
                 if row.choice_answers:
-                    try:
-                        existing_constraints = json.loads(row.choice_answers)
-                    except Exception:
-                        pass
+                    existing_constraints = safe_json_loads(row.choice_answers, {})
 
                 next_constraints = dict(constraints) if title_changed else {**existing_constraints, **constraints}
+
+                # Update desire_tier on the row
+                row.desire_tier = tier
+                row.structured_constraints = json.dumps(next_constraints) if next_constraints else row.structured_constraints
 
                 yield sse_event("action_started", {"type": "update_row", "row_id": active_row_id})
                 row = await _update_row(
@@ -474,6 +476,13 @@ async def chat_endpoint(
                     constraints=next_constraints if constraints else None,
                     reset_bids=title_changed,
                 )
+                # Refresh search_intent so scorer has current relevance data
+                row_service_cat_for_intent = service_category or (active_row_data or {}).get("service_category")
+                row.search_intent = _build_search_intent_json(
+                    row.title, search_query or row.title, next_constraints, row_service_cat_for_intent,
+                )
+                session.add(row)
+                await session.commit()
                 yield sse_event("row_updated", {"row": row_to_dict(row)})
 
                 # Regenerate factors if needed
@@ -487,19 +496,8 @@ async def chat_endpoint(
                         row = await _save_choice_factors(session, row, factors)
                     yield sse_event("factors_updated", {"row": row_to_dict(row)})
 
-                # Search or vendor fetch
-                row_is_service = is_service or (active_row_data or {}).get("is_service", False)
-                row_service_cat = service_category or (active_row_data or {}).get("service_category")
-
-                if row_is_service and row_service_cat:
-                    yield sse_event("action_started", {"type": "fetch_vendors", "row_id": active_row_id, "category": row_service_cat})
-                    vendors = await _fetch_vendors(session, active_row_id, row_service_cat, authorization)
-                    yield sse_event("vendors_loaded", {
-                        "row_id": active_row_id,
-                        "category": row_service_cat,
-                        "vendors": vendors,
-                    })
-                elif search_query:
+                # Search — routed by desire tier
+                if search_query and tier != "advisory":
                     yield sse_event("action_started", {"type": "search", "row_id": active_row_id, "query": search_query})
                     async for batch in _stream_search(active_row_id, search_query, authorization):
                         if batch.get("event") == "complete":
@@ -530,7 +528,8 @@ async def chat_endpoint(
                     yield sse_event("action_started", {"type": "create_row", "title": title})
                     row = await _create_row(
                         session, user_id, title, project_id,
-                        is_service, service_category, constraints,
+                        is_service, service_category, constraints, search_query,
+                        desire_tier=decision.desire_tier,
                     )
                     yield sse_event("row_created", {"row": row_to_dict(row)})
                     active_row_id = row.id

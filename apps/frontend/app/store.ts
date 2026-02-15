@@ -29,32 +29,6 @@ export interface Offer {
   comment_count?: number;
 }
 
-const getOfferStableKey = (offer: Offer): string => {
-  if (offer.bid_id) return `bid:${offer.bid_id}`;
-
-  const extractInnerUrl = (u: string): string | null => {
-    if (!u) return null;
-
-    if (u.startsWith('/api/clickout') || u.startsWith('/api/out')) {
-      try {
-        const parsed = new URL(u, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
-        const inner = parsed.searchParams.get('url');
-        return inner ? decodeURIComponent(inner) : null;
-      } catch {
-        return null;
-      }
-    }
-
-    if (u.startsWith('http://') || u.startsWith('https://')) return u;
-    return null;
-  };
-
-  const canonical = extractInnerUrl(offer.url) || extractInnerUrl(offer.click_url || '');
-  if (canonical) return `url:${canonical}`;
-  if (offer.url) return `raw:${offer.url}`;
-  return `fallback:${offer.title}-${offer.merchant}-${offer.price}`;
-};
-
 export type ProviderStatusType = 'ok' | 'error' | 'timeout' | 'exhausted' | 'rate_limited';
 
 export interface ProviderStatusSnapshot {
@@ -100,6 +74,7 @@ export interface Row {
   last_engaged_at?: number;  // Client-side timestamp for ordering
   is_service?: boolean;      // True if this is a service request (not a product)
   service_category?: string; // e.g., "private_aviation", "catering"
+  desire_tier?: string;      // commodity, considered, service, bespoke, high_value, advisory
 }
 
 export interface Project {
@@ -212,7 +187,6 @@ interface ShoppingState {
   newRowAggressiveness: number;   // 0..100: higher => more likely to start a new row
   rows: Row[];                    // All rows from database
   projects: Project[];            // All projects
-  searchResults: Offer[];         // Current search results (legacy view)
   rowResults: Record<number, Offer[]>; // Per-row cached results
   rowProviderStatuses: Record<number, ProviderStatusSnapshot[]>; // Per-row provider statuses
   rowSearchErrors: Record<number, string | null>; // Per-row search error messages
@@ -233,7 +207,6 @@ interface ShoppingState {
   addRow: (row: Row) => void;
   updateRow: (id: number, updates: Partial<Row>) => void;
   removeRow: (id: number) => void;
-  setSearchResults: (results: Offer[]) => void;
   setRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[], moreIncoming?: boolean, userMessage?: string) => void;
   appendRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[], moreIncoming?: boolean, userMessage?: string) => void;
   clearRowResults: (rowId: number) => void;
@@ -267,7 +240,6 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   newRowAggressiveness: 50,
   rows: [],
   projects: [],
-  searchResults: [],
   rowResults: {},
   rowProviderStatuses: {},
   rowSearchErrors: {},
@@ -460,7 +432,6 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     rows: state.rows.filter((row) => row.id !== id),
     activeRowId: state.activeRowId === id ? null : state.activeRowId,
   })),
-  setSearchResults: (results) => set({ searchResults: results, isSearching: false }),
   setRowResults: (rowId, results, providerStatuses, moreIncoming = false, userMessage) => set((state) => {
     const existing = state.rowResults[rowId] || [];
 
@@ -484,9 +455,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   appendRowResults: (rowId, results, providerStatuses, moreIncoming = false, userMessage) => set((state) => {
     const existingResults = state.rowResults[rowId] || [];
     const existingStatuses = state.rowProviderStatuses[rowId] || [];
-    // Dedupe by URL
+    // Dedupe by bid_id (stable identity), fall back to URL for pre-persistence offers
+    const seenBidIds = new Set(existingResults.filter(r => r.bid_id).map(r => r.bid_id));
     const seenUrls = new Set(existingResults.map(r => r.url));
-    const newResults = results.filter(r => !seenUrls.has(r.url));
+    const newResults = results.filter(r => {
+      if (r.bid_id) return !seenBidIds.has(r.bid_id);
+      return !seenUrls.has(r.url);
+    });
     return {
       rowResults: { ...state.rowResults, [rowId]: [...existingResults, ...newResults] },
       rowProviderStatuses: providerStatuses 
@@ -516,7 +491,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   setMoreResultsIncoming: (rowId, incoming) => set((state) => ({
     moreResultsIncoming: { ...state.moreResultsIncoming, [rowId]: incoming },
   })),
-  clearSearch: () => set({ searchResults: [], rowResults: {}, rowProviderStatuses: {}, rowSearchErrors: {}, moreResultsIncoming: {}, currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
+  clearSearch: () => set({ rowResults: {}, rowProviderStatuses: {}, rowSearchErrors: {}, moreResultsIncoming: {}, currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
   setCardClickQuery: (query) => set({ cardClickQuery: query }),
 
   // Find a row that matches the query, or return null if we need to create one

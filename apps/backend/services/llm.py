@@ -134,12 +134,18 @@ def _extract_json_array(text: str) -> list:
 # DATA MODELS
 # =============================================================================
 
+# Valid desire tiers — drives downstream routing
+DESIRE_TIERS = ("commodity", "considered", "service", "bespoke", "high_value", "advisory")
+
+
 class UserIntent(BaseModel):
     what: str
-    category: str  # "product" or "service"
-    service_type: Optional[str] = None
+    category: str = "request"
+    service_type: Optional[str] = None  # vendor_category hint (e.g. "private_aviation")
     search_query: str
     constraints: Dict[str, Any] = {}
+    desire_tier: str = "commodity"  # one of DESIRE_TIERS
+    desire_confidence: float = 0.8  # 0.0-1.0
 
 
 class ClarificationAction(BaseModel):
@@ -166,6 +172,15 @@ class UnifiedDecision(BaseModel):
     message: str
     intent: UserIntent
     action: Dict[str, Any]  # flexible to handle all action types
+
+    @property
+    def desire_tier(self) -> str:
+        return self.intent.desire_tier if self.intent.desire_tier in DESIRE_TIERS else "commodity"
+
+    @property
+    def skip_web_search(self) -> bool:
+        """Service/bespoke/high-value/advisory tiers skip web search — it can't help."""
+        return self.desire_tier in ("service", "bespoke", "high_value", "advisory")
 
 
 class ChatContext(BaseModel):
@@ -223,13 +238,34 @@ You MUST always return an "intent" object that captures WHAT THE USER WANTS:
 
 {{
   "intent": {{
-    "what": "The core thing they want - e.g., 'private jet charter', 'kids baseball glove', 'winter coat'",
-    "category": "product" or "service",
-    "service_type": "for services only: private_aviation, yacht_charter, catering, etc.",
+    "what": "The core thing they want - e.g., 'private jet charter', 'kids baseball glove', 'custom diamonds'",
+    "category": "request",
+    "service_type": "optional vendor category hint: private_aviation, roofing, hvac, jewelry, catering, etc. Use when a vendor directory might have relevant providers. null if unsure.",
     "search_query": "The query to find this - derived from WHAT, not conversation snippets",
-    "constraints": {{ structured data ONLY: origin, destination, date, size, color, price, recipient, etc. NEVER include 'what', 'is_service', 'service_category', 'search_query', or 'title' in constraints — those belong in the parent intent fields. }}
+    "constraints": {{ structured data ONLY: origin, destination, date, size, color, price, recipient, etc. NEVER include 'what', 'is_service', 'service_category', 'search_query', or 'title' in constraints — those belong in the parent intent fields. }},
+    "desire_tier": "one of: commodity, considered, service, bespoke, high_value, advisory",
+    "desire_confidence": 0.0-1.0
   }}
 }}
+
+=== DESIRE TIER (classify EVERY request) ===
+Before deciding the action, classify what KIND of desire this is:
+
+| Tier | When to use | Examples |
+| commodity | Simple product, buy off the shelf | "AA batteries", "Roblox gift card", "running shoes" |
+| considered | Complex product needing comparison | "laptop for video editing", "best DSLR camera", "ergonomic office chair" |
+| service | Hire someone / book a service | "private jet charter", "HVAC repair", "catering for 200", "wedding photographer" |
+| bespoke | Custom-made / commissioned item | "custom engagement ring", "commission a mural", "bespoke suit" |
+| high_value | Major asset purchase (>$100k typically) | "mega-yacht", "aircraft purchase", "commercial real estate" |
+| advisory | Needs professional advisory, not a search | "acquire a SaaS company", "set up a family trust", "corporate M&A" |
+
+CRITICAL: The desire_tier drives how the system helps the user:
+- commodity/considered → web search (Amazon, eBay, Google Shopping)
+- service/bespoke → vendor directory search (match with specialists) — do NOT search Amazon
+- high_value → broker/specialist matching — do NOT search Amazon
+- advisory → flag for human review — no search at all
+
+Set desire_confidence to how sure you are (0.0-1.0). If < 0.7, the system will ask a clarifying question.
 
 CRITICAL INTENT RULES:
 - "what" is NEVER a date, number, or clarification answer. It's the THING they want.
@@ -240,10 +276,11 @@ CRITICAL INTENT RULES:
   - constraints: {{ origin: "SAN", destination: "EWR", date: "Feb 13", passengers: 7, passenger_names: "John Doe, Jane Doe" }}
 - If pending_clarification exists, MERGE its intent with new info. The "what" comes from the ORIGINAL request.
 
-SERVICE vs PRODUCT:
-- SERVICE (category: "service"): User needs someone to DO something (fly them, cater, photograph, renovate)
-- PRODUCT (category: "product"): User wants to BUY an item — physical OR digital. This includes: shoes, laptop, coat, gift cards, subscriptions, software licenses, digital downloads, game codes, etc.
-- GIFT CARDS ARE ALWAYS PRODUCTS, never services.
+VENDOR CATEGORY HINT:
+- Set service_type to a vendor category when the request might benefit from matching against a vendor directory.
+- Examples: "private_aviation", "roofing", "hvac", "jewelry", "catering", "photography", "auto_repair"
+- This is just a hint — the system will ALWAYS search for both vendors and web results regardless.
+- Set to null if no obvious vendor category applies (e.g. "Roblox gift card").
 
 === ACTION TYPES ===
 1. "create_row" - Create new request (no active row, or after clarification)
@@ -285,18 +322,19 @@ You are NOT just a chatbot. You are a procurement agent. For every request, foll
 
 4. Only use ask_clarification when you're missing ESSENTIAL choice factors. For simple product searches with enough context, go straight to create_row.
 
-SERVICE REQUESTS:
+COMPLEX REQUESTS (services, custom/bespoke items, high-value purchases):
 - Use ask_clarification to gather essential details first
 - Essential details by type:
   - Private jets: origin, destination, date, passengers, passenger_names
   - Catering: date, location, headcount
   - Photography: date, location, event type
+  - Custom jewelry: recipient, budget, carat weight, style preferences
 - Then create_row with full intent
 
 Return ONLY valid JSON:
 {{
   "message": "Conversational response to user (REQUIRED)",
-  "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}} }},
+  "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}}, "desire_tier": "commodity|considered|service|bespoke|high_value|advisory", "desire_confidence": 0.9 }},
   "action": {{ "type": "..." }}
 }}"""
 

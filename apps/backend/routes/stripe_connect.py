@@ -15,7 +15,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from dependencies import get_current_session
-from models import Merchant
+from models import Vendor
 
 logger = logging.getLogger(__name__)
 
@@ -179,22 +179,13 @@ async def seller_earnings(
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     result = await session.exec(
-        select(Merchant).where(Merchant.user_id == auth_session.user_id)
+        select(Vendor).where(Vendor.user_id == auth_session.user_id)
     )
     merchant = result.first()
     if not merchant:
         raise HTTPException(status_code=403, detail="No merchant profile")
 
-    # Find purchases for bids linked to this merchant's seller_id
-    if not merchant.seller_id:
-        return EarningsSummary(
-            total_earnings=0.0,
-            pending_payouts=0.0,
-            completed_transactions=0,
-            commission_rate=merchant.default_commission_rate,
-        )
-
-    # Get completed purchases for this seller
+    # Find purchases for bids linked to this vendor
     purchases_result = await session.exec(
         select(
             func.count(PurchaseEvent.id),
@@ -202,7 +193,7 @@ async def seller_earnings(
             func.coalesce(func.sum(PurchaseEvent.platform_fee_amount), 0),
         ).where(
             PurchaseEvent.bid_id.in_(
-                select(Bid.id).where(Bid.seller_id == merchant.seller_id)
+                select(Bid.id).where(Bid.vendor_id == merchant.id)
             ),
             PurchaseEvent.status == "completed",
         )

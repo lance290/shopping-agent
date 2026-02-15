@@ -12,7 +12,11 @@ from pydantic import BaseModel
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from models import Merchant, Seller
+from models import Vendor
+from utils.json_utils import safe_json_loads
+
+# Merchant is now an alias for Vendor
+Merchant = Vendor
 from database import get_session
 from dependencies import get_current_session
 
@@ -58,9 +62,9 @@ async def register_merchant(
     if not auth_session:
         raise HTTPException(status_code=401, detail="Login required to register as a seller")
 
-    # Check if user already has a merchant profile
+    # Check if user already has a vendor/merchant profile
     existing_user = await session.execute(
-        select(Merchant).where(Merchant.user_id == auth_session.user_id)
+        select(Vendor).where(Vendor.user_id == auth_session.user_id)
     )
     if existing_user.scalar_one_or_none():
         raise HTTPException(
@@ -70,7 +74,7 @@ async def register_merchant(
 
     # Check for duplicate email
     result = await session.execute(
-        select(Merchant).where(Merchant.email == registration.email)
+        select(Vendor).where(Vendor.email == registration.email)
     )
     existing = result.scalar_one_or_none()
     if existing:
@@ -79,38 +83,26 @@ async def register_merchant(
             detail="A merchant with this email is already registered."
         )
 
-    # Create or find Seller record for bid attribution
-    seller_result = await session.execute(
-        select(Seller).where(Seller.name == registration.business_name)
-    )
-    seller = seller_result.scalar_one_or_none()
-    if not seller:
-        seller = Seller(
-            name=registration.business_name,
-            domain=registration.website or None,
-        )
-        session.add(seller)
-        await session.flush()
-
-    merchant = Merchant(
-        business_name=registration.business_name,
+    # Create unified Vendor record (replaces old Seller + Merchant pair)
+    vendor = Vendor(
+        name=registration.business_name,
         contact_name=registration.contact_name,
         email=registration.email,
         phone=registration.phone,
         website=registration.website,
-        categories=json.dumps(registration.categories) if registration.categories else None,
+        domain=registration.website or None,
+        category=registration.categories[0] if registration.categories else None,
         service_areas=json.dumps(registration.service_areas) if registration.service_areas else None,
-        seller_id=seller.id,
         user_id=auth_session.user_id,
         status="pending",
     )
-    session.add(merchant)
+    session.add(vendor)
     await session.commit()
-    await session.refresh(merchant)
+    await session.refresh(vendor)
 
     return {
         "status": "registered",
-        "merchant_id": merchant.id,
+        "merchant_id": vendor.id,
         "message": "Registration received. You will be contacted for verification.",
     }
 
@@ -126,37 +118,26 @@ async def get_my_merchant_profile(
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     result = await session.execute(
-        select(Merchant).where(Merchant.user_id == auth_session.user_id)
+        select(Vendor).where(Vendor.user_id == auth_session.user_id)
     )
-    merchant = result.scalar_one_or_none()
-    if not merchant:
+    vendor = result.scalar_one_or_none()
+    if not vendor:
         raise HTTPException(status_code=404, detail="No merchant profile found")
 
-    categories = []
-    if merchant.categories:
-        try:
-            categories = json.loads(merchant.categories)
-        except (json.JSONDecodeError, TypeError):
-            pass
-
-    service_areas = []
-    if merchant.service_areas:
-        try:
-            service_areas = json.loads(merchant.service_areas)
-        except (json.JSONDecodeError, TypeError):
-            pass
+    categories = [vendor.category] if vendor.category else []
+    service_areas = safe_json_loads(vendor.service_areas, [])
 
     return MerchantResponse(
-        id=merchant.id,
-        business_name=merchant.business_name,
-        contact_name=merchant.contact_name,
-        email=merchant.email,
-        phone=merchant.phone,
-        website=merchant.website,
+        id=vendor.id,
+        business_name=vendor.name,
+        contact_name=vendor.contact_name or "",
+        email=vendor.email or "",
+        phone=vendor.phone,
+        website=vendor.website,
         categories=categories,
         service_areas=service_areas,
-        status=merchant.status,
-        created_at=merchant.created_at.isoformat(),
+        status=vendor.status,
+        created_at=vendor.created_at.isoformat(),
     )
 
 
@@ -172,16 +153,16 @@ async def search_merchants(
     """
     # TODO: Push category/area filtering to DB query (e.g. JSON contains or
     # a categories join table) once merchant volume justifies it.
-    query = select(Merchant).where(Merchant.status == "verified")
+    query = select(Vendor).where(Vendor.status == "verified")
 
     result = await session.execute(query)
-    merchants = result.scalars().all()
+    vendors = result.scalars().all()
 
-    # Filter by category and area in Python (JSON fields)
+    # Filter by category and area in Python
     matched = []
-    for m in merchants:
-        cats = json.loads(m.categories) if m.categories else []
-        areas = json.loads(m.service_areas) if m.service_areas else []
+    for v in vendors:
+        cats = [v.category] if v.category else []
+        areas = safe_json_loads(v.service_areas, [])
 
         if category and category not in cats:
             continue
@@ -189,10 +170,10 @@ async def search_merchants(
             continue
 
         matched.append({
-            "id": m.id,
-            "business_name": m.business_name,
-            "contact_name": m.contact_name,
-            "website": m.website,
+            "id": v.id,
+            "business_name": v.name,
+            "contact_name": v.contact_name,
+            "website": v.website,
             "categories": cats,
             "service_areas": areas,
         })
@@ -234,7 +215,7 @@ async def start_stripe_connect_onboarding(
 
     # Find merchant for this user
     result = await session.exec(
-        select(Merchant).where(Merchant.user_id == auth_session.user_id)
+        select(Vendor).where(Vendor.user_id == auth_session.user_id)
     )
     merchant = result.first()
     if not merchant:
@@ -285,7 +266,7 @@ async def stripe_connect_status(
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     result = await session.exec(
-        select(Merchant).where(Merchant.user_id == auth_session.user_id)
+        select(Vendor).where(Vendor.user_id == auth_session.user_id)
     )
     merchant = result.first()
     if not merchant:

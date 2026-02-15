@@ -1,4 +1,4 @@
-"""Bid and seller models: marketplace results and vendors."""
+"""Bid and vendor models: marketplace results and vendors."""
 
 from typing import Optional, List, Dict, Any, TYPE_CHECKING
 import json
@@ -10,26 +10,56 @@ if TYPE_CHECKING:
     from models.rows import Row
 
 
-class Seller(SQLModel, table=True):
+class Vendor(SQLModel, table=True):
+    """Unified vendor entity — merged from seller + vendor_profile + merchant."""
+    __tablename__ = "vendor"
+
     id: Optional[int] = Field(default=None, primary_key=True)
+    # Identity
     name: str = Field(index=True)
     email: Optional[str] = Field(default=None, index=True)
     domain: Optional[str] = None
-    is_verified: bool = False
-
-    # Enhanced vendor fields
-    image_url: Optional[str] = None
-    category: Optional[str] = Field(default=None, index=True)
-    contact_name: Optional[str] = None
     phone: Optional[str] = None
+    website: Optional[str] = None
+    # Classification
+    category: Optional[str] = Field(default=None, index=True)
+    service_areas: Optional[str] = None  # JSON
+    specialties: Optional[str] = None
+    description: Optional[str] = None
+    tagline: Optional[str] = None
+    image_url: Optional[str] = None
+    # Search / embeddings
+    profile_text: Optional[str] = None
+    embedding: Optional[str] = None  # JSON
+    embedding_model: Optional[str] = None
+    embedded_at: Optional[datetime] = None
+    # Contact
+    contact_name: Optional[str] = None
+    # Status & trust
+    is_verified: bool = False
+    status: str = "unverified"
+    # Merchant fields
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    stripe_account_id: Optional[str] = Field(default=None, index=True)
+    stripe_onboarding_complete: bool = False
+    default_commission_rate: float = 0.05
+    verification_level: str = "unverified"
+    reputation_score: float = 0.0
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
 
     bids: List["Bid"] = Relationship(back_populates="seller")
+
+
+# Backward-compatible alias during migration
+Seller = Vendor
 
 
 class Bid(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     row_id: int = Field(foreign_key="row.id")
-    seller_id: Optional[int] = Field(default=None, foreign_key="seller.id")
+    vendor_id: Optional[int] = Field(default=None, foreign_key="vendor.id")
 
     price: float
     shipping_cost: float = 0.0
@@ -78,7 +108,7 @@ class Bid(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     row: "Row" = Relationship(back_populates="bids")
-    seller: Optional[Seller] = Relationship(back_populates="bids")
+    seller: Optional[Vendor] = Relationship(back_populates="bids")
 
 
 class BidWithProvenance(SQLModel):
@@ -92,7 +122,7 @@ class BidWithProvenance(SQLModel):
     # Copy all Bid fields except relationships
     id: Optional[int] = None
     row_id: int
-    seller_id: Optional[int] = None
+    vendor_id: Optional[int] = None
 
     price: float
     shipping_cost: float = 0.0

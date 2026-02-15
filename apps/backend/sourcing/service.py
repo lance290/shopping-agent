@@ -77,20 +77,15 @@ class SourcingService:
         row = row_res.first()
         min_price, max_price = self._extract_price_constraints(row) if row else (None, None)
 
-        if row and (min_price is not None or max_price is not None):
-            # Do not delete service-provider bids (wattdata) when applying price filters.
-            # These results typically have no fixed price.
-            # Also protect liked and selected bids — user explicitly chose these.
-            cond = (Bid.price <= 0) & (Bid.source != "wattdata")
-            if min_price is not None:
-                cond = cond | (Bid.price < min_price)
-            if max_price is not None:
-                cond = cond | (Bid.price > max_price)
-
+        if row and max_price is not None:
+            # Only hard-delete bids that exceed the budget ceiling (max_price).
+            # Keep bids with no price and bids below min_price — scorer ranks them.
+            # Protect liked/selected bids and service providers.
             await self.session.exec(
                 delete(Bid).where(
                     Bid.row_id == row_id,
-                    cond,
+                    Bid.price > max_price,
+                    Bid.source != "vendor_directory",
                     Bid.is_liked == False,
                     Bid.is_selected == False,
                 )
@@ -128,38 +123,29 @@ class SourcingService:
             # Fallback logic if needed, or rely on repo to handle normalization
             pass
 
-        if min_price is not None or max_price is not None:
+        if max_price is not None:
             filtered: List[NormalizedResult] = []
-            # Sources that don't provide price data - allow through without price filtering
-            non_shopping_sources = {"google_cse"}
-            # Service providers that do not have fixed prices - allow through without price filtering
-            service_sources = {"wattdata"}
-            dropped_zero = 0
-            dropped_min = 0
+            from sourcing.constants import NON_SHOPPING_SOURCES, SERVICE_SOURCES
+            
             dropped_max = 0
             for res in normalized_results:
                 # Allow non-shopping sources through (they don't have price data)
-                if res.source in non_shopping_sources:
-                    filtered.append(res)
-                    continue
-                # Allow service providers through (they don't have fixed prices)
-                if res.source in service_sources:
+                if res.source in NON_SHOPPING_SOURCES or res.source in SERVICE_SOURCES:
                     filtered.append(res)
                     continue
                 price = res.price
+                # Keep results with no price — scorer will rank them lower
                 if price is None or price <= 0:
-                    dropped_zero += 1
+                    filtered.append(res)
                     continue
-                if min_price is not None and price < min_price:
-                    dropped_min += 1
-                    continue
-                if max_price is not None and price > max_price:
+                # Only hard-filter on max_price (budget ceiling).
+                # min_price is aspirational — the scorer handles it via price_score.
+                if price > max_price:
                     dropped_max += 1
                     continue
                 filtered.append(res)
-            logger.info(f"[SourcingService] Price filter: {len(normalized_results)} -> {len(filtered)} (dropped: zero={dropped_zero}, min={dropped_min}, max={dropped_max})")
-            price_dropped = dropped_zero + dropped_min + dropped_max
-            metrics.record_price_filter(applied=True, dropped=price_dropped)
+            logger.info(f"[SourcingService] Price filter: {len(normalized_results)} -> {len(filtered)} (dropped: max={dropped_max})")
+            metrics.record_price_filter(applied=True, dropped=dropped_max)
             normalized_results = filtered
         else:
             metrics.record_price_filter(applied=False, dropped=0)
@@ -183,6 +169,70 @@ class SourcingService:
             min_price=min_price,
             max_price=max_price,
         )
+
+        # 2b. Quantum re-ranking (for results with embeddings)
+        try:
+            from sourcing.quantum.reranker import QuantumReranker
+            if not hasattr(self, '_quantum_reranker'):
+                self._quantum_reranker = QuantumReranker()
+            reranker = self._quantum_reranker
+            if reranker.is_available() and row:
+                # Build result dicts with embeddings for quantum scoring, keyed by index
+                results_for_quantum = []
+                for idx, res in enumerate(normalized_results):
+                    rd = {
+                        "_idx": idx,
+                        "title": res.title,
+                        "embedding": res.raw_data.get("embedding") if res.raw_data else None,
+                    }
+                    results_for_quantum.append(rd)
+
+                # Get query embedding from search intent
+                query_emb = None
+                if row.search_intent:
+                    try:
+                        intent_data = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
+                        query_emb = intent_data.get("query_embedding")
+                    except Exception:
+                        pass
+
+                if query_emb and any(r.get("embedding") for r in results_for_quantum):
+                    reranked = await reranker.rerank_results(
+                        query_embedding=query_emb,
+                        search_results=results_for_quantum,
+                        top_k=len(normalized_results),
+                    )
+                    # Apply quantum scores back using the _idx key to match correctly
+                    score_map = {}
+                    for r in reranked:
+                        if r.get("quantum_reranked") and "_idx" in r:
+                            score_map[r["_idx"]] = r
+                    for idx, res in enumerate(normalized_results):
+                        if idx in score_map:
+                            qr = score_map[idx]
+                            res.provenance["quantum_score"] = qr.get("quantum_score", 0.0)
+                            res.provenance["blended_score"] = qr.get("blended_score", 0.0)
+                            res.provenance["novelty_score"] = qr.get("novelty_score", 0.0)
+                            res.provenance["coherence_score"] = qr.get("coherence_score", 0.0)
+                    logger.info(f"[SourcingService] Quantum reranking applied to {len(score_map)} results")
+        except ImportError:
+            pass  # Quantum module not available — classical scoring only
+        except Exception as e:
+            logger.warning(f"[SourcingService] Quantum reranking failed (graceful degradation): {e}")
+
+        # 2c. Constraint satisfaction scoring
+        if row and row.structured_constraints:
+            try:
+                from sourcing.quantum.constraint_scorer import constraint_satisfaction_score
+                constraints = json.loads(row.structured_constraints) if isinstance(row.structured_constraints, str) else row.structured_constraints
+                if isinstance(constraints, dict) and constraints:
+                    for res in normalized_results:
+                        result_data = {"title": res.title, "raw_data": res.raw_data}
+                        c_score = constraint_satisfaction_score(result_data, constraints)
+                        res.provenance["constraint_score"] = round(c_score, 4)
+                    logger.info(f"[SourcingService] Constraint scoring applied to {len(normalized_results)} results")
+            except Exception as e:
+                logger.warning(f"[SourcingService] Constraint scoring failed: {e}")
 
         # 3. Persist Results
         bids = await self._persist_results(row_id, normalized_results, row)
@@ -353,7 +403,7 @@ class SourcingService:
 
             # Determine source tier
             source_tier = "marketplace"  # default
-            if res.source in ("seller_quote", "wattdata"):
+            if res.source in ("seller_quote", "vendor_directory"):
                 source_tier = "outreach"
             elif res.source == "registered_merchant":
                 source_tier = "registered"
@@ -366,7 +416,7 @@ class SourcingService:
                 existing_bid.item_title = res.title
                 existing_bid.image_url = res.image_url
                 existing_bid.source = res.source
-                existing_bid.seller_id = seller.id
+                existing_bid.vendor_id = seller.id
                 existing_bid.canonical_url = res.canonical_url
                 existing_bid.provenance = provenance_json
                 existing_bid.combined_score = combined_score
@@ -383,7 +433,7 @@ class SourcingService:
                 # Create
                 new_bid = Bid(
                     row_id=row_id,
-                    seller_id=seller.id,
+                    vendor_id=seller.id,
                     price=res.price or 0.0,
                     total_cost=res.price or 0.0,
                     currency=res.currency,

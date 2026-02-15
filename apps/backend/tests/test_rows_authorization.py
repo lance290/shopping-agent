@@ -440,13 +440,13 @@ async def test_rows_filter_preserves_service_provider_bids(client: AsyncClient, 
 
     service_bid = Bid(
         row_id=row.id,
-        seller_id=seller.id,
+        vendor_id=seller.id,
         price=0.0,
         total_cost=0.0,
         currency="USD",
         item_title="JetRight (Contact: Alexis)",
         item_url="mailto:team@jetright.com",
-        source="wattdata",
+        source="vendor_directory",
         is_selected=False,
         is_service_provider=True,
         contact_name="Alexis",
@@ -529,57 +529,5 @@ async def test_reset_bids_clears_existing_bids(client: AsyncClient, session):
     assert refreshed.json().get("bids") == []
 
 
-@pytest.mark.asyncio
-async def test_persist_vendors_creates_service_bids(client: AsyncClient, session):
-    user = User(email="vendors@example.com")
-    session.add(user)
-    await session.commit()
-    await session.refresh(user)
-
-    token = generate_session_token()
-    auth_session = AuthSession(
-        email=user.email,
-        user_id=user.id,
-        session_token_hash=hash_token(token),
-    )
-    session.add(auth_session)
-    await session.commit()
-
-    row = Row(title="Private jet charter", status="sourcing", user_id=user.id)
-    session.add(row)
-    await session.commit()
-    await session.refresh(row)
-
-    vendor_payload = {
-        "category": "private_aviation",
-        "vendors": [
-            {
-                "title": "JetRight",
-                "vendor_company": "JetRight",
-                "vendor_name": "Alexis",
-                "vendor_email": "team@jetright.com",
-                "contact_phone": "+16505550199",
-                "source": "wattdata",
-            }
-        ],
-    }
-
-    persist = await client.post(
-        f"/outreach/rows/{row.id}/vendors",
-        json=vendor_payload,
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    assert persist.status_code == 200
-
-    resp = await client.get(
-        f"/rows/{row.id}",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    assert resp.status_code == 200
-    bids = resp.json().get("bids") or []
-    assert len(bids) == 1
-    assert bids[0]["is_service_provider"] is True
-    assert bids[0]["contact_email"] == "team@jetright.com"
-    assert bids[0]["contact_phone"] == "+16505550199"
 
 

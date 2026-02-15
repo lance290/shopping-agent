@@ -28,6 +28,7 @@ from sourcing.service import SourcingService
 from sourcing.material_filter import extract_material_constraints, should_exclude_result
 from sourcing.choice_filter import should_exclude_by_choices, extract_choice_constraints
 from sourcing.messaging import determine_search_user_message
+from utils.json_utils import safe_json_loads
 
 router = APIRouter(tags=["rows"])
 logger = logging.getLogger(__name__)
@@ -47,26 +48,20 @@ def _build_base_query(row: Row, spec: Optional[RequestSpec], explicit_query: Opt
 
     if not explicit_query:
         if spec and spec.constraints:
-            try:
-                constraints_obj = json.loads(spec.constraints)
-                constraint_parts = [f"{k}: {v}" for k, v in constraints_obj.items()]
-                if constraint_parts:
-                    base_query = base_query + " " + " ".join(constraint_parts)
-            except Exception:
-                pass
+            constraints_obj = safe_json_loads(spec.constraints, {})
+            constraint_parts = [f"{k}: {v}" for k, v in constraints_obj.items()]
+            if constraint_parts:
+                base_query = base_query + " " + " ".join(constraint_parts)
 
         if row.choice_answers:
-            try:
-                answers_obj = json.loads(row.choice_answers)
-                answer_parts = [
-                    f"{k} {v}"
-                    for k, v in answers_obj.items()
-                    if k not in ("min_price", "max_price") and v and str(v).lower() != "not answered"
-                ]
-                if answer_parts:
-                    base_query = base_query + " " + " ".join(answer_parts)
-            except Exception:
-                pass
+            answers_obj = safe_json_loads(row.choice_answers, {})
+            answer_parts = [
+                f"{k} {v}"
+                for k, v in answers_obj.items()
+                if k not in ("min_price", "max_price") and v and str(v).lower() != "not answered"
+            ]
+            if answer_parts:
+                base_query = base_query + " " + " ".join(answer_parts)
 
     return base_query, user_provided
 
@@ -101,17 +96,14 @@ def _extract_filters(row: Row, spec: Optional[RequestSpec]) -> tuple[Optional[fl
 
     # Check for material constraints in spec
     if spec and spec.constraints:
-        try:
-            constraints_obj = json.loads(spec.constraints)
+        constraints_obj = safe_json_loads(spec.constraints, {})
+        if constraints_obj:
             exclude_synthetics, custom_exclude_keywords = extract_material_constraints(constraints_obj)
-        except Exception:
-            pass
 
     # Check for price and material constraints in choice_answers
     if row.choice_answers:
-        try:
-            answers_obj = json.loads(row.choice_answers)
-
+        answers_obj = safe_json_loads(row.choice_answers, {})
+        if answers_obj:
             # Extract price constraints
             if answers_obj.get("min_price"):
                 min_price = float(answers_obj["min_price"])
@@ -128,8 +120,6 @@ def _extract_filters(row: Row, spec: Optional[RequestSpec]) -> tuple[Optional[fl
 
             # Extract choice constraints (color, size, etc.)
             choice_constraints = extract_choice_constraints(row.choice_answers)
-        except Exception:
-            pass
 
     return min_price, max_price, exclude_synthetics, custom_exclude_keywords, choice_constraints
 
@@ -301,10 +291,8 @@ async def search_row_listings(
     # Apply price, material, and choice filtering
     if min_price_filter is not None or max_price_filter is not None or exclude_synthetics or custom_exclude_keywords or choice_constraints:
         filtered_results = []
-        # Sources that don't provide price data - allow through without price filtering
-        non_shopping_sources = {"google_cse"}
-        # Service providers that do not have fixed prices - allow through without price filtering
-        service_sources = {"wattdata"}
+        from sourcing.constants import NON_SHOPPING_SOURCES, SERVICE_SOURCES
+        
         dropped_price = 0
         dropped_materials = 0
         dropped_choices = 0
@@ -329,18 +317,17 @@ async def search_row_listings(
                     continue
 
             # Apply price filtering (skip for non-shopping sources and service providers)
-            if source_key in non_shopping_sources or source_key in service_sources:
+            if source_key in NON_SHOPPING_SOURCES or source_key in SERVICE_SOURCES:
                 filtered_results.append(r)
                 continue
 
             price = getattr(r, "price", None)
+            # Keep results with no price — scorer ranks them lower
             if price is None or price == 0:
-                dropped_price += 1
+                filtered_results.append(r)
                 continue
-            # Filter: keep items where price >= min AND price <= max
-            if min_price_filter is not None and price < min_price_filter:
-                dropped_price += 1
-                continue
+            # Only hard-filter on max_price (budget ceiling).
+            # min_price is aspirational — the scorer handles it via price_score.
             if max_price_filter is not None and price > max_price_filter:
                 dropped_price += 1
                 continue
@@ -413,13 +400,14 @@ async def search_row_listings_stream(
         """Generate SSE events as each provider completes."""
         all_results: List[SearchResult] = []
         all_statuses: List[ProviderStatusSnapshot] = []
-        non_shopping_sources = {"google_cse"}
+        from sourcing.constants import NON_SHOPPING_SOURCES
 
         async for provider_name, results, status, providers_remaining in sourcing_repo.search_streaming(
             sanitized_query,
             providers=body.providers,
             min_price=min_price_filter,
             max_price=max_price_filter,
+            desire_tier=row.desire_tier,
         ):
             all_statuses.append(status)
 
@@ -440,7 +428,7 @@ async def search_row_listings_stream(
 
                 source = getattr(r, "source", None)
                 # Allow non-shopping sources through (skip price filtering)
-                if source in non_shopping_sources:
+                if source in NON_SHOPPING_SOURCES:
                     filtered_batch.append(r)
                     continue
 

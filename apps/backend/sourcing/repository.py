@@ -775,49 +775,9 @@ class GoogleCustomSearchProvider(SourcingProvider):
             return []
 
 
-class WattDataMockProvider(SourcingProvider):
-    """Mock WattData provider for private jet demo."""
-    def __init__(self):
-        pass
-
-    async def search(self, query: str, **kwargs) -> List[SearchResult]:
-        from services.vendors import is_service_category, get_vendors, normalize_category
-        
-        if not is_service_category(query):
-            return []
-            
-        print(f"[WattDataMockProvider] Fetching vendors for query: {query!r}")
-        category = normalize_category(query)
-        vendors = get_vendors(category, limit=10)
-        
-        results = []
-        for vendor in vendors:
-            # Create a persistent mailto URL that SourcingService can use for deduplication
-            url = f"mailto:{vendor.email}"
-            
-            results.append(SearchResult(
-                title=f"{vendor.company} (Contact: {vendor.name})",
-                price=0.0, # Service providers don't have fixed prices
-                currency="USD",
-                merchant=vendor.company,
-                url=url,
-                merchant_domain=extract_merchant_domain(vendor.email.split('@')[-1] if '@' in vendor.email else ""),
-                image_url=None,
-                rating=None,
-                reviews_count=None,
-                shipping_info=None,
-                source="wattdata", # Will be mapped to is_service_provider in frontend
-            ))
-            
-        return results
-
-
 class SourcingRepository:
     def __init__(self):
         self.providers: Dict[str, SourcingProvider] = {}
-        
-        # WattData Mock (Private Jet Demo) - Always enabled for demo purposes
-        self.providers["wattdata"] = WattDataMockProvider()
         
         # Initialize providers in priority order
         # SerpAPI - DISABLED (registration issues)
@@ -877,7 +837,15 @@ class SourcingRepository:
         # if ebay_client_id and ebay_client_secret:
         #     self.providers["ebay"] = EbayBrowseProvider(...)
         
-        # Mock provider - FREE fallback for testing, always available
+        # Vendor Directory — pgvector semantic search (always runs)
+        from sourcing.vendor_provider import VendorDirectoryProvider
+        db_url = os.getenv("DATABASE_URL", "")
+        if db_url:
+            # Ensure asyncpg driver
+            if db_url.startswith("postgresql://"):
+                db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            self.providers["vendor_directory"] = VendorDirectoryProvider(db_url)
+
         use_mock_setting = (os.getenv("USE_MOCK_SEARCH", "auto") or "").strip().lower()
         if use_mock_setting in ("1", "true", "yes", "always"):
             self.providers["mock"] = MockShoppingProvider()
@@ -890,6 +858,19 @@ class SourcingRepository:
         result = await self.search_all_with_status(query, **kwargs)
         return result.results
 
+    def _filter_providers_by_tier(self, providers: Dict[str, "SourcingProvider"], desire_tier: Optional[str] = None) -> Dict[str, "SourcingProvider"]:
+        """Filter providers based on desire tier. Service/bespoke/high_value skip web search."""
+        VENDOR_ONLY_TIERS = ("service", "bespoke", "high_value")
+        VENDOR_PROVIDER_ID = "vendor_directory"
+        if desire_tier in VENDOR_ONLY_TIERS:
+            filtered = {k: v for k, v in providers.items() if k == VENDOR_PROVIDER_ID}
+            if filtered:
+                print(f"[SourcingRepository] Desire tier '{desire_tier}' — vendor-only mode: {list(filtered.keys())}")
+                return filtered
+            # Fallback: if vendor_directory isn't registered, use all providers
+            print(f"[SourcingRepository] Desire tier '{desire_tier}' but no vendor_directory provider — using all")
+        return providers
+
     async def search_all_with_status(self, query: str, **kwargs) -> SearchResultWithStatus:
         """Search all providers and return results with provider status."""
         print(f"[SourcingRepository] search_all called with query: {query}")
@@ -898,12 +879,16 @@ class SourcingRepository:
         from sourcing.normalizers import normalize_results_for_provider
 
         providers_filter = kwargs.pop("providers", None)
+        desire_tier = kwargs.pop("desire_tier", None)
         selected_providers: Dict[str, SourcingProvider] = self.providers
         if providers_filter:
             allow = {str(p).strip() for p in providers_filter if str(p).strip()}
             selected_providers = {k: v for k, v in self.providers.items() if k in allow}
             print(f"[SourcingRepository] Provider filter requested: {sorted(list(allow))}")
             print(f"[SourcingRepository] Providers selected: {list(selected_providers.keys())}")
+
+        # Apply desire-tier filtering
+        selected_providers = self._filter_providers_by_tier(selected_providers, desire_tier)
         
         start_time = time.time()
         try:
@@ -1037,10 +1022,14 @@ class SourcingRepository:
         from sourcing.normalizers import normalize_results_for_provider
 
         providers_filter = kwargs.pop("providers", None)
+        desire_tier = kwargs.pop("desire_tier", None)
         selected_providers: Dict[str, SourcingProvider] = self.providers
         if providers_filter:
             allow = {str(p).strip() for p in providers_filter if str(p).strip()}
             selected_providers = {k: v for k, v in self.providers.items() if k in allow}
+
+        # Apply desire-tier filtering
+        selected_providers = self._filter_providers_by_tier(selected_providers, desire_tier)
 
         # No timeout for streaming - results flow in as each provider completes
         # Slow providers just arrive later in the stream

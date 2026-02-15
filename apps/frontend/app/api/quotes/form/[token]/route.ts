@@ -1,33 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-
-import { BACKEND_URL } from '../../../../utils/bff';
+import { NextRequest } from 'next/server';
+import { proxyGet } from '../../../../utils/api-proxy';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
-  try {
-    const { token } = await params;
-    
-    const res = await fetch(`${BACKEND_URL}/quotes/form/${token}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const data = await res.json();
-    
-    if (!res.ok) {
-      return NextResponse.json(data, { status: res.status });
-    }
-
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error('Quote form fetch error:', error);
-    return NextResponse.json(
-      { detail: 'Failed to load quote form' },
-      { status: 500 }
-    );
-  }
+  const { token } = await params;
+  return proxyGet(request, `/quotes/form/${token}`, { allowAnonymous: true });
 }

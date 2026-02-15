@@ -34,6 +34,8 @@ EXPECTED_COLS = [
     ("outreach_event", "followup_sent_at", "TIMESTAMP", None),
     ("merchant", "verification_level", "VARCHAR", "'pending'"),
     ("merchant", "reputation_score", "FLOAT", "0.0"),
+    ("project", "status", "VARCHAR", "'active'"),
+    ("comment", "status", "VARCHAR", "'active'"),
 ]
 
 # Tables to migrate (order matters for FK constraints)
@@ -69,8 +71,34 @@ MIGRATE_TABLES = [
 
 
 async def fix_schema(conn):
-    """Add missing columns."""
+    """Add missing columns and ensure pgvector is set up."""
     added = 0
+
+    # Ensure pgvector extension exists
+    try:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        print("[SCHEMA-FIX] pgvector extension ensured.")
+    except Exception as e:
+        print(f"[SCHEMA-FIX] WARNING: Could not create vector extension: {e}")
+
+    # Fix vendor.embedding column type: varchar -> vector(1536)
+    try:
+        row = await conn.execute(text(
+            "SELECT data_type FROM information_schema.columns "
+            "WHERE table_name = 'vendor' AND column_name = 'embedding'"
+        ))
+        col_type = row.scalar()
+        if col_type and col_type == "character varying":
+            await conn.execute(text(
+                "ALTER TABLE vendor ALTER COLUMN embedding "
+                "TYPE vector(1536) USING CASE WHEN embedding IS NOT NULL "
+                "THEN embedding::vector(1536) ELSE NULL END"
+            ))
+            print("[SCHEMA-FIX] Fixed vendor.embedding: varchar -> vector(1536)")
+            added += 1
+    except Exception as e:
+        print(f"[SCHEMA-FIX] WARNING: Could not fix vendor.embedding type: {e}")
+
     for table, col, pgtype, default in EXPECTED_COLS:
         row = await conn.execute(text(
             "SELECT 1 FROM information_schema.columns "

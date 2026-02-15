@@ -37,7 +37,8 @@ from models.rows import (
 
 # Bid models
 from models.bids import (
-    Seller,
+    Vendor,
+    Seller,  # backward-compatible alias for Vendor
     Bid,
     BidWithProvenance,
 )
@@ -52,13 +53,20 @@ from models.social import (
 
 # Marketplace models
 from models.marketplace import (
-    VendorProfile,
+    VendorProfile,  # alias for Vendor
+    Merchant,       # alias for Vendor
     SellerQuote,
     OutreachEvent,
     DealHandoff,
-    Merchant,
     Contract,
     SellerBookmark,
+)
+
+# Outreach models
+from models.outreach import (
+    OutreachCampaign,
+    OutreachMessage,
+    OutreachQuote,
 )
 
 # Admin models
@@ -89,6 +97,7 @@ __all__ = [
     "Row",
     "RequestSpec",
     # Bids
+    "Vendor",
     "Seller",
     "Bid",
     "BidWithProvenance",
@@ -105,6 +114,10 @@ __all__ = [
     "Merchant",
     "Contract",
     "SellerBookmark",
+    # Outreach
+    "OutreachCampaign",
+    "OutreachMessage",
+    "OutreachQuote",
     # Admin
     "BugReport",
     "Notification",

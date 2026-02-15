@@ -69,7 +69,7 @@ async def test_search_and_persist_updates_existing_bids(session, test_user):
     
     existing_bid = Bid(
         row_id=row.id,
-        seller_id=seller.id,
+        vendor_id=seller.id,
         price=10.0,
         total_cost=10.0,
         currency="USD",

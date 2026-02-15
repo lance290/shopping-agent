@@ -1,63 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { proxyGet } from '../../../utils/api-proxy';
 
 export const dynamic = 'force-dynamic';
-
-import { BACKEND_URL } from '../../../utils/bff';
-
-function getAuthHeader(request: NextRequest): string | null {
-  const direct = request.cookies.get('sa_session')?.value;
-  if (direct) return `Bearer ${direct}`;
-
-  const devToken = process.env.DEV_SESSION_TOKEN || process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN;
-  if (devToken) return `Bearer ${devToken}`;
-
-  const authHeader = request.headers.get('Authorization');
-  if (authHeader?.startsWith('Bearer ')) return authHeader;
-
-  return null;
-}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const authHeader = getAuthHeader(request);
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { id } = await params;
-
-    if (!id) {
-        return NextResponse.json({ error: 'Missing bug ID' }, { status: 400 });
-    }
-
-    const response = await fetch(`${BACKEND_URL}/api/bugs/${id}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': authHeader,
-      },
-    });
-
-    if (!response.ok) {
-        if (response.status === 404) {
-            return NextResponse.json({ error: 'Bug report not found' }, { status: 404 });
-        }
-        const text = await response.text();
-        console.error(`[bugs] Backend /api/bugs/${id} failed: ${response.status}`, text);
-        return NextResponse.json(
-            { error: text || `Backend returned ${response.status}` },
-            { status: response.status }
-        );
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data, { status: 200 });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[bugs] Error fetching bug report:', message);
-    return NextResponse.json({ error: `Failed to fetch bug report: ${message}` }, { status: 500 });
-  }
+  const { id } = await params;
+  return proxyGet(request, `/api/bugs/${id}`);
 }

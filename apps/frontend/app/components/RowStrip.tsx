@@ -4,7 +4,8 @@ import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import ProviderStatusBadge from './ProviderStatusBadge';
 import { Archive, RefreshCw, FlaskConical, Undo2, Link2, X } from 'lucide-react';
-import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, createCommentApi, fetchCommentsApi, fetchAndPersistServiceVendors } from '../utils/api';
+import OutreachQueue from './OutreachQueue';
+import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, createCommentApi, fetchCommentsApi } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -182,22 +183,11 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         return;
     }
 
-    // For service rows, fetch and persist vendors if none loaded yet
-    if (row.is_service) {
-      if (row.service_category) {
-        didAutoLoadRef.current = true;
-        fetchAndPersistServiceVendors(row.id, row.service_category).then((vendorOffers) => {
-          if (vendorOffers.length > 0) {
-            setRowResults(row.id, vendorOffers);
-          }
-        });
-      }
-      return;
-    }
-
     didAutoLoadRef.current = true;
+
+    // Run search — vendor directory results come through the normal search pipeline
     refresh('all');
-  }, [isActive, row.id, isSearching, moreResultsIncoming, row.is_service, row.service_category, setRowResults]);
+  }, [isActive, row.id, isSearching, moreResultsIncoming, row.service_category, row.status, setRowResults, updateRow]);
 
   const sortOffers = (list: Offer[]) => {
     if (!list || list.length === 0) return [];
@@ -425,12 +415,23 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
             isActive ? "bg-agent-blurple" : "bg-warm-grey"
           )} />
           <h3 className="text-base font-semibold text-onyx">{row.title}</h3>
-          <span className={cn(
-            "text-[10px] uppercase tracking-wider font-semibold",
-            row.status === 'closed' ? "text-status-success" : "text-onyx-muted"
-          )}>
-            {row.status === 'closed' ? 'selected' : row.status}
-          </span>
+          {(() => {
+            const statusLabels: Record<string, string> = {
+              closed: 'Selected',
+              new: 'New',
+              sourcing: 'Searching',
+            };
+            const label = statusLabels[row.status];
+            if (!label) return null;
+            return (
+              <span className={cn(
+                "text-[10px] uppercase tracking-wider font-semibold",
+                row.status === 'closed' ? "text-status-success" : "text-onyx-muted"
+              )}>
+                {label}
+              </span>
+            );
+          })()}
         </div>
 
         {/* Provider Status Badges */}
@@ -548,11 +549,11 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center w-64 rounded-2xl border border-dashed border-warm-grey bg-warm-light/60 text-onyx-muted p-4">
-                  {row.status === 'sourcing' || hasMoreIncoming || (row.is_service && isSearching) ? (
+                  {row.status === 'sourcing' || hasMoreIncoming || isSearching ? (
                     <>
                       <RefreshCw className="w-6 h-6 animate-spin mb-3 opacity-50" />
                       <span className="text-sm font-medium">
-                        {row.is_service ? 'Finding vendors...' : 'Sourcing offers...'}
+                        Sourcing offers...
                       </span>
                     </>
                   ) : activeSearchError ? (
@@ -564,13 +565,18 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
                     <>
                       <FlaskConical className="w-6 h-6 mb-3 opacity-50" />
                       <span className="text-sm font-medium">
-                        {row.is_service ? 'No vendors found' : 'No offers found'}
+                        No results found
                       </span>
                     </>
                   )}
                 </div>
               )}
             </div>
+
+            {/* Vendor match panel — shown for service/bespoke/high_value desire tiers */}
+            {(row.desire_tier === 'service' || row.desire_tier === 'bespoke' || row.desire_tier === 'high_value') && sortedOffers.length > 0 && !isSearching && (
+              <OutreachQueue rowId={row.id} desireTier={row.desire_tier} offers={sortedOffers} />
+            )}
           </div>
         </div>
       </div>

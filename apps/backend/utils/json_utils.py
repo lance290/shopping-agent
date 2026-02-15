@@ -39,7 +39,14 @@ def safe_json_loads(
         >>> safe_json_loads('invalid', {})
         {}
     """
-    if not s or not isinstance(s, str) or not s.strip():
+    if s is None:
+        return default
+
+    # Post-JSONB migration: DB returns native Python dicts/lists
+    if isinstance(s, (dict, list)):
+        return s
+
+    if not isinstance(s, str) or not s.strip():
         return default
 
     try:
@@ -114,7 +121,17 @@ def safe_json_loads_with_validator(
         >>> safe_json_loads_with_validator('{"no_id": 1}', is_dict_with_id, {})
         {}
     """
-    if not s or not isinstance(s, str) or not s.strip():
+    if s is None:
+        return default
+
+    # Post-JSONB migration: DB returns native Python dicts/lists
+    if isinstance(s, (dict, list)):
+        if validator(s):
+            return s
+        logger.warning(f"[{logger_name}] Native JSON value failed validation")
+        return default
+
+    if not isinstance(s, str) or not s.strip():
         return default
 
     try:

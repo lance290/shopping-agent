@@ -83,7 +83,7 @@ async def test_delete_project(client: AsyncClient, auth_user_and_token):
 
     delete_res = await client.delete(f"/projects/{project_id}", headers=headers)
     assert delete_res.status_code == 200
-    assert delete_res.json()["status"] == "deleted"
+    assert delete_res.json()["status"] == "archived"
 
     # Verify gone
     list_res = await client.get("/projects", headers=headers)

@@ -12,6 +12,7 @@ import sys
 import os
 import asyncio
 import httpx
+import sqlalchemy as sa
 from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -85,15 +86,24 @@ async def generate_embeddings(force: bool = False):
             batch = vendors[i : i + BATCH_SIZE]
             texts = []
             for v in batch:
-                text = v.profile_text or f"{v.company} {v.category}"
+                text = v.profile_text or f"{v.name} {v.category}"
                 texts.append(text)
 
             try:
                 embeddings = await get_embeddings(texts)
+                now = datetime.utcnow()
                 for v, emb in zip(batch, embeddings):
-                    v.embedding = emb
-                    v.embedding_model = EMBEDDING_MODEL
-                    v.embedded_at = datetime.utcnow()
+                    # Use raw SQL to write vector — SQLAlchemy ORM can't cast list→vector
+                    # Use CAST() not :: because asyncpg treats :: as param syntax
+                    vec_str = "[" + ",".join(str(f) for f in emb) + "]"
+                    await session.execute(
+                        sa.text(
+                            "UPDATE vendor SET embedding = CAST(:vec AS vector), "
+                            "embedding_model = :model, embedded_at = :ts "
+                            "WHERE id = :vid"
+                        ),
+                        {"vec": vec_str, "model": EMBEDDING_MODEL, "ts": now, "vid": v.id},
+                    )
                     embedded += 1
 
                 await session.commit()

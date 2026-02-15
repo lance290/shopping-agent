@@ -1,4 +1,5 @@
-export const BACKEND_URL = process.env.BACKEND_URL || process.env.BFF_URL || 'http://localhost:8000';
-/** @deprecated Use BACKEND_URL instead */
-export const BFF_URL = BACKEND_URL;
-export const COOKIE_NAME = 'sa_session';
+/**
+ * @deprecated — Import from '@/app/utils/api-proxy' instead.
+ * Thin re-export kept for backward compatibility during PRD-00 migration.
+ */
+export { BACKEND_URL, BACKEND_URL as BFF_URL, COOKIE_NAME } from '../../utils/api-proxy';
