@@ -292,7 +292,7 @@ async def search_row_listings(
     if min_price_filter is not None or max_price_filter is not None or exclude_synthetics or custom_exclude_keywords or choice_constraints:
         filtered_results = []
         # Sources that don't provide price data - allow through without price filtering
-        non_shopping_sources = {"google_cse"}
+        non_shopping_sources = {"google_cse", "vendor_directory"}
         # Service providers that do not have fixed prices - allow through without price filtering
         service_sources = {"wattdata"}
         dropped_price = 0
@@ -402,7 +402,7 @@ async def search_row_listings_stream(
         """Generate SSE events as each provider completes."""
         all_results: List[SearchResult] = []
         all_statuses: List[ProviderStatusSnapshot] = []
-        non_shopping_sources = {"google_cse"}
+        non_shopping_sources = {"google_cse", "vendor_directory"}
 
         async for provider_name, results, status, providers_remaining in sourcing_repo.search_streaming(
             sanitized_query,

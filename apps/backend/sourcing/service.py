@@ -126,7 +126,7 @@ class SourcingService:
         if max_price is not None:
             filtered: List[NormalizedResult] = []
             # Sources that don't provide price data - allow through without price filtering
-            non_shopping_sources = {"google_cse"}
+            non_shopping_sources = {"google_cse", "vendor_directory"}
             # Service providers that do not have fixed prices - allow through without price filtering
             service_sources = {"wattdata"}
             dropped_max = 0

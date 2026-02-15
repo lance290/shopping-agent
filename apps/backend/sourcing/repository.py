@@ -877,6 +877,15 @@ class SourcingRepository:
         # if ebay_client_id and ebay_client_secret:
         #     self.providers["ebay"] = EbayBrowseProvider(...)
         
+        # Vendor Directory — pgvector semantic search (always runs)
+        from sourcing.vendor_provider import VendorDirectoryProvider
+        db_url = os.getenv("DATABASE_URL", "")
+        if db_url:
+            # Ensure asyncpg driver
+            if db_url.startswith("postgresql://"):
+                db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            self.providers["vendor_directory"] = VendorDirectoryProvider(db_url)
+
         # Mock provider - FREE fallback for testing, always available
         use_mock_setting = (os.getenv("USE_MOCK_SEARCH", "auto") or "").strip().lower()
         if use_mock_setting in ("1", "true", "yes", "always"):

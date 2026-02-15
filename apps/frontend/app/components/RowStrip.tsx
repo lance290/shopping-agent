@@ -4,7 +4,7 @@ import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import ProviderStatusBadge from './ProviderStatusBadge';
 import { Archive, RefreshCw, FlaskConical, Undo2, Link2, X } from 'lucide-react';
-import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, createCommentApi, fetchCommentsApi, fetchAndPersistServiceVendors } from '../utils/api';
+import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, createCommentApi, fetchCommentsApi } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -184,16 +184,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
     didAutoLoadRef.current = true;
 
-    // Try vendor fetch if we have a category hint (best-effort, non-blocking)
-    if (row.service_category) {
-      fetchAndPersistServiceVendors(row.id, row.service_category, row.title).then((vendorOffers) => {
-        if (vendorOffers.length > 0) {
-          setRowResults(row.id, vendorOffers);
-        }
-      });
-    }
-
-    // Always run web search
+    // Run search — vendor directory results come through the normal search pipeline
     refresh('all');
   }, [isActive, row.id, isSearching, moreResultsIncoming, row.service_category, row.status, setRowResults, updateRow]);
 
