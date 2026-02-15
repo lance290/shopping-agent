@@ -6,6 +6,7 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
+import sqlalchemy
 from sqlalchemy.pool import NullPool
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -17,17 +18,35 @@ from main import app, get_session
 
 @pytest_asyncio.fixture(name="session", scope="function")
 async def session_fixture():
-    # Use NullPool for tests to avoid asyncpg InterfaceError: cannot perform operation: another operation is in progress
-    # This ensures each test gets a fresh connection that is closed at the end
-    # Pass the URL object directly to avoid password masking in string representation
-    
+    # Use a SEPARATE test database to avoid nuking dev data.
+    # Derive test DB URL from the main engine URL by appending "_test".
+    main_url = str(engine.url)
+    if main_url.endswith("/shopping_agent"):
+        test_url = main_url.replace("/shopping_agent", "/shopping_agent_test")
+    else:
+        # Fallback: just use the main URL (shouldn't happen)
+        test_url = main_url
+
+    # Ensure the test database exists (connect to default 'postgres' db to create it)
+    admin_url = test_url.rsplit("/", 1)[0] + "/postgres"
+    admin_engine = create_async_engine(admin_url, poolclass=NullPool, isolation_level="AUTOCOMMIT")
+    try:
+        async with admin_engine.connect() as conn:
+            result = await conn.execute(
+                sqlalchemy.text("SELECT 1 FROM pg_database WHERE datname = 'shopping_agent_test'")
+            )
+            if not result.scalar():
+                await conn.execute(sqlalchemy.text("CREATE DATABASE shopping_agent_test"))
+    finally:
+        await admin_engine.dispose()
+
     test_engine = create_async_engine(
-        engine.url, 
-        echo=False, 
-        future=True, 
-        poolclass=NullPool
+        test_url,
+        echo=False,
+        future=True,
+        poolclass=NullPool,
     )
-    
+
     # Re-init DB on the test engine to ensure schema
     async with test_engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.drop_all)
@@ -38,7 +57,7 @@ async def session_fixture():
     )
     async with async_session() as session:
         yield session
-    
+
     await test_engine.dispose()
 
 @pytest_asyncio.fixture(name="test_user")
