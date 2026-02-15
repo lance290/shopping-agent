@@ -573,11 +573,9 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
               )}
             </div>
 
-            {/* Outreach Queue — shown for service/bespoke/high_value desire tiers */}
+            {/* Vendor match panel — shown for service/bespoke/high_value desire tiers */}
             {(row.desire_tier === 'service' || row.desire_tier === 'bespoke' || row.desire_tier === 'high_value') && sortedOffers.length > 0 && !isSearching && (
-              <div className="mt-4">
-                <OutreachQueue rowId={row.id} />
-              </div>
+              <OutreachQueue rowId={row.id} desireTier={row.desire_tier} offers={sortedOffers} />
             )}
           </div>
         </div>
