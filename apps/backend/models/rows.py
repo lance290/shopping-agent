@@ -50,6 +50,7 @@ class RowCreate(RowBase):
 
 class ProjectBase(SQLModel):
     title: str
+    status: str = "active"  # active, archived
 
 
 class ProjectCreate(ProjectBase):

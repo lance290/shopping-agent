@@ -45,7 +45,7 @@ async def read_projects(
 
     result = await session.exec(
         select(Project)
-        .where(Project.user_id == auth_session.user_id)
+        .where(Project.user_id == auth_session.user_id, Project.status != "archived")
         .order_by(Project.created_at.desc())
     )
     return result.all()
@@ -69,12 +69,16 @@ async def delete_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Unlink child rows (ungroup them)
-    rows_result = await session.exec(select(Row).where(Row.project_id == project_id))
+    project.status = "archived"
+    session.add(project)
+
+    # Unlink rows from this project so they don't reference an archived project
+    rows_result = await session.exec(
+        select(Row).where(Row.project_id == project_id)
+    )
     for row in rows_result.all():
         row.project_id = None
         session.add(row)
-    
-    await session.delete(project)
+
     await session.commit()
-    return {"status": "deleted", "id": project_id}
+    return {"status": "archived", "id": project_id}

@@ -1,32 +1,9 @@
 import { NextRequest } from 'next/server';
-
-function normalizeBaseUrl(url: string): string {
-  const trimmed = url.trim();
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-  return `http://${trimmed}`;
-}
-
-const BACKEND_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://127.0.0.1:8000'
-);
+import { BACKEND_URL, getAuthHeader } from '../../utils/api-proxy';
 
 export async function POST(request: NextRequest) {
-  let token: string | null = null;
-
-  // Use sa_session cookie or Authorization header
-  const cookie = request.cookies.get('sa_session')?.value;
-  if (cookie) {
-    token = cookie;
-  } else {
-    const authHeader = request.headers.get('Authorization');
-    if (authHeader?.startsWith('Bearer ')) {
-      token = authHeader.substring(7);
-    }
-  }
-  
-  if (!token) {
+  const auth = getAuthHeader(request);
+  if (!auth) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
@@ -39,12 +16,12 @@ export async function POST(request: NextRequest) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      'Authorization': auth,
     },
     body: JSON.stringify(body),
   });
 
-  // Stream the response back
+  // Stream the response back (SSE — cannot use generic proxy)
   return new Response(response.body, {
     status: response.status,
     headers: {

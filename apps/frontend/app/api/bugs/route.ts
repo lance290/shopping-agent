@@ -1,21 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { BACKEND_URL, getAuthHeader } from '../../utils/api-proxy';
 
 export const dynamic = 'force-dynamic';
-
-import { BACKEND_URL } from '../../utils/bff';
-
-function getAuthHeader(request: NextRequest): string | null {
-  const direct = request.cookies.get('sa_session')?.value;
-  if (direct) return `Bearer ${direct}`;
-  
-  const devToken = process.env.DEV_SESSION_TOKEN || process.env.NEXT_PUBLIC_DEV_SESSION_TOKEN;
-  if (devToken) return `Bearer ${devToken}`;
-  
-  const authHeader = request.headers.get('Authorization');
-  if (authHeader?.startsWith('Bearer ')) return authHeader;
-  
-  return null;
-}
 
 export async function POST(request: NextRequest) {
   try {

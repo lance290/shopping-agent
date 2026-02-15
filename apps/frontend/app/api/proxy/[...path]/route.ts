@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { BACKEND_URL } from '../../../utils/api-proxy';
 
 const ALLOWED_PROXY_PATHS = new Set([
   'auth/start',
@@ -13,10 +14,6 @@ function isAllowedPath(path: string): boolean {
   return false;
 }
 
-function getBackendUrl(): string {
-  return process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
-}
-
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
@@ -27,7 +24,7 @@ export async function POST(
     return NextResponse.json({ error: 'Not Found' }, { status: 404 });
   }
 
-  const url = `${getBackendUrl()}/${path}`;
+  const url = `${BACKEND_URL}/${path}`;
 
   try {
     const body = await request.json();
@@ -92,7 +89,7 @@ export async function GET(
     return NextResponse.json({ error: 'Not Found' }, { status: 404 });
   }
 
-  const url = `${getBackendUrl()}/${path}`;
+  const url = `${BACKEND_URL}/${path}`;
 
   try {
     const headers: Record<string, string> = {};

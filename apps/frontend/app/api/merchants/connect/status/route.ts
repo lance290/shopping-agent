@@ -1,19 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { NextRequest } from 'next/server';
+import { proxyGet } from '../../../../utils/api-proxy';
 
 export async function GET(request: NextRequest) {
-  try {
-    const auth = request.headers.get('authorization') || '';
-
-    const res = await fetch(`${BACKEND_URL}/merchants/connect/status`, {
-      headers: { Authorization: auth },
-    });
-
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
-  } catch (error) {
-    console.error('[API /merchants/connect/status] Error:', error);
-    return NextResponse.json({ error: 'Failed to check status' }, { status: 500 });
-  }
+  return proxyGet(request, '/merchants/connect/status');
 }

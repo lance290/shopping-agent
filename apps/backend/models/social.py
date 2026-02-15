@@ -25,6 +25,7 @@ class Comment(SQLModel, table=True):
 
     body: str
     visibility: str = Field(default="private")
+    status: str = Field(default="active")  # active, archived
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

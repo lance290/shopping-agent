@@ -34,6 +34,8 @@ EXPECTED_COLS = [
     ("outreach_event", "followup_sent_at", "TIMESTAMP", None),
     ("merchant", "verification_level", "VARCHAR", "'pending'"),
     ("merchant", "reputation_score", "FLOAT", "0.0"),
+    ("project", "status", "VARCHAR", "'active'"),
+    ("comment", "status", "VARCHAR", "'active'"),
 ]
 
 # Tables to migrate (order matters for FK constraints)

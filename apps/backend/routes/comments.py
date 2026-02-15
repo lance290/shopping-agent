@@ -85,7 +85,7 @@ async def list_comments(
     if not auth_session:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    query = select(Comment).where(Comment.user_id == auth_session.user_id)
+    query = select(Comment).where(Comment.user_id == auth_session.user_id, Comment.status != "archived")
     if row_id:
         query = query.where(Comment.row_id == row_id)
     if bid_id:
@@ -114,6 +114,7 @@ async def delete_comment(
     if comment.user_id != auth_session.user_id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    await session.delete(comment)
+    comment.status = "archived"
+    session.add(comment)
     await session.commit()
-    return {"status": "deleted"}
+    return {"status": "archived"}

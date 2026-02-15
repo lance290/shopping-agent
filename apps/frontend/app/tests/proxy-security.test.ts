@@ -103,14 +103,15 @@ describe('Proxy Route Configuration (P0-1)', () => {
     expect(getAllowCheck).toBeLessThan(getFetch);
   });
 
-  test('proxy route uses server-only BACKEND_URL (not just NEXT_PUBLIC_)', async () => {
+  test('proxy route uses shared BACKEND_URL from api-proxy (server-only)', async () => {
     const fs = await import('fs');
     const path = await import('path');
     const routeFile = path.resolve(__dirname, '../api/proxy/[...path]/route.ts');
     const content = fs.readFileSync(routeFile, 'utf-8');
 
-    // Should prefer BACKEND_URL (server-only) over NEXT_PUBLIC_BACKEND_URL
-    expect(content).toContain('process.env.BACKEND_URL');
+    // Should import BACKEND_URL from the shared api-proxy module (which reads BACKEND_URL env var)
+    expect(content).toContain("from '../../../utils/api-proxy'");
+    expect(content).toContain('BACKEND_URL');
   });
 });
 
@@ -162,25 +163,25 @@ describe('HttpOnly Cookie Security (P1-3)', () => {
     expect(content).not.toContain('document.cookie');
   });
 
-  test('server-side route handlers still read cookie correctly', async () => {
+  test('shared api-proxy reads cookie correctly', async () => {
     const fs = await import('fs');
     const path = await import('path');
 
-    // Verify that server-side API routes read the cookie via request.cookies.get
-    const routeFiles = [
-      '../api/rows/route.ts',
-      '../api/search/route.ts',
-      '../api/chat/route.ts',
-    ];
+    // The canonical cookie-reading logic now lives in api-proxy.ts
+    const proxyFile = path.resolve(__dirname, '../utils/api-proxy.ts');
+    const content = fs.readFileSync(proxyFile, 'utf-8');
+    expect(content).toContain("cookies.get(COOKIE_NAME)");
+  });
 
-    for (const routeFile of routeFiles) {
-      const fullPath = path.resolve(__dirname, routeFile);
-      if (fs.existsSync(fullPath)) {
-        const content = fs.readFileSync(fullPath, 'utf-8');
-        // Server-side routes should read cookie via request.cookies.get
-        expect(content).toContain("cookies.get('sa_session')");
-      }
-    }
+  test('routes that handle cookies directly still read cookie correctly', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+
+    // Chat route still reads cookie directly (SSE streaming — cannot use generic proxy)
+    const chatFile = path.resolve(__dirname, '../api/chat/route.ts');
+    const chatContent = fs.readFileSync(chatFile, 'utf-8');
+    // Chat imports getAuthHeader from api-proxy which handles cookies
+    expect(chatContent).toContain("from '../../utils/api-proxy'");
   });
 });
 
