@@ -520,6 +520,8 @@ async def get_vendors_for_category(
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning(f"Vector search failed (falling back to text): {e}")
+        # Rollback the failed transaction so subsequent queries work
+        await session.rollback()
 
     # --- Tier 3: DB ILIKE text search ---
     pattern = f"%{search_query.strip()}%"
