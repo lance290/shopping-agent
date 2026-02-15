@@ -6,5 +6,7 @@ export async function GET(
   { params }: { params: Promise<{ category: string }> }
 ) {
   const { category } = await params;
-  return proxyGet(request, `/outreach/vendors/${category}`, { allowAnonymous: true });
+  const qs = request.nextUrl.searchParams.toString();
+  const path = `/outreach/vendors/${category}${qs ? `?${qs}` : ''}`;
+  return proxyGet(request, path, { allowAnonymous: true });
 }

@@ -22,7 +22,7 @@ def test_bid_score_fields():
     from models import Bid
     bid = Bid(
         row_id=1,
-        seller_id=1,
+        vendor_id=1,
         price=100.0,
         combined_score=0.85,
         relevance_score=0.90,
@@ -42,7 +42,7 @@ def test_bid_score_fields():
 def test_bid_score_fields_default_none():
     """PRD 11: Score fields default to None."""
     from models import Bid
-    bid = Bid(row_id=1, seller_id=1, price=50.0)
+    bid = Bid(row_id=1, vendor_id=1, price=50.0)
     assert bid.combined_score is None
     assert bid.relevance_score is None
     assert bid.source_tier is None
@@ -150,15 +150,7 @@ def test_user_preference_model():
     assert pref.weight == 2.5
 
 
-def test_seller_bookmark_model():
-    """PRD 04: SellerBookmark model."""
-    from models import SellerBookmark
-    bookmark = SellerBookmark(
-        merchant_id=1,
-        row_id=10,
-    )
-    assert bookmark.merchant_id == 1
-    assert bookmark.row_id == 10
+# test_seller_bookmark_model removed — SellerBookmark table dropped in s02_unify_vendor
 
 
 # ── Service Tests ─────────────────────────────────────────────────────────

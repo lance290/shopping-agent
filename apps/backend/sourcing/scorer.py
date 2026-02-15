@@ -46,7 +46,7 @@ def score_results(
         qs = _quality_score(r)
         db = _diversity_bonus(r.source, source_counts, total)
 
-        combined = (ps * 0.35) + (rs * 0.30) + (qs * 0.25) + (db * 0.10)
+        combined = (rs * 0.50) + (qs * 0.20) + (ps * 0.20) + (db * 0.10)
 
         # Enrich provenance with score breakdown
         r.provenance["score"] = {
@@ -113,36 +113,60 @@ def _relevance_score(
     result: NormalizedResult,
     intent: Optional[SearchIntent],
 ) -> float:
-    """Score how relevant the result is to the search intent."""
+    """Score how relevant the result is to the search intent.
+
+    This is the most important scoring dimension — it determines whether
+    a result actually matches what the user asked for.
+    """
     if not intent:
         return 0.5
 
     score = 0.0
     title_lower = result.title.lower() if result.title else ""
+    # Also check merchant name and raw_data description for broader matching
+    merchant_lower = result.merchant_name.lower() if result.merchant_name else ""
+    desc_lower = ""
+    if result.raw_data:
+        desc_lower = str(result.raw_data.get("snippet", "") or result.raw_data.get("description", "")).lower()
+    searchable = f"{title_lower} {merchant_lower} {desc_lower}"
 
-    # Brand match
+    # Brand match (strong signal)
     if intent.brand:
         brand_lower = intent.brand.lower()
         if brand_lower in title_lower:
-            score += 0.3
-        elif any(word in title_lower for word in brand_lower.split()):
+            score += 0.25
+        elif brand_lower in searchable:
             score += 0.15
+        elif any(word in searchable for word in brand_lower.split()):
+            score += 0.08
 
-    # Keyword match
+    # Keyword match (strongest signal — these are the core "what" words)
     if intent.keywords:
-        matched = sum(1 for kw in intent.keywords if kw.lower() in title_lower)
-        kw_ratio = matched / len(intent.keywords) if intent.keywords else 0
-        score += kw_ratio * 0.4
+        # Check against title first (strongest), then full searchable text
+        title_matched = sum(1 for kw in intent.keywords if kw.lower() in title_lower)
+        full_matched = sum(1 for kw in intent.keywords if kw.lower() in searchable)
+        kw_count = len(intent.keywords)
+        # Title matches are worth more than description matches
+        title_ratio = title_matched / kw_count if kw_count else 0
+        full_ratio = full_matched / kw_count if kw_count else 0
+        score += title_ratio * 0.35 + (full_ratio - title_ratio) * 0.10
 
-    # Category match (looser — check if category words appear in title)
+    # Product name match (if set, check if the product name appears in title)
+    if intent.product_name:
+        name_words = [w for w in intent.product_name.lower().split() if len(w) > 2]
+        if name_words:
+            name_matched = sum(1 for w in name_words if w in title_lower)
+            score += (name_matched / len(name_words)) * 0.15
+
+    # Category match (looser — check if category words appear)
     if intent.product_category:
         cat_words = intent.product_category.lower().replace("_", " ").split()
-        cat_matched = sum(1 for w in cat_words if w in title_lower)
+        cat_matched = sum(1 for w in cat_words if w in searchable)
         cat_ratio = cat_matched / max(len(cat_words), 1)
-        score += cat_ratio * 0.2
+        score += cat_ratio * 0.10
 
-    # Base relevance — all results have some relevance since they came from a targeted search
-    score += 0.1
+    # Base relevance — results came from a targeted search, so some baseline
+    score += 0.05
 
     return min(score, 1.0)
 

@@ -28,6 +28,7 @@ from sourcing.service import SourcingService
 from sourcing.material_filter import extract_material_constraints, should_exclude_result
 from sourcing.choice_filter import should_exclude_by_choices, extract_choice_constraints
 from sourcing.messaging import determine_search_user_message
+from utils.json_utils import safe_json_loads
 
 router = APIRouter(tags=["rows"])
 logger = logging.getLogger(__name__)
@@ -47,26 +48,20 @@ def _build_base_query(row: Row, spec: Optional[RequestSpec], explicit_query: Opt
 
     if not explicit_query:
         if spec and spec.constraints:
-            try:
-                constraints_obj = json.loads(spec.constraints)
-                constraint_parts = [f"{k}: {v}" for k, v in constraints_obj.items()]
-                if constraint_parts:
-                    base_query = base_query + " " + " ".join(constraint_parts)
-            except Exception:
-                pass
+            constraints_obj = safe_json_loads(spec.constraints, {})
+            constraint_parts = [f"{k}: {v}" for k, v in constraints_obj.items()]
+            if constraint_parts:
+                base_query = base_query + " " + " ".join(constraint_parts)
 
         if row.choice_answers:
-            try:
-                answers_obj = json.loads(row.choice_answers)
-                answer_parts = [
-                    f"{k} {v}"
-                    for k, v in answers_obj.items()
-                    if k not in ("min_price", "max_price") and v and str(v).lower() != "not answered"
-                ]
-                if answer_parts:
-                    base_query = base_query + " " + " ".join(answer_parts)
-            except Exception:
-                pass
+            answers_obj = safe_json_loads(row.choice_answers, {})
+            answer_parts = [
+                f"{k} {v}"
+                for k, v in answers_obj.items()
+                if k not in ("min_price", "max_price") and v and str(v).lower() != "not answered"
+            ]
+            if answer_parts:
+                base_query = base_query + " " + " ".join(answer_parts)
 
     return base_query, user_provided
 
@@ -101,17 +96,14 @@ def _extract_filters(row: Row, spec: Optional[RequestSpec]) -> tuple[Optional[fl
 
     # Check for material constraints in spec
     if spec and spec.constraints:
-        try:
-            constraints_obj = json.loads(spec.constraints)
+        constraints_obj = safe_json_loads(spec.constraints, {})
+        if constraints_obj:
             exclude_synthetics, custom_exclude_keywords = extract_material_constraints(constraints_obj)
-        except Exception:
-            pass
 
     # Check for price and material constraints in choice_answers
     if row.choice_answers:
-        try:
-            answers_obj = json.loads(row.choice_answers)
-
+        answers_obj = safe_json_loads(row.choice_answers, {})
+        if answers_obj:
             # Extract price constraints
             if answers_obj.get("min_price"):
                 min_price = float(answers_obj["min_price"])
@@ -128,8 +120,6 @@ def _extract_filters(row: Row, spec: Optional[RequestSpec]) -> tuple[Optional[fl
 
             # Extract choice constraints (color, size, etc.)
             choice_constraints = extract_choice_constraints(row.choice_answers)
-        except Exception:
-            pass
 
     return min_price, max_price, exclude_synthetics, custom_exclude_keywords, choice_constraints
 
@@ -334,13 +324,12 @@ async def search_row_listings(
                 continue
 
             price = getattr(r, "price", None)
+            # Keep results with no price — scorer ranks them lower
             if price is None or price == 0:
-                dropped_price += 1
+                filtered_results.append(r)
                 continue
-            # Filter: keep items where price >= min AND price <= max
-            if min_price_filter is not None and price < min_price_filter:
-                dropped_price += 1
-                continue
+            # Only hard-filter on max_price (budget ceiling).
+            # min_price is aspirational — the scorer handles it via price_score.
             if max_price_filter is not None and price > max_price_filter:
                 dropped_price += 1
                 continue

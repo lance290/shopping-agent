@@ -14,13 +14,15 @@ from database import get_session
 from dependencies import get_current_session
 from models import (
     Bid,
-    Merchant,
+    Vendor,
     Row,
-    SellerBookmark,
     SellerQuote,
     User,
     generate_magic_link_token,
 )
+from utils.json_utils import safe_json_loads
+
+Merchant = Vendor
 
 logger = logging.getLogger(__name__)
 
@@ -52,17 +54,17 @@ class QuoteSummary(BaseModel):
 
 class MerchantProfile(BaseModel):
     id: int
-    business_name: str
+    name: str
     contact_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
-    categories: Optional[str] = None
+    category: Optional[str] = None
     service_areas: Optional[str] = None
     website: Optional[str] = None
 
 
 class MerchantProfileUpdate(BaseModel):
-    business_name: Optional[str] = None
+    name: Optional[str] = None
     contact_name: Optional[str] = None
     phone: Optional[str] = None
     categories: Optional[str] = None
@@ -113,15 +115,8 @@ async def seller_inbox(
 
     # Parse merchant categories
     categories: List[str] = []
-    if merchant.categories:
-        try:
-            parsed = json.loads(merchant.categories)
-            if isinstance(parsed, list):
-                categories = [str(c).strip().lower() for c in parsed if c]
-            elif isinstance(parsed, str):
-                categories = [parsed.strip().lower()]
-        except (json.JSONDecodeError, TypeError):
-            categories = [merchant.categories.strip().lower()]
+    if merchant.category:
+        categories = [merchant.category.strip().lower()]
 
     # Build query for matching rows (both service and product rows)
     active_statuses = ["sourcing", "inviting", "bids_arriving", "open", "active"]
@@ -253,9 +248,9 @@ async def submit_quote(
     token = generate_magic_link_token()
     quote = SellerQuote(
         row_id=body.row_id,
-        seller_name=merchant.contact_name or merchant.business_name,
+        seller_name=merchant.contact_name or merchant.name,
         seller_email=merchant.email,
-        seller_company=merchant.business_name,
+        seller_company=merchant.name,
         token=token,
         price=body.price,
         description=body.description,
@@ -271,7 +266,7 @@ async def submit_quote(
         row_id=body.row_id,
         price=body.price or 0.0,
         currency="USD",
-        item_title=f"Quote from {merchant.business_name}",
+        item_title=f"Quote from {merchant.name}",
         item_url=f"mailto:{merchant.email}",
         source="seller_quote",
         is_selected=False,
@@ -286,7 +281,7 @@ async def submit_quote(
                 session,
                 user_id=row.user_id,
                 type="quote_received",
-                title=f"New quote from {merchant.business_name}",
+                title=f"New quote from {merchant.name}",
                 body=f"You received a quote for \"{row.title}\"",
                 action_url=f"/projects?row={row.id}",
                 resource_type="quote",
@@ -341,11 +336,11 @@ async def get_profile(
 
     return MerchantProfile(
         id=merchant.id,
-        business_name=merchant.business_name,
+        name=merchant.name,
         contact_name=merchant.contact_name,
         email=merchant.email,
         phone=merchant.phone,
-        categories=merchant.categories,
+        category=merchant.category,
         service_areas=merchant.service_areas,
         website=merchant.website,
     )
@@ -374,17 +369,20 @@ async def update_profile(
 
     return MerchantProfile(
         id=merchant.id,
-        business_name=merchant.business_name,
+        name=merchant.name,
         contact_name=merchant.contact_name,
         email=merchant.email,
         phone=merchant.phone,
-        categories=merchant.categories,
+        category=merchant.category,
         service_areas=merchant.service_areas,
         website=merchant.website,
     )
 
 
 # ── Bookmarks (PRD 04) ─────────────────────────────────────────────────
+# SellerBookmark table was dropped in s02_unify_vendor migration.
+# Stub routes return empty/success to avoid frontend 404s.
+# TODO: Reimplement bookmarks against a lightweight join table if needed.
 
 
 @router.get("/bookmarks")
@@ -392,39 +390,12 @@ async def list_bookmarks(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
-    """List seller's bookmarked RFPs."""
+    """List seller's bookmarked RFPs (stub — table dropped in vendor merge)."""
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
         raise HTTPException(status_code=401, detail="Not authenticated")
-
-    merchant = await _get_merchant(session, auth_session.user_id)
-
-    result = await session.exec(
-        select(SellerBookmark)
-        .where(SellerBookmark.merchant_id == merchant.id)
-        .order_by(SellerBookmark.created_at.desc())
-    )
-    bookmarks = result.all()
-
-    if not bookmarks:
-        return []
-
-    row_ids = [b.row_id for b in bookmarks]
-    rows_result = await session.exec(
-        select(Row).where(Row.id.in_(row_ids))
-    )
-    rows_map = {r.id: r for r in rows_result.all()}
-
-    return [
-        {
-            "bookmark_id": bm.id,
-            "row_id": bm.row_id,
-            "title": rows_map[bm.row_id].title if bm.row_id in rows_map else None,
-            "status": rows_map[bm.row_id].status if bm.row_id in rows_map else None,
-            "created_at": bm.created_at,
-        }
-        for bm in bookmarks
-    ]
+    await _get_merchant(session, auth_session.user_id)
+    return []
 
 
 @router.post("/bookmarks/{row_id}")
@@ -433,31 +404,15 @@ async def add_bookmark(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
-    """Bookmark a buyer RFP for later."""
+    """Add bookmark (stub)."""
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
         raise HTTPException(status_code=401, detail="Not authenticated")
-
-    merchant = await _get_merchant(session, auth_session.user_id)
-
+    await _get_merchant(session, auth_session.user_id)
     row = await session.get(Row, row_id)
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
-
-    existing = await session.exec(
-        select(SellerBookmark).where(
-            SellerBookmark.merchant_id == merchant.id,
-            SellerBookmark.row_id == row_id,
-        )
-    )
-    if existing.first():
-        return {"status": "already_bookmarked"}
-
-    bookmark = SellerBookmark(merchant_id=merchant.id, row_id=row_id)
-    session.add(bookmark)
-    await session.commit()
-
-    return {"status": "bookmarked", "bookmark_id": bookmark.id}
+    return {"status": "bookmarked", "bookmark_id": 0}
 
 
 @router.delete("/bookmarks/{row_id}")
@@ -466,21 +421,9 @@ async def remove_bookmark(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
-    """Remove a bookmark."""
-    from sqlmodel import delete as sql_delete
-
+    """Remove bookmark (stub)."""
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
         raise HTTPException(status_code=401, detail="Not authenticated")
-
-    merchant = await _get_merchant(session, auth_session.user_id)
-
-    await session.exec(
-        sql_delete(SellerBookmark).where(
-            SellerBookmark.merchant_id == merchant.id,
-            SellerBookmark.row_id == row_id,
-        )
-    )
-    await session.commit()
-
+    await _get_merchant(session, auth_session.user_id)
     return {"status": "removed"}

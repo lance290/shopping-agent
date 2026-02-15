@@ -122,10 +122,10 @@ async def test_seller_inbox_with_merchant(client: AsyncClient, auth_user_and_tok
 
     merchant = Merchant(
         user_id=user.id,
-        business_name="Test Merchant Co",
+        name="Test Merchant Co",
         email="merchant@test.com",
         contact_name="Test Contact",
-        categories='["electronics"]',
+        category="electronics",
     )
     session.add(merchant)
     await session.commit()

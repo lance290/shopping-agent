@@ -63,12 +63,12 @@ def _make_merchant():
 
     async def _create(session, user, **overrides):
         defaults = dict(
-            business_name="Test Merchant Co",
+            name="Test Merchant Co",
             contact_name=user.email.split("@")[0],
             email=f"merchant-{user.id}@example.com",
             user_id=user.id,
             status="verified",
-            categories=json.dumps(["electronics"]),
+            category="electronics",
         )
         defaults.update(overrides)
         m = Merchant(**defaults)
@@ -469,7 +469,7 @@ async def test_row_creation_notifies_matching_merchants(client, session, _make_a
     merchant_user, _ = await _make_auth(session, email="merch-notif@example.com")
     await _make_merchant(
         session, merchant_user,
-        categories=json.dumps(["electronics"]),
+        category="electronics",
     )
 
     # Create a buyer user and a row

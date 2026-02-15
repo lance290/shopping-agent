@@ -76,7 +76,7 @@ async def get_bid(
             bid_dict = {
                 "id": bid.id,
                 "row_id": bid.row_id,
-                "seller_id": bid.seller_id,
+                "vendor_id": bid.vendor_id,
                 "price": bid.price,
                 "shipping_cost": bid.shipping_cost,
                 "total_cost": bid.total_cost,

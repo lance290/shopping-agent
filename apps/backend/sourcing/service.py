@@ -77,20 +77,15 @@ class SourcingService:
         row = row_res.first()
         min_price, max_price = self._extract_price_constraints(row) if row else (None, None)
 
-        if row and (min_price is not None or max_price is not None):
-            # Do not delete service-provider bids (wattdata) when applying price filters.
-            # These results typically have no fixed price.
-            # Also protect liked and selected bids — user explicitly chose these.
-            cond = (Bid.price <= 0) & (Bid.source != "wattdata")
-            if min_price is not None:
-                cond = cond | (Bid.price < min_price)
-            if max_price is not None:
-                cond = cond | (Bid.price > max_price)
-
+        if row and max_price is not None:
+            # Only hard-delete bids that exceed the budget ceiling (max_price).
+            # Keep bids with no price and bids below min_price — scorer ranks them.
+            # Protect liked/selected bids and service providers.
             await self.session.exec(
                 delete(Bid).where(
                     Bid.row_id == row_id,
-                    cond,
+                    Bid.price > max_price,
+                    Bid.source != "wattdata",
                     Bid.is_liked == False,
                     Bid.is_selected == False,
                 )
@@ -128,14 +123,12 @@ class SourcingService:
             # Fallback logic if needed, or rely on repo to handle normalization
             pass
 
-        if min_price is not None or max_price is not None:
+        if max_price is not None:
             filtered: List[NormalizedResult] = []
             # Sources that don't provide price data - allow through without price filtering
             non_shopping_sources = {"google_cse"}
             # Service providers that do not have fixed prices - allow through without price filtering
             service_sources = {"wattdata"}
-            dropped_zero = 0
-            dropped_min = 0
             dropped_max = 0
             for res in normalized_results:
                 # Allow non-shopping sources through (they don't have price data)
@@ -147,19 +140,18 @@ class SourcingService:
                     filtered.append(res)
                     continue
                 price = res.price
+                # Keep results with no price — scorer will rank them lower
                 if price is None or price <= 0:
-                    dropped_zero += 1
+                    filtered.append(res)
                     continue
-                if min_price is not None and price < min_price:
-                    dropped_min += 1
-                    continue
-                if max_price is not None and price > max_price:
+                # Only hard-filter on max_price (budget ceiling).
+                # min_price is aspirational — the scorer handles it via price_score.
+                if price > max_price:
                     dropped_max += 1
                     continue
                 filtered.append(res)
-            logger.info(f"[SourcingService] Price filter: {len(normalized_results)} -> {len(filtered)} (dropped: zero={dropped_zero}, min={dropped_min}, max={dropped_max})")
-            price_dropped = dropped_zero + dropped_min + dropped_max
-            metrics.record_price_filter(applied=True, dropped=price_dropped)
+            logger.info(f"[SourcingService] Price filter: {len(normalized_results)} -> {len(filtered)} (dropped: max={dropped_max})")
+            metrics.record_price_filter(applied=True, dropped=dropped_max)
             normalized_results = filtered
         else:
             metrics.record_price_filter(applied=False, dropped=0)
@@ -366,7 +358,7 @@ class SourcingService:
                 existing_bid.item_title = res.title
                 existing_bid.image_url = res.image_url
                 existing_bid.source = res.source
-                existing_bid.seller_id = seller.id
+                existing_bid.vendor_id = seller.id
                 existing_bid.canonical_url = res.canonical_url
                 existing_bid.provenance = provenance_json
                 existing_bid.combined_score = combined_score
@@ -383,7 +375,7 @@ class SourcingService:
                 # Create
                 new_bid = Bid(
                     row_id=row_id,
-                    seller_id=seller.id,
+                    vendor_id=seller.id,
                     price=res.price or 0.0,
                     total_cost=res.price or 0.0,
                     currency=res.currency,

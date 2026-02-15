@@ -65,7 +65,10 @@ export default function Chat() {
       setMessages(currentMsgs => {
         if (currentMsgs.length > 0) {
           saveChatHistory(outgoingRowId, currentMsgs);
-          store.updateRow(outgoingRowId, { chat_history: JSON.stringify(currentMsgs) });
+          // Defer updateRow to avoid setState-during-render warning
+          queueMicrotask(() => {
+            store.updateRow(outgoingRowId, { chat_history: JSON.stringify(currentMsgs) });
+          });
         }
         return currentMsgs;
       });

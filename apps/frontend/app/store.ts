@@ -29,32 +29,6 @@ export interface Offer {
   comment_count?: number;
 }
 
-const getOfferStableKey = (offer: Offer): string => {
-  if (offer.bid_id) return `bid:${offer.bid_id}`;
-
-  const extractInnerUrl = (u: string): string | null => {
-    if (!u) return null;
-
-    if (u.startsWith('/api/clickout') || u.startsWith('/api/out')) {
-      try {
-        const parsed = new URL(u, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
-        const inner = parsed.searchParams.get('url');
-        return inner ? decodeURIComponent(inner) : null;
-      } catch {
-        return null;
-      }
-    }
-
-    if (u.startsWith('http://') || u.startsWith('https://')) return u;
-    return null;
-  };
-
-  const canonical = extractInnerUrl(offer.url) || extractInnerUrl(offer.click_url || '');
-  if (canonical) return `url:${canonical}`;
-  if (offer.url) return `raw:${offer.url}`;
-  return `fallback:${offer.title}-${offer.merchant}-${offer.price}`;
-};
-
 export type ProviderStatusType = 'ok' | 'error' | 'timeout' | 'exhausted' | 'rate_limited';
 
 export interface ProviderStatusSnapshot {
@@ -480,9 +454,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   appendRowResults: (rowId, results, providerStatuses, moreIncoming = false, userMessage) => set((state) => {
     const existingResults = state.rowResults[rowId] || [];
     const existingStatuses = state.rowProviderStatuses[rowId] || [];
-    // Dedupe by URL
+    // Dedupe by bid_id (stable identity), fall back to URL for pre-persistence offers
+    const seenBidIds = new Set(existingResults.filter(r => r.bid_id).map(r => r.bid_id));
     const seenUrls = new Set(existingResults.map(r => r.url));
-    const newResults = results.filter(r => !seenUrls.has(r.url));
+    const newResults = results.filter(r => {
+      if (r.bid_id) return !seenBidIds.has(r.bid_id);
+      return !seenUrls.has(r.url);
+    });
     return {
       rowResults: { ...state.rowResults, [rowId]: [...existingResults, ...newResults] },
       rowProviderStatuses: providerStatuses 

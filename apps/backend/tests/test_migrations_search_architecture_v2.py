@@ -64,7 +64,7 @@ async def test_persist_search_architecture_v2_fields(session: AsyncSession):
     
     bid = Bid(
         row_id=row.id,
-        seller_id=seller.id,
+        vendor_id=seller.id,
         price=100.0,
         total_cost=110.0,
         item_title="Test Item",

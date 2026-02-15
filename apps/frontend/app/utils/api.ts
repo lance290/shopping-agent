@@ -750,10 +750,12 @@ export const getVendors = async (category: string): Promise<VendorsResponse | nu
 export const fetchAndPersistServiceVendors = async (
   rowId: number,
   category: string,
+  rowTitle?: string,
 ): Promise<Offer[]> => {
   try {
-    // 1. Fetch vendor tiles from backend
-    const vendorRes = await fetchWithAuth(`/api/vendors/${encodeURIComponent(category)}`);
+    // 1. Fetch vendor tiles from backend (pass row title for broader matching)
+    const qParam = rowTitle ? `?q=${encodeURIComponent(rowTitle)}` : '';
+    const vendorRes = await fetchWithAuth(`/api/vendors/${encodeURIComponent(category)}${qParam}`);
     if (!vendorRes.ok) {
       console.error('[API] Fetch vendors failed:', vendorRes.status);
       return [];

@@ -11,7 +11,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from dependencies import get_current_session
-from models import Bid, Row, PurchaseEvent, Merchant, Seller
+from models import Bid, Row, PurchaseEvent, Vendor
 from audit import audit_log
 
 logger = logging.getLogger(__name__)
@@ -123,14 +123,11 @@ async def create_checkout_session(
     connected_account_id = None
     platform_fee_cents = 0
     commission_rate = float(os.getenv("DEFAULT_PLATFORM_FEE_RATE", "0.05"))
-    if bid.seller_id:
-        merchant_result = await session.exec(
-            select(Merchant).where(Merchant.seller_id == bid.seller_id)
-        )
-        merchant = merchant_result.first()
-        if merchant and merchant.stripe_account_id and merchant.stripe_onboarding_complete:
-            connected_account_id = merchant.stripe_account_id
-            commission_rate = merchant.default_commission_rate
+    if bid.vendor_id:
+        vendor = await session.get(Vendor, bid.vendor_id)
+        if vendor and vendor.stripe_account_id and vendor.stripe_onboarding_complete:
+            connected_account_id = vendor.stripe_account_id
+            commission_rate = vendor.default_commission_rate
             platform_fee_cents = int(round(unit_amount * commission_rate))
 
     session_params = {

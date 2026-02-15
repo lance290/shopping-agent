@@ -9,7 +9,7 @@ import pytest
 import json
 from datetime import datetime
 
-from models import Merchant, Contract, PurchaseEvent, User, AuthSession, hash_token, generate_session_token
+from models import Merchant, PurchaseEvent, User, AuthSession, hash_token, generate_session_token
 
 
 # ─── Merchant Registration ─────────────────────────────────────────
@@ -155,33 +155,16 @@ def test_purchase_event_stripe_fields():
 # ─── Merchant Model ────────────────────────────────────────────────
 
 def test_merchant_model():
-    """Test Merchant model instantiation."""
+    """Test Merchant/Vendor model instantiation."""
     merchant = Merchant(
-        business_name="Test Corp",
+        name="Test Corp",
         contact_name="John",
         email="john@test.com",
-        categories=json.dumps(["electronics"]),
+        category="electronics",
         service_areas=json.dumps(["nationwide"]),
         status="pending",
     )
-    assert merchant.business_name == "Test Corp"
+    assert merchant.name == "Test Corp"
     assert merchant.status == "pending"
-    cats = json.loads(merchant.categories)
-    assert "electronics" in cats
+    assert merchant.category == "electronics"
 
-
-# ─── Contract Model ────────────────────────────────────────────────
-
-def test_contract_model():
-    """Test Contract model instantiation."""
-    contract = Contract(
-        buyer_user_id=1,
-        buyer_email="buyer@test.com",
-        seller_email="seller@test.com",
-        seller_company="Seller Corp",
-        deal_value=5000.00,
-        status="draft",
-    )
-    assert contract.status == "draft"
-    assert contract.deal_value == 5000.00
-    assert contract.docusign_envelope_id is None

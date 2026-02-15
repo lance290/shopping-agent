@@ -440,7 +440,7 @@ async def test_rows_filter_preserves_service_provider_bids(client: AsyncClient, 
 
     service_bid = Bid(
         row_id=row.id,
-        seller_id=seller.id,
+        vendor_id=seller.id,
         price=0.0,
         total_cost=0.0,
         currency="USD",

@@ -53,11 +53,11 @@ from models.social import (
 
 # Marketplace models
 from models.marketplace import (
-    VendorProfile,
+    VendorProfile,  # alias for Vendor
+    Merchant,       # alias for Vendor
     SellerQuote,
     OutreachEvent,
     DealHandoff,
-    Merchant,
     Contract,
     SellerBookmark,
 )

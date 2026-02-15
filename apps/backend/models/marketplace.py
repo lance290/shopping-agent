@@ -1,68 +1,20 @@
-"""Marketplace models: merchants, quotes, contracts, and seller interactions."""
+"""Marketplace models: quotes, contracts, and vendor interactions.
+
+VendorProfile, Merchant, and SellerBookmark tables were merged into the unified
+`vendor` table (see migration s02_unify_vendor_model). Their class names are
+preserved as aliases to Vendor for backward compatibility.
+"""
 
 from datetime import datetime
 from typing import List, Optional
 
-import sqlalchemy as sa
 from sqlmodel import Field, SQLModel
 
-try:
-    from pgvector.sqlalchemy import Vector
-except ModuleNotFoundError:  # pragma: no cover - environment-dependent optional dependency
-    Vector = None
+from models.bids import Vendor
 
-# Use pgvector column type only when both the Python package AND the DB extension
-# are expected to be available.  Set USE_PGVECTOR=false (or omit) to fall back to JSON
-# (e.g. local dev without the Postgres extension installed).
-import os as _os
-_USE_PGVECTOR = _os.getenv("USE_PGVECTOR", "false").lower() == "true" and Vector is not None
-
-EMBEDDING_COLUMN = (
-    sa.Column(Vector(1536), nullable=True) if _USE_PGVECTOR else sa.Column(sa.JSON, nullable=True)
-)
-
-
-class VendorProfile(SQLModel, table=True):
-    """
-    Directory vendor record.
-
-    This is the canonical representation of a vendor in the world (seeded/crawled).
-    If the vendor onboards as a preferred network seller, it can be linked to a
-    Merchant record via merchant_id.
-    """
-
-    __tablename__ = "vendor_profile"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-
-    # Optional link to onboarded merchant
-    merchant_id: Optional[int] = Field(default=None, foreign_key="merchant.id", index=True)
-
-    # Basic identity
-    category: str = Field(index=True)
-    company: str = Field(index=True)
-    website: Optional[str] = None
-    contact_email: Optional[str] = Field(default=None, index=True)
-    contact_phone: Optional[str] = None
-
-    # Coverage / metadata (JSON strings for MVP consistency with existing models)
-    service_areas: Optional[str] = None  # JSON array, e.g. ["US-TN", "US-NY", "nationwide"]
-    specialties: Optional[str] = None
-    description: Optional[str] = None
-    tagline: Optional[str] = None
-    image_url: Optional[str] = None
-
-    # Retrieval
-    profile_text: Optional[str] = None
-    embedding: Optional[List[float]] = Field(
-        default=None,
-        sa_column=EMBEDDING_COLUMN,
-    )
-    embedding_model: Optional[str] = None
-    embedded_at: Optional[datetime] = None
-
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+# Backward-compatible aliases for merged models
+VendorProfile = Vendor
+Merchant = Vendor
 
 
 class SellerQuote(SQLModel, table=True):
@@ -180,51 +132,6 @@ class DealHandoff(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class Merchant(SQLModel, table=True):
-    """
-    Registered merchant in the preferred seller network.
-    Self-registered via /merchants/register.
-    """
-    __tablename__ = "merchant"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-
-    # Business profile
-    business_name: str = Field(index=True)
-    contact_name: str
-    email: str = Field(unique=True, index=True)
-    phone: Optional[str] = None
-    website: Optional[str] = None
-
-    # Categories (JSON array of category slugs)
-    categories: Optional[str] = None  # JSON: ["electronics", "private_aviation"]
-
-    # Service areas (JSON array of regions/states)
-    service_areas: Optional[str] = None  # JSON: ["US-CA", "US-NY", "nationwide"]
-
-    # Verification
-    status: str = "pending"  # pending, verified, suspended
-    verified_at: Optional[datetime] = None
-
-    # Linked user account (optional)
-    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
-
-    # Linked seller record (for bid attribution)
-    seller_id: Optional[int] = Field(default=None, foreign_key="seller.id")
-
-    # Stripe Connect (Phase 4 — marketplace fee collection)
-    stripe_account_id: Optional[str] = Field(default=None, index=True)
-    stripe_onboarding_complete: bool = False
-    default_commission_rate: float = 0.05  # 5% default platform fee
-
-    # Anti-Fraud & Reputation (PRD 10)
-    verification_level: str = "unverified"  # "unverified", "email_verified", "identity_verified", "premium"
-    reputation_score: float = 0.0  # 0.0-5.0 based on deal history
-
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-
 class Contract(SQLModel, table=True):
     """
     DocuSign contract for B2B transactions.
@@ -262,14 +169,7 @@ class Contract(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class SellerBookmark(SQLModel, table=True):
-    """
-    Seller bookmarks for buyer RFPs they're interested in.
-    """
-    __tablename__ = "seller_bookmark"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    merchant_id: int = Field(foreign_key="merchant.id", index=True)
-    row_id: int = Field(foreign_key="row.id", index=True)
-
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+# SellerBookmark table was dropped in s02_unify_vendor migration.
+# Alias kept for backward compatibility in imports.
+SellerBookmark = None  # type: ignore

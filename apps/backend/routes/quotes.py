@@ -14,6 +14,7 @@ from models import (
 from database import get_session
 from dependencies import get_current_session
 from services.email import send_handoff_buyer_email, send_handoff_seller_email
+from utils.json_utils import safe_json_loads
 
 router = APIRouter(prefix="/quotes", tags=["quotes"])
 
@@ -78,13 +79,7 @@ async def get_quote_form(token: str, session=Depends(get_session)):
         raise HTTPException(status_code=404, detail="Request not found")
     
     # Parse choice factors if available
-    choice_factors = []
-    if row.choice_factors:
-        import json
-        try:
-            choice_factors = json.loads(row.choice_factors)
-        except (json.JSONDecodeError, TypeError):
-            pass
+    choice_factors = safe_json_loads(row.choice_factors, [])
     
     # For demo, add private jet specific factors if not present
     if not choice_factors and "jet" in row.title.lower():
@@ -280,15 +275,11 @@ async def select_quote(
     await session.refresh(handoff)
     
     # Send handoff emails
-    import json
     description = quote.description or ""
     if quote.answers:
-        try:
-            answers = json.loads(quote.answers)
-            if answers.get("aircraft_type"):
-                description = f"Aircraft: {answers['aircraft_type']}. {description}"
-        except (json.JSONDecodeError, TypeError, KeyError):
-            pass
+        answers = safe_json_loads(quote.answers, {})
+        if answers.get("aircraft_type"):
+            description = f"Aircraft: {answers['aircraft_type']}. {description}"
     
     # Email to buyer
     buyer_result = await send_handoff_buyer_email(

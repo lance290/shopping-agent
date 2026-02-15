@@ -44,6 +44,16 @@ if ! su fastapi -s /bin/sh -c "python scripts/seed_from_research.py"; then
     echo "[STARTUP] WARNING: Research vendor seeding failed, but continuing startup."
 fi
 
+# Generate vendor embeddings (incremental — only missing ones)
+if [ -n "$OPENROUTER_API_KEY" ]; then
+    echo "[STARTUP] Generating vendor embeddings (incremental)..."
+    if ! su fastapi -s /bin/sh -c "python scripts/generate_embeddings.py"; then
+        echo "[STARTUP] WARNING: Embedding generation failed, but continuing startup."
+    fi
+else
+    echo "[STARTUP] OPENROUTER_API_KEY not set — skipping embedding generation."
+fi
+
 # Start application
 echo "[STARTUP] Starting Uvicorn server..."
 exec su fastapi -s /bin/sh -c "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080} --workers 4"

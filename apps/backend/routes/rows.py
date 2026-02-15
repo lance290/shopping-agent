@@ -14,6 +14,7 @@ from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project
 from dependencies import get_current_session
 from routes.rows_search import router as rows_search_router
 from sourcing.safety import SafetyService
+from utils.json_utils import safe_json_loads
 
 router = APIRouter(tags=["rows"])
 router.include_router(rows_search_router)
@@ -155,10 +156,7 @@ async def create_row(
     if row.title:
         check = SafetyService.check_safety(row.title)
         if check["status"] != "safe":
-            try:
-                answers = json.loads(db_row.choice_answers or "{}")
-            except (json.JSONDecodeError, TypeError):
-                answers = {}
+            answers = safe_json_loads(db_row.choice_answers, {})
             answers["safety_status"] = check["status"]
             answers["safety_reason"] = check["reason"]
             db_row.choice_answers = json.dumps(answers)
@@ -338,10 +336,7 @@ async def update_row(
             from services.llm import generate_choice_factors as _gen_factors
             constraints_obj = {}
             if row.choice_answers:
-                try:
-                    constraints_obj = json.loads(row.choice_answers)
-                except Exception:
-                    pass
+                constraints_obj = safe_json_loads(row.choice_answers, {})
             item_name = row.title or "product"
             factors = await _gen_factors(
                 item_name, constraints_obj,
@@ -374,10 +369,7 @@ async def update_row(
     # Post-update safety check if title changed
     if "title" in row_data:
         check = SafetyService.check_safety(row.title)
-        try:
-            answers = json.loads(row.choice_answers) if row.choice_answers else {}
-        except (json.JSONDecodeError, TypeError):
-            answers = {}
+        answers = safe_json_loads(row.choice_answers, {})
         
         # Only update if status changed to avoid loops
         current_status = answers.get("safety_status")

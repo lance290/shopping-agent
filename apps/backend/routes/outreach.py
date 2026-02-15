@@ -15,6 +15,7 @@ from models import (
 )
 from database import get_session
 from dependencies import get_current_session
+from utils.json_utils import safe_json_loads
 from services.vendors import (
     search_checklist, get_checklist_summary, get_email_template,
 )
@@ -88,7 +89,7 @@ async def trigger_outreach(
     # Create outreach events and seller quotes for each vendor
     created_events = []
     for vp in vendor_profiles:
-        if not vp.contact_email:
+        if not vp.email:
             continue
 
         # Generate magic link token for this vendor
@@ -99,9 +100,9 @@ async def trigger_outreach(
             row_id=row_id,
             token=token,
             token_expires_at=datetime.utcnow() + timedelta(days=7),
-            seller_email=vp.contact_email,
+            seller_email=vp.email,
             seller_name=None,
-            seller_company=vp.company,
+            seller_company=vp.name,
             status="pending",
         )
         session.add(quote)
@@ -109,17 +110,17 @@ async def trigger_outreach(
         # Create outreach event
         event = OutreachEvent(
             row_id=row_id,
-            vendor_email=vp.contact_email,
+            vendor_email=vp.email,
             vendor_name=None,
-            vendor_company=vp.company,
+            vendor_company=vp.name,
             vendor_source="directory",
             quote_token=token,
             # sent_at will be set when email actually sends
         )
         session.add(event)
         created_events.append({
-            "vendor": vp.company,
-            "email": vp.contact_email,
+            "vendor": vp.name,
+            "email": vp.email,
             "token": token,
         })
     
@@ -139,12 +140,7 @@ async def trigger_outreach(
     await session.commit()
     
     # Send emails (after commit so we have IDs)
-    choice_factors = []
-    if row.choice_factors:
-        try:
-            choice_factors = json.loads(row.choice_factors)
-        except (json.JSONDecodeError, TypeError):
-            pass
+    choice_factors = safe_json_loads(row.choice_factors, [])
     
     for event_info in created_events:
         email_result = await send_outreach_email(
@@ -295,7 +291,7 @@ async def search_vendors_endpoint(
         pattern = f"%{q.strip()}%"
         stmt = stmt.where(
             or_(
-                VendorProfile.company.ilike(pattern),
+                VendorProfile.name.ilike(pattern),
                 VendorProfile.description.ilike(pattern),
                 VendorProfile.specialties.ilike(pattern),
                 VendorProfile.profile_text.ilike(pattern),
@@ -309,15 +305,15 @@ async def search_vendors_endpoint(
     vendors = []
     for vp in profiles:
         vendors.append({
-            "title": vp.company,
+            "title": vp.name,
             "description": vp.tagline or vp.description,
             "price": None,
-            "url": vp.website or (f"mailto:{vp.contact_email}" if vp.contact_email else None),
+            "url": vp.website or (f"mailto:{vp.email}" if vp.email else None),
             "image_url": vp.image_url,
             "source": "directory",
             "is_service_provider": True,
-            "vendor_company": vp.company,
-            "vendor_email": vp.contact_email,
+            "vendor_company": vp.name,
+            "vendor_email": vp.email,
             "category": vp.category,
             "website": vp.website,
         })
@@ -337,7 +333,7 @@ async def get_vendor_detail_endpoint(
     """Get full detail for a specific vendor by company name (partial match)."""
     result = await session.execute(
         select(VendorProfile).where(
-            VendorProfile.company.ilike(f"%{company_name}%")
+            VendorProfile.name.ilike(f"%{company_name}%")
         )
     )
     vp = result.scalar_one_or_none()
@@ -345,17 +341,17 @@ async def get_vendor_detail_endpoint(
         raise HTTPException(status_code=404, detail=f"Vendor not found: {company_name}")
     return {
         "id": vp.id,
-        "company": vp.company,
+        "company": vp.name,
         "category": vp.category,
         "website": vp.website,
-        "contact_email": vp.contact_email,
-        "contact_phone": vp.contact_phone,
+        "contact_email": vp.email,
+        "contact_phone": vp.phone,
         "service_areas": vp.service_areas,
         "specialties": vp.specialties,
         "description": vp.description,
         "tagline": vp.tagline,
         "image_url": vp.image_url,
-        "merchant_id": vp.merchant_id,
+        "vendor_id": vp.id,
         "created_at": vp.created_at.isoformat() if vp.created_at else None,
     }
 
@@ -429,40 +425,135 @@ async def check_service(
 @router.get("/vendors/{category}")
 async def get_vendors_for_category(
     category: str,
+    q: Optional[str] = None,
     limit: int = 15,
     session=Depends(get_session),
 ):
-    """Get vendors for a category as search result tiles."""
-    normalized = category.lower().strip()
+    """Get vendors for a category as search result tiles.
+
+    Tiered matching (DB-first):
+      1. DB vendor table — exact category match
+      2. DB vendor table — ILIKE text search across name/description/specialties/profile_text
+      3. In-memory registry — fallback if DB returns nothing
+    """
+    from services.vendors import (
+        get_vendors_as_results,
+        normalize_category,
+        search_vendors as search_vendors_inmem,
+    )
+    from sqlalchemy import or_
+
+    normalized = normalize_category(category)
+    search_query = q or category.replace("_", " ")
+
+    def _vendor_row_to_dict(vp):
+        return {
+            "title": vp.name,
+            "description": vp.tagline or vp.description,
+            "price": None,
+            "url": vp.website or (f"mailto:{vp.email}" if vp.email else None),
+            "image_url": vp.image_url,
+            "source": "directory",
+            "is_service_provider": True,
+            "vendor_company": vp.name,
+            "vendor_email": vp.email,
+            "contact_email": vp.email,
+            "contact_phone": vp.phone,
+            "website": vp.website,
+            "category": vp.category,
+        }
+
+    # --- Tier 1: DB exact category match ---
     result = await session.execute(
         select(VendorProfile)
         .where(VendorProfile.category == normalized)
         .limit(limit)
     )
     profiles = result.scalars().all()
-    vendors = []
-    for vp in profiles:
-        vendors.append(
-            {
-                "title": vp.company,
-                "description": vp.tagline or vp.description,
-                "price": None,
-                "url": vp.website or (f"mailto:{vp.contact_email}" if vp.contact_email else None),
-                "image_url": vp.image_url,
-                "source": "directory",
-                "is_service_provider": True,
-                "vendor_company": vp.company,
-                "vendor_email": vp.contact_email,
-                "contact_email": vp.contact_email,
-                "contact_phone": vp.contact_phone,
-                "website": vp.website,
-                "category": vp.category,
-            }
+    if profiles:
+        vendors = [_vendor_row_to_dict(vp) for vp in profiles]
+        return {"category": category, "vendors": vendors, "is_service": True, "match_tier": "db_exact"}
+
+    # --- Tier 2: DB vector (semantic) search ---
+    try:
+        from scripts.generate_embeddings import get_embeddings
+        import sqlalchemy as sa
+
+        query_embs = await get_embeddings([search_query])
+        if query_embs and query_embs[0]:
+            vec_str = "[" + ",".join(str(f) for f in query_embs[0]) + "]"
+            # Cosine distance: 0 = identical, 2 = opposite. Threshold 0.6 for relevance.
+            result = await session.execute(
+                sa.text(
+                    "SELECT id, name, description, tagline, website, email, phone, "
+                    "image_url, category, "
+                    "(embedding <=> CAST(:qvec AS vector)) AS distance "
+                    "FROM vendor "
+                    "WHERE embedding IS NOT NULL "
+                    "ORDER BY embedding <=> CAST(:qvec AS vector) "
+                    "LIMIT :lim"
+                ),
+                {"qvec": vec_str, "lim": limit},
+            )
+            rows = result.mappings().all()
+            # Filter by distance threshold
+            close = [r for r in rows if r["distance"] < 0.6]
+            if close:
+                vendors = []
+                for r in close:
+                    vendors.append({
+                        "title": r["name"],
+                        "description": r["tagline"] or r["description"],
+                        "price": None,
+                        "url": r["website"] or (f"mailto:{r['email']}" if r["email"] else None),
+                        "image_url": r["image_url"],
+                        "source": "directory",
+                        "is_service_provider": True,
+                        "vendor_company": r["name"],
+                        "vendor_email": r["email"],
+                        "contact_email": r["email"],
+                        "contact_phone": r["phone"],
+                        "website": r["website"],
+                        "category": r["category"],
+                    })
+                return {"category": category, "vendors": vendors, "is_service": True, "match_tier": "db_vector"}
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Vector search failed (falling back to text): {e}")
+
+    # --- Tier 3: DB ILIKE text search ---
+    pattern = f"%{search_query.strip()}%"
+    result = await session.execute(
+        select(VendorProfile)
+        .where(
+            or_(
+                VendorProfile.category.ilike(pattern),
+                VendorProfile.name.ilike(pattern),
+                VendorProfile.description.ilike(pattern),
+                VendorProfile.specialties.ilike(pattern),
+                VendorProfile.profile_text.ilike(pattern),
+                VendorProfile.tagline.ilike(pattern),
+            )
         )
+        .limit(limit)
+    )
+    profiles = result.scalars().all()
+    if profiles:
+        vendors = [_vendor_row_to_dict(vp) for vp in profiles]
+        return {"category": category, "vendors": vendors, "is_service": True, "match_tier": "db_search"}
+
+    # --- Tier 4: In-memory registry fallback ---
+    vendors = get_vendors_as_results(normalized)
+    if not vendors:
+        vendors = search_vendors_inmem(search_query, limit=limit)
+    if vendors:
+        return {"category": category, "vendors": vendors[:limit], "is_service": True, "match_tier": "registry_fallback"}
+
     return {
         "category": category,
-        "vendors": vendors,
+        "vendors": [],
         "is_service": True,
+        "match_tier": "none",
     }
 
 
@@ -529,7 +620,7 @@ async def persist_vendors_for_row(
 
         bid = Bid(
             row_id=row_id,
-            seller_id=None,
+            vendor_id=None,
             price=normalized_price,
             total_cost=normalized_price,
             currency=vendor.get("currency", "USD"),
@@ -607,12 +698,7 @@ async def send_reminders(
     if not events:
         return {"status": "no_reminders", "sent": 0}
 
-    choice_factors = []
-    if row.choice_factors:
-        try:
-            choice_factors = json.loads(row.choice_factors)
-        except (json.JSONDecodeError, TypeError):
-            pass
+    choice_factors = safe_json_loads(row.choice_factors, [])
 
     sent_count = 0
     for event in events:

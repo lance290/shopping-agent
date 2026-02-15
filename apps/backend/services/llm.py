@@ -136,8 +136,8 @@ def _extract_json_array(text: str) -> list:
 
 class UserIntent(BaseModel):
     what: str
-    category: str  # "product" or "service"
-    service_type: Optional[str] = None
+    category: str = "request"  # kept for backward compat; ignored by routing
+    service_type: Optional[str] = None  # vendor_category hint (e.g. "private_aviation")
     search_query: str
     constraints: Dict[str, Any] = {}
 
@@ -223,9 +223,9 @@ You MUST always return an "intent" object that captures WHAT THE USER WANTS:
 
 {{
   "intent": {{
-    "what": "The core thing they want - e.g., 'private jet charter', 'kids baseball glove', 'winter coat'",
-    "category": "product" or "service",
-    "service_type": "for services only: private_aviation, yacht_charter, catering, etc.",
+    "what": "The core thing they want - e.g., 'private jet charter', 'kids baseball glove', 'custom diamonds'",
+    "category": "request",
+    "service_type": "optional vendor category hint: private_aviation, roofing, hvac, jewelry, catering, etc. Use when a vendor directory might have relevant providers. null if unsure.",
     "search_query": "The query to find this - derived from WHAT, not conversation snippets",
     "constraints": {{ structured data ONLY: origin, destination, date, size, color, price, recipient, etc. NEVER include 'what', 'is_service', 'service_category', 'search_query', or 'title' in constraints — those belong in the parent intent fields. }}
   }}
@@ -240,10 +240,11 @@ CRITICAL INTENT RULES:
   - constraints: {{ origin: "SAN", destination: "EWR", date: "Feb 13", passengers: 7, passenger_names: "John Doe, Jane Doe" }}
 - If pending_clarification exists, MERGE its intent with new info. The "what" comes from the ORIGINAL request.
 
-SERVICE vs PRODUCT:
-- SERVICE (category: "service"): User needs someone to DO something (fly them, cater, photograph, renovate)
-- PRODUCT (category: "product"): User wants to BUY an item — physical OR digital. This includes: shoes, laptop, coat, gift cards, subscriptions, software licenses, digital downloads, game codes, etc.
-- GIFT CARDS ARE ALWAYS PRODUCTS, never services.
+VENDOR CATEGORY HINT:
+- Set service_type to a vendor category when the request might benefit from matching against a vendor directory.
+- Examples: "private_aviation", "roofing", "hvac", "jewelry", "catering", "photography", "auto_repair"
+- This is just a hint — the system will ALWAYS search for both vendors and web results regardless.
+- Set to null if no obvious vendor category applies (e.g. "Roblox gift card").
 
 === ACTION TYPES ===
 1. "create_row" - Create new request (no active row, or after clarification)
@@ -285,12 +286,13 @@ You are NOT just a chatbot. You are a procurement agent. For every request, foll
 
 4. Only use ask_clarification when you're missing ESSENTIAL choice factors. For simple product searches with enough context, go straight to create_row.
 
-SERVICE REQUESTS:
+COMPLEX REQUESTS (services, custom/bespoke items, high-value purchases):
 - Use ask_clarification to gather essential details first
 - Essential details by type:
   - Private jets: origin, destination, date, passengers, passenger_names
   - Catering: date, location, headcount
   - Photography: date, location, event type
+  - Custom jewelry: recipient, budget, carat weight, style preferences
 - Then create_row with full intent
 
 Return ONLY valid JSON:
