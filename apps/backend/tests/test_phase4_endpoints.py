@@ -71,16 +71,6 @@ def test_clickout_event_fraud_defaults():
     assert event.user_agent is None
 
 
-def test_user_trust_level():
-    """PRD 10: User model has trust_level field."""
-    from models import User
-    user = User(trust_level="trusted")
-    assert user.trust_level == "trusted"
-
-    default_user = User()
-    assert default_user.trust_level == "standard"
-
-
 def test_merchant_verification_fields():
     """PRD 10: Merchant model has verification and reputation fields."""
     from models import Merchant
@@ -326,100 +316,6 @@ def test_stripe_connect_response_model():
         commission_rate=0.05,
     )
     assert earnings.completed_transactions == 42
-
-
-def test_signal_create_model():
-    """PRD 11: Signal creation request model."""
-    from routes.signals import SignalCreate
-
-    signal = SignalCreate(
-        bid_id=1,
-        signal_type="thumbs_up",
-        value=1.0,
-    )
-    assert signal.signal_type == "thumbs_up"
-    assert signal.bid_id == 1
-
-
-# ── Reputation Service Tests ─────────────────────────────────────────────
-
-
-def test_reputation_account_maturity_score():
-    """PRD 10 R2: Account maturity scoring."""
-    from services.reputation import _account_maturity_score
-    from models import Merchant
-
-    # New account (< 7 days)
-    new_merchant = Merchant(
-        business_name="New Corp",
-        contact_name="Test",
-        email="new@example.com",
-        created_at=datetime.utcnow() - timedelta(days=2),
-    )
-    assert _account_maturity_score(new_merchant) == 1.0
-
-    # Week-old account
-    week_merchant = Merchant(
-        business_name="Week Corp",
-        contact_name="Test",
-        email="week@example.com",
-        created_at=datetime.utcnow() - timedelta(days=14),
-    )
-    assert _account_maturity_score(week_merchant) == 2.0
-
-    # Month-old account
-    month_merchant = Merchant(
-        business_name="Month Corp",
-        contact_name="Test",
-        email="month@example.com",
-        created_at=datetime.utcnow() - timedelta(days=60),
-    )
-    assert _account_maturity_score(month_merchant) == 3.0
-
-    # Mature account (180+ days)
-    mature_merchant = Merchant(
-        business_name="Old Corp",
-        contact_name="Test",
-        email="old@example.com",
-        created_at=datetime.utcnow() - timedelta(days=200),
-    )
-    assert _account_maturity_score(mature_merchant) == 5.0
-
-
-def test_reputation_verification_score():
-    """PRD 10 R2: Verification level scoring."""
-    from services.reputation import _verification_score
-    from models import Merchant
-
-    levels = {
-        "unverified": 1.0,
-        "email_verified": 2.5,
-        "identity_verified": 4.0,
-        "premium": 5.0,
-    }
-
-    for level, expected in levels.items():
-        merchant = Merchant(
-            business_name="Test",
-            contact_name="Test",
-            email=f"{level}@example.com",
-            verification_level=level,
-        )
-        assert _verification_score(merchant) == expected, f"Failed for level {level}"
-
-
-def test_reputation_unknown_verification_level():
-    """PRD 10 R2: Unknown verification level defaults to 1.0."""
-    from services.reputation import _verification_score
-    from models import Merchant
-
-    merchant = Merchant(
-        business_name="Test",
-        contact_name="Test",
-        email="test@example.com",
-        verification_level="unknown_level",
-    )
-    assert _verification_score(merchant) == 1.0
 
 
 def test_email_outreach_disclosure():

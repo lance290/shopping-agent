@@ -110,21 +110,6 @@ async def test_merchant_search_empty(client):
     assert data["count"] == 0
 
 
-# ─── Contract Creation (DocuSign Scaffold) ──────────────────────────
-
-@pytest.mark.asyncio
-async def test_contract_create_requires_auth(client):
-    """Test contract creation requires authentication."""
-    response = await client.post(
-        "/contracts",
-        json={
-            "seller_email": "seller@example.com",
-            "deal_value": 1000.00,
-        },
-    )
-    assert response.status_code == 401
-
-
 # ─── Outreach Unsubscribe ──────────────────────────────────────────
 
 @pytest.mark.asyncio

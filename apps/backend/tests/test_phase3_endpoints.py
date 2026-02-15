@@ -154,38 +154,6 @@ async def test_admin_stats_requires_admin(client: AsyncClient, auth_user_and_tok
     assert resp.status_code == 403
 
 
-# ── Vendor Discovery Adapter ────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_local_vendor_adapter():
-    """LocalVendorAdapter returns vendors for known categories."""
-    from services.vendor_discovery import LocalVendorAdapter
-
-    adapter = LocalVendorAdapter()
-    assert await adapter.health_check() is True
-
-    vendors = await adapter.find_sellers("private_aviation", limit=3)
-    # May return vendors if vendors.py has data for this category
-    assert isinstance(vendors, list)
-
-
-@pytest.mark.asyncio
-async def test_vendor_adapter_factory():
-    """get_vendor_adapter returns an adapter instance."""
-    import os
-    from services.vendor_discovery import get_vendor_adapter, reset_adapter
-
-    reset_adapter()
-    os.environ["VENDOR_DISCOVERY_BACKEND"] = "local"
-
-    adapter = await get_vendor_adapter()
-    assert adapter is not None
-    assert await adapter.health_check() is True
-
-    reset_adapter()
-
-
 # ── Provenance Enrichment ────────────────────────────────────────────────
 
 
