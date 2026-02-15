@@ -60,6 +60,13 @@ class VendorDirectoryProvider(SourcingProvider):
 
     def __init__(self, database_url: str):
         self._database_url = database_url
+        # Create engine once with a small connection pool
+        self._engine = create_async_engine(
+            database_url, 
+            pool_size=5, 
+            max_overflow=10,
+            pool_timeout=30
+        )
 
     async def search(self, query: str, **kwargs) -> List[SearchResult]:
         """Embed query, cosine search vendor table, return SearchResults."""
@@ -72,9 +79,8 @@ class VendorDirectoryProvider(SourcingProvider):
         vec_str = "[" + ",".join(str(f) for f in embedding) + "]"
 
         # 2. Query vendor table with cosine similarity
-        engine = create_async_engine(self._database_url, poolclass=NullPool)
         try:
-            async with engine.connect() as conn:
+            async with self._engine.connect() as conn:
                 result = await conn.execute(
                     sa.text(
                         "SELECT id, name, description, tagline, website, email, phone, "
@@ -91,8 +97,6 @@ class VendorDirectoryProvider(SourcingProvider):
         except Exception as e:
             logger.warning(f"[VendorProvider] DB query failed: {e}")
             return []
-        finally:
-            await engine.dispose()
 
         # 3. Filter by distance threshold and convert to SearchResult
         results: List[SearchResult] = []

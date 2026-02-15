@@ -291,10 +291,8 @@ async def search_row_listings(
     # Apply price, material, and choice filtering
     if min_price_filter is not None or max_price_filter is not None or exclude_synthetics or custom_exclude_keywords or choice_constraints:
         filtered_results = []
-        # Sources that don't provide price data - allow through without price filtering
-        non_shopping_sources = {"google_cse", "vendor_directory"}
-        # Service providers that do not have fixed prices - allow through without price filtering
-        service_sources = {"wattdata"}
+        from sourcing.constants import NON_SHOPPING_SOURCES, SERVICE_SOURCES
+        
         dropped_price = 0
         dropped_materials = 0
         dropped_choices = 0
@@ -319,7 +317,7 @@ async def search_row_listings(
                     continue
 
             # Apply price filtering (skip for non-shopping sources and service providers)
-            if source_key in non_shopping_sources or source_key in service_sources:
+            if source_key in NON_SHOPPING_SOURCES or source_key in SERVICE_SOURCES:
                 filtered_results.append(r)
                 continue
 
@@ -402,7 +400,7 @@ async def search_row_listings_stream(
         """Generate SSE events as each provider completes."""
         all_results: List[SearchResult] = []
         all_statuses: List[ProviderStatusSnapshot] = []
-        non_shopping_sources = {"google_cse", "vendor_directory"}
+        from sourcing.constants import NON_SHOPPING_SOURCES
 
         async for provider_name, results, status, providers_remaining in sourcing_repo.search_streaming(
             sanitized_query,
@@ -429,7 +427,7 @@ async def search_row_listings_stream(
 
                 source = getattr(r, "source", None)
                 # Allow non-shopping sources through (skip price filtering)
-                if source in non_shopping_sources:
+                if source in NON_SHOPPING_SOURCES:
                     filtered_batch.append(r)
                     continue
 

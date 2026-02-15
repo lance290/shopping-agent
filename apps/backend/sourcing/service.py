@@ -125,18 +125,12 @@ class SourcingService:
 
         if max_price is not None:
             filtered: List[NormalizedResult] = []
-            # Sources that don't provide price data - allow through without price filtering
-            non_shopping_sources = {"google_cse", "vendor_directory"}
-            # Service providers that do not have fixed prices - allow through without price filtering
-            service_sources = {"wattdata"}
+            from sourcing.constants import NON_SHOPPING_SOURCES, SERVICE_SOURCES
+            
             dropped_max = 0
             for res in normalized_results:
                 # Allow non-shopping sources through (they don't have price data)
-                if res.source in non_shopping_sources:
-                    filtered.append(res)
-                    continue
-                # Allow service providers through (they don't have fixed prices)
-                if res.source in service_sources:
+                if res.source in NON_SHOPPING_SOURCES or res.source in SERVICE_SOURCES:
                     filtered.append(res)
                     continue
                 price = res.price
