@@ -170,6 +170,70 @@ class SourcingService:
             max_price=max_price,
         )
 
+        # 2b. Quantum re-ranking (for results with embeddings)
+        try:
+            from sourcing.quantum.reranker import QuantumReranker
+            if not hasattr(self, '_quantum_reranker'):
+                self._quantum_reranker = QuantumReranker()
+            reranker = self._quantum_reranker
+            if reranker.is_available() and row:
+                # Build result dicts with embeddings for quantum scoring, keyed by index
+                results_for_quantum = []
+                for idx, res in enumerate(normalized_results):
+                    rd = {
+                        "_idx": idx,
+                        "title": res.title,
+                        "embedding": res.raw_data.get("embedding") if res.raw_data else None,
+                    }
+                    results_for_quantum.append(rd)
+
+                # Get query embedding from search intent
+                query_emb = None
+                if row.search_intent:
+                    try:
+                        intent_data = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
+                        query_emb = intent_data.get("query_embedding")
+                    except Exception:
+                        pass
+
+                if query_emb and any(r.get("embedding") for r in results_for_quantum):
+                    reranked = await reranker.rerank_results(
+                        query_embedding=query_emb,
+                        search_results=results_for_quantum,
+                        top_k=len(normalized_results),
+                    )
+                    # Apply quantum scores back using the _idx key to match correctly
+                    score_map = {}
+                    for r in reranked:
+                        if r.get("quantum_reranked") and "_idx" in r:
+                            score_map[r["_idx"]] = r
+                    for idx, res in enumerate(normalized_results):
+                        if idx in score_map:
+                            qr = score_map[idx]
+                            res.provenance["quantum_score"] = qr.get("quantum_score", 0.0)
+                            res.provenance["blended_score"] = qr.get("blended_score", 0.0)
+                            res.provenance["novelty_score"] = qr.get("novelty_score", 0.0)
+                            res.provenance["coherence_score"] = qr.get("coherence_score", 0.0)
+                    logger.info(f"[SourcingService] Quantum reranking applied to {len(score_map)} results")
+        except ImportError:
+            pass  # Quantum module not available — classical scoring only
+        except Exception as e:
+            logger.warning(f"[SourcingService] Quantum reranking failed (graceful degradation): {e}")
+
+        # 2c. Constraint satisfaction scoring
+        if row and row.structured_constraints:
+            try:
+                from sourcing.quantum.constraint_scorer import constraint_satisfaction_score
+                constraints = json.loads(row.structured_constraints) if isinstance(row.structured_constraints, str) else row.structured_constraints
+                if isinstance(constraints, dict) and constraints:
+                    for res in normalized_results:
+                        result_data = {"title": res.title, "raw_data": res.raw_data}
+                        c_score = constraint_satisfaction_score(result_data, constraints)
+                        res.provenance["constraint_score"] = round(c_score, 4)
+                    logger.info(f"[SourcingService] Constraint scoring applied to {len(normalized_results)} results")
+            except Exception as e:
+                logger.warning(f"[SourcingService] Constraint scoring failed: {e}")
+
         # 3. Persist Results
         bids = await self._persist_results(row_id, normalized_results, row)
         

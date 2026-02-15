@@ -62,6 +62,13 @@ from models.marketplace import (
     SellerBookmark,
 )
 
+# Outreach models
+from models.outreach import (
+    OutreachCampaign,
+    OutreachMessage,
+    OutreachQuote,
+)
+
 # Admin models
 from models.admin import (
     BugReport,
@@ -107,6 +114,10 @@ __all__ = [
     "Merchant",
     "Contract",
     "SellerBookmark",
+    # Outreach
+    "OutreachCampaign",
+    "OutreachMessage",
+    "OutreachQuote",
     # Admin
     "BugReport",
     "Notification",

@@ -36,6 +36,10 @@ class RowBase(SQLModel):
     is_service: bool = False
     service_category: Optional[str] = None  # e.g., "private_aviation", "catering"
 
+    # Desire classification (PRD: Desire Classification)
+    desire_tier: Optional[str] = None  # commodity, considered, service, bespoke, high_value, advisory
+    structured_constraints: Optional[str] = None  # JSON of extracted structured constraints
+
 
 class RequestSpecBase(SQLModel):
     item_name: str

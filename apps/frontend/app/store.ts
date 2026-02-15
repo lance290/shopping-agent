@@ -74,6 +74,7 @@ export interface Row {
   last_engaged_at?: number;  // Client-side timestamp for ordering
   is_service?: boolean;      // True if this is a service request (not a product)
   service_category?: string; // e.g., "private_aviation", "catering"
+  desire_tier?: string;      // commodity, considered, service, bespoke, high_value, advisory
 }
 
 export interface Project {

@@ -858,6 +858,19 @@ class SourcingRepository:
         result = await self.search_all_with_status(query, **kwargs)
         return result.results
 
+    def _filter_providers_by_tier(self, providers: Dict[str, "SourcingProvider"], desire_tier: Optional[str] = None) -> Dict[str, "SourcingProvider"]:
+        """Filter providers based on desire tier. Service/bespoke/high_value skip web search."""
+        VENDOR_ONLY_TIERS = ("service", "bespoke", "high_value")
+        VENDOR_PROVIDER_ID = "vendor_directory"
+        if desire_tier in VENDOR_ONLY_TIERS:
+            filtered = {k: v for k, v in providers.items() if k == VENDOR_PROVIDER_ID}
+            if filtered:
+                print(f"[SourcingRepository] Desire tier '{desire_tier}' — vendor-only mode: {list(filtered.keys())}")
+                return filtered
+            # Fallback: if vendor_directory isn't registered, use all providers
+            print(f"[SourcingRepository] Desire tier '{desire_tier}' but no vendor_directory provider — using all")
+        return providers
+
     async def search_all_with_status(self, query: str, **kwargs) -> SearchResultWithStatus:
         """Search all providers and return results with provider status."""
         print(f"[SourcingRepository] search_all called with query: {query}")
@@ -866,12 +879,16 @@ class SourcingRepository:
         from sourcing.normalizers import normalize_results_for_provider
 
         providers_filter = kwargs.pop("providers", None)
+        desire_tier = kwargs.pop("desire_tier", None)
         selected_providers: Dict[str, SourcingProvider] = self.providers
         if providers_filter:
             allow = {str(p).strip() for p in providers_filter if str(p).strip()}
             selected_providers = {k: v for k, v in self.providers.items() if k in allow}
             print(f"[SourcingRepository] Provider filter requested: {sorted(list(allow))}")
             print(f"[SourcingRepository] Providers selected: {list(selected_providers.keys())}")
+
+        # Apply desire-tier filtering
+        selected_providers = self._filter_providers_by_tier(selected_providers, desire_tier)
         
         start_time = time.time()
         try:
@@ -1005,10 +1022,14 @@ class SourcingRepository:
         from sourcing.normalizers import normalize_results_for_provider
 
         providers_filter = kwargs.pop("providers", None)
+        desire_tier = kwargs.pop("desire_tier", None)
         selected_providers: Dict[str, SourcingProvider] = self.providers
         if providers_filter:
             allow = {str(p).strip() for p in providers_filter if str(p).strip()}
             selected_providers = {k: v for k, v in self.providers.items() if k in allow}
+
+        # Apply desire-tier filtering
+        selected_providers = self._filter_providers_by_tier(selected_providers, desire_tier)
 
         # No timeout for streaming - results flow in as each provider completes
         # Slow providers just arrive later in the stream

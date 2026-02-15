@@ -4,6 +4,7 @@ import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import ProviderStatusBadge from './ProviderStatusBadge';
 import { Archive, RefreshCw, FlaskConical, Undo2, Link2, X } from 'lucide-react';
+import OutreachQueue from './OutreachQueue';
 import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, createCommentApi, fetchCommentsApi } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
@@ -571,6 +572,13 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
                 </div>
               )}
             </div>
+
+            {/* Outreach Queue — shown for service/bespoke/high_value desire tiers */}
+            {(row.desire_tier === 'service' || row.desire_tier === 'bespoke' || row.desire_tier === 'high_value') && sortedOffers.length > 0 && !isSearching && (
+              <div className="mt-4">
+                <OutreachQueue rowId={row.id} />
+              </div>
+            )}
           </div>
         </div>
       </div>

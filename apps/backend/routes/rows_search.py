@@ -407,6 +407,7 @@ async def search_row_listings_stream(
             providers=body.providers,
             min_price=min_price_filter,
             max_price=max_price_filter,
+            desire_tier=row.desire_tier,
         ):
             all_statuses.append(status)
 

@@ -134,12 +134,18 @@ def _extract_json_array(text: str) -> list:
 # DATA MODELS
 # =============================================================================
 
+# Valid desire tiers — drives downstream routing
+DESIRE_TIERS = ("commodity", "considered", "service", "bespoke", "high_value", "advisory")
+
+
 class UserIntent(BaseModel):
     what: str
-    category: str = "request"  # kept for backward compat; ignored by routing
+    category: str = "request"
     service_type: Optional[str] = None  # vendor_category hint (e.g. "private_aviation")
     search_query: str
     constraints: Dict[str, Any] = {}
+    desire_tier: str = "commodity"  # one of DESIRE_TIERS
+    desire_confidence: float = 0.8  # 0.0-1.0
 
 
 class ClarificationAction(BaseModel):
@@ -166,6 +172,15 @@ class UnifiedDecision(BaseModel):
     message: str
     intent: UserIntent
     action: Dict[str, Any]  # flexible to handle all action types
+
+    @property
+    def desire_tier(self) -> str:
+        return self.intent.desire_tier if self.intent.desire_tier in DESIRE_TIERS else "commodity"
+
+    @property
+    def skip_web_search(self) -> bool:
+        """Service/bespoke/high-value/advisory tiers skip web search — it can't help."""
+        return self.desire_tier in ("service", "bespoke", "high_value", "advisory")
 
 
 class ChatContext(BaseModel):
@@ -227,9 +242,30 @@ You MUST always return an "intent" object that captures WHAT THE USER WANTS:
     "category": "request",
     "service_type": "optional vendor category hint: private_aviation, roofing, hvac, jewelry, catering, etc. Use when a vendor directory might have relevant providers. null if unsure.",
     "search_query": "The query to find this - derived from WHAT, not conversation snippets",
-    "constraints": {{ structured data ONLY: origin, destination, date, size, color, price, recipient, etc. NEVER include 'what', 'is_service', 'service_category', 'search_query', or 'title' in constraints — those belong in the parent intent fields. }}
+    "constraints": {{ structured data ONLY: origin, destination, date, size, color, price, recipient, etc. NEVER include 'what', 'is_service', 'service_category', 'search_query', or 'title' in constraints — those belong in the parent intent fields. }},
+    "desire_tier": "one of: commodity, considered, service, bespoke, high_value, advisory",
+    "desire_confidence": 0.0-1.0
   }}
 }}
+
+=== DESIRE TIER (classify EVERY request) ===
+Before deciding the action, classify what KIND of desire this is:
+
+| Tier | When to use | Examples |
+| commodity | Simple product, buy off the shelf | "AA batteries", "Roblox gift card", "running shoes" |
+| considered | Complex product needing comparison | "laptop for video editing", "best DSLR camera", "ergonomic office chair" |
+| service | Hire someone / book a service | "private jet charter", "HVAC repair", "catering for 200", "wedding photographer" |
+| bespoke | Custom-made / commissioned item | "custom engagement ring", "commission a mural", "bespoke suit" |
+| high_value | Major asset purchase (>$100k typically) | "mega-yacht", "aircraft purchase", "commercial real estate" |
+| advisory | Needs professional advisory, not a search | "acquire a SaaS company", "set up a family trust", "corporate M&A" |
+
+CRITICAL: The desire_tier drives how the system helps the user:
+- commodity/considered → web search (Amazon, eBay, Google Shopping)
+- service/bespoke → vendor directory search (match with specialists) — do NOT search Amazon
+- high_value → broker/specialist matching — do NOT search Amazon
+- advisory → flag for human review — no search at all
+
+Set desire_confidence to how sure you are (0.0-1.0). If < 0.7, the system will ask a clarifying question.
 
 CRITICAL INTENT RULES:
 - "what" is NEVER a date, number, or clarification answer. It's the THING they want.
@@ -298,7 +334,7 @@ COMPLEX REQUESTS (services, custom/bespoke items, high-value purchases):
 Return ONLY valid JSON:
 {{
   "message": "Conversational response to user (REQUIRED)",
-  "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}} }},
+  "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}}, "desire_tier": "commodity|considered|service|bespoke|high_value|advisory", "desire_confidence": 0.9 }},
   "action": {{ "type": "..." }}
 }}"""
 
