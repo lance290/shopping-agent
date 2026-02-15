@@ -212,7 +212,6 @@ interface ShoppingState {
   newRowAggressiveness: number;   // 0..100: higher => more likely to start a new row
   rows: Row[];                    // All rows from database
   projects: Project[];            // All projects
-  searchResults: Offer[];         // Current search results (legacy view)
   rowResults: Record<number, Offer[]>; // Per-row cached results
   rowProviderStatuses: Record<number, ProviderStatusSnapshot[]>; // Per-row provider statuses
   rowSearchErrors: Record<number, string | null>; // Per-row search error messages
@@ -233,7 +232,6 @@ interface ShoppingState {
   addRow: (row: Row) => void;
   updateRow: (id: number, updates: Partial<Row>) => void;
   removeRow: (id: number) => void;
-  setSearchResults: (results: Offer[]) => void;
   setRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[], moreIncoming?: boolean, userMessage?: string) => void;
   appendRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[], moreIncoming?: boolean, userMessage?: string) => void;
   clearRowResults: (rowId: number) => void;
@@ -267,7 +265,6 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   newRowAggressiveness: 50,
   rows: [],
   projects: [],
-  searchResults: [],
   rowResults: {},
   rowProviderStatuses: {},
   rowSearchErrors: {},
@@ -460,7 +457,6 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     rows: state.rows.filter((row) => row.id !== id),
     activeRowId: state.activeRowId === id ? null : state.activeRowId,
   })),
-  setSearchResults: (results) => set({ searchResults: results, isSearching: false }),
   setRowResults: (rowId, results, providerStatuses, moreIncoming = false, userMessage) => set((state) => {
     const existing = state.rowResults[rowId] || [];
 
@@ -516,7 +512,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   setMoreResultsIncoming: (rowId, incoming) => set((state) => ({
     moreResultsIncoming: { ...state.moreResultsIncoming, [rowId]: incoming },
   })),
-  clearSearch: () => set({ searchResults: [], rowResults: {}, rowProviderStatuses: {}, rowSearchErrors: {}, moreResultsIncoming: {}, currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
+  clearSearch: () => set({ rowResults: {}, rowProviderStatuses: {}, rowSearchErrors: {}, moreResultsIncoming: {}, currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
   setCardClickQuery: (query) => set({ cardClickQuery: query }),
 
   // Find a row that matches the query, or return null if we need to create one

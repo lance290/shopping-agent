@@ -21,16 +21,6 @@ describe('Search Flow Logic', () => {
     expect(useShoppingStore.getState().isSearching).toBe(false);
   });
 
-  test('setSearchResults clears isSearching', () => {
-    const store = useShoppingStore.getState();
-    store.setIsSearching(true);
-    
-    store.setSearchResults([{ title: 'Test', price: 10, currency: 'USD', merchant: 'M', url: 'http://x.com', image_url: null, rating: null, reviews_count: null, shipping_info: null, source: 'test' }]);
-    
-    expect(useShoppingStore.getState().isSearching).toBe(false);
-    expect(useShoppingStore.getState().searchResults).toHaveLength(1);
-  });
-
   test('setRowResults clears isSearching', () => {
     const store = useShoppingStore.getState();
     store.setIsSearching(true);

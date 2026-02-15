@@ -74,7 +74,6 @@ describe('Zustand Store - Per-Row Results', () => {
 
     const state = useShoppingStore.getState();
     expect(state.rowResults).toEqual({});
-    expect(state.searchResults).toEqual([]);
     expect(state.activeRowId).toBeNull();
     expect(state.currentQuery).toBe('');
   });
