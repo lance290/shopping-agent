@@ -85,7 +85,7 @@ class SourcingService:
                 delete(Bid).where(
                     Bid.row_id == row_id,
                     Bid.price > max_price,
-                    Bid.source != "wattdata",
+                    Bid.source != "vendor_directory",
                     Bid.is_liked == False,
                     Bid.is_selected == False,
                 )
@@ -339,7 +339,7 @@ class SourcingService:
 
             # Determine source tier
             source_tier = "marketplace"  # default
-            if res.source in ("seller_quote", "wattdata"):
+            if res.source in ("seller_quote", "vendor_directory"):
                 source_tier = "outreach"
             elif res.source == "registered_merchant":
                 source_tier = "registered"

@@ -5,11 +5,9 @@
 NON_SHOPPING_SOURCES = {
     "google_cse",
     "vendor_directory",
-    "wattdata",  # Service provider mock
 }
 
 # Service providers that specifically don't have fixed prices
 SERVICE_SOURCES = {
-    "wattdata",
     "vendor_directory",
 }

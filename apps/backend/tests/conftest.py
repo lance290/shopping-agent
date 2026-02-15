@@ -20,15 +20,19 @@ from main import app, get_session
 async def session_fixture():
     # Use a SEPARATE test database to avoid nuking dev data.
     # Derive test DB URL from the main engine URL by appending "_test".
-    main_url = str(engine.url)
-    if main_url.endswith("/shopping_agent"):
-        test_url = main_url.replace("/shopping_agent", "/shopping_agent_test")
-    else:
-        # Fallback: just use the main URL (shouldn't happen)
-        test_url = main_url
+    from urllib.parse import urlparse, urlunparse
 
-    # Ensure the test database exists (connect to default 'postgres' db to create it)
-    admin_url = test_url.rsplit("/", 1)[0] + "/postgres"
+    main_url = engine.url.render_as_string(hide_password=False)
+    parsed = urlparse(main_url)
+
+    # Replace DB name: /shopping_agent -> /shopping_agent_test
+    test_path = parsed.path
+    if "/shopping_agent" in test_path and "_test" not in test_path:
+        test_path = test_path.replace("/shopping_agent", "/shopping_agent_test")
+    test_url = urlunparse(parsed._replace(path=test_path))
+
+    # Admin URL: swap DB name to /postgres (keep query params like ?ssl=disable)
+    admin_url = urlunparse(parsed._replace(path="/postgres"))
     admin_engine = create_async_engine(admin_url, poolclass=NullPool, isolation_level="AUTOCOMMIT")
     try:
         async with admin_engine.connect() as conn:
@@ -48,8 +52,10 @@ async def session_fixture():
     )
 
     # Re-init DB on the test engine to ensure schema
+    # Use raw DROP/CREATE SCHEMA to handle FK dependencies cleanly
     async with test_engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.drop_all)
+        await conn.execute(sqlalchemy.text("DROP SCHEMA public CASCADE"))
+        await conn.execute(sqlalchemy.text("CREATE SCHEMA public"))
         await conn.run_sync(SQLModel.metadata.create_all)
 
     async_session = sessionmaker(
