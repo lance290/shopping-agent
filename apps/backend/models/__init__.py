@@ -37,7 +37,8 @@ from models.rows import (
 
 # Bid models
 from models.bids import (
-    Seller,
+    Vendor,
+    Seller,  # backward-compatible alias for Vendor
     Bid,
     BidWithProvenance,
 )
@@ -89,6 +90,7 @@ __all__ = [
     "Row",
     "RequestSpec",
     # Bids
+    "Vendor",
     "Seller",
     "Bid",
     "BidWithProvenance",

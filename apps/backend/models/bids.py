@@ -1,4 +1,4 @@
-"""Bid and seller models: marketplace results and vendors."""
+"""Bid and vendor models: marketplace results and vendors."""
 
 from typing import Optional, List, Dict, Any, TYPE_CHECKING
 import json
@@ -10,7 +10,10 @@ if TYPE_CHECKING:
     from models.rows import Row
 
 
-class Seller(SQLModel, table=True):
+class Vendor(SQLModel, table=True):
+    """Unified vendor entity (formerly Seller)."""
+    __tablename__ = "seller"  # Keep existing table name until Alembic migration renames it
+
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
     email: Optional[str] = Field(default=None, index=True)
@@ -24,6 +27,10 @@ class Seller(SQLModel, table=True):
     phone: Optional[str] = None
 
     bids: List["Bid"] = Relationship(back_populates="seller")
+
+
+# Backward-compatible alias during migration
+Seller = Vendor
 
 
 class Bid(SQLModel, table=True):
@@ -78,7 +85,7 @@ class Bid(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     row: "Row" = Relationship(back_populates="bids")
-    seller: Optional[Seller] = Relationship(back_populates="bids")
+    seller: Optional[Vendor] = Relationship(back_populates="bids")
 
 
 class BidWithProvenance(SQLModel):
