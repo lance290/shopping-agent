@@ -1,0 +1,304 @@
+{
+  "version": 1,
+  "effort": "feature-demo-day-public-surface",
+  "created": "2026-02-17T07:54:00Z",
+  "tasks": [
+    {
+      "id": "task-001",
+      "description": "Middleware rewrite — invert to protected-path blacklist",
+      "e2e_flow": "Anonymous visitor hits / in incognito → sees page content (not login redirect). Logged-in user hits / → sees workspace.",
+      "manual_verification": [
+        "Open incognito → http://localhost:3000/ → should NOT redirect to /login",
+        "Open incognito → http://localhost:3000/share/test-token → should NOT redirect to /login",
+        "Open incognito → http://localhost:3000/quote/test-token → should NOT redirect to /login",
+        "Open incognito → http://localhost:3000/admin → SHOULD redirect to /login",
+        "Open incognito → http://localhost:3000/seller → SHOULD redirect to /login",
+        "Log in → go to / → should see existing workspace (no regression)"
+      ],
+      "files": ["apps/frontend/middleware.ts"],
+      "tests_to_write": ["apps/frontend/e2e/middleware-public-routes.spec.ts"],
+      "dependencies": [],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-001/",
+      "approver": "User"
+    },
+    {
+      "id": "task-002",
+      "description": "Public layout shell — header with search bar, footer with disclosure + legal links, session detection at /",
+      "e2e_flow": "Anonymous visitor at / sees header (logo, search bar, Sign In) + footer (disclosure, privacy, terms). Search bar submit → /search?q=...",
+      "manual_verification": [
+        "Open incognito → http://localhost:3000/ → see public homepage with search bar in header",
+        "Type 'running shoes' in search bar → submit → URL changes to /search?q=running+shoes",
+        "Click 'Sign In' in header → navigates to /login",
+        "Footer shows links to /disclosure, /privacy, /terms, /about, /contact",
+        "Log in → go to / → see existing workspace (not the public homepage)"
+      ],
+      "files": [
+        "apps/frontend/app/(public)/layout.tsx",
+        "apps/frontend/app/(public)/page.tsx",
+        "apps/frontend/components/PublicHeader.tsx",
+        "apps/frontend/components/PublicFooter.tsx",
+        "apps/frontend/components/AffiliateDisclosure.tsx",
+        "apps/frontend/app/(workspace)/page.tsx",
+        "apps/frontend/app/(workspace)/layout.tsx"
+      ],
+      "tests_to_write": ["apps/frontend/e2e/public-layout.spec.ts"],
+      "dependencies": ["task-001"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-002/",
+      "approver": "User"
+    },
+    {
+      "id": "task-003",
+      "description": "Homepage content — hero, How it works, example searches, guides carousel",
+      "e2e_flow": "Anonymous visitor at / sees hero with tagline + search box, How it works 3-step section, example search links, featured guides placeholder.",
+      "manual_verification": [
+        "Open incognito → http://localhost:3000/ → see hero with 'Buy anything' tagline",
+        "Below fold: 'How it works' section with 3 steps",
+        "Example searches visible (Roblox gift cards, local caterers, private jet charter)",
+        "Click an example search → redirects to /search?q=...",
+        "Mobile viewport → search box prominent, content stacks properly"
+      ],
+      "files": ["apps/frontend/app/(public)/page.tsx"],
+      "tests_to_write": [],
+      "dependencies": ["task-002"],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-003/",
+      "approver": "User"
+    },
+    {
+      "id": "task-004",
+      "description": "Backend public search endpoint — full 7-step pipeline, all providers parallel, no gating, QuoteIntentEvent model",
+      "e2e_flow": "curl POST /api/public/search with query → returns results from all providers with three-stage re-ranking. No auth required. Rate limited by IP.",
+      "manual_verification": [
+        "curl -X POST http://localhost:8000/api/public/search -H 'Content-Type: application/json' -d '{\"query\":\"running shoes\"}'",
+        "Verify response has results array with items from multiple providers",
+        "Verify response has provider_statuses showing all providers ran",
+        "Verify NO auth header needed (200 without Bearer token)",
+        "Send 11 requests in 1 minute → 11th returns 429",
+        "curl POST /api/public/quote-intent → 200",
+        "Search 'caterer for corporate event' → verify vendor_directory results appear",
+        "Verify _filter_providers_by_tier() is NOT called",
+        "Verify provider_statuses shows rainforest, ebay_browse, vendor_directory all attempted"
+      ],
+      "files": [
+        "apps/backend/routes/public_search.py",
+        "apps/backend/models/quote_intent.py",
+        "apps/backend/main.py"
+      ],
+      "tests_to_write": ["apps/backend/tests/test_public_search.py"],
+      "dependencies": [],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-004/",
+      "approver": "User"
+    },
+    {
+      "id": "task-005",
+      "description": "Frontend search API proxy — /api/proxy/public-search and /api/proxy/quote-intent with allowAnonymous",
+      "e2e_flow": "Frontend fetch('/api/proxy/public-search', {method:'POST', body:...}) returns results without auth.",
+      "manual_verification": [
+        "Start frontend + backend",
+        "Browser console: fetch('/api/proxy/public-search', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({query:'shoes'})}).then(r=>r.json()).then(console.log)",
+        "Verify results come back (no 401)"
+      ],
+      "files": [
+        "apps/frontend/app/api/proxy/public-search/route.ts",
+        "apps/frontend/app/api/proxy/quote-intent/route.ts"
+      ],
+      "tests_to_write": [],
+      "dependencies": ["task-004"],
+      "estimated_minutes": 15,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-005/",
+      "approver": "User"
+    },
+    {
+      "id": "task-006",
+      "description": "Public search results page — card grid with product Buy buttons (clickout) and vendor Request Quote buttons",
+      "e2e_flow": "Anonymous visitor at /search?q=running+shoes → loading state → results as card grid → Buy clickout works → vendor cards show Request Quote.",
+      "manual_verification": [
+        "Open incognito → http://localhost:3000/search?q=Roblox+gift+cards",
+        "See loading indicator, then results appear",
+        "Product cards show: image, title, price, merchant, 'Buy' button",
+        "Click 'Buy' → opens /api/out redirect → lands on retailer",
+        "Vendor cards show: name, tagline, 'Request Quote', source badge",
+        "Inline affiliate disclosure visible",
+        "'Sign in to save and track' CTA visible (not blocking)",
+        "Mobile viewport → single-column layout"
+      ],
+      "files": [
+        "apps/frontend/app/(public)/search/page.tsx",
+        "apps/frontend/components/PublicOfferCard.tsx"
+      ],
+      "tests_to_write": ["apps/frontend/e2e/public-search.spec.ts"],
+      "dependencies": ["task-002", "task-005"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-006/",
+      "approver": "User"
+    },
+    {
+      "id": "task-007",
+      "description": "Adapt VendorContactModal for public context — remove rowId dependency, LLM-generated per-vendor-type templates, QuoteIntentEvent logging",
+      "e2e_flow": "Anonymous visitor clicks Request Quote on vendor card → modal with context-appropriate template → mailto: send → QuoteIntentEvent logged.",
+      "manual_verification": [
+        "Search 'caterers san francisco' → click Request Quote on vendor card",
+        "Modal opens with catering-appropriate email template (not aviation)",
+        "'Send Email' opens mailto: link",
+        "'Copy Body' copies text to clipboard",
+        "Check backend logs → QuoteIntentEvent logged",
+        "Search 'Roblox gift cards' → vendor Request Quote → template appropriate for retail context"
+      ],
+      "files": [
+        "apps/frontend/app/components/VendorContactModal.tsx",
+        "apps/frontend/components/PublicOfferCard.tsx"
+      ],
+      "tests_to_write": [],
+      "dependencies": ["task-006"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-007/",
+      "approver": "User"
+    },
+    {
+      "id": "task-008",
+      "description": "Static & legal pages — /how-it-works, /about, /contact, /privacy, /terms",
+      "e2e_flow": "Click each footer link → page loads with real content, uses public layout.",
+      "manual_verification": [
+        "/how-it-works → 3-step explanation with search CTA",
+        "/about → company mission, value prop",
+        "/contact → contact form or info",
+        "/privacy → privacy policy (template OK for demo)",
+        "/terms → terms of service (template OK for demo)",
+        "/disclosure link in footer → existing disclosure page loads",
+        "No 404s from any footer link"
+      ],
+      "files": [
+        "apps/frontend/app/(public)/how-it-works/page.tsx",
+        "apps/frontend/app/(public)/about/page.tsx",
+        "apps/frontend/app/(public)/contact/page.tsx",
+        "apps/frontend/app/(public)/privacy/page.tsx",
+        "apps/frontend/app/(public)/terms/page.tsx"
+      ],
+      "tests_to_write": ["apps/frontend/e2e/static-pages.spec.ts"],
+      "dependencies": ["task-002"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-008/",
+      "approver": "User"
+    },
+    {
+      "id": "task-009",
+      "description": "Editorial guide pages — 5 guides with 800+ words, affiliate links, search CTAs",
+      "e2e_flow": "Navigate to /guides → guide index → click guide → 800+ words of editorial content with affiliate links and CTAs.",
+      "manual_verification": [
+        "http://localhost:3000/guides → list of 5+ guides",
+        "Click 'How BuyAnything Works' → 800+ word guide",
+        "Click 'Gift Vault: Tech Lovers' → guide with product links",
+        "Product links use /api/out for clickout",
+        "Each guide has inline affiliate disclosure",
+        "Each guide has 'Try our search' CTA at bottom",
+        "Mobile → readable single-column"
+      ],
+      "files": [
+        "apps/frontend/app/(public)/guides/page.tsx",
+        "apps/frontend/app/(public)/guides/[slug]/page.tsx"
+      ],
+      "tests_to_write": ["apps/frontend/e2e/guides.spec.ts"],
+      "dependencies": ["task-002"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-009/",
+      "approver": "User"
+    },
+    {
+      "id": "task-010",
+      "description": "Public vendor directory — backend endpoints + frontend pages with vector search, detail pages, Request Quote",
+      "e2e_flow": "Anonymous at /vendors → search box → type 'caterers' → vector search results → click vendor → detail page → Request Quote.",
+      "manual_verification": [
+        "http://localhost:3000/vendors → search box visible",
+        "Type 'caterers' → vendor results appear (vector search)",
+        "Vendor cards: name, tagline, website (NO email/phone)",
+        "Click vendor → /vendors/[slug] detail page",
+        "Detail: description, specialties, service areas, website",
+        "'Request Quote' → VendorContactModal opens",
+        "No email/phone visible anywhere"
+      ],
+      "files": [
+        "apps/backend/routes/public_vendors.py",
+        "apps/backend/main.py",
+        "apps/frontend/app/api/proxy/public-vendors/[...path]/route.ts",
+        "apps/frontend/app/(public)/vendors/page.tsx",
+        "apps/frontend/app/(public)/vendors/[slug]/page.tsx"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_public_vendors.py",
+        "apps/frontend/e2e/vendor-directory.spec.ts"
+      ],
+      "dependencies": ["task-002", "task-005"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-010/",
+      "approver": "User"
+    },
+    {
+      "id": "task-011",
+      "description": "Remove legacy provider gating + fix tier_fit scoring (vendor_directory 0.3 → 0.85 for commodity)",
+      "e2e_flow": "Search 'Roblox gift cards' → BOTH Amazon products AND vendor toy stores. Search 'caterer' → vendors scored high, Amazon scored low but present.",
+      "manual_verification": [
+        "Search 'Roblox gift cards' → vendor_directory results appear alongside retail",
+        "Search 'caterer for corporate event' → both vendor and retail results",
+        "Check score provenance: vendor 'caterer' tier_fit = 1.0, retail tier_fit = 0.2",
+        "Check score provenance: vendor 'Roblox' tier_fit = 0.85 (not 0.3)"
+      ],
+      "files": [
+        "apps/backend/sourcing/repository.py",
+        "apps/backend/sourcing/scorer.py"
+      ],
+      "tests_to_write": ["apps/backend/tests/test_tier_scoring.py"],
+      "dependencies": [],
+      "estimated_minutes": 30,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-011/",
+      "approver": "User"
+    },
+    {
+      "id": "task-012",
+      "description": "Demo prep & polish — run all 3 scenarios, link audit, mobile check, affiliate verification, social features",
+      "e2e_flow": "All 3 demo scenarios run end-to-end. All public pages accessible. No broken links. Social features functional.",
+      "manual_verification": [
+        "Demo A: incognito → search 'Roblox gift cards $100' → Buy clickout → ClickoutEvent logged",
+        "Demo B: logged in → 'caterer for 50 people' → vendor results high → Request Quote → outreach template",
+        "Demo C: show /quote/[token] renders, explain viral loop narrative",
+        "Click every nav link — no 404s",
+        "Mobile responsive check all pages",
+        "Document affiliate env vars",
+        "Verify /api/out clickout logs events",
+        "Like toggle works, comment works, share link works"
+      ],
+      "files": [],
+      "tests_to_write": [],
+      "dependencies": ["task-001", "task-002", "task-003", "task-004", "task-005", "task-006", "task-007", "task-008", "task-009", "task-010", "task-011"],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "pending",
+      "proof_path": ".cfoi/branches/main/proof/task-012/",
+      "approver": "User"
+    }
+  ]
+}

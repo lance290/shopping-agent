@@ -1,0 +1,18 @@
+{
+  "maxErrorsPerTask": 3,
+  "maxErrorsPerSession": 10,
+  "contextCompactionInterval": 30,
+  "confidenceThreshold": 80,
+  "created": "2026-02-17T07:50:00Z",
+  "tasks": {
+    "total": 12,
+    "completed": 0,
+    "inProgress": 0
+  },
+  "currentTask": null,
+  "errorBudget": {
+    "perTask": 3,
+    "currentTaskErrors": 0
+  },
+  "evidence": {}
+}

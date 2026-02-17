@@ -418,7 +418,7 @@ User types query on public homepage → redirects to /search?q=...
   → Both paths run in parallel (adapters + vector search)
   → Server component renders mixed results as product/vendor cards
   → Product cards: "Buy" → /api/out → affiliate.py:LinkResolver transforms URL → 302 redirect
-  → Vendor cards: "Request Introduction" → email capture (anon) or one-click outreach (logged in)
+  → Vendor cards: "Request Quote" → email capture (anon) or one-click outreach (logged in)
 ```
 
 **Technical note on rendering**: Public pages (homepage, guides, vendor directory index) should use Next.js **Static Site Generation (SSG)** or **Incremental Static Regeneration (ISR)** for fast load times and crawlability. Vendor detail pages use ISR. The `/search?q=` results page is dynamic (server-rendered per request). This matters for the LCP < 2.5s target and for search engine indexing.

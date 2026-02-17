@@ -189,7 +189,7 @@ Create a public layout (`app/(public)/layout.tsx`) with:
 - User types query in public search → redirects to `/search?q=...` results page
 - The backend runs `triage_provider_query()` (LLM, not heuristics — per our architecture rule, ALL intent classification goes through Gemini) then `SourcingRepository.search_all()` with the optimized query
 - Commodity/considered results → product cards with affiliate clickout links (no login needed)
-- Service/bespoke/high_value results → vendor cards with "Request an introduction" CTA (email capture for anonymous; one-click outreach for logged-in EAs)
+- Service/bespoke/high_value results → vendor cards with "Request Quote" CTA (email capture for anonymous; one-click outreach for logged-in EAs)
 - The existing chat-based workspace stays at `/` behind session detection (see Decision 5)
 
 #### 0.2 Public Search Results Page
@@ -254,7 +254,7 @@ Create `/vendors` (browse page) and `/vendors/[slug]` (detail pages) that:
 - Pull from the existing `vendor` table (3,000+ vendors with descriptions, taglines, embeddings)
 - Display vendor cards with a search box (vector search, not static categories)
 - Each vendor page shows: name, tagline, description, specialties, service areas, website link
-- Include "Request an introduction" CTA (for logged-in users → outreach flow; for anonymous → email capture)
+- Include "Request Quote" CTA (for logged-in users → outreach flow; for anonymous → email capture)
 
 **Implementation**: These pages are public and indexable. They're generated from DB data, not hardcoded. This gives us thousands of unique, indexable pages from day one.
 
@@ -418,7 +418,7 @@ User types query on public homepage → redirects to /search?q=...
   → Both paths run in parallel (adapters + vector search)
   → Server component renders mixed results as product/vendor cards
   → Product cards: "Buy" → /api/out → affiliate.py:LinkResolver transforms URL → 302 redirect
-  → Vendor cards: "Request Introduction" → email capture (anon) or one-click outreach (logged in)
+  → Vendor cards: "Request Quote" → email capture (anon) or one-click outreach (logged in)
 ```
 
 **Technical note on rendering**: Public pages (homepage, guides, vendor directory index) should use Next.js **Static Site Generation (SSG)** or **Incremental Static Regeneration (ISR)** for fast load times and crawlability. Vendor detail pages use ISR. The `/search?q=` results page is dynamic (server-rendered per request). This matters for the LCP < 2.5s target and for search engine indexing.

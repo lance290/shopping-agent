@@ -9,7 +9,7 @@
 - In-scope:
   - `/vendors` — search-driven vendor browse page with a search box (vector search, NOT static categories)
   - `/vendors/[slug]` — individual vendor spotlight pages generated from DB data
-  - "Request an introduction" CTA (email capture for anonymous users; one-click outreach for logged-in users)
+  - "Request Quote" CTA (email capture for anonymous users; one-click outreach for logged-in users)
   - Privacy: only display name, description, tagline, specialties, service areas, website. NEVER expose email or phone
 - Out-of-scope:
   - Hardcoded category pages (anti-pattern — vector search IS the discovery mechanism)
@@ -22,14 +22,14 @@
 3. Types "caterers in San Francisco" → vector search returns matching vendors
 4. Browses vendor cards: name, tagline, category badge, website link
 5. Clicks a vendor → `/vendors/[slug]` detail page with full description, specialties, service areas
-6. Clicks "Request an introduction" → email capture form (anonymous) or triggers outreach (logged in)
+6. Clicks "Request Quote" → email capture form (anonymous) or triggers outreach (logged in)
 
 ## Business Requirements
 
 ### Authentication & Authorization
 - Browse and search: fully public, no auth required
-- "Request an introduction" for anonymous users: collect email + name + brief (creates lead)
-- "Request an introduction" for logged-in users: one-click outreach (existing `VendorContactModal` flow)
+- "Request Quote" for anonymous users: collect email + name + brief (creates lead)
+- "Request Quote" for logged-in users: one-click outreach (existing `VendorContactModal` flow)
 
 ### Monitoring & Visibility
 - Track: vendor page views, search queries on vendor directory, introduction request conversion rate
@@ -57,7 +57,7 @@
 - Vendor cards: clean, professional layout matching the premium aesthetic
 - Detail pages: vendor name, tagline, full description, specialties list, service areas, website link
 - Mobile-responsive grid layout
-- No exposed contact info (email, phone) — only website URL and "Request an introduction" CTA
+- No exposed contact info (email, phone) — only website URL and "Request Quote" CTA
 
 ### Privacy, Security & Compliance
 - NEVER expose vendor email addresses or phone numbers on public pages
@@ -78,7 +78,7 @@
 - [ ] `/vendors` page loads with search box, no hardcoded category navigation
 - [ ] Searching "caterers" returns relevant vendor results via vector search
 - [ ] `/vendors/[slug]` detail page shows vendor info without exposing email/phone
-- [ ] Anonymous user can submit "Request an introduction" with email + brief
+- [ ] Anonymous user can submit "Request Quote" with email + brief
 - [ ] All vendor pages accessible without login
 - [ ] At least 100 vendor detail pages indexable by search engines (ISR)
 

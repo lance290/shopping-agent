@@ -1,0 +1,84 @@
+{
+  "type": "feature",
+  "name": "demo-day-public-surface",
+  "description": "Build the public surface for Thursday investor demo and affiliate readiness — middleware fix, homepage, search results, static pages, editorial guides, vendor directory, and demo polish (PRDs 00-06)",
+  "created": "2026-02-17T07:26:00Z",
+  "status": "in-progress",
+  "priority": 11,
+  "parent": null,
+  "prd_source": "docs/active-dev/demo-day/",
+  "definition_of_done": {
+    "version": 1,
+    "status": "active",
+    "thresholds": [
+      {
+        "description": "Anonymous visitor at / sees homepage, not login redirect",
+        "metric": "public_homepage_accessible",
+        "target": true,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "Anonymous search returns results with affiliate clickout links",
+        "metric": "public_search_with_affiliate",
+        "target": true,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "All 3 demo scenarios (commodity, vendor, viral loop) run without errors",
+        "metric": "demo_scenarios_pass",
+        "target": 3,
+        "evidence_required": "measured",
+        "type": "threshold"
+      },
+      {
+        "description": "No broken links or placeholder content on any public page",
+        "metric": "broken_links_count",
+        "target": 0,
+        "evidence_required": "measured",
+        "type": "threshold"
+      }
+    ],
+    "signals": [
+      {
+        "description": "5+ guide pages with 800+ words each",
+        "metric": "guide_pages_count",
+        "target": 5,
+        "weight": 0.3,
+        "evidence_required": "measured",
+        "type": "signal"
+      },
+      {
+        "description": "Vendor directory with vector search working",
+        "metric": "vendor_directory_functional",
+        "target": true,
+        "weight": 0.3,
+        "evidence_required": "measured",
+        "type": "signal"
+      },
+      {
+        "description": "Social features (likes/comments/shares) functional in demo",
+        "metric": "social_features_working",
+        "target": true,
+        "weight": 0.2,
+        "evidence_required": "measured",
+        "type": "signal"
+      },
+      {
+        "description": "Affiliate system documented and ready to activate",
+        "metric": "affiliate_system_documented",
+        "target": true,
+        "weight": 0.2,
+        "evidence_required": "self-reported",
+        "type": "signal"
+      }
+    ],
+    "approval": {
+      "by": "User",
+      "timestamp": "2026-02-17T07:30:00Z",
+      "change_reason": "initial definition",
+      "change_type": "clarify"
+    }
+  }
+}

@@ -23,9 +23,9 @@
 2. Backend runs the existing five-layer sourcing pipeline:
    - LLM optimizes query → per-retailer adapters build tailored queries → providers run in parallel → normalizers standardize output → three-stage re-ranking scores by intent fit
    - Vendor directory vector search runs in parallel
-3. Results render as a mixed grid: product cards (with price, image, rating) + vendor cards (with description, "Request Introduction" CTA)
+3. Results render as a mixed grid: product cards (with price, image, rating) + vendor cards (with description, "Request Quote" CTA)
 4. Product cards: "Buy" button → `/api/out` → affiliate link resolution → 302 redirect to retailer
-5. Vendor cards: "Request Introduction" → email capture form (anonymous) or one-click outreach (logged in)
+5. Vendor cards: "Request Quote" → email capture form (anonymous) or one-click outreach (logged in)
 6. Affiliate disclosure visible near the results grid
 
 ## Business Requirements
@@ -33,7 +33,7 @@
 ### Authentication & Authorization
 - No authentication required to search or view results
 - Anonymous clickout tracking already works (`ClickoutEvent` supports `user_id=None`)
-- "Request Introduction" for vendors: anonymous users see email capture; logged-in users get one-click outreach
+- "Request Quote" for vendors: anonymous users see email capture; logged-in users get one-click outreach
 - Backend search endpoint must accept anonymous requests (update API proxy to `allowAnonymous`)
 
 ### Monitoring & Visibility
@@ -59,7 +59,7 @@
 ### UX & Accessibility
 - Results displayed as cards in a responsive grid (similar to existing OfferTile layout)
 - Product cards: image, title, price, merchant, rating stars, "Buy" button
-- Vendor cards: name, tagline, "Request Introduction" button, source badge ("From our vendor network")
+- Vendor cards: name, tagline, "Request Quote" button, source badge ("From our vendor network")
 - Mobile-responsive: single column on small screens
 - Price display: quote-based vendors show "Request Quote" not "$0.00"
 
