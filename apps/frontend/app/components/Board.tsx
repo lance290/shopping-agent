@@ -32,7 +32,7 @@ export default function ProcurementBoard() {
     setDismissing(true);
     setTimeout(() => {
       useShoppingStore.getState().setCardClickQuery(query);
-    }, 400);
+    }, 800);
   };
 
   const showToast = (message: string, tone: 'success' | 'error' = 'success') => {
@@ -254,12 +254,12 @@ export default function ProcurementBoard() {
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-8 space-y-8">
         {rows.length === 0 && projects.length === 0 ? (
           <div className={cn(
-            "space-y-8 max-w-3xl mx-auto pb-12 transition-all duration-500",
+            "space-y-8 max-w-3xl mx-auto pb-12 transition-all duration-[800ms] ease-out",
             dismissing && "opacity-0 translate-y-8 scale-95 pointer-events-none"
           )}>
             {/* Chat instruction */}
             <div className={cn(
-              "flex items-center gap-3 bg-agent-blurple/10 border border-agent-blurple/20 rounded-xl p-4 transition-all duration-300",
+              "flex items-center gap-3 bg-agent-blurple/10 border border-agent-blurple/20 rounded-xl p-4 transition-all duration-[600ms] ease-out",
               dismissing && "opacity-0 -translate-x-12"
             )}>
               <ArrowLeft className="w-5 h-5 text-agent-blurple shrink-0" />
@@ -273,7 +273,7 @@ export default function ProcurementBoard() {
 
             {/* Account CTA */}
             <div className={cn(
-              "flex items-center justify-between bg-warm-light border border-warm-grey/50 rounded-xl p-4 transition-all duration-300 delay-75",
+              "flex items-center justify-between bg-warm-light border border-warm-grey/50 rounded-xl p-4 transition-all duration-[600ms] ease-out delay-150",
               dismissing && "opacity-0 translate-x-12"
             )}>
               <div>

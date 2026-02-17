@@ -287,6 +287,7 @@ export const fetchSingleRowFromDb = async (rowId: number): Promise<Row | null> =
       const row = await res.json();
       return row && typeof row === 'object' && !Array.isArray(row) ? row : null;
     }
+    if (res.status === 401) return null;  // Anonymous user — not an error
     console.error('[API] fetchSingleRowFromDb failed:', res.status);
   } catch (err) {
     console.error('[API] Fetch single row error:', err);

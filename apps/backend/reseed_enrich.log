@@ -3114,3 +3114,285 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2026-02-17 02:10:56,061 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
 2026-02-17 02:10:56,247 INFO    [681/2162] Northwestern University — https://www.northwestern.edu
 2026-02-17 02:11:03,708 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:11:05,391 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:11:05,684 INFO    [682/2162] Carnegie Mellon University — https://www.cmu.edu
+2026-02-17 02:11:10,140 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:11:11,394 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:11:11,586 INFO    [683/2162] Bill & Melinda Gates Foundation — https://www.gatesfoundation.org
+2026-02-17 02:11:14,884 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:11:16,319 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:11:16,793 INFO    [684/2162] The Nature Conservancy — https://www.nature.org
+2026-02-17 02:11:20,768 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:11:22,566 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:11:22,881 INFO    [685/2162] Doctors Without Borders (MSF) USA — https://www.doctorswithoutborders.org
+2026-02-17 02:11:28,240 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:11:29,499 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:11:29,687 INFO    [686/2162] St. Jude Children's Research Hospital — https://www.stjude.org
+2026-02-17 02:11:34,061 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:11:35,387 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:11:35,917 INFO    [687/2162] Make-A-Wish Foundation — https://wish.org
+2026-02-17 02:11:39,585 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:11:42,066 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:11:42,479 INFO    [688/2162] Habitat for Humanity International — https://www.habitat.org
+2026-02-17 02:11:45,986 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:11:47,462 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:11:47,688 INFO    [689/2162] Los Angeles Times — https://www.latimes.com
+2026-02-17 02:11:51,406 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:11:52,913 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:11:53,134 INFO    [690/2162] Southern Company — https://www.southerncompany.com
+2026-02-17 02:11:57,322 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:11:58,390 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:11:58,656 INFO    [691/2162] ConocoPhillips — https://www.conocophillips.com
+2026-02-17 02:12:29,851 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 02:12:30,306 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:12:30,639 INFO    [692/2162] Valero Energy — https://www.valero.com
+2026-02-17 02:12:33,392 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:12:34,924 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:12:35,373 INFO    [693/2162] Phillips 66 — https://www.phillips66.com
+2026-02-17 02:12:39,020 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:12:41,507 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:12:41,887 INFO    [694/2162] Dominion Energy — https://www.dominionenergy.com
+2026-02-17 02:12:46,609 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:12:47,835 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:12:48,255 INFO    [695/2162] American Electric Power (AEP) — https://www.aep.com
+2026-02-17 02:12:52,854 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:12:54,265 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:12:54,585 INFO    [696/2162] Compass Inc. — https://www.compass.com
+2026-02-17 02:12:57,122 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:12:59,286 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:12:59,619 INFO    [697/2162] Cushman & Wakefield US — https://www.cushmanwakefield.com/en/united-states
+2026-02-17 02:13:07,466 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:13:08,843 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:13:09,087 INFO    [698/2162] Royal Caribbean Group — https://www.royalcaribbeangroup.com
+2026-02-17 02:13:12,996 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:13:14,190 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:13:14,484 INFO    [699/2162] Ross Stores Inc. — https://www.rossstores.com
+2026-02-17 02:13:18,228 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:13:19,532 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:13:19,848 INFO    [700/2162] Dollar General — https://www.dollargeneral.com
+2026-02-17 02:13:24,870 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:13:27,102 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:13:27,286 INFO      Progress: 700/2162 | enriched=699 embedded=699 errors=1
+2026-02-17 02:13:27,286 INFO    [701/2162] Sherwin-Williams — https://www.sherwin-williams.com
+2026-02-17 02:13:32,651 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:13:34,449 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:13:34,743 INFO    [702/2162] Synopsys Inc. — https://www.synopsys.com
+2026-02-17 02:13:38,315 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:13:40,257 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:13:40,521 INFO    [703/2162] Fortinet — https://www.fortinet.com
+2026-02-17 02:13:45,123 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:13:47,816 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:13:48,152 INFO    [704/2162] U.S. Bancorp — https://www.usbank.com
+2026-02-17 02:13:51,884 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:13:53,517 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:13:53,734 INFO    [705/2162] Truist Financial — https://www.truist.com
+2026-02-17 02:13:59,658 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:14:01,216 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:14:01,488 INFO    [706/2162] Citizens Financial Group — https://www.citizensbank.com
+2026-02-17 02:14:05,501 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:14:06,678 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:14:07,005 INFO    [707/2162] Quest Diagnostics — https://www.questdiagnostics.com
+2026-02-17 02:14:11,083 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:14:12,463 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:14:12,647 INFO    [708/2162] Laboratory Corporation of America (Labcorp) — https://www.labcorp.com
+2026-02-17 02:14:19,167 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:14:20,687 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:14:21,030 INFO    [709/2162] University of Minnesota Twin Cities — https://twin-cities.umn.edu
+2026-02-17 02:14:23,959 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:14:25,345 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:14:25,674 INFO    [710/2162] University of Illinois Urbana-Champaign — https://illinois.edu
+2026-02-17 02:14:29,302 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:14:31,092 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:14:31,604 INFO    [711/2162] Purdue University — https://www.purdue.edu
+2026-02-17 02:14:35,046 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:14:36,454 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:14:36,685 INFO    [712/2162] Michigan State University — https://msu.edu
+2026-02-17 02:14:42,836 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:14:44,700 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:14:45,002 INFO    [713/2162] Metropolitan Museum of Art (The Met) — https://www.metmuseum.org
+2026-02-17 02:14:48,330 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:14:50,008 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:14:50,452 INFO    [714/2162] Museum of Modern Art (MoMA) — https://www.moma.org
+2026-02-17 02:14:54,697 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:14:56,055 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:14:56,464 INFO    [715/2162] National Geographic Society — https://www.nationalgeographic.org
+2026-02-17 02:15:01,456 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:15:02,049 WARNING LLM extract failed for National Geographic Society: Unterminated string starting at: line 2 column 18 (char 19)
+2026-02-17 02:15:02,299 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:15:02,602 INFO    [716/2162] Mohawk Industries — https://mohawkind.com
+2026-02-17 02:15:06,160 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:15:07,650 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:15:07,972 INFO    [717/2162] Steelcase Inc. — https://www.steelcase.com
+2026-02-17 02:15:13,197 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:15:14,730 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:15:15,082 INFO    [718/2162] Herman Miller (MillerKnoll) — https://www.hermanmiller.com
+2026-02-17 02:15:18,666 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:15:20,477 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:15:20,721 INFO    [719/2162] Knoll Inc. (MillerKnoll) — https://www.knoll.com
+2026-02-17 02:15:23,902 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:15:25,718 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:15:26,168 INFO    [720/2162] ArentFox Schiff — https://www.afslaw.com
+2026-02-17 02:15:28,884 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:15:30,812 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:15:31,063 INFO    [721/2162] Butler Snow LLP — https://www.butlersnow.com
+2026-02-17 02:15:35,582 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:15:37,675 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:15:37,867 INFO    [722/2162] Haynes and Boone — https://www.haynesboone.com
+2026-02-17 02:15:42,310 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:15:43,949 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:15:44,293 INFO    [723/2162] Jackson Lewis P.C. — https://www.jacksonlewis.com
+2026-02-17 02:15:47,698 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:15:49,814 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:15:50,271 INFO    [724/2162] Kutak Rock LLP — https://www.kutakrock.com
+2026-02-17 02:15:57,429 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:15:58,944 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:15:59,293 INFO    [725/2162] Lewis Brisbois Bisgaard & Smith — https://lewisbrisbois.com
+2026-02-17 02:16:04,676 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:16:06,475 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:16:06,805 INFO    [726/2162] Michael Best & Friedrich LLP — https://www.michaelbest.com
+2026-02-17 02:16:10,766 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:16:12,145 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:16:12,442 INFO    [727/2162] Quarles Milwaukee — https://www.quarles.com
+2026-02-17 02:16:17,098 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:16:18,617 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:16:18,840 INFO    [728/2162] Seyfarth Shaw Chicago — https://www.seyfarth.com
+2026-02-17 02:16:21,642 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:16:23,097 WARNING LLM extract failed for Seyfarth Shaw Chicago: Unterminated string starting at: line 2 column 18 (char 19)
+2026-02-17 02:16:23,349 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:16:23,709 INFO    [729/2162] Steptoe DC — https://www.steptoe.com
+2026-02-17 02:16:27,216 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:16:28,503 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:16:28,830 INFO    [730/2162] Bariani Olive Oil — https://www.barianioliveoil.com
+2026-02-17 02:16:35,582 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:16:36,837 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:16:37,327 INFO    [731/2162] Belcampo Meat Co. — https://belcampo.com
+2026-02-17 02:16:42,218 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:16:43,526 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:16:43,823 INFO    [732/2162] Chukar Cherries — https://www.chukar.com
+2026-02-17 02:16:49,395 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:16:50,927 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:16:51,094 INFO    [733/2162] Earthbound Farm — https://www.ebfarm.com
+2026-02-17 02:16:57,585 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:16:58,990 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:16:59,435 INFO    [734/2162] Fairytale Brownies — https://www.brownies.com
+2026-02-17 02:17:04,730 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:17:06,345 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:17:06,609 INFO    [735/2162] Hancock Gourmet Lobster Co. — https://www.hancockgourmetlobster.com
+2026-02-17 02:17:12,331 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:17:13,906 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:17:14,109 INFO    [736/2162] La Brea Bakery — https://www.labreabakery.com
+2026-02-17 02:17:17,348 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:17:18,324 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:17:18,661 INFO    [737/2162] Tillamook County Creamery Association — https://www.tillamook.com
+2026-02-17 02:17:22,199 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:17:23,740 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:17:24,055 INFO    [738/2162] Vermont Creamery — https://www.vermontcreamery.com
+2026-02-17 02:17:27,588 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:17:28,985 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:17:29,419 INFO    [739/2162] Wildfish Cannery — https://wildfishcannery.com
+2026-02-17 02:17:33,322 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:17:34,880 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:17:35,179 INFO    [740/2162] Zingerman’s Creamery — https://www.zingermanscreamery.com
+2026-02-17 02:17:39,569 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:17:40,908 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:17:41,162 INFO    [741/2162] Bookie’s New and Used Books Chicago — https://bookieschicago.com
+2026-02-17 02:17:42,781 INFO      Scrape: insufficient text (8 chars)
+2026-02-17 02:17:43,008 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:17:43,184 INFO    [742/2162] City Lit Books Chicago — https://www.citylitbooks.com
+2026-02-17 02:17:43,654 INFO      Scrape: insufficient text (14 chars)
+2026-02-17 02:17:44,102 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:17:44,360 INFO    [743/2162] M/I Homes — https://www.mihomes.com
+2026-02-17 02:17:51,781 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:17:53,247 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:17:53,523 INFO    [744/2162] Unabridged Bookstore Chicago — https://www.unabridgedbookstore.com
+2026-02-17 02:17:56,733 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:17:58,534 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:17:58,853 INFO    [745/2162] Sonic Boom Records Seattle — https://www.sonicboomrecords.com
+2026-02-17 02:18:01,790 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:18:02,641 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:18:02,954 INFO    [746/2162] Twist & Shout Records Denver — https://www.twistandshout.com
+2026-02-17 02:18:09,103 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:18:10,412 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:18:10,708 INFO    [747/2162] Zia Records Phoenix — https://www.ziarecords.com
+2026-02-17 02:18:16,599 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:18:18,140 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:18:18,394 INFO    [748/2162] Arrowhead Construction — https://www.arrowheadconstruction.com
+2026-02-17 02:18:21,858 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:18:24,157 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:18:24,529 INFO    [749/2162] Cornerstone Custom Homes — https://www.cornerstonecustomhomes.com
+2026-02-17 02:18:25,762 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 02:18:26,002 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:18:26,219 INFO    [750/2162] Hagood Homes — https://www.hagoodhomes.com
+2026-02-17 02:18:37,697 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:18:39,347 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:18:39,698 INFO      Progress: 750/2162 | enriched=749 embedded=749 errors=1
+2026-02-17 02:18:39,699 INFO    [751/2162] Ideal Homes & Neighborhoods — https://www.idealhomes.com
+2026-02-17 02:18:45,517 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:18:47,475 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:18:47,788 INFO    [752/2162] Jayman BUILT — https://www.jayman.com
+2026-02-17 02:18:53,356 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:18:54,995 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:18:55,286 INFO    [753/2162] K. Hovnanian Homes — https://www.khov.com
+2026-02-17 02:18:59,442 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:19:00,825 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:19:01,220 INFO    [754/2162] LGI Homes — https://www.lgihomes.com
+2026-02-17 02:19:04,973 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:19:06,198 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:19:06,458 INFO    [755/2162] NVR Inc. (Ryan Homes) — https://www.nvrinc.com
+2026-02-17 02:19:09,336 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:19:11,115 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:19:11,247 INFO    [756/2162] The Home Depot — https://www.homedepot.com
+2026-02-17 02:19:11,768 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 02:19:12,023 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:19:12,452 INFO    [757/2162] Toll Brothers — https://www.tollbrothers.com
+2026-02-17 02:19:15,604 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:19:18,980 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:19:19,311 INFO    [758/2162] Tri Pointe Homes — https://www.tripointehomes.com
+2026-02-17 02:19:25,461 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:19:26,569 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:19:26,946 INFO    [759/2162] The Ohio State University Wexner Medical Center — https://wexnermedical.osu.edu
+2026-02-17 02:19:31,853 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:19:33,505 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:19:33,768 INFO    [760/2162] University of Miami Health System (UHealth) — https://umiamihealth.org
+2026-02-17 02:19:37,434 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:19:39,925 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:19:40,211 INFO    [761/2162] Wake Forest Baptist Health — https://www.wakehealth.edu
+2026-02-17 02:19:46,348 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:19:47,713 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:19:48,000 INFO    [762/2162] Atelier Crenn — https://www.ateliercrenn.com
+2026-02-17 02:19:50,882 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:19:52,067 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:19:52,389 INFO    [763/2162] Benu — https://www.benusf.com
+2026-02-17 02:19:52,988 INFO      Scrape: insufficient text (4 chars)
+2026-02-17 02:19:53,238 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:19:53,488 INFO    [764/2162] The Inn at Little Washington — https://www.theinnatlittlewashington.com
+2026-02-17 02:19:57,302 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:19:58,683 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:19:59,095 INFO    [765/2162] Patrick O'Connell's Inn at Little Washington — https://www.theinnatlittlewashington.com
+2026-02-17 02:20:02,622 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:20:04,001 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:20:04,371 INFO    [766/2162] AECOM — https://aecom.com
+2026-02-17 02:20:07,325 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:20:09,511 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:20:09,772 INFO    [767/2162] Jacobs Solutions Inc. — https://www.jacobs.com
+2026-02-17 02:20:13,071 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:20:14,775 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:20:15,194 INFO    [768/2162] Bechtel Corporation — https://www.bechtel.com
+2026-02-17 02:20:18,598 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:20:19,944 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:20:20,211 INFO    [769/2162] Fluor Corporation — https://www.fluor.com
+2026-02-17 02:20:22,949 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:20:24,468 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:20:24,650 INFO    [770/2162] Backcountry.com — https://www.backcountry.com
+2026-02-17 02:20:24,852 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 02:20:25,121 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:20:25,573 INFO    [771/2162] Burns & McDonnell — https://www.burnsmcd.com
+2026-02-17 02:20:29,808 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:20:31,398 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:20:31,703 INFO    [772/2162] The Lowell NYC — https://www.lowellhotel.com
+2026-02-17 02:20:34,725 INFO      Scrape: insufficient text (70 chars)
+2026-02-17 02:20:34,977 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:20:35,412 INFO    [773/2162] The Little Nell — https://www.thelittlenell.com
+2026-02-17 02:20:39,387 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 02:20:40,945 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 02:20:41,456 INFO    [774/2162] Ocean House Rhode Island — https://www.oceanhouseri.com
