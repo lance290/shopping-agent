@@ -245,14 +245,36 @@ export default function ProcurementBoard() {
       {/* Scrollable Content */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-8 space-y-8">
         {rows.length === 0 && projects.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-onyx-muted">
+          <div className="h-full flex flex-col items-center justify-center text-onyx-muted px-4">
             <div className="w-16 h-16 mb-5 rounded-full bg-white border border-warm-grey flex items-center justify-center">
               <ShoppingBag className="w-7 h-7 text-onyx/50" />
             </div>
-            <h3 className="text-xl font-semibold text-onyx mb-2">Your Board is Empty</h3>
-            <p className="text-sm max-w-sm text-center">
-              Start a conversation with the agent to begin finding products.
+            <h3 className="text-xl font-semibold text-onyx mb-2">Find anything</h3>
+            <p className="text-sm max-w-md text-center mb-8">
+              Search for products across major retailers and our network of 3,000+ vendors — from gift cards to private jets.
             </p>
+            <div className="flex flex-wrap justify-center gap-2 mb-8 max-w-lg">
+              {['Roblox gift cards', 'running shoes', 'local caterers', 'private jet charter', 'custom jewelry', 'home office setup'].map((q) => (
+                <button
+                  key={q}
+                  onClick={() => {
+                    const store = useShoppingStore.getState();
+                    store.setCurrentQuery(q);
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-full border border-warm-grey/60 text-onyx-muted hover:text-onyx hover:border-agent-blurple/40 transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap justify-center gap-4 text-xs">
+              <a href="/guides" className="text-agent-blurple hover:underline">Buying Guides</a>
+              <a href="/vendors" className="text-agent-blurple hover:underline">Vendor Directory</a>
+              <a href="/how-it-works" className="text-agent-blurple hover:underline">How It Works</a>
+            </div>
+            <div className="mt-8 text-[10px] text-onyx-muted/50 text-center max-w-sm">
+              <a href="/disclosure" className="hover:underline">Affiliate Disclosure</a> · <a href="/privacy" className="hover:underline">Privacy</a> · <a href="/terms" className="hover:underline">Terms</a>
+            </div>
           </div>
         ) : (
           <>

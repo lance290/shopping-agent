@@ -305,6 +305,7 @@ export const fetchRowsFromDb = async (): Promise<Row[] | null> => {
       return Array.isArray(rows) ? rows : [];
     }
     
+    if (res.status === 401) return [];  // Anonymous user — not an error
     const errText = await res.text().catch(() => '');
     console.error('[API] fetchRowsFromDb failed:', res.status, errText);
   } catch (err) {
@@ -322,6 +323,7 @@ export const fetchProjectsFromDb = async (): Promise<Project[] | null> => {
       return Array.isArray(projects) ? projects : [];
     }
     
+    if (res.status === 401) return [];  // Anonymous user — not an error
     console.error('[API] fetchProjectsFromDb failed:', res.status);
     return null;
   } catch (err) {

@@ -74,7 +74,7 @@ describe('ProcurementBoard Display Logic', () => {
 
     render(React.createElement(ProcurementBoard));
 
-    expect(screen.getByText('Your Board is Empty')).toBeDefined();
+    expect(screen.getByText('Find anything')).toBeDefined();
   });
 
   test('OfferTile links to clickout URL', () => {
