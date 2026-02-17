@@ -134,18 +134,18 @@ export default function Chat() {
     loadData();
   }, []);
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
+  const handleSubmit = async (e: React.FormEvent | null, overrideText?: string) => {
+    if (e) e.preventDefault();
+    const queryText = (overrideText || input).trim();
+    if (!queryText || isLoading) return;
     
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input,
+      content: queryText,
     };
     
     setMessages(prev => [...prev, userMessage]);
-    const queryText = input.trim();
     setInput('');
     setIsLoading(true);
     const intendedProjectId = store.targetProjectId;
@@ -482,13 +482,8 @@ export default function Chat() {
   useEffect(() => {
     const cardClickQuery = store.cardClickQuery;
     if (cardClickQuery) {
-      const cardMessage: Message = {
-        id: Date.now().toString(),
-        role: 'user',
-        content: cardClickQuery,
-      };
-      setMessages(prev => [...prev, cardMessage]);
       store.setCardClickQuery(null);
+      handleSubmit(null, cardClickQuery);
     }
   }, [store.cardClickQuery]);
 

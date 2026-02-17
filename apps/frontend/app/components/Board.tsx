@@ -283,15 +283,15 @@ export default function ProcurementBoard() {
                   { q: 'coffee maker', emoji: '☕', desc: 'Drip, espresso, pour-over' },
                   { q: 'luggage set', emoji: '🧳', desc: 'Carry-on & checked bags' },
                 ].map((item) => (
-                  <a
+                  <button
                     key={item.q}
-                    href={`/search?q=${encodeURIComponent(item.q)}`}
-                    className="group bg-warm-light border border-warm-grey/50 rounded-lg p-3 hover:border-agent-blurple/40 transition-colors"
+                    onClick={() => useShoppingStore.getState().setCardClickQuery(item.q)}
+                    className="group bg-warm-light border border-warm-grey/50 rounded-lg p-3 hover:border-agent-blurple/40 transition-colors text-left"
                   >
                     <div className="text-2xl mb-1">{item.emoji}</div>
                     <div className="text-sm font-medium text-onyx group-hover:text-agent-blurple transition-colors">{item.q}</div>
                     <div className="text-[11px] text-onyx-muted mt-0.5">{item.desc}</div>
-                  </a>
+                  </button>
                 ))}
               </div>
             </div>
@@ -301,13 +301,13 @@ export default function ProcurementBoard() {
               <h3 className="text-sm font-semibold text-onyx mb-3 uppercase tracking-wider">Find Local Vendors</h3>
               <div className="flex flex-wrap gap-2">
                 {['caterers', 'photographers', 'florists', 'DJs & entertainment', 'custom jewelry', 'private chefs'].map((v) => (
-                  <a
+                  <button
                     key={v}
-                    href={`/search?q=${encodeURIComponent(v)}`}
+                    onClick={() => useShoppingStore.getState().setCardClickQuery(v)}
                     className="text-xs px-3 py-1.5 rounded-full border border-warm-grey/60 text-onyx-muted hover:text-onyx hover:border-agent-blurple/40 transition-colors"
                   >
                     {v}
-                  </a>
+                  </button>
                 ))}
                 <a href="/vendors" className="text-xs px-3 py-1.5 rounded-full bg-agent-blurple/10 text-agent-blurple hover:bg-agent-blurple/20 transition-colors">
                   Browse all vendors →
