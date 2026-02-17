@@ -1,40 +1,48 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = [
-  '/login',
-  '/sign-in',
-  '/sign-up',
-  '/marketing',
-  '/api/proxy/auth', // Allow auth endpoints
+/**
+ * Protected route prefixes — these require a valid sa_session cookie.
+ * Everything else is public (homepage, search, guides, vendors, share, quote, etc.).
+ *
+ * This is intentionally a SHORT list that rarely changes. New public pages
+ * work automatically without touching middleware.
+ */
+const PROTECTED_PREFIXES = [
+  '/admin',
+  '/seller',
+  '/merchants',
+  '/bugs',
 ];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // API routes handle their own auth
   if (pathname.startsWith('/api')) {
     return NextResponse.next();
   }
 
-  // Check if path is public
-  const isPublic = PUBLIC_PATHS.some(path => pathname.startsWith(path));
-
-  // Also allow all internal API routes (they should handle their own auth or be open)
-  // But we want to protect / page and other UI pages.
-  // Actually, let's keep it simple: protect everything except public paths and assets.
-  
+  // Static assets — always pass through
   if (
-    pathname.startsWith('/_next') || 
-    pathname.startsWith('/static') || 
-    pathname.includes('.') // file extensions
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/static') ||
+    pathname.includes('.')
   ) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get('sa_session')?.value;
+  // Check if this is a protected route
+  const isProtected = PROTECTED_PREFIXES.some(prefix => pathname.startsWith(prefix));
 
-  // If trying to access protected route without token, redirect to login
-  if (!isPublic && !token) {
+  if (!isProtected) {
+    // Public route — allow anonymous access
+    return NextResponse.next();
+  }
+
+  // Protected route — require auth
+  const token = request.cookies.get('sa_session')?.value;
+  if (!token) {
     const loginUrl = new URL('/login', request.url);
     return NextResponse.redirect(loginUrl);
   }
