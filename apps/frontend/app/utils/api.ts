@@ -113,6 +113,7 @@ export const fetchCommentsApi = async (rowId: number): Promise<CommentDto[]> => 
       if (res.status === 404) {
         return [];
       }
+      if (res.status === 401) return [];  // Anonymous user — not an error
       console.error('[API] fetchComments failed:', res.status);
       return [];
     }
