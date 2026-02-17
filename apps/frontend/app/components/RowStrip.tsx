@@ -238,7 +238,14 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     onToast?.(`Selected "${offer.title}"`, 'success');
   };
 
+  const _isLoggedIn = () => typeof window !== 'undefined' && !!localStorage.getItem('session_token');
+
   const handleToggleLike = async (offer: Offer) => {
+    if (!_isLoggedIn()) {
+      onToast?.('Sign up to save likes and track your finds → /login', 'error');
+      return;
+    }
+
     const optimisticIsLiked = !offer.is_liked;
     const offerBidId = offer.bid_id;
 
@@ -272,6 +279,11 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   };
 
   const handleComment = (_offer: Offer) => {
+    if (!_isLoggedIn()) {
+      onToast?.('Create an account to leave comments → /login', 'error');
+      return;
+    }
+
     const comment = window.prompt('Add a comment for this offer');
     if (!comment || comment.trim().length === 0) return;
 
