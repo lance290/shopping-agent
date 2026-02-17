@@ -21,7 +21,9 @@ router.include_router(rows_search_router)
 
 
 def filter_bids_by_price(row: Row) -> List:
-    """Filter row.bids based on choice_answers min_price/max_price."""
+    """Filter row.bids using the unified should_include_result filter."""
+    from sourcing.filters import should_include_result
+
     if not row.bids:
         return []
     
@@ -37,25 +39,21 @@ def filter_bids_by_price(row: Row) -> List:
                 max_price = float(answers["max_price"])
         except Exception:
             pass
-    
-    if min_price is None and max_price is None:
-        return list(row.bids)
-    
+
     filtered = []
     for bid in row.bids:
-        if getattr(bid, "is_service_provider", False):
+        source = (getattr(bid, "source", "") or "").lower()
+
+        if should_include_result(
+            price=bid.price,
+            source=source,
+            desire_tier=getattr(row, "desire_tier", None),
+            min_price=min_price,
+            max_price=max_price,
+            is_service_provider=getattr(bid, "is_service_provider", False),
+        ):
             filtered.append(bid)
-            continue
-        price = bid.price
-        if price is None:
-            filtered.append(bid)
-            continue
-        if min_price is not None and price < min_price:
-            continue
-        if max_price is not None and price > max_price:
-            continue
-        filtered.append(bid)
-    
+
     return filtered
 
 
@@ -67,7 +65,7 @@ class SellerRead(BaseModel):
 
 class BidRead(BaseModel):
     id: int
-    price: float
+    price: Optional[float] = None
     currency: str
     item_title: str
     item_url: Optional[str] = None

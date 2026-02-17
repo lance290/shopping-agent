@@ -31,7 +31,24 @@ from services.llm import (
 router = APIRouter(tags=["chat"])
 logger = logging.getLogger(__name__)
 
-_SELF_BASE_URL = f"http://127.0.0.1:{os.environ.get('PORT', '8000')}"
+def _get_self_base_url() -> str:
+    """Detect the actual server port for internal self-calls."""
+    # Check explicit env var first
+    port = os.environ.get("PORT")
+    if not port:
+        # Detect from uvicorn command-line args (handles --port 8080)
+        import sys
+        args = sys.argv
+        for i, arg in enumerate(args):
+            if arg == "--port" and i + 1 < len(args):
+                port = args[i + 1]
+                break
+            if arg.startswith("--port="):
+                port = arg.split("=", 1)[1]
+                break
+    return f"http://127.0.0.1:{port or '8000'}"
+
+_SELF_BASE_URL = _get_self_base_url()
 
 
 # =============================================================================
@@ -147,6 +164,15 @@ async def _update_row(
     reset_bids: bool = False,
 ) -> Row:
     """Update an existing Row directly in DB."""
+    if reset_bids:
+        from sqlmodel import delete as sql_delete
+        await session.exec(
+            sql_delete(Bid).where(
+                Bid.row_id == row.id,
+                Bid.is_liked == False,
+                Bid.is_selected == False,
+            )
+        )
     if title:
         row.title = title
     if constraints is not None:

@@ -3,7 +3,8 @@
 from typing import Optional, List, Dict, Any, TYPE_CHECKING
 import json
 from datetime import datetime
-from sqlmodel import Field, SQLModel, Relationship
+from pgvector.sqlalchemy import Vector
+from sqlmodel import Field, SQLModel, Relationship, Column
 from pydantic import ConfigDict, computed_field
 
 if TYPE_CHECKING:
@@ -30,7 +31,7 @@ class Vendor(SQLModel, table=True):
     image_url: Optional[str] = None
     # Search / embeddings
     profile_text: Optional[str] = None
-    embedding: Optional[str] = None  # JSON
+    embedding: Optional[Any] = Field(default=None, sa_column=Column(Vector(1536), nullable=True))
     embedding_model: Optional[str] = None
     embedded_at: Optional[datetime] = None
     # Contact
@@ -45,6 +46,10 @@ class Vendor(SQLModel, table=True):
     default_commission_rate: float = 0.05
     verification_level: str = "unverified"
     reputation_score: float = 0.0
+    # Tier affinity for scorer matching (commodity, considered, luxury, enterprise)
+    tier_affinity: Optional[str] = None
+    price_range_min: Optional[float] = None  # Typical minimum order/price
+    price_range_max: Optional[float] = None  # Typical maximum order/price
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
@@ -61,9 +66,9 @@ class Bid(SQLModel, table=True):
     row_id: int = Field(foreign_key="row.id")
     vendor_id: Optional[int] = Field(default=None, foreign_key="vendor.id")
 
-    price: float
+    price: Optional[float] = None  # None = quote-based (no fixed price). 0.0 = actually free.
     shipping_cost: float = 0.0
-    total_cost: float
+    total_cost: Optional[float] = None
     currency: str = "USD"
 
     item_title: str

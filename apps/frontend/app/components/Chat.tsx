@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, LogOut, Store } from 'lucide-react';
-import { useShoppingStore } from '../store';
+import { useShoppingStore, mapBidToOffer } from '../store';
 import { fetchRowsFromDb, fetchProjectsFromDb, fetchSingleRowFromDb, saveChatHistory } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -291,8 +291,10 @@ export default function Chat() {
               const row = data?.row;
               const rowId = row?.id ?? data?.row_id;
               if (rowId) {
-                // User updated request - clear old results before new search
-                store.setRowResults(rowId, [], undefined, true);
+                // Signal that new results are incoming — but DON'T clear existing results.
+                // Old results stay visible until the first search_results batch replaces them.
+                store.setMoreResultsIncoming(rowId, true);
+                store.setIsSearching(true);
                 const updatedRow = row ?? await fetchSingleRowFromDb(rowId);
                 if (updatedRow) {
                   const mergedRows = [...store.rows.filter((r) => r.id !== updatedRow.id), updatedRow];
@@ -330,13 +332,9 @@ export default function Chat() {
               const userMessage = data?.user_message; // Extract user_message
               
               if (rowId) {
-                if (provider) {
-                  // Streaming: append results from this provider
-                  store.appendRowResults(rowId, results, providerStatuses, moreIncoming, userMessage);
-                } else {
-                  // Provider-less events (final/summary) should never overwrite existing results
-                  store.appendRowResults(rowId, results, providerStatuses, moreIncoming, userMessage);
-                }
+                // Always append during SSE streaming — never replace.
+                // The authoritative DB re-fetch happens on 'done'.
+                store.appendRowResults(rowId, results, providerStatuses, moreIncoming, userMessage);
               }
               if (!moreIncoming) {
                 store.setIsSearching(false);
@@ -391,11 +389,17 @@ export default function Chat() {
               }
             } else if (eventName === 'done') {
               store.setIsSearching(false);
-              // Clear loading spinners for the active row — covers cases where
-              // vendors_loaded or search_results never arrived (e.g. fetch failed)
               const doneRowId = store.activeRowId;
               if (doneRowId) {
                 store.setMoreResultsIncoming(doneRowId, false);
+                // Authoritative re-fetch: DB has all persisted, filtered bids.
+                // This replaces any stale/mixed results from the SSE stream.
+                const freshRow = await fetchSingleRowFromDb(doneRowId);
+                if (freshRow && freshRow.bids && freshRow.bids.length > 0) {
+                  const offers = freshRow.bids.map(mapBidToOffer);
+                  store.setRowResults(doneRowId, offers);
+                  store.updateRow(doneRowId, freshRow);
+                }
               }
             } else if (eventName === 'error') {
               const msg = typeof data?.message === 'string' ? data.message : 'Something went wrong.';

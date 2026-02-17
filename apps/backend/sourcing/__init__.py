@@ -15,6 +15,7 @@ from .repository import (
     SearchResultWithStatus,
     SourcingProvider,
     SourcingRepository,
+    TicketmasterProvider,
     extract_merchant_domain,
     normalize_url,
 )
@@ -30,6 +31,7 @@ __all__ = [
     "SearchResultWithStatus",
     "SourcingProvider",
     "SourcingRepository",
+    "TicketmasterProvider",
     "extract_merchant_domain",
     "normalize_url",
     "available_provider_ids",

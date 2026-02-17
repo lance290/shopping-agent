@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 export interface Offer {
   title: string;
-  price: number;
+  price: number | null;
   currency: string;
   merchant: string;
   url: string;
@@ -41,7 +41,7 @@ export interface ProviderStatusSnapshot {
 
 export interface Bid {
   id: number;
-  price: number;
+  price: number | null;
   currency: string;
   item_title: string;
   item_url: string | null;
@@ -425,9 +425,41 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     // Add new row at the beginning (most recent)
     return { rows: [newRow, ...state.rows], rowResults: restResults, rowProviderStatuses: restStatuses };
   }),
-  updateRow: (id, updates) => set((state) => ({
-    rows: state.rows.map((row) => (row.id === id ? { ...row, ...updates } : row)),
-  })),
+  updateRow: (id, updates) => set((state) => {
+    const newRows = state.rows.map((row) => (row.id === id ? { ...row, ...updates } : row));
+    const newState: any = { rows: newRows };
+
+    // Hydrate rowResults from bids when row has them — ensures results display
+    // even if the search response was empty (e.g. after error recovery or page reload)
+    const updatedRow = newRows.find((r) => r.id === id);
+    if (updatedRow?.bids && updatedRow.bids.length > 0) {
+      const bidsAsOffers = updatedRow.bids.map(mapBidToOffer);
+      const existingResults = state.rowResults[id] || [];
+
+      // Merge: update existing by bid_id, add new ones
+      const existingByBidId = new Map<number, Offer>();
+      const existingWithoutBidId: Offer[] = [];
+      existingResults.forEach((offer) => {
+        if (offer.bid_id) {
+          existingByBidId.set(offer.bid_id, offer);
+        } else {
+          existingWithoutBidId.push(offer);
+        }
+      });
+      bidsAsOffers.forEach((bidOffer) => {
+        if (bidOffer.bid_id) {
+          existingByBidId.set(bidOffer.bid_id, bidOffer);
+        }
+      });
+
+      newState.rowResults = {
+        ...state.rowResults,
+        [id]: [...Array.from(existingByBidId.values()), ...existingWithoutBidId],
+      };
+    }
+
+    return newState;
+  }),
   removeRow: (id) => set((state) => ({
     rows: state.rows.filter((row) => row.id !== id),
     activeRowId: state.activeRowId === id ? null : state.activeRowId,

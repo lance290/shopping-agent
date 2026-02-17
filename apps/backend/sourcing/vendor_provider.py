@@ -117,7 +117,7 @@ class VendorDirectoryProvider(SourcingProvider):
 
             results.append(SearchResult(
                 title=r["name"],
-                price=0.0,
+                price=None,
                 currency="USD",
                 merchant=r["name"],
                 url=url,

@@ -24,6 +24,18 @@
 **Decision**: Use Resend (already in requirements.txt) for outbound email delivery.
 **Reason**: Already a dependency. Simpler API than SendGrid. Good deliverability.
 
+## 2026-02-15: Search & Display Architecture — Build Order
+**Decision**: Implement PRD phases as: P0 data model → P1 unified filter → P2 scorer+gating → P3 frontend tier display. Each phase is independently testable.
+**Reason**: P0 (nullable price, reset_bids fix) unblocks everything else. P1 eliminates 4-way filter inconsistency. P2 makes tier classification actually matter. P3 is frontend polish.
+
+## 2026-02-15: Search & Display — Alembic Migration Strategy
+**Decision**: Create Alembic migration for Bid.price nullable + Vendor tier fields. Update existing price=0 vendor_directory bids to NULL.
+**Reason**: Clean data migration. No data loss — only vendor_directory bids with price=0 are updated to NULL. All other bids keep their prices.
+
+## 2026-02-15: Search & Display — reset_bids Safety
+**Decision**: When reset_bids=True, preserve liked and selected bids. Only delete non-liked, non-selected bids.
+**Reason**: User's explicit selections should survive refinements. Mentioned in PRD risks section.
+
 ## 2026-02-15: Autonomous Outreach — Inbound Email
 **Decision**: Defer inbound email processing to Level 2. Level 1 MVP is draft & send only.
 **Reason**: Inbound email requires a mail domain, DNS config, and webhook infrastructure. Draft & send alone is transformative for the EA workflow.

@@ -96,12 +96,16 @@ class SourcingService:
         metrics = get_metrics_collector()
         log_search_start(row_id, query, providers or [])
         
+        # Extract desire_tier for logging/repo context
+        desire_tier = row.desire_tier if row else None
+
         with metrics.track_search(row_id=row_id, query=query):
             search_response = await self.repo.search_all_with_status(
                 query,
                 providers=providers,
                 min_price=min_price,
                 max_price=max_price,
+                desire_tier=desire_tier,
             )
 
             normalized_results = search_response.normalized_results
@@ -123,29 +127,25 @@ class SourcingService:
             # Fallback logic if needed, or rely on repo to handle normalization
             pass
 
-        if max_price is not None:
+        # Unified price/source filtering
+        from sourcing.filters import should_include_result
+        desire_tier = row.desire_tier if row else None
+        if min_price is not None or max_price is not None:
             filtered: List[NormalizedResult] = []
-            from sourcing.constants import NON_SHOPPING_SOURCES, SERVICE_SOURCES
-            
-            dropped_max = 0
+            dropped = 0
             for res in normalized_results:
-                # Allow non-shopping sources through (they don't have price data)
-                if res.source in NON_SHOPPING_SOURCES or res.source in SERVICE_SOURCES:
+                if should_include_result(
+                    price=res.price,
+                    source=res.source,
+                    desire_tier=desire_tier,
+                    min_price=min_price,
+                    max_price=max_price,
+                ):
                     filtered.append(res)
-                    continue
-                price = res.price
-                # Keep results with no price — scorer will rank them lower
-                if price is None or price <= 0:
-                    filtered.append(res)
-                    continue
-                # Only hard-filter on max_price (budget ceiling).
-                # min_price is aspirational — the scorer handles it via price_score.
-                if price > max_price:
-                    dropped_max += 1
-                    continue
-                filtered.append(res)
-            logger.info(f"[SourcingService] Price filter: {len(normalized_results)} -> {len(filtered)} (dropped: max={dropped_max})")
-            metrics.record_price_filter(applied=True, dropped=dropped_max)
+                else:
+                    dropped += 1
+            logger.info(f"[SourcingService] Price filter: {len(normalized_results)} -> {len(filtered)} (dropped={dropped})")
+            metrics.record_price_filter(applied=True, dropped=dropped)
             normalized_results = filtered
         else:
             metrics.record_price_filter(applied=False, dropped=0)
@@ -163,11 +163,13 @@ class SourcingService:
 
         # 2. Score & Rank Results
         search_intent = self._parse_search_intent(row) if row else None
+        desire_tier = row.desire_tier if row else None
         normalized_results = score_results(
             normalized_results,
             intent=search_intent,
             min_price=min_price,
             max_price=max_price,
+            desire_tier=desire_tier,
         )
 
         # 2b. Quantum re-ranking (for results with embeddings)
@@ -361,30 +363,38 @@ class SourcingService:
 
         return json.dumps(provenance)
 
+    @staticmethod
+    def _safe_total_cost(price: Optional[float], shipping: Optional[float]) -> Optional[float]:
+        """Compute total_cost without crashing on None values."""
+        if price is None:
+            return None
+        return (price or 0.0) + (shipping or 0.0)
+
     async def _persist_results(self, row_id: int, results: List[NormalizedResult], row: Optional["Row"] = None) -> List[Bid]:
         """Persist normalized results as Bids, creating Sellers as needed. Returns list of Bids."""
         if not results:
             return []
 
+        # Pre-resolve all sellers in a single pass to avoid mid-loop commits
+        seller_cache: dict[str, Seller] = {}
+        unique_merchants = {(r.merchant_name, r.merchant_domain) for r in results}
+        for name, domain in unique_merchants:
+            seller_cache[name] = await self._get_or_create_seller(name, domain)
+
         # Fetch existing bids to handle upserts (deduplication)
-        # We assume canonical_url is the primary deduplication key if present, otherwise item_url
         existing_bids_stmt = select(Bid).where(Bid.row_id == row_id)
         existing_bids_res = await self.session.exec(existing_bids_stmt)
         existing_bids = existing_bids_res.all()
         
-        # Map existing bids by canonical_url (preferred) and item_url (fallback)
         bids_by_canonical = {b.canonical_url: b for b in existing_bids if b.canonical_url}
         bids_by_url = {b.item_url: b for b in existing_bids if b.item_url}
 
-        processed_bids: List[Bid] = []
         new_bids_count = 0
         updated_bids_count = 0
 
         for res in results:
-            # 2.1 Get or Create Seller
-            seller = await self._get_or_create_seller(res.merchant_name, res.merchant_domain)
+            seller = seller_cache[res.merchant_name]
             
-            # 2.2 Check for existing bid
             existing_bid = None
             if res.canonical_url and res.canonical_url in bids_by_canonical:
                 existing_bid = bids_by_canonical[res.canonical_url]
@@ -393,7 +403,6 @@ class SourcingService:
 
             provenance_json = self._build_enriched_provenance(res, row)
 
-            # Extract score dimensions from provenance (PRD 11)
             score_data = res.provenance.get("score", {}) if res.provenance else {}
             combined_score = score_data.get("combined")
             price_score_val = score_data.get("price")
@@ -401,17 +410,15 @@ class SourcingService:
             quality_score_val = score_data.get("quality")
             diversity_bonus_val = score_data.get("diversity")
 
-            # Determine source tier
-            source_tier = "marketplace"  # default
+            source_tier = "marketplace"
             if res.source in ("seller_quote", "vendor_directory"):
                 source_tier = "outreach"
             elif res.source == "registered_merchant":
                 source_tier = "registered"
 
             if existing_bid:
-                # Update
                 existing_bid.price = res.price if res.price is not None else existing_bid.price
-                existing_bid.total_cost = existing_bid.price + existing_bid.shipping_cost
+                existing_bid.total_cost = self._safe_total_cost(existing_bid.price, existing_bid.shipping_cost)
                 existing_bid.currency = res.currency
                 existing_bid.item_title = res.title
                 existing_bid.image_url = res.image_url
@@ -427,15 +434,13 @@ class SourcingService:
                 existing_bid.source_tier = source_tier
                 
                 self.session.add(existing_bid)
-                processed_bids.append(existing_bid)
                 updated_bids_count += 1
             else:
-                # Create
                 new_bid = Bid(
                     row_id=row_id,
                     vendor_id=seller.id,
-                    price=res.price or 0.0,
-                    total_cost=res.price or 0.0,
+                    price=res.price,
+                    total_cost=self._safe_total_cost(res.price, 0.0),
                     currency=res.currency,
                     item_title=res.title,
                     item_url=res.url,
@@ -452,33 +457,30 @@ class SourcingService:
                     source_tier=source_tier,
                 )
                 self.session.add(new_bid)
-                # Add to maps to prevent duplicates within the same batch
                 if new_bid.canonical_url:
                     bids_by_canonical[new_bid.canonical_url] = new_bid
-                bids_by_url[new_bid.item_url] = new_bid
+                if new_bid.item_url:
+                    bids_by_url[new_bid.item_url] = new_bid
                 
-                processed_bids.append(new_bid)
                 new_bids_count += 1
 
         await self.session.commit()
         
-        # Reload bids with eager loading to avoid MissingGreenlet error on relationship access
-        if not processed_bids:
-            return []
-            
-        bid_ids = [b.id for b in processed_bids if b.id is not None]
-        if not bid_ids:
-            return []
-            
-        stmt = select(Bid).where(Bid.id.in_(bid_ids)).options(selectinload(Bid.seller))
+        # Authoritative reload: query ALL bids for this row from DB.
+        # Never rely on in-memory object IDs which may be expired after async commit.
+        stmt = (
+            select(Bid)
+            .where(Bid.row_id == row_id)
+            .options(selectinload(Bid.seller))
+            .order_by(Bid.combined_score.desc().nullslast(), Bid.id)
+        )
         result = await self.session.exec(stmt)
-        reloaded_bids = result.all()
+        all_bids = list(result.all())
             
-        logger.info(f"[SourcingService] Row {row_id}: Created {new_bids_count}, Updated {updated_bids_count} bids")
-        return list(reloaded_bids)
+        logger.info(f"[SourcingService] Row {row_id}: Created {new_bids_count}, Updated {updated_bids_count}, Total {len(all_bids)} bids")
+        return all_bids
 
     async def _get_or_create_seller(self, name: str, domain: str) -> Seller:
-        # Simple cache could be added here if needed for batch processing
         stmt = select(Seller).where(Seller.name == name)
         result = await self.session.exec(stmt)
         seller = result.first()
@@ -486,7 +488,6 @@ class SourcingService:
         if not seller:
             seller = Seller(name=name, domain=domain)
             self.session.add(seller)
-            await self.session.commit()
-            await self.session.refresh(seller)
+            await self.session.flush()  # Get ID without committing — avoids partial commits mid-loop
             
         return seller
