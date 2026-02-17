@@ -26,7 +26,7 @@ from pydantic import BaseModel
 from sourcing.repository import SearchResult, SourcingRepository
 from sourcing.scorer import score_results
 from sourcing.models import SearchIntent
-from services.llm import triage_provider_query, make_unified_decision
+from services.llm import triage_provider_query, make_unified_decision, ChatContext
 from services.intent import extract_search_intent
 
 logger = logging.getLogger(__name__)
@@ -143,7 +143,11 @@ async def public_search(body: PublicSearchRequest, request: Request):
     # Step 3: Get desire tier for scoring (not for gating!)
     desire_tier = None
     try:
-        decision = await make_unified_decision(raw_query)
+        ctx = ChatContext(
+            user_message=raw_query,
+            conversation_history=[],
+        )
+        decision = await make_unified_decision(ctx)
         if decision and hasattr(decision, 'desire_tier'):
             desire_tier = decision.desire_tier
     except Exception as e:
@@ -193,7 +197,7 @@ async def public_search(body: PublicSearchRequest, request: Request):
             "title": res.title,
             "price": res.price,
             "currency": res.currency,
-            "merchant": res.merchant,
+            "merchant": res.merchant_name,
             "url": res.url,
             "image_url": res.image_url,
             "source": res.source,
