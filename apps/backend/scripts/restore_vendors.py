@@ -45,45 +45,104 @@ async def restore_vendors_logic(session: AsyncSession):
 
     print(f"Loaded {len(vendors_data)} vendors. Starting import...")
 
+    # Check DB state
+    try:
+        await session.exec(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        print("✅ Checked 'vector' extension.")
+        
+        # Check table columns
+        result = await session.exec(text("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'vendor'"))
+        db_cols = result.fetchall()
+        print(f"DB Columns: {db_cols}")
+    except Exception as e:
+        print(f"⚠️ Error checking DB state: {e}")
+
+    # Get valid columns from model
+    valid_columns = set(Vendor.__table__.columns.keys())
+    print(f"Model Columns: {valid_columns}")
+    
+    # Identify JSON/Text fields that might need stringification
+    # In Vendor model: service_areas, specialties, description, etc are Optional[str]
+    # But in dump they might be dicts/lists if they were JSON in source or inferred as such
+    text_fields = ["service_areas", "specialties", "provenance"]
+
     # Let's clean data for insertion
     cleaned_vendors = []
-    for v in vendors_data:
+    for i, v in enumerate(vendors_data):
+        clean_v = {}
+        
+        # Only keep valid columns
+        for key, val in v.items():
+            if key in valid_columns:
+                clean_v[key] = val
+        
         # Fix datetimes
         for field in ["created_at", "updated_at", "embedded_at"]:
-            if v.get(field):
+            if clean_v.get(field):
                 try:
-                    v[field] = datetime.fromisoformat(v[field])
+                    if isinstance(clean_v[field], str):
+                        clean_v[field] = datetime.fromisoformat(clean_v[field])
                 except (ValueError, TypeError):
-                    v[field] = None
+                    clean_v[field] = None
         
-        # Remove keys that might not match model exactly if schema changed, but here schema is same.
-        # Handle embedding: ensure it's a list or None
-        if v.get("embedding"):
-            # if it came from dump as list, it's fine.
-            pass
+        # Stringify structured data for text fields
+        for field in text_fields:
+            if clean_v.get(field) and not isinstance(clean_v[field], str):
+                try:
+                    clean_v[field] = json.dumps(clean_v[field])
+                except Exception:
+                    pass # Leave as is if fail
         
-        cleaned_vendors.append(v)
+        # Handle embedding
+        if clean_v.get("embedding"):
+            if isinstance(clean_v["embedding"], str):
+                try:
+                    clean_v["embedding"] = json.loads(clean_v["embedding"])
+                except Exception:
+                    clean_v["embedding"] = None
+            
+            if isinstance(clean_v["embedding"], list):
+                if len(clean_v["embedding"]) != 1536:
+                    if i < 5:
+                        print(f"⚠️ Vendor {clean_v.get('id')} embedding length {len(clean_v['embedding'])} != 1536")
+                    clean_v["embedding"] = None
+            else:
+                clean_v["embedding"] = None
+
+        cleaned_vendors.append(clean_v)
 
     # Chunking
-    batch_size = 100
+    batch_size = 10
     total = len(cleaned_vendors)
     
     for i in range(0, total, batch_size):
         batch = cleaned_vendors[i:i+batch_size]
         
-        # Using Core INSERT for ON CONFLICT support
         stmt = insert(Vendor).values(batch)
         
-        update_dict = {c.name: c for c in stmt.excluded if c.name not in ["id", "created_at"]}
+        update_dict = {
+            c.name: c 
+            for c in stmt.excluded 
+            if c.name in valid_columns and c.name not in ["id", "created_at"]
+        }
         
         do_update_stmt = stmt.on_conflict_do_update(
-            index_elements=['id'], # Assuming we are syncing by ID
+            index_elements=['id'],
             set_=update_dict
         )
         
-        await session.execute(do_update_stmt)
-        await session.commit()
-        print(f"Processed {min(i+batch_size, total)}/{total}")
+        try:
+            await session.execute(do_update_stmt)
+            await session.commit()
+            if i % 100 == 0:
+                print(f"Processed {min(i+batch_size, total)}/{total}")
+        except Exception as e:
+            # Print concise error
+            err_str = str(e)
+            if len(err_str) > 500:
+                err_str = err_str[:500] + "... [truncated]"
+            print(f"❌ Error batch {i} (first item id={batch[0].get('id')}): {err_str}")
+            await session.rollback()
 
     print("✅ Restore complete.")
     return total
