@@ -1,13 +1,13 @@
 # Smoke Test Checklist — Demo Day
 
-**URL**: http://localhost:3003 (local) or production URL  
+**Production URL**: https://buy-anything.com  
 **Time to complete**: ~5 minutes  
 **Last verified**: Feb 17, 2026
 
 ---
 
 ## 1. Homepage / Workspace Loads
-- [ ] Open `/` — chat panel + board visible, no white screen
+- [ ] Open https://buy-anything.com — chat panel + board visible, no white screen
 - [ ] Empty board shows trending search pills and vendor pills
 
 ## 2. Public Pages (no login required)
@@ -16,35 +16,31 @@
 - [ ] `/guides` — guides index loads
 - [ ] `/about`, `/privacy`, `/terms` — static pages render
 
-## 3. Search (Anonymous)
-- [ ] Type "Roblox gift cards" in chat → results stream in
+## 3. Search (use your own queries)
+- [ ] Type a search in chat → results stream in within a few seconds
 - [ ] Offer cards appear with prices, images, source badges
 - [ ] Click an offer card → opens product link in new tab
+- [ ] Try a second search → new row appears, results populate
 
-## 4. Search (Service/Vendor Tier)
-- [ ] Type "caterer for 50 person corporate event" → results appear
-- [ ] Vendor directory results show alongside web results
-- [ ] Results include vendor names and "Get Quote" or contact options
-
-## 5. Social Features (Anonymous)
-- [ ] Click heart icon on an offer → toast says "Sign up to save likes..."
-- [ ] Click comment icon → prompt appears, submit → toast says "Create an account..."
-- [ ] Click share icon → link copied + toast about signup
-
-## 6. Login Flow
+## 4. Login Flow (Real OTP)
 - [ ] Go to `/login` → phone input appears
-- [ ] Enter any phone number → OTP screen appears
-- [ ] Enter code `000000` (dev bypass) → redirects to workspace
-- [ ] Chat header shows phone number or email
+- [ ] Enter your real phone number → SMS arrives with 6-digit code
+- [ ] Enter the OTP code → redirects to workspace
+- [ ] Chat header shows your phone number
 
-## 7. Social Features (Logged In)
-- [ ] Click heart icon → "Liked this offer" toast
+## 5. Social Features (Before Login)
+- [ ] Click heart icon on an offer → toast prompts signup
+- [ ] Click share icon → link copied + toast prompts signup
+
+## 6. Social Features (After Login)
+- [ ] Click heart icon → "Liked this offer" toast (heart fills)
 - [ ] Click share icon → "Share link copied!" toast
+- [ ] Click comment icon → prompt appears, submit → "Comment saved" toast
 
-## 8. No Console Errors
-- [ ] Open browser DevTools → Console tab
-- [ ] No red errors on page load or during search
+## 7. No Errors
+- [ ] No white screens or crash pages at any point
+- [ ] No "500" or "Something went wrong" messages
 
 ---
 
-**Pass criteria**: All boxes checked, no white screens, no 500 errors.
+**Pass criteria**: All boxes checked, searches return results, OTP works, no crashes.
