@@ -19,7 +19,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from dependencies import get_current_session
-from models import Row, RequestSpec, Project
+from models import Row, RequestSpec, Project, Bid
 from utils.json_utils import safe_json_loads
 from services.llm import (
     ChatContext,
