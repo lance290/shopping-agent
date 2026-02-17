@@ -255,6 +255,13 @@ export default function Chat() {
                   setMessages(freshMessages);
                 }
                 
+                // Mark search-in-progress BEFORE setting active row.
+                // This prevents the RowStrip auto-load effect from racing
+                // with the SSE stream (the auto-load would call the non-streaming
+                // search endpoint which wipes SSE results via setRowResults).
+                store.setIsSearching(true);
+                store.setMoreResultsIncoming(row.id, true);
+
                 store.setActiveRowId(row.id);
                 store.setCurrentQuery(row.title);
                 setPendingClarification(null);
@@ -281,6 +288,8 @@ export default function Chat() {
                 const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages) };
                 const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
                 store.setRows(mergedRows);
+                store.setIsSearching(true);
+                store.setMoreResultsIncoming(row.id, true);
                 store.setActiveRowId(row.id);
                 store.setCurrentQuery(row.title);
                 setMessages(freshMessages);
