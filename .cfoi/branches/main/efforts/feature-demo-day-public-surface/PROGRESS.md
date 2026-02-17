@@ -4,9 +4,9 @@
 
 ## Current State
 - **Status**: 🟢 Implementing
-- **Current task**: task-007 (pending — next up)
-- **Last working commit**: 5caf368
-- **App status**: Backend (398 tests passing) + Frontend (TypeScript clean). Public surface 10/12 tasks done.
+- **Current task**: task-012 (demo polish — next up)
+- **Last working commit**: 70bc679
+- **App status**: Backend (398 tests passing) + Frontend (TypeScript clean). Public surface 11/12 tasks done.
 
 ## Quick Start
 ```bash
@@ -63,7 +63,7 @@ Parent PRD: `docs/active-dev/PRD_Thursday_Demo_Affiliate_Readiness.md`
 | task-007 | Adapt VendorContactModal | ⬜ pending | 45m |
 | task-008 | Static & legal pages | ✅ done | 45m |
 | task-009 | Editorial guide pages | ✅ done | 45m |
-| task-010 | Public vendor directory | ⬜ pending | 45m |
+| task-010 | Public vendor directory | ✅ done | 45m |
 | task-011 | Remove gating + fix scoring | ✅ done | 30m |
 | task-012 | Demo prep & polish | ⬜ pending | 45m |
 
@@ -100,7 +100,9 @@ Parent PRD: `docs/active-dev/PRD_Thursday_Demo_Affiliate_Readiness.md`
 - Remaining: task-007 (VendorContactModal), task-009 (guides), task-010 (vendor dir), task-012 (polish)
 - Continued: task-009 completed (5 editorial guides with 800+ words each, commit 5caf368)
 - Now 10/12 tasks done. Remaining: task-007, task-010, task-012
-- Next: Continue /implement loop with task-007 (VendorContactModal adaptation)
+- Continued: task-010 completed (vendor directory backend + frontend, commit 70bc679)
+- Now 11/12 tasks done. Remaining: task-007 (VendorContactModal — deferred, functional via website link), task-012 (demo polish)
+- Next: task-012 (demo polish) requires live browser testing — STOP for user
 
 ## How to Use This File
 
