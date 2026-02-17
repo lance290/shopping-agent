@@ -986,37 +986,17 @@ class SourcingRepository:
 
     def _filter_providers_by_tier(self, providers: Dict[str, "SourcingProvider"], desire_tier: Optional[str] = None) -> Dict[str, "SourcingProvider"]:
         """
-        Gate providers based on desire tier.
-        
-        Only exclude MARKETPLACE-specific providers (Amazon via rainforest, eBay via ebay_browse)
-        for service/bespoke/high-value tiers. General web search providers (serpapi, valueserp,
-        searchapi, google_cse, google_shopping) are kept because they find luxury retailers,
-        specialist sites, and broker pages.
+        PASS-THROUGH: All providers run for all queries. No hard-gating.
+
+        The three-stage re-ranker's tier_fit multiplier in scorer.py handles
+        relevance scoring (Amazon scores 0.2 for service queries, vendors score
+        0.85 for commodity). Hard-gating was removed because:
+        - Vendors span all tiers (toy stores ARE commodity sellers)
+        - Prevents serendipitous discoveries
+        - Fails on edge cases (e.g., "catering equipment" IS on Amazon)
         """
-        if not desire_tier:
-            return providers
-
-        # Only marketplace-specific aggregators that return mass-market products
-        MARKETPLACE_ONLY_PROVIDERS = {
-            "rainforest",     # Amazon-specific — doesn't sell jets or $50k earrings
-            "ebay_browse",    # eBay-specific — mostly consumer goods
-            "mock",           # Test provider
-        }
-
-        if desire_tier in ("service", "bespoke", "high_value"):
-            filtered = {k: v for k, v in providers.items() if k not in MARKETPLACE_ONLY_PROVIDERS}
-            print(f"[SourcingRepository] Tier '{desire_tier}' — excluded marketplace-only providers, running: {list(filtered.keys())}")
-            if not filtered:
-                print(f"[SourcingRepository] WARNING: No providers left after tier filtering, falling back to all")
-                return providers
-            return filtered
-
-        if desire_tier == "advisory":
-            print(f"[SourcingRepository] Tier 'advisory' — no search providers (handled by chat)")
-            return {}
-
-        # commodity / considered: run everything
-        print(f"[SourcingRepository] Tier '{desire_tier}' — running all providers: {list(providers.keys())}")
+        if desire_tier:
+            print(f"[SourcingRepository] Tier '{desire_tier}' — running ALL providers (no gating): {list(providers.keys())}")
         return providers
 
     async def search_all_with_status(self, query: str, **kwargs) -> SearchResultWithStatus:

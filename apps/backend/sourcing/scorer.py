@@ -91,12 +91,14 @@ def _tier_relevance_score(source: str, desire_tier: Optional[str]) -> float:
     }
     VENDOR_PROVIDERS = {"vendor_directory"}
 
-    # Commodity / Considered -> Prefer Big Box
+    # Commodity / Considered -> Big box is natural fit, but vendors span all tiers
+    # (toy stores, bicycle shops, bookstores ARE commodity sellers).
+    # Vector search similarity handles vendor relevance; don't double-penalize.
     if desire_tier in ("commodity", "considered"):
         if source in BIG_BOX_PROVIDERS:
             return 1.0
         if source in VENDOR_PROVIDERS:
-            return 0.3  # Penalize but don't hide
+            return 0.85  # Slight preference for retail APIs (they have prices/ratings) but no heavy penalty
         return 0.5
 
     # Service / Bespoke / High Value -> Prefer Vendor Directory

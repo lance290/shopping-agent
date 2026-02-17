@@ -84,7 +84,7 @@ def test_commodity_ranking(mixed_results):
     # Vendor result should be present but ranked lower
     vendor_result = next((r for r in ranked if r.source == "vendor_directory"), None)
     assert vendor_result is not None
-    assert vendor_result.provenance["score"]["tier_fit"] == 0.3  # Penalized but not zero
+    assert vendor_result.provenance["score"]["tier_fit"] == 0.85  # Slight preference for retail but no heavy penalty (vendors span all tiers)
 
 
 def test_bespoke_ranking(mixed_results):
