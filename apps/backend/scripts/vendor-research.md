@@ -260,3 +260,18 @@
 | Artsy | https://www.artsy.net/ |  | Online marketplace |
 | 1stDibs (Art) | https://www.1stdibs.com/art/ |  | Online marketplace |
 
+
+## Private Aviation — National
+
+| Company | Website | Contact | Notes |
+|---|---|---|---|
+| NetJets | https://www.netjets.com/ |  | Fractional ownership + jet cards; global leader |
+| Wheels Up | https://wheelsup.com/ |  | Membership based private aviation |
+| XO | https://flyxo.com/ |  | On-demand charter + membership; Vista Global |
+| Flexjet | https://www.flexjet.com/ |  | Fractional + jet cards; premium fleet |
+| Sentient Jet | https://www.sentient.com/ |  | Jet card pioneer |
+| Magellan Jets | https://magellanjets.com/ |  | Jet cards + membership + charter |
+| PrivateFly | https://www.privatefly.com/ |  | Booking platform; on-demand charter |
+| Jettly | https://jettly.com/ |  | Uber for private jets; membership |
+| Victor | https://www.flyvictor.com/ |  | On-demand jet charter marketplace |
+| VistaJet | https://www.vistajet.com/ |  | Global business aviation; silver fleet |
