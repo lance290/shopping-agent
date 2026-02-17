@@ -188,17 +188,24 @@ async def search_row_listings(
     session: AsyncSession = Depends(get_session)
 ):
     from routes.rate_limit import check_rate_limit
+    from models.auth import User
 
     auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    if auth_session:
+        user_id = auth_session.user_id
+    else:
+        guest_result = await session.exec(select(User).where(User.email == "guest@buy-anything.com"))
+        guest_user = guest_result.first()
+        if not guest_user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        user_id = guest_user.id
 
-    rate_key = f"search:{auth_session.user_id}"
+    rate_key = f"search:{user_id}"
     if not check_rate_limit(rate_key, "search"):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
     result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        select(Row).where(Row.id == row_id, Row.user_id == user_id)
     )
     row = result.first()
     if not row:
@@ -365,17 +372,25 @@ async def search_row_listings_stream(
     Returns SSE events with partial results and a 'more_incoming' flag.
     """
     from routes.rate_limit import check_rate_limit
+    from models.auth import User
 
     auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    if auth_session:
+        user_id = auth_session.user_id
+    else:
+        # Anonymous / guest user — same pattern as chat endpoint
+        guest_result = await session.exec(select(User).where(User.email == "guest@buy-anything.com"))
+        guest_user = guest_result.first()
+        if not guest_user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        user_id = guest_user.id
 
-    rate_key = f"search:{auth_session.user_id}"
+    rate_key = f"search:{user_id}"
     if not check_rate_limit(rate_key, "search"):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
     result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        select(Row).where(Row.id == row_id, Row.user_id == user_id)
     )
     row = result.first()
     if not row:

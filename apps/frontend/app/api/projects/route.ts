@@ -4,7 +4,7 @@ import { proxyGet, proxyPost, proxyDelete } from '../../utils/api-proxy';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  return proxyGet(request, '/projects');
+  return proxyGet(request, '/projects', { allowAnonymous: true });
 }
 
 export async function POST(request: NextRequest) {

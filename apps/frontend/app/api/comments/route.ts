@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   if (!rowId) {
     return NextResponse.json({ error: 'Missing row_id' }, { status: 400 });
   }
-  return proxyGet(request, `/comments?row_id=${rowId}`);
+  return proxyGet(request, `/comments?row_id=${rowId}`, { allowAnonymous: true });
 }
 
 export async function POST(request: NextRequest) {

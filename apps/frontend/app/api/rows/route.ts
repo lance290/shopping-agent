@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const rowId = request.nextUrl.searchParams.get('id');
   const path = rowId ? `/rows/${rowId}` : '/rows';
-  return proxyGet(request, path);
+  return proxyGet(request, path, { allowAnonymous: true });
 }
 
 export async function POST(request: NextRequest) {
