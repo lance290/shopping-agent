@@ -1,8 +1,18 @@
-# Codebase Audit — Feb 17, 2026 (Post-Streaming Lock Fix)
+# Codebase Audit — Feb 17, 2026 (Updated Post-PRD-07 Fixes)
 
 ## Executive Summary
 
-After the streaming lock fix, the core search→render pipeline is solid. This audit identifies **38 findings** across backend, frontend, and infrastructure. Categorized by severity: 6 bugs, 12 DRY violations, 8 gaps, 7 dead code items, 5 tech debt items.
+After the streaming lock fix + PRD-07 audit fixes, the platform is demo-ready. Original audit identified **38 findings** + 1 new critical bug found during demo testing. **9 fixed**, remainder triaged for post-demo.
+
+### Fixes Applied (PRD-07)
+- ✅ **B-1**: Guest user lookup unified to `dependencies.py` (`resolve_user_id` + `GUEST_EMAIL`)
+- ✅ **B-4**: Debug `console.log` removed from `store.ts` and `api.ts` (9 statements)
+- ✅ **B-7** (NEW): Public search crash fixed (`merchant` → `merchant_name`, `ChatContext`)
+- ✅ **G-1**: Anonymous chat rate limited (10 req/min per IP via `check_rate_limit`)
+- ✅ **G-2**: Streaming lock 60s timeout safety net
+- ✅ **G-5**: React `ErrorBoundary` wrapping workspace page
+- ✅ **D-6**: Provider status badge key no longer uses fragile index
+- ✅ **DC-3**: `runSearchApi` unused wrapper removed from `api.ts`
 
 ---
 
@@ -240,13 +250,27 @@ Backend (FastAPI + SQLModel + PostgreSQL)
 
 ## Prioritized Fix List (Demo Day)
 
-| # | Finding | Effort | Impact |
+| # | Finding | Status | Commit |
 |---|---------|--------|--------|
-| 1 | G-1: Rate limit anonymous chat | 1h | Prevents credit exhaustion |
-| 2 | B-1: Unify guest user lookup | 30m | Prevents future divergence |
-| 3 | B-4: Remove debug logging | 5m | Cleaner production logs |
-| 4 | G-5: Add React ErrorBoundary | 30m | Prevents white screen crash |
-| 5 | D-2: Extract bid hydration helper | 30m | Reduces store complexity |
-| 6 | TD-4: Split store into slices | 2h | Maintainability |
-| 7 | DC-1-7: Remove dead code | 1h | Reduces confusion |
-| 8 | B-6: Deprecate old outreach | 1h | Single system of record |
+| 1 | G-1: Rate limit anonymous chat | ✅ Done | `6531abe` |
+| 2 | B-1: Unify guest user lookup | ✅ Done | `6531abe` |
+| 3 | B-4: Remove debug logging | ✅ Done | `6531abe` |
+| 4 | G-5: Add React ErrorBoundary | ✅ Done | `6531abe` |
+| 5 | B-7: Public search crash (merchant_name, ChatContext) | ✅ Done | `891be79` |
+| 6 | G-2: Streaming lock 60s timeout | ✅ Done | `0409b39` |
+| 7 | D-6: Provider badge key fix | ✅ Done | `6531abe` |
+| 8 | DC-3: Remove runSearchApi wrapper | ✅ Done | `6531abe` |
+
+## Remaining (Post-Demo)
+
+| # | Finding | Effort | Priority |
+|---|---------|--------|----------|
+| 1 | D-2: Extract bid hydration helper | 30m | Medium |
+| 2 | D-4: Auth check boilerplate (20+ routes) | 1h | Medium |
+| 3 | TD-4: Split store into slices | 2h | Low |
+| 4 | B-6: Deprecate old outreach system | 1h | Medium |
+| 5 | DC-1,2,4-7: Remove remaining dead code | 1h | Low |
+| 6 | B-2: session.execute→session.exec migration | 2h | Low |
+| 7 | B-3: datetime.utcnow migration (104 files) | 2h | Low |
+| 8 | TD-1,2,3: Pydantic V2 + lifespan migration | 1h | Low |
+| 9 | B-5: backendUrl removal (blocked by e2e test ref) | 5m | Low |
