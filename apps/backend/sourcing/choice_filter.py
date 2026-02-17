@@ -96,7 +96,7 @@ def should_exclude_by_choices(
     # Keys that describe PRODUCT ATTRIBUTES and CAN be title-matched
     PRODUCT_ATTRIBUTE_KEYS = {
         "material", "color", "colour", "size", "style", "brand",
-        "type", "finish", "pattern", "shape", "format", "flavor",
+        "type", "finish", "pattern", "shape", "flavor",
         "weight", "length", "width", "height",
     }
 
@@ -106,6 +106,7 @@ def should_exclude_by_choices(
         "min_price", "max_price", "price", "budget",
         "recipient", "occasion", "purpose", "use_case", "reason",
         "timeline", "urgency", "delivery", "shipping",
+        "format",  # physical/digital is a delivery preference, not a title keyword
         "notes", "comments", "description", "safety_status", "safety_reason",
         "quantity", "count",
     }
