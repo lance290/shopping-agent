@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import AffiliateDisclosure from './AffiliateDisclosure';
 
 export default function PublicFooter() {
@@ -10,8 +11,8 @@ export default function PublicFooter() {
             <ul className="space-y-2">
               <li><a href="/how-it-works" className="text-sm hover:text-white transition-colors">How It Works</a></li>
               <li><a href="/search" className="text-sm hover:text-white transition-colors">Search</a></li>
-              <li><a href="/vendors" className="text-sm hover:text-white transition-colors">Vendor Directory</a></li>
-              <li><a href="/guides" className="text-sm hover:text-white transition-colors">Guides</a></li>
+              <li><Link href="/vendors" className="text-sm hover:text-white transition-colors">Vendor Directory</Link></li>
+              <li><Link href="/guides" className="text-sm hover:text-white transition-colors">Guides</Link></li>
             </ul>
           </div>
           <div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, LayoutGrid } from 'lucide-react';
+import Link from 'next/link';
 import { getMe } from '../app/utils/auth';
 
 export default function PublicHeader() {
@@ -28,9 +29,9 @@ export default function PublicHeader() {
     <header className="sticky top-0 z-40 bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
-          <a href="/" className="flex items-center gap-2 shrink-0">
+          <Link href="/" className="flex items-center gap-2 shrink-0">
             <span className="text-xl font-bold text-gray-900">BuyAnything</span>
-          </a>
+          </Link>
 
           <form onSubmit={handleSearch} className="flex-1 max-w-xl hidden sm:block">
             <div className="relative">

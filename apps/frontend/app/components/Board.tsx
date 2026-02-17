@@ -8,6 +8,7 @@ import RowStrip from './RowStrip';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 import { TileDetailPanel } from './TileDetailPanel';
+import Link from 'next/link';
 
 export default function ProcurementBoard() {
   const rows = useShoppingStore(state => state.rows);
@@ -326,9 +327,9 @@ export default function ProcurementBoard() {
                     {v}
                   </button>
                 ))}
-                <a href="/vendors" className="text-xs px-3 py-1.5 rounded-full bg-agent-blurple/10 text-agent-blurple hover:bg-agent-blurple/20 transition-colors">
+                <Link href="/vendors" className="text-xs px-3 py-1.5 rounded-full bg-agent-blurple/10 text-agent-blurple hover:bg-agent-blurple/20 transition-colors">
                   Browse all vendors →
-                </a>
+                </Link>
               </div>
             </div>
 

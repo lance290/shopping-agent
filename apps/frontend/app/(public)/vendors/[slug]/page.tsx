@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Store, ExternalLink, MapPin, Tag, Loader2, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 interface VendorDetail {
   id: number;
@@ -57,7 +58,7 @@ export default function VendorDetailPage() {
       <div className="max-w-2xl mx-auto px-4 py-20 text-center">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Vendor Not Found</h1>
         <p className="text-gray-500 mb-6">{error || 'This vendor does not exist.'}</p>
-        <a href="/vendors" className="text-blue-600 hover:underline">Browse all vendors</a>
+        <Link href="/vendors" className="text-blue-600 hover:underline">Browse all vendors</Link>
       </div>
     );
   }
@@ -77,9 +78,9 @@ export default function VendorDetailPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <a href="/vendors" className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline mb-6">
+      <Link href="/vendors" className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline mb-6">
         <ArrowLeft size={14} /> Back to directory
-      </a>
+      </Link>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-8">

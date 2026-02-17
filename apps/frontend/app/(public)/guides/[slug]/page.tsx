@@ -5,6 +5,7 @@ import { getGuideBySlug } from '../guide-data';
 import AffiliateDisclosure from '../../../../components/AffiliateDisclosure';
 import { Search, BookOpen, Clock, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function GuidePage() {
   const params = useParams();
@@ -17,7 +18,7 @@ export default function GuidePage() {
       <div className="max-w-4xl mx-auto px-4 py-20 text-center">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Guide Not Found</h1>
         <p className="text-gray-500 mb-6">The guide you&apos;re looking for doesn&apos;t exist.</p>
-        <a href="/guides" className="text-blue-600 hover:underline">Browse all guides</a>
+        <Link href="/guides" className="text-blue-600 hover:underline">Browse all guides</Link>
       </div>
     );
   }
@@ -29,7 +30,7 @@ export default function GuidePage() {
   return (
     <article className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <header className="mb-10">
-        <a href="/guides" className="text-sm text-blue-600 hover:underline mb-4 inline-block">← All Guides</a>
+        <Link href="/guides" className="text-sm text-blue-600 hover:underline mb-4 inline-block">← All Guides</Link>
         <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4 leading-tight">{guide.title}</h1>
         <p className="text-lg text-gray-600 mb-4">{guide.description}</p>
         <div className="flex items-center gap-4 text-sm text-gray-400">
