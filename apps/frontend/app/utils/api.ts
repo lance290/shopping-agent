@@ -1,5 +1,7 @@
 import { Row, Offer, Project, ProviderStatusSnapshot } from '../store';
 
+export const AUTH_REQUIRED = 'auth_required' as const;
+
 function getAuthToken(): string {
   // Cookie is HttpOnly — cannot be read from JS.
   // All /api/* routes are same-origin, so the cookie is sent automatically.
@@ -85,7 +87,7 @@ export const createCommentApi = async (
   body: string,
   bidId?: number,
   offerUrl?: string
-): Promise<CommentDto | null> => {
+): Promise<CommentDto | typeof AUTH_REQUIRED | null> => {
   try {
     const res = await fetchWithAuth('/api/comments', {
       method: 'POST',
@@ -93,6 +95,7 @@ export const createCommentApi = async (
       body: JSON.stringify({ row_id: rowId, body, bid_id: bidId, offer_url: offerUrl, visibility: 'private' }),
     });
     if (!res.ok) {
+      if (res.status === 401) return AUTH_REQUIRED;
       if (res.status === 404) {
         return null;
       }
@@ -427,7 +430,7 @@ export const toggleLikeApi = async (
   _rowId: number,
   _isLiked: boolean,
   bidId?: number,
-): Promise<{ is_liked: boolean; like_count?: number; bid_id: number } | null> => {
+): Promise<{ is_liked: boolean; like_count?: number; bid_id: number } | typeof AUTH_REQUIRED | null> => {
   if (!bidId) {
     console.error('[API] toggleLikeApi: no bid_id — cannot toggle');
     return null;
@@ -439,6 +442,7 @@ export const toggleLikeApi = async (
       body: JSON.stringify({ bid_id: bidId }),
     });
     if (res.ok) return await res.json();
+    if (res.status === 401) return AUTH_REQUIRED;
     const body = await readResponseBodySafe(res);
     console.error('[API] Toggle like failed:', res.status, body);
     return null;

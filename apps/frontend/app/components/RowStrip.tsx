@@ -4,7 +4,7 @@ import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import ProviderStatusBadge from './ProviderStatusBadge';
 import { RefreshCw, FlaskConical, Undo2, Link2, X } from 'lucide-react';
-import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, createCommentApi, fetchCommentsApi } from '../utils/api';
+import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, createCommentApi, fetchCommentsApi, AUTH_REQUIRED } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -254,10 +254,16 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       offer.bid_id || undefined,
     );
 
+    if (toggled === AUTH_REQUIRED) {
+      if (offerBidId) {
+        updateRowOffer(row.id, (o: Offer) => o.bid_id === offerBidId, { is_liked: !optimisticIsLiked });
+      }
+      onToast?.('Sign up to save likes and track your finds → /login', 'error');
+      return;
+    }
     if (toggled) {
       onToast?.(toggled.is_liked ? 'Liked this offer.' : 'Removed like.', 'success');
     } else {
-      // Revert on failure — targeted mutation
       if (offerBidId) {
         updateRowOffer(row.id, (o: Offer) => o.bid_id === offerBidId, { is_liked: !optimisticIsLiked });
       }
@@ -280,6 +286,11 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
     createCommentApi(row.id, body, _offer.bid_id, _offer.url)
       .then((created) => {
+        if (created === AUTH_REQUIRED) {
+          updateRowOffer(row.id, matcher, { comment_preview: previousPreview });
+          onToast?.('Create an account to leave comments → /login', 'error');
+          return;
+        }
         if (created) {
           onToast?.('Comment saved.', 'success');
           return;
@@ -310,6 +321,15 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
           const shareUrl = `${window.location.origin}/share/${data.token}`;
           await navigator.clipboard.writeText(shareUrl);
           onToast?.('Share link copied!', 'success');
+          return;
+        }
+        if (res.status === 401) {
+          // Still copy raw URL as fallback, but prompt signup
+          const link = offer.url || offer.click_url || '';
+          if (navigator?.clipboard && link) {
+            await navigator.clipboard.writeText(link);
+          }
+          onToast?.('Sign up to create trackable share links → /login', 'error');
           return;
         }
       }
