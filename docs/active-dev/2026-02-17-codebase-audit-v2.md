@@ -1,18 +1,30 @@
-# Codebase Audit — Feb 17, 2026 (Updated Post-PRD-07 Fixes)
+# Codebase Audit — Feb 17, 2026 (Re-audit after incident recovery)
 
 ## Executive Summary
 
-After the streaming lock fix + PRD-07 audit fixes, the platform is demo-ready. Original audit identified **38 findings** + 1 new critical bug found during demo testing. **9 fixed**, remainder triaged for post-demo.
+Platform is **demo-ready for Thursday**. All 12 public pages return 200. All 3 demo scenarios pass (Roblox: 81 results, Caterer: 90 results, Charter jet: 95 results). Vendor directory: 2,867 vendors. Backend: 406 tests passing. Frontend: 0 lint errors.
 
-### Fixes Applied (PRD-07)
+**Incident recovered**: Another dev applied a destructive Alembic migration that dropped 4 tables + added a broken import that prevented the backend from starting. All damage repaired (tables restored, import reverted, migration deleted).
+
+### Fixes Applied (PRD-07, 12 total)
 - ✅ **B-1**: Guest user lookup unified to `dependencies.py` (`resolve_user_id` + `GUEST_EMAIL`)
 - ✅ **B-4**: Debug `console.log` removed from `store.ts` and `api.ts` (9 statements)
 - ✅ **B-7** (NEW): Public search crash fixed (`merchant` → `merchant_name`, `ChatContext`)
+- ✅ **B-8** (NEW): Signup prompt toasts on 401 for like/comment/share actions
 - ✅ **G-1**: Anonymous chat rate limited (10 req/min per IP via `check_rate_limit`)
 - ✅ **G-2**: Streaming lock 60s timeout safety net
+- ✅ **G-3** (NEW): Opened signup to public (ALLOWED_USER_PHONES gate bypass when empty)
 - ✅ **G-5**: React `ErrorBoundary` wrapping workspace page
 - ✅ **D-6**: Provider status badge key no longer uses fragile index
 - ✅ **DC-3**: `runSearchApi` unused wrapper removed from `api.ts`
+- ✅ **INC-1** (NEW): Reverted broken `merchant_verification_router` import (file didn't exist)
+- ✅ **INC-2** (NEW): Restored 4 dropped tables + reverted destructive migration
+
+### Re-audit Results (Fresh Scan)
+- **Backend ruff**: 6 F821 (undefined name) — 4 in `stripe_connect.py` (Merchant), 2 in `scripts/restore_vendors.py` (text). Neither on demo critical path.
+- **Frontend lint**: 0 errors, 110 warnings (all `@typescript-eslint/no-explicit-any` and unused vars — cosmetic)
+- **Security**: No secrets in tracked source files, CORS properly scoped, `.env` gitignored, no SQL injection vectors, security headers middleware active
+- **Database**: All tables intact, alembic version at `s05_search_display`
 
 ---
 
@@ -248,7 +260,7 @@ Backend (FastAPI + SQLModel + PostgreSQL)
 
 ---
 
-## Prioritized Fix List (Demo Day)
+## Prioritized Fix List (Demo Day) — All Complete
 
 | # | Finding | Status | Commit |
 |---|---------|--------|--------|
@@ -260,17 +272,23 @@ Backend (FastAPI + SQLModel + PostgreSQL)
 | 6 | G-2: Streaming lock 60s timeout | ✅ Done | `0409b39` |
 | 7 | D-6: Provider badge key fix | ✅ Done | `6531abe` |
 | 8 | DC-3: Remove runSearchApi wrapper | ✅ Done | `6531abe` |
+| 9 | B-8: Signup prompt toasts on 401 social actions | ✅ Done | `e9d52cc` |
+| 10 | G-3: Open signup to public | ✅ Done | `e670823` |
+| 11 | INC-1: Revert broken merchant_verification_router | ✅ Done | `6744e33` |
+| 12 | INC-2: Restore dropped tables + revert migration | ✅ Done | manual SQL |
 
 ## Remaining (Post-Demo)
 
 | # | Finding | Effort | Priority |
 |---|---------|--------|----------|
-| 1 | D-2: Extract bid hydration helper | 30m | Medium |
-| 2 | D-4: Auth check boilerplate (20+ routes) | 1h | Medium |
-| 3 | TD-4: Split store into slices | 2h | Low |
-| 4 | B-6: Deprecate old outreach system | 1h | Medium |
-| 5 | DC-1,2,4-7: Remove remaining dead code | 1h | Low |
-| 6 | B-2: session.execute→session.exec migration | 2h | Low |
-| 7 | B-3: datetime.utcnow migration (104 files) | 2h | Low |
-| 8 | TD-1,2,3: Pydantic V2 + lifespan migration | 1h | Low |
-| 9 | B-5: backendUrl removal (blocked by e2e test ref) | 5m | Low |
+| 1 | F821: Undefined `Merchant` in stripe_connect.py (4 refs) | 5m | Medium |
+| 2 | D-2: Extract bid hydration helper | 30m | Medium |
+| 3 | D-4: Auth check boilerplate (20+ routes) | 1h | Medium |
+| 4 | TD-4: Split store into slices | 2h | Low |
+| 5 | B-6: Deprecate old outreach system | 1h | Medium |
+| 6 | DC-1,2,4-7: Remove remaining dead code | 1h | Low |
+| 7 | B-2: session.execute→session.exec migration | 2h | Low |
+| 8 | B-3: datetime.utcnow migration (104 files) | 2h | Low |
+| 9 | TD-1,2,3: Pydantic V2 + lifespan migration | 1h | Low |
+| 10 | FE: 110 lint warnings (no-explicit-any, unused vars) | 2h | Low |
+| 11 | B-5: backendUrl removal in auth.ts | 5m | Low |
