@@ -193,8 +193,8 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     if (sortMode === 'original') return list;
 
     const byPrice = [...list].sort((a, b) => {
-      const ap = Number.isFinite(a.price) ? a.price : Number.POSITIVE_INFINITY;
-      const bp = Number.isFinite(b.price) ? b.price : Number.POSITIVE_INFINITY;
+      const ap = (a.price !== null && Number.isFinite(a.price)) ? a.price : Number.POSITIVE_INFINITY;
+      const bp = (b.price !== null && Number.isFinite(b.price)) ? b.price : Number.POSITIVE_INFINITY;
       return ap - bp;
     });
     return sortMode === 'price_desc' ? byPrice.reverse() : byPrice;
