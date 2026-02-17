@@ -25,17 +25,28 @@ OLD_DATABASE_URL = os.environ.get(
 # (table, column, pg_type, default_expr_or_None)
 EXPECTED_COLS = [
     ("bid", "liked_at", "TIMESTAMP", None),
+    ("bid", "vendor_id", "INTEGER", None),
+    ("bid", "canonical_url", "VARCHAR", None),
+    ("bid", "source_payload", "TEXT", None),
+    ("bid", "search_intent_version", "VARCHAR", None),
+    ("bid", "normalized_at", "TIMESTAMP", None),
     ("row", "last_engaged_at", "TIMESTAMP", None),
+    ("row", "desire_tier", "VARCHAR(20)", None),
+    ("row", "structured_constraints", "TEXT", None),
+    ("row", "is_service", "BOOLEAN", "false"),
+    ("row", "service_category", "VARCHAR", None),
     ("auth_session", "expires_at", "TIMESTAMP", None),
     ("auth_session", "last_activity_at", "TIMESTAMP", "NOW()"),
     ("outreach_event", "status", "VARCHAR", "'pending'"),
     ("outreach_event", "timeout_hours", "INTEGER", "48"),
     ("outreach_event", "expired_at", "TIMESTAMP", None),
     ("outreach_event", "followup_sent_at", "TIMESTAMP", None),
-    ("merchant", "verification_level", "VARCHAR", "'pending'"),
-    ("merchant", "reputation_score", "FLOAT", "0.0"),
+    # merchant table was merged into vendor by s02 migration — skip if absent
     ("project", "status", "VARCHAR", "'active'"),
     ("comment", "status", "VARCHAR", "'active'"),
+    ("vendor", "tier_affinity", "VARCHAR(20)", None),
+    ("vendor", "price_range_min", "FLOAT", None),
+    ("vendor", "price_range_max", "FLOAT", None),
 ]
 
 # Tables to migrate (order matters for FK constraints)
@@ -71,7 +82,7 @@ MIGRATE_TABLES = [
 
 
 async def fix_schema(conn):
-    """Add missing columns and ensure pgvector is set up."""
+    """Add missing tables/columns and ensure pgvector is set up."""
     added = 0
 
     # Ensure pgvector extension exists
@@ -80,6 +91,53 @@ async def fix_schema(conn):
         print("[SCHEMA-FIX] pgvector extension ensured.")
     except Exception as e:
         print(f"[SCHEMA-FIX] WARNING: Could not create vector extension: {e}")
+
+    # ── Ensure vendor table exists (s02_unify_vendor migration) ──────
+    vrow = await conn.execute(text(
+        "SELECT 1 FROM information_schema.tables WHERE table_name = 'vendor'"
+    ))
+    if vrow.first() is None:
+        await conn.execute(text("""
+            CREATE TABLE vendor (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR NOT NULL,
+                email VARCHAR,
+                domain VARCHAR,
+                phone VARCHAR,
+                website VARCHAR,
+                category VARCHAR,
+                service_areas JSONB,
+                specialties VARCHAR,
+                description TEXT,
+                tagline VARCHAR,
+                image_url VARCHAR,
+                profile_text TEXT,
+                embedding vector(1536),
+                embedding_model VARCHAR,
+                embedded_at TIMESTAMP,
+                contact_name VARCHAR,
+                is_verified BOOLEAN NOT NULL DEFAULT false,
+                status VARCHAR NOT NULL DEFAULT 'unverified',
+                user_id INTEGER REFERENCES "user"(id),
+                stripe_account_id VARCHAR,
+                stripe_onboarding_complete BOOLEAN NOT NULL DEFAULT false,
+                default_commission_rate FLOAT NOT NULL DEFAULT 0.05,
+                verification_level VARCHAR NOT NULL DEFAULT 'unverified',
+                reputation_score FLOAT NOT NULL DEFAULT 0.0,
+                tier_affinity VARCHAR(20),
+                price_range_min FLOAT,
+                price_range_max FLOAT,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP,
+                _migrated_from VARCHAR
+            )
+        """))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_vendor_name ON vendor (name)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_vendor_email ON vendor (email)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_vendor_category ON vendor (category)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_vendor_stripe ON vendor (stripe_account_id)"))
+        print("[SCHEMA-FIX] Created vendor table with indexes")
+        added += 1
 
     # Fix vendor.embedding column type: varchar -> vector(1536)
     try:
@@ -99,18 +157,45 @@ async def fix_schema(conn):
     except Exception as e:
         print(f"[SCHEMA-FIX] WARNING: Could not fix vendor.embedding type: {e}")
 
+    # ── Make bid.price and bid.total_cost nullable (s05 migration) ────
+    for col in ["price", "total_cost"]:
+        try:
+            r = await conn.execute(text(
+                "SELECT is_nullable FROM information_schema.columns "
+                "WHERE table_name = 'bid' AND column_name = :c"
+            ), {"c": col})
+            nullable = r.scalar()
+            if nullable == "NO":
+                await conn.execute(text(
+                    f'ALTER TABLE bid ALTER COLUMN "{col}" DROP NOT NULL'
+                ))
+                print(f"[SCHEMA-FIX] Made bid.{col} nullable")
+                added += 1
+        except Exception as e:
+            print(f"[SCHEMA-FIX] WARNING: Could not fix bid.{col} nullable: {e}")
+
     for table, col, pgtype, default in EXPECTED_COLS:
+        # Skip if the table doesn't exist (avoid crash on missing tables)
+        tbl_check = await conn.execute(text(
+            "SELECT 1 FROM information_schema.tables WHERE table_name = :t"
+        ), {"t": table})
+        if tbl_check.first() is None:
+            continue
+
         row = await conn.execute(text(
             "SELECT 1 FROM information_schema.columns "
             "WHERE table_name = :t AND column_name = :c"
         ), {"t": table, "c": col})
         if row.first() is None:
             defstr = f" DEFAULT {default}" if default else ""
-            await conn.execute(text(
-                f'ALTER TABLE "{table}" ADD COLUMN "{col}" {pgtype}{defstr}'
-            ))
-            print(f"[SCHEMA-FIX] + {table}.{col} ({pgtype})")
-            added += 1
+            try:
+                await conn.execute(text(
+                    f'ALTER TABLE "{table}" ADD COLUMN "{col}" {pgtype}{defstr}'
+                ))
+                print(f"[SCHEMA-FIX] + {table}.{col} ({pgtype})")
+                added += 1
+            except Exception as e:
+                print(f"[SCHEMA-FIX] WARNING: Could not add {table}.{col}: {e}")
 
     # Ensure request_spec table exists (model uses __tablename__='request_spec')
     row = await conn.execute(text(

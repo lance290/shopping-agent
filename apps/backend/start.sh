@@ -10,14 +10,21 @@ if [ -d "/data" ]; then
     chown -R 1001:1001 /data/uploads || true
 fi
 
+# Patch missing tables/columns FIRST (idempotent safety net)
+echo "[STARTUP] Running schema fix (pre-migration)..."
+if ! su fastapi -s /bin/sh -c "python scripts/fix_schema.py"; then
+    echo "[STARTUP] WARNING: Schema fix failed, but continuing startup."
+fi
+
 # Run migrations (non-fatal — DB may already be at head)
 echo "[STARTUP] Running database migrations..."
 echo "[STARTUP] Migration files present:"
 ls -1 alembic/versions/*.py 2>/dev/null | wc -l
-if su fastapi -s /bin/sh -c "alembic upgrade heads"; then
+if su fastapi -s /bin/sh -c "alembic upgrade heads 2>&1"; then
     echo "[STARTUP] Migrations completed successfully."
 else
     echo "[STARTUP] WARNING: Migrations returned non-zero. Checking if DB is usable..."
+    su fastapi -s /bin/sh -c "alembic current 2>&1" || true
     if su fastapi -s /bin/sh -c "python -c \"from database import engine; import asyncio; asyncio.run(engine.dispose())\"" 2>/dev/null; then
         echo "[STARTUP] DB connection OK — continuing despite migration warning."
     else
@@ -26,10 +33,10 @@ else
     fi
 fi
 
-# Patch any missing columns (idempotent)
-echo "[STARTUP] Running schema fix..."
+# Run schema fix again AFTER migrations (catch anything migrations missed)
+echo "[STARTUP] Running schema fix (post-migration)..."
 if ! su fastapi -s /bin/sh -c "python scripts/fix_schema.py"; then
-    echo "[STARTUP] WARNING: Schema fix failed, but continuing startup."
+    echo "[STARTUP] WARNING: Post-migration schema fix failed, but continuing startup."
 fi
 
 # Run seed script (early-adopter vendors from vendors.py)
