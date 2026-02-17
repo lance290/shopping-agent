@@ -16,7 +16,7 @@ const WorkspaceView = dynamic(() => import('./components/WorkspaceView'), {
   ),
 });
 
-import { getMe } from '../utils/auth';
+import { getMe } from './utils/auth';
 
 export default function RootPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
