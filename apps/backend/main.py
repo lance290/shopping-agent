@@ -47,6 +47,7 @@ from routes.chat import router as chat_router
 from routes.search_enriched import router as search_enriched_router
 from routes.outreach_campaigns import router as outreach_campaigns_router
 from routes.public_search import router as public_search_router
+from routes.public_vendors import router as public_vendors_router
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
@@ -155,6 +156,7 @@ app.include_router(chat_router)
 app.include_router(search_enriched_router)
 app.include_router(outreach_campaigns_router)
 app.include_router(public_search_router)
+app.include_router(public_vendors_router)
 
 # Lazy init sourcing repository
 _sourcing_repo = None
