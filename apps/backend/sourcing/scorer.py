@@ -22,6 +22,7 @@ def score_results(
     intent: Optional[SearchIntent] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
+    desire_tier: Optional[str] = None,
 ) -> List[NormalizedResult]:
     """
     Score and rank a list of NormalizedResults.
@@ -45,14 +46,19 @@ def score_results(
         rs = _relevance_score(r, intent)
         qs = _quality_score(r)
         db = _diversity_bonus(r.source, source_counts, total)
+        tr = _tier_relevance_score(r.source, desire_tier)
 
-        combined = (rs * 0.50) + (qs * 0.20) + (ps * 0.20) + (db * 0.10)
+        # Tier fit is a MULTIPLIER, not additive — mismatched sources get a real penalty.
+        # tr=1.0 → full score. tr=0.2 → 44% of base score.
+        base = (rs * 0.45) + (ps * 0.20) + (qs * 0.20) + (db * 0.15)
+        combined = base * (0.3 + 0.7 * tr)
 
         # Enrich provenance with score breakdown
         r.provenance["score"] = {
             "combined": round(combined, 4),
-            "price": round(ps, 4),
             "relevance": round(rs, 4),
+            "tier_fit": round(tr, 4),
+            "price": round(ps, 4),
             "quality": round(qs, 4),
             "diversity": round(db, 4),
         }
@@ -70,6 +76,46 @@ def score_results(
     return [r for _, r in scored]
 
 
+def _tier_relevance_score(source: str, desire_tier: Optional[str]) -> float:
+    """
+    Score how well the source fits the desire tier.
+    This acts as a soft router/reranker.
+    """
+    if not desire_tier:
+        return 0.5
+
+    # Group providers
+    BIG_BOX_PROVIDERS = {
+        "rainforest", "ebay_browse", "google_shopping", 
+        "searchapi", "google_cse", "serpapi", "ticketmaster"
+    }
+    VENDOR_PROVIDERS = {"vendor_directory"}
+
+    # Commodity / Considered -> Prefer Big Box
+    if desire_tier in ("commodity", "considered"):
+        if source in BIG_BOX_PROVIDERS:
+            return 1.0
+        if source in VENDOR_PROVIDERS:
+            return 0.3  # Penalize but don't hide
+        return 0.5
+
+    # Service / Bespoke / High Value -> Prefer Vendor Directory
+    if desire_tier in ("service", "bespoke", "high_value"):
+        if source in VENDOR_PROVIDERS:
+            return 1.0
+        if source in BIG_BOX_PROVIDERS:
+            return 0.2  # Heavy penalty for big box (Amazon doesn't sell private jets)
+        return 0.5
+    
+    # Advisory -> Should be handled by chat, but if searching, prefer vendors
+    if desire_tier == "advisory":
+        if source in VENDOR_PROVIDERS:
+            return 0.8
+        return 0.1
+
+    return 0.5
+
+
 def _price_score(
     result: NormalizedResult,
     min_price: Optional[float],
@@ -77,8 +123,10 @@ def _price_score(
 ) -> float:
     """Score how well the result's price fits the requested budget."""
     price = result.price
-    if price is None or price <= 0:
-        return 0.3  # Unknown price — neutral-low score
+    if price is None:
+        return 0.5  # Quote-based (no fixed price) — neutral score
+    if price <= 0:
+        return 0.3  # Free or unknown — neutral-low score
 
     if min_price is None and max_price is None:
         return 0.5  # No budget constraint — neutral score

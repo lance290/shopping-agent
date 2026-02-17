@@ -12,6 +12,18 @@ def _normalize_text(text: str) -> str:
     return text.lower().strip()
 
 
+def _title_contains_term(normalized_title: str, term: str) -> bool:
+    """Check if a single term appears in the title (word-boundary aware for short terms)."""
+    term = term.strip()
+    if not term:
+        return True
+    if len(term) <= 3:
+        pattern = r'\b' + re.escape(term) + r'\b'
+        return bool(re.search(pattern, normalized_title))
+    else:
+        return term in normalized_title
+
+
 def matches_choice_constraint(
     title: str,
     constraint_key: str,
@@ -19,6 +31,9 @@ def matches_choice_constraint(
 ) -> bool:
     """
     Check if a product title matches a specific choice constraint.
+
+    Handles compound values like "gold or platinum" by splitting on
+    or/and/comma and returning True if ANY part matches.
 
     Args:
         title: Product title to check
@@ -46,16 +61,15 @@ def matches_choice_constraint(
     if constraint_value is True:
         return constraint_key.lower() in normalized_title
 
-    # Check if the constraint value appears in the title
-    # Use word boundary matching to avoid false positives
-    # e.g., "green" should match "green shirt" but not "greenish"
-    if len(normalized_value) <= 3:
-        # For short values, use word boundary
-        pattern = r'\b' + re.escape(normalized_value) + r'\b'
-        return bool(re.search(pattern, normalized_title))
-    else:
-        # For longer values, simple substring match is fine
-        return normalized_value in normalized_title
+    # Split compound values: "gold or platinum", "red, blue, green", "cotton and linen"
+    parts = re.split(r'\s+or\s+|\s+and\s+|,\s*|/\s*', normalized_value)
+    parts = [p.strip() for p in parts if p.strip()]
+
+    if not parts:
+        return True
+
+    # ANY part matching = constraint satisfied
+    return any(_title_contains_term(normalized_title, part) for part in parts)
 
 
 def should_exclude_by_choices(
@@ -64,6 +78,10 @@ def should_exclude_by_choices(
 ) -> bool:
     """
     Determine if a search result should be excluded based on choice factor constraints.
+
+    Only PRODUCT-ATTRIBUTE keys are used for title filtering. User-intent keys
+    (recipient, occasion, budget, price, etc.) describe the buyer's context and
+    should NEVER exclude results by title match.
 
     Args:
         title: Product title to check
@@ -75,17 +93,35 @@ def should_exclude_by_choices(
     if not title or not choice_answers:
         return False
 
-    # Check each constraint
+    # Keys that describe PRODUCT ATTRIBUTES and CAN be title-matched
+    PRODUCT_ATTRIBUTE_KEYS = {
+        "material", "color", "colour", "size", "style", "brand",
+        "type", "finish", "pattern", "shape", "format", "flavor",
+        "weight", "length", "width", "height",
+    }
+
+    # Keys that describe USER INTENT / CONTEXT and must NOT be title-matched
+    # (also skip price — handled by the price filter)
+    SKIP_KEYS = {
+        "min_price", "max_price", "price", "budget",
+        "recipient", "occasion", "purpose", "use_case", "reason",
+        "timeline", "urgency", "delivery", "shipping",
+        "notes", "comments", "description", "safety_status", "safety_reason",
+        "quantity", "count",
+    }
+
     for key, value in choice_answers.items():
         if not value:
             continue
 
-        # Skip price constraints (handled separately)
-        if key in ["min_price", "max_price"]:
+        key_lower = key.lower()
+
+        # Explicit skip list
+        if key_lower in SKIP_KEYS:
             continue
 
-        # Skip generic or irrelevant keys
-        if key.lower() in ["notes", "comments", "description"]:
+        # Only filter on known product-attribute keys
+        if key_lower not in PRODUCT_ATTRIBUTE_KEYS:
             continue
 
         # If constraint doesn't match, exclude this result
