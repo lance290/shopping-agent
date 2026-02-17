@@ -185,3 +185,130 @@ async def test_authenticated_user_search_still_works(
     assert response.status_code == 200, (
         f"Authenticated search should still work, got {response.status_code}: {response.text}"
     )
+
+
+@pytest.mark.asyncio
+async def test_anonymous_search_stream_cannot_access_other_users_rows(
+    client: AsyncClient, session: AsyncSession, guest_user: User, test_user: User
+):
+    """Regression: Anonymous stream search should not access other users' rows."""
+    other_row = Row(
+        user_id=test_user.id,
+        title="Private streaming row",
+        status="sourcing",
+    )
+    session.add(other_row)
+    await session.commit()
+    await session.refresh(other_row)
+
+    from sourcing import ProviderStatusSnapshot
+
+    async def fake_streaming(*args, **kwargs):
+        yield (
+            "serpapi",
+            [],
+            ProviderStatusSnapshot(provider_id="serpapi", status="ok", result_count=0, latency_ms=100),
+            0,
+        )
+
+    with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+        mock_repo.return_value.search_streaming = fake_streaming
+
+        with patch("routes.rate_limit.check_rate_limit", return_value=True):
+            response = await client.post(
+                f"/rows/{other_row.id}/search/stream",
+                json={"query": "test"},
+                # NO authorization — falls back to guest user
+            )
+
+    assert response.status_code == 404, (
+        f"Guest user should not access other users' rows via stream, got {response.status_code}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_chat_update_row_with_bid_reset(
+    client: AsyncClient, session: AsyncSession, auth_user_and_token
+):
+    """Regression: chat.py _update_row with reset_bids=True must not crash with 'name Bid is not defined'."""
+    user, token = auth_user_and_token
+
+    row = Row(user_id=user.id, title="Test row for bid reset", status="sourcing")
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    # Create a bid on this row
+    from models import Bid
+    bid = Bid(
+        row_id=row.id,
+        price=50.0,
+        total_cost=55.0,
+        item_title="Test Product",
+        item_url="https://example.com/product",
+        is_liked=False,
+        is_selected=False,
+    )
+    session.add(bid)
+    await session.commit()
+
+    # Directly test _update_row with reset_bids=True
+    from routes.chat import _update_row
+    updated = await _update_row(
+        session, row, title="Updated title", reset_bids=True
+    )
+
+    assert updated.title == "Updated title"
+
+    # Verify the unloved bid was deleted
+    from sqlmodel import select as sql_select
+    remaining = await session.exec(
+        sql_select(Bid).where(Bid.row_id == row.id)
+    )
+    assert len(remaining.all()) == 0, "Unloved bid should be deleted after reset"
+
+
+@pytest.mark.asyncio
+async def test_chat_update_row_preserves_liked_bids(
+    client: AsyncClient, session: AsyncSession, auth_user_and_token
+):
+    """Regression: reset_bids should preserve liked/selected bids."""
+    user, token = auth_user_and_token
+
+    row = Row(user_id=user.id, title="Liked bids test", status="sourcing")
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    from models import Bid
+    # Liked bid — should survive reset
+    liked_bid = Bid(
+        row_id=row.id,
+        price=100.0,
+        total_cost=110.0,
+        item_title="Liked Product",
+        item_url="https://example.com/liked",
+        is_liked=True,
+        is_selected=False,
+    )
+    # Unloved bid — should be deleted
+    unloved_bid = Bid(
+        row_id=row.id,
+        price=200.0,
+        total_cost=220.0,
+        item_title="Unloved Product",
+        item_url="https://example.com/unloved",
+        is_liked=False,
+        is_selected=False,
+    )
+    session.add_all([liked_bid, unloved_bid])
+    await session.commit()
+
+    from routes.chat import _update_row
+    await _update_row(session, row, reset_bids=True)
+
+    from sqlmodel import select as sql_select
+    remaining = await session.exec(sql_select(Bid).where(Bid.row_id == row.id))
+    remaining_bids = remaining.all()
+    assert len(remaining_bids) == 1, f"Only liked bid should survive, got {len(remaining_bids)}"
+    assert remaining_bids[0].is_liked is True
