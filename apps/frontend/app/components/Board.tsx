@@ -23,9 +23,17 @@ export default function ProcurementBoard() {
   const pendingRowDelete = useShoppingStore(state => state.pendingRowDelete);
   const undoDeleteRow = useShoppingStore(state => state.undoDeleteRow);
   const setReportBugModalOpen = useShoppingStore(state => state.setReportBugModalOpen);
+  const [dismissing, setDismissing] = useState(false);
   const [toast, setToast] = useState<{ message: string; tone?: 'success' | 'error' } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const handlePillClick = (query: string) => {
+    setDismissing(true);
+    setTimeout(() => {
+      useShoppingStore.getState().setCardClickQuery(query);
+    }, 400);
+  };
 
   const showToast = (message: string, tone: 'success' | 'error' = 'success') => {
     setToast({ message, tone });
@@ -245,9 +253,15 @@ export default function ProcurementBoard() {
       {/* Scrollable Content */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-8 space-y-8">
         {rows.length === 0 && projects.length === 0 ? (
-          <div className="space-y-8 max-w-3xl mx-auto pb-12">
+          <div className={cn(
+            "space-y-8 max-w-3xl mx-auto pb-12 transition-all duration-500",
+            dismissing && "opacity-0 translate-y-8 scale-95 pointer-events-none"
+          )}>
             {/* Chat instruction */}
-            <div className="flex items-center gap-3 bg-agent-blurple/10 border border-agent-blurple/20 rounded-xl p-4">
+            <div className={cn(
+              "flex items-center gap-3 bg-agent-blurple/10 border border-agent-blurple/20 rounded-xl p-4 transition-all duration-300",
+              dismissing && "opacity-0 -translate-x-12"
+            )}>
               <ArrowLeft className="w-5 h-5 text-agent-blurple shrink-0" />
               <div>
                 <p className="text-sm font-medium text-onyx">Type in the chat to search for anything</p>
@@ -258,7 +272,10 @@ export default function ProcurementBoard() {
             </div>
 
             {/* Account CTA */}
-            <div className="flex items-center justify-between bg-warm-light border border-warm-grey/50 rounded-xl p-4">
+            <div className={cn(
+              "flex items-center justify-between bg-warm-light border border-warm-grey/50 rounded-xl p-4 transition-all duration-300 delay-75",
+              dismissing && "opacity-0 translate-x-12"
+            )}>
               <div>
                 <p className="text-sm font-medium text-onyx">Save your searches &amp; track prices</p>
                 <p className="text-xs text-onyx-muted mt-0.5">Create a free account to organize requests, get price alerts, and request vendor quotes.</p>
@@ -285,7 +302,7 @@ export default function ProcurementBoard() {
                 ].map((item) => (
                   <button
                     key={item.q}
-                    onClick={() => useShoppingStore.getState().setCardClickQuery(item.q)}
+                    onClick={() => handlePillClick(item.q)}
                     className="group bg-warm-light border border-warm-grey/50 rounded-lg p-3 hover:border-agent-blurple/40 transition-colors text-left"
                   >
                     <div className="text-2xl mb-1">{item.emoji}</div>
@@ -303,7 +320,7 @@ export default function ProcurementBoard() {
                 {['caterers', 'photographers', 'florists', 'DJs & entertainment', 'custom jewelry', 'private chefs'].map((v) => (
                   <button
                     key={v}
-                    onClick={() => useShoppingStore.getState().setCardClickQuery(v)}
+                    onClick={() => handlePillClick(v)}
                     className="text-xs px-3 py-1.5 rounded-full border border-warm-grey/60 text-onyx-muted hover:text-onyx hover:border-agent-blurple/40 transition-colors"
                   >
                     {v}

@@ -3,21 +3,17 @@ import { BACKEND_URL, getAuthHeader } from '../../utils/api-proxy';
 
 export async function POST(request: NextRequest) {
   const auth = getAuthHeader(request);
-  if (!auth) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
 
   const body = await request.json();
   
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (auth) headers['Authorization'] = auth;
+
   const response = await fetch(`${BACKEND_URL}/api/chat`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': auth,
-    },
+    headers,
     body: JSON.stringify(body),
   });
 

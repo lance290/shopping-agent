@@ -259,10 +259,20 @@ async def chat_endpoint(
     Replaces BFF's POST /api/chat entirely.
     """
     auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    user_id = auth_session.user_id
+    if auth_session:
+        user_id = auth_session.user_id
+    else:
+        # Anonymous / guest user — find or create a shared guest account
+        from models import User
+        guest_email = "guest@buy-anything.com"
+        result = await session.exec(select(User).where(User.email == guest_email))
+        guest_user = result.first()
+        if not guest_user:
+            guest_user = User(email=guest_email)
+            session.add(guest_user)
+            await session.commit()
+            await session.refresh(guest_user)
+        user_id = guest_user.id
 
     async def generate_events() -> AsyncGenerator[str, None]:
         try:
