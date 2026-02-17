@@ -46,3 +46,151 @@ DEBUG: Connection pool: size=5, max_overflow=10, timeout=30s
 2026-02-17 01:01:52,711 INFO      Scrape: insufficient text (0 chars)
 2026-02-17 01:01:52,810 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
 2026-02-17 01:01:53,102 INFO    [9/2163] Van Cleef & Arpels — https://www.vancleefarpels.com/
+2026-02-17 01:03:37,852 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:38,135 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:38,457 INFO    [10/2163] Tiffany & Co. — https://www.tiffany.com/
+2026-02-17 01:03:39,143 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:39,401 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:39,748 INFO    [11/2163] Brilliant Earth — https://www.brilliantearth.com/
+2026-02-17 01:03:40,316 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:40,560 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:40,884 INFO    [12/2163] Edge Global Events — https://edgeglobalevents.com/
+2026-02-17 01:03:44,380 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:44,613 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:44,872 INFO    [13/2163] Mecum Auctions — https://www.mecum.com/
+2026-02-17 01:03:45,830 INFO      Scrape: insufficient text (80 chars)
+2026-02-17 01:03:46,110 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:46,289 INFO    [14/2163] California Bookstores — /independent-bookstores/california-independent-bookstores/
+2026-02-17 01:03:46,290 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:46,389 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:46,529 INFO    [15/2163] Colorado Bookstores — /independent-bookstores/colorado-independent-bookstores/
+2026-02-17 01:03:46,530 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:46,792 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:47,083 INFO    [16/2163] Washington DC Bookstores — /independent-bookstores/washington-dc-independent-bookstores/
+2026-02-17 01:03:47,084 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:47,334 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:47,531 INFO    [17/2163] Delaware Bookstores — /independent-bookstores/delaware-independent-bookstores/
+2026-02-17 01:03:47,532 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:47,794 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:48,204 INFO    [18/2163] Florida Bookstores — /independent-bookstores/florida-independent-bookstores/
+2026-02-17 01:03:48,205 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:48,434 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:48,667 INFO    [19/2163] Hawaii Bookstores — /independent-bookstores/hawaii-independent-bookstores/
+2026-02-17 01:03:48,668 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:49,103 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:49,339 INFO    [20/2163] Idaho Bookstores — /independent-bookstores/idaho-independent-bookstores/
+2026-02-17 01:03:49,340 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:49,585 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:49,881 INFO    [21/2163] Illinois Bookstores — /independent-bookstores/illinois-independent-bookstores/
+2026-02-17 01:03:49,882 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:50,150 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:50,338 INFO    [22/2163] Iowa Bookstores — /independent-bookstores/iowa-independent-bookstores/
+2026-02-17 01:03:50,338 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:50,583 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:50,961 INFO    [23/2163] Maryland Bookstores — /independent-bookstores/maryland-independent-bookstores/
+2026-02-17 01:03:50,962 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:51,206 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:51,463 INFO    [24/2163] Michigan Bookstores — /independent-bookstores/michigan-independent-bookstores/
+2026-02-17 01:03:51,463 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:51,715 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:52,070 INFO    [25/2163] Minnesota Bookstores — /independent-bookstores/minnesota-independent-bookstores/
+2026-02-17 01:03:52,070 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:52,318 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:52,692 INFO    [26/2163] Missouri Bookstores — /independent-bookstores/missouri-independent-bookstores/
+2026-02-17 01:03:52,692 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:52,927 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:53,369 INFO    [27/2163] New Hampshire Bookstores — /independent-bookstores/new-hampshire-independent-bookstores/
+2026-02-17 01:03:53,369 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:53,662 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:53,920 INFO    [28/2163] New Jersey Bookstores — /independent-bookstores/new-jersey-independent-bookstores/
+2026-02-17 01:03:53,920 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:54,173 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:54,533 INFO    [29/2163] New York Bookstores — /independent-bookstores/new-york-independent-bookstores/
+2026-02-17 01:03:54,534 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:54,809 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:54,988 INFO    [30/2163] North Carolina Bookstores — /independent-bookstores/north-carolina-independent-bookstores/
+2026-02-17 01:03:54,989 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:55,228 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:55,631 INFO    [31/2163] Ohio Bookstores — /independent-bookstores/ohio-independent-bookstores/
+2026-02-17 01:03:55,632 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:55,898 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:56,063 INFO    [32/2163] Oklahoma Bookstores — /independent-bookstores/oklahoma-independent-bookstores/
+2026-02-17 01:03:56,063 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:56,317 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:56,613 INFO    [33/2163] Oregon Bookstores — /independent-bookstores/oregon-independent-bookstores/
+2026-02-17 01:03:56,613 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:56,864 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:57,097 INFO    [34/2163] Rhode Island Bookstores — /independent-bookstores/rhode-island-independent-bookstores/
+2026-02-17 01:03:57,098 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:57,356 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:57,691 INFO    [35/2163] South Carolina Bookstores — /independent-bookstores/south-carolina-independent-bookstores/
+2026-02-17 01:03:57,692 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:57,957 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:58,332 INFO    [36/2163] Tennessee Bookstores — /independent-bookstores/tennessee-independent-bookstores/
+2026-02-17 01:03:58,332 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:58,574 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:58,988 INFO    [37/2163] Texas Bookstores — /independent-bookstores/texas-independent-bookstores/
+2026-02-17 01:03:58,988 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:59,320 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:03:59,561 INFO    [38/2163] Utah Bookstores — /independent-bookstores/utah-independent-bookstores/
+2026-02-17 01:03:59,562 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:03:59,917 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:00,268 INFO    [39/2163] Virginia Bookstores — /independent-bookstores/virginia-independent-bookstores/
+2026-02-17 01:04:00,268 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:00,369 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:00,880 INFO    [40/2163] Washington Bookstores — /independent-bookstores/washington-independent-bookstores/
+2026-02-17 01:04:00,881 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:01,129 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:01,384 INFO    [41/2163] West Virginia Bookstores — /independent-bookstores/west-virginia-independent-bookstores/
+2026-02-17 01:04:01,384 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:01,650 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:02,014 INFO    [42/2163] Wyoming Bookstores — /independent-bookstores/wyoming-independent-bookstores/
+2026-02-17 01:04:02,015 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:02,292 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:02,554 INFO    [43/2163] Manitoba Bookstores — /independent-bookstores/manitoba-independent-bookstores/
+2026-02-17 01:04:02,554 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:02,793 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:03,129 INFO    [44/2163] Alberta Bookstores — /independent-bookstores/alberta-independent-bookstores/
+2026-02-17 01:04:03,130 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:03,403 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:03,791 INFO    [45/2163] Nova Scotia Bookstores — /independent-bookstores/nova-scotia-independent-bookstores/
+2026-02-17 01:04:03,791 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:04,027 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:04,327 INFO    [46/2163] British Columbia Bookstores — /independent-bookstores/british-columbia-independent-bookstores/
+2026-02-17 01:04:04,327 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:04,582 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:04,896 INFO    [47/2163] Northwest Territories Bookstores — /independent-bookstores/northwest-territories-independent-bookstores/
+2026-02-17 01:04:04,896 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:05,155 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:05,319 INFO    [48/2163] New Brunswick Bookstores — /independent-bookstores/new-brunswick-independent-bookstores//
+2026-02-17 01:04:05,319 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:05,566 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:05,812 INFO    [49/2163] Ontario Bookstores — /independent-bookstores/ontario-independent-bookstores/
+2026-02-17 01:04:05,813 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:06,092 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:06,415 INFO    [50/2163] Prince Edward Island Bookstores — /independent-bookstores/prince-edward-island-independent-bookstores/
+2026-02-17 01:04:06,415 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:06,659 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:07,023 INFO      Progress: 50/2163 | enriched=50 embedded=50 errors=0
+2026-02-17 01:04:07,024 INFO    [51/2163] Quebec Bookstores — /independent-bookstores/quebec-independent-bookstores/
+2026-02-17 01:04:07,024 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:07,271 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:07,606 INFO    [52/2163] Saskatchewan Bookstores — /independent-bookstores/saskatchewan-independent-bookstores/
+2026-02-17 01:04:07,606 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:07,880 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:08,194 INFO    [53/2163] Yukon Bookstores — /independent-bookstores/yukon-independent-bookstores/
+2026-02-17 01:04:08,195 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:08,435 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:08,744 INFO    [54/2163] Indie Bookstores Guide — /independent-bookstores
+2026-02-17 01:04:08,745 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:08,827 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:09,143 INFO    [55/2163] Library & Bookstore Mailing Lists — /mailing-lists/
+2026-02-17 01:04:09,143 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:09,388 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:09,791 INFO    [56/2163] Emerson Electric Co. — https://www.emerson.com
+2026-02-17 01:04:15,855 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:04:17,786 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:18,070 INFO    [57/2163] Eli Lilly and Company — https://www.lilly.com
+2026-02-17 01:04:18,780 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:04:19,035 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:04:19,381 INFO    [58/2163] Ford Motor Company — https://www.ford.com
