@@ -157,12 +157,14 @@ async def read_rows(
     session: AsyncSession = Depends(get_session)
 ):
     
-    user_id = await resolve_user_id(authorization, session)
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        return []  # Anonymous users see empty board (guest rows are shared)
 
     result = await session.exec(
         select(Row)
         .where(
-            Row.user_id == user_id,
+            Row.user_id == auth_session.user_id,
             True if include_archived else (Row.status != "archived"),
         )
         .options(

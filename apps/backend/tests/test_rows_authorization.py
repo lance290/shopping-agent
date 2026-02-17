@@ -43,9 +43,10 @@ async def test_rows_authorization(client: AsyncClient, session):
     headers_a = {"Authorization": f"Bearer {token_a}"}
     headers_b = {"Authorization": f"Bearer {token_b}"}
     
-    # 1. Verify Unauthenticated Access is Blocked
+    # 1. Unauthenticated access returns empty list (not 401)
     resp = await client.get("/rows")
-    assert resp.status_code == 401
+    assert resp.status_code == 200
+    assert resp.json() == []
     
     # 2. User A creates a row
     row_data = {
