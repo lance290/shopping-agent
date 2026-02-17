@@ -5,8 +5,8 @@
 ## Current State
 - **Status**: 🟢 Implementing
 - **Current task**: task-007 (pending — next up)
-- **Last working commit**: abd24f4
-- **App status**: Backend (398 tests passing) + Frontend (TypeScript clean). Public surface partially built (9/12 tasks done).
+- **Last working commit**: 5caf368
+- **App status**: Backend (398 tests passing) + Frontend (TypeScript clean). Public surface 10/12 tasks done.
 
 ## Quick Start
 ```bash
@@ -62,7 +62,7 @@ Parent PRD: `docs/active-dev/PRD_Thursday_Demo_Affiliate_Readiness.md`
 | task-006 | Public search results page | ✅ done | 45m |
 | task-007 | Adapt VendorContactModal | ⬜ pending | 45m |
 | task-008 | Static & legal pages | ✅ done | 45m |
-| task-009 | Editorial guide pages | ⬜ pending | 45m |
+| task-009 | Editorial guide pages | ✅ done | 45m |
 | task-010 | Public vendor directory | ⬜ pending | 45m |
 | task-011 | Remove gating + fix scoring | ✅ done | 30m |
 | task-012 | Demo prep & polish | ⬜ pending | 45m |
@@ -98,7 +98,9 @@ Parent PRD: `docs/active-dev/PRD_Thursday_Demo_Affiliate_Readiness.md`
 - task-011: Scoring fix — vendor tier_fit 0.3→0.85, gating removed (commit abd24f4)
 - All 398 backend tests passing throughout
 - Remaining: task-007 (VendorContactModal), task-009 (guides), task-010 (vendor dir), task-012 (polish)
-- Next: Continue /implement loop with task-007
+- Continued: task-009 completed (5 editorial guides with 800+ words each, commit 5caf368)
+- Now 10/12 tasks done. Remaining: task-007, task-010, task-012
+- Next: Continue /implement loop with task-007 (VendorContactModal adaptation)
 
 ## How to Use This File
 
