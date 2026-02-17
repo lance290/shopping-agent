@@ -40,28 +40,15 @@ logger = logging.getLogger(__name__)
 
 def _build_base_query(row: Row, spec: Optional[RequestSpec], explicit_query: Optional[str]) -> tuple[str, bool]:
     """
-    Build the base search query from row data, spec constraints, and choice answers.
+    Build the base search query from row data.
     Returns (base_query, user_provided_query).
+
+    The LLM sets row.provider_query with the correct search intent.
+    We use it as-is — no appending of choice_answers or spec constraints,
+    which pollute the query (e.g. 'diamond earrings' → 'diamond earrings recipient niece').
     """
     base_query = explicit_query or row.provider_query or row.title or (spec.item_name if spec else "")
     user_provided = bool(explicit_query)
-
-    if not explicit_query:
-        if spec and spec.constraints:
-            constraints_obj = safe_json_loads(spec.constraints, {})
-            constraint_parts = [f"{k}: {v}" for k, v in constraints_obj.items()]
-            if constraint_parts:
-                base_query = base_query + " " + " ".join(constraint_parts)
-
-        if row.choice_answers:
-            answers_obj = safe_json_loads(row.choice_answers, {})
-            answer_parts = [
-                f"{k} {v}"
-                for k, v in answers_obj.items()
-                if k not in ("min_price", "max_price") and v and str(v).lower() != "not answered"
-            ]
-            if answer_parts:
-                base_query = base_query + " " + " ".join(answer_parts)
 
     return base_query, user_provided
 
@@ -100,15 +87,34 @@ def _extract_filters(row: Row, spec: Optional[RequestSpec]) -> tuple[Optional[fl
         if constraints_obj:
             exclude_synthetics, custom_exclude_keywords = extract_material_constraints(constraints_obj)
 
+    def _parse_price_value(value: Any) -> Optional[float]:
+        if value in (None, ""):
+            return None
+        try:
+            if isinstance(value, (int, float)):
+                return float(value)
+            match = re.search(r"(\d[\d,]*\.?\d*)", str(value))
+            if not match:
+                return None
+            return float(match.group(1).replace(",", ""))
+        except Exception:
+            return None
+
     # Check for price and material constraints in choice_answers
     if row.choice_answers:
         answers_obj = safe_json_loads(row.choice_answers, {})
         if answers_obj:
             # Extract price constraints
-            if answers_obj.get("min_price"):
-                min_price = float(answers_obj["min_price"])
-            if answers_obj.get("max_price"):
-                max_price = float(answers_obj["max_price"])
+            min_price = _parse_price_value(answers_obj.get("min_price"))
+            max_price = _parse_price_value(answers_obj.get("max_price"))
+
+            # Backward-compatible fallback: some rows store a single "price" answer
+            # like "50000" or ">50000" instead of min_price/max_price.
+            if min_price is None and max_price is None:
+                parsed_price = _parse_price_value(answers_obj.get("price"))
+                if parsed_price is not None:
+                    min_price = parsed_price
+
             # Swap if inverted (min > max)
             if min_price is not None and max_price is not None and min_price > max_price:
                 min_price, max_price = max_price, min_price
@@ -284,51 +290,48 @@ async def search_row_listings(
             )
         )
 
+
     # Extract filters using helper function
     min_price_filter, max_price_filter, exclude_synthetics, custom_exclude_keywords, choice_constraints = _extract_filters(row, spec)
     logger.info(f"[SEARCH] Filters for row {row_id}: price=[{min_price_filter}, {max_price_filter}], exclude_synthetics={exclude_synthetics}, custom_keywords={custom_exclude_keywords}, choice_constraints={choice_constraints}")
 
     # Apply price, material, and choice filtering
+    from sourcing.filters import should_include_result
     if min_price_filter is not None or max_price_filter is not None or exclude_synthetics or custom_exclude_keywords or choice_constraints:
         filtered_results = []
-        from sourcing.constants import NON_SHOPPING_SOURCES, SERVICE_SOURCES
-        
         dropped_price = 0
         dropped_materials = 0
         dropped_choices = 0
 
         for r in results:
-            source = getattr(r, "source", None)
-            source_key = str(source or "").lower()
             title = getattr(r, "title", "")
+            source = (getattr(r, "source", "") or "").lower()
 
-            # Check material constraints first (applies to all sources)
-            if exclude_synthetics or custom_exclude_keywords:
+            # Vector-searched results (vendor_directory) are already semantically
+            # matched — their titles are company names, not product descriptions.
+            # Skip keyword title-matching filters for them.
+            is_vector_searched = source == "vendor_directory"
+
+            # Check material constraints (skip for vector-searched sources)
+            if not is_vector_searched and (exclude_synthetics or custom_exclude_keywords):
                 if should_exclude_result(title, exclude_synthetics, custom_exclude_keywords):
                     dropped_materials += 1
-                    logger.debug(f"[SEARCH] Excluded due to materials: {title}")
                     continue
 
-            # Check choice constraints (color, size, etc.) - applies to all sources
-            if choice_constraints:
+            # Check choice constraints (skip for vector-searched sources)
+            if not is_vector_searched and choice_constraints:
                 if should_exclude_by_choices(title, choice_constraints):
                     dropped_choices += 1
-                    logger.debug(f"[SEARCH] Excluded due to choice constraints: {title}")
                     continue
 
-            # Apply price filtering (skip for non-shopping sources and service providers)
-            if source_key in NON_SHOPPING_SOURCES or source_key in SERVICE_SOURCES:
-                filtered_results.append(r)
-                continue
-
-            price = getattr(r, "price", None)
-            # Keep results with no price — scorer ranks them lower
-            if price is None or price == 0:
-                filtered_results.append(r)
-                continue
-            # Only hard-filter on max_price (budget ceiling).
-            # min_price is aspirational — the scorer handles it via price_score.
-            if max_price_filter is not None and price > max_price_filter:
+            # Unified price/source filtering
+            if not should_include_result(
+                price=getattr(r, "price", None),
+                source=source,
+                desire_tier=row.desire_tier,
+                min_price=min_price_filter,
+                max_price=max_price_filter,
+            ):
                 dropped_price += 1
                 continue
             filtered_results.append(r)
@@ -400,7 +403,6 @@ async def search_row_listings_stream(
         """Generate SSE events as each provider completes."""
         all_results: List[SearchResult] = []
         all_statuses: List[ProviderStatusSnapshot] = []
-        from sourcing.constants import NON_SHOPPING_SOURCES
 
         async for provider_name, results, status, providers_remaining in sourcing_repo.search_streaming(
             sanitized_query,
@@ -412,33 +414,31 @@ async def search_row_listings_stream(
             all_statuses.append(status)
 
             # Convert and filter results
+            from sourcing.filters import should_include_result as _should_include
             filtered_batch = []
             for r in results:
                 title = getattr(r, "title", "")
+                source = (getattr(r, "source", "") or "").lower()
+                is_vector_searched = source == "vendor_directory"
 
-                # Check material constraints first (applies to all sources)
-                if exclude_synthetics or custom_exclude_keywords:
+                # Check material constraints (skip for vector-searched sources)
+                if not is_vector_searched and (exclude_synthetics or custom_exclude_keywords):
                     if should_exclude_result(title, exclude_synthetics, custom_exclude_keywords):
                         continue
 
-                # Check choice constraints (color, size, etc.) - applies to all sources
-                if choice_constraints:
+                # Check choice constraints (skip for vector-searched sources)
+                if not is_vector_searched and choice_constraints:
                     if should_exclude_by_choices(title, choice_constraints):
                         continue
 
-                source = getattr(r, "source", None)
-                # Allow non-shopping sources through (skip price filtering)
-                if source in NON_SHOPPING_SOURCES:
-                    filtered_batch.append(r)
-                    continue
-
-                # Apply price filtering
-                price = getattr(r, "price", None)
-                if price is None or price == 0:
-                    continue
-                if min_price_filter is not None and price < min_price_filter:
-                    continue
-                if max_price_filter is not None and price > max_price_filter:
+                # Unified price/source filtering
+                if not _should_include(
+                    price=getattr(r, "price", None),
+                    source=getattr(r, "source", "") or "",
+                    desire_tier=row.desire_tier,
+                    min_price=min_price_filter,
+                    max_price=max_price_filter,
+                ):
                     continue
                 filtered_batch.append(r)
             

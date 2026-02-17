@@ -212,8 +212,8 @@ async def test_search_query_uses_constraints_when_query_missing(client: AsyncCli
         headers={"Authorization": f"Bearer {token}"},
     )
     assert search_resp.status_code == 200
-    assert "card_value" in captured["query"]
-    assert "quantity" in captured["query"]
+    # provider_query / title is used as-is — no appending of constraints or choice_answers
+    assert captured["query"].strip() == "Roblox gift cards"
 
 
 @pytest.mark.asyncio
@@ -427,7 +427,9 @@ async def test_rows_filter_preserves_service_provider_bids(client: AsyncClient, 
         title="Private jet charter",
         status="sourcing",
         user_id=user.id,
-        choice_answers=json.dumps({"min_price": 500}),
+        # Both min and max are hard price filters.
+        # Vendor directory bids have price=None (quote-based) and pass naturally.
+        choice_answers=json.dumps({"min_price": 200, "max_price": 500}),
     )
     session.add(row)
     await session.commit()
@@ -441,8 +443,8 @@ async def test_rows_filter_preserves_service_provider_bids(client: AsyncClient, 
     service_bid = Bid(
         row_id=row.id,
         vendor_id=seller.id,
-        price=0.0,
-        total_cost=0.0,
+        price=None,
+        total_cost=None,
         currency="USD",
         item_title="JetRight (Contact: Alexis)",
         item_url="mailto:team@jetright.com",
@@ -453,18 +455,40 @@ async def test_rows_filter_preserves_service_provider_bids(client: AsyncClient, 
         contact_email="team@jetright.com",
         contact_phone="+16505550199",
     )
-    product_bid = Bid(
+    too_cheap_bid = Bid(
         row_id=row.id,
-        price=100.0,
-        total_cost=100.0,
+        price=50.0,
+        total_cost=50.0,
         currency="USD",
-        item_title="Budget flight poster",
+        item_title="Cheap poster (under min)",
+        item_url="https://example.com/cheap",
+        source="rainforest",
+        is_selected=False,
+    )
+    over_budget_bid = Bid(
+        row_id=row.id,
+        price=999.0,
+        total_cost=999.0,
+        currency="USD",
+        item_title="Luxury poster (over max)",
         item_url="https://example.com/poster",
         source="rainforest",
         is_selected=False,
     )
+    in_range_bid = Bid(
+        row_id=row.id,
+        price=300.0,
+        total_cost=300.0,
+        currency="USD",
+        item_title="Mid-range poster (in budget)",
+        item_url="https://example.com/mid",
+        source="rainforest",
+        is_selected=False,
+    )
     session.add(service_bid)
-    session.add(product_bid)
+    session.add(too_cheap_bid)
+    session.add(over_budget_bid)
+    session.add(in_range_bid)
     await session.commit()
 
     resp = await client.get(
@@ -474,10 +498,20 @@ async def test_rows_filter_preserves_service_provider_bids(client: AsyncClient, 
     assert resp.status_code == 200
     payload = resp.json()
     bids = payload.get("bids") or []
-    assert len(bids) == 1
-    assert bids[0]["is_service_provider"] is True
-    assert bids[0]["contact_email"] == "team@jetright.com"
-    assert bids[0]["contact_name"] == "Alexis"
+    titles = {b["item_title"] for b in bids}
+    # Vendor bid (price=None, quote-based) passes price filter naturally
+    assert "JetRight (Contact: Alexis)" in titles
+    # In-range ($300, between $200-$500) survives
+    assert "Mid-range poster (in budget)" in titles
+    # Too cheap ($50 < $200 min) filtered out
+    assert "Cheap poster (under min)" not in titles
+    # Over budget ($999 > $500 max) filtered out
+    assert "Luxury poster (over max)" not in titles
+    assert len(bids) == 2
+    # Verify service provider fields preserved
+    svc = next(b for b in bids if b["is_service_provider"])
+    assert svc["contact_email"] == "team@jetright.com"
+    assert svc["contact_name"] == "Alexis"
 
 
 @pytest.mark.asyncio
