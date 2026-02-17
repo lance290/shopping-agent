@@ -3,10 +3,10 @@
 > **Purpose**: Quick context loading for fresh sessions. Read this FIRST.
 
 ## Current State
-- **Status**: � Ready for Implementation
-- **Current task**: task-001 (pending)
-- **Last working commit**: b0744ea
-- **App status**: Backend + Frontend working; public surface not yet built
+- **Status**: 🟢 Implementing
+- **Current task**: task-007 (pending — next up)
+- **Last working commit**: abd24f4
+- **App status**: Backend (398 tests passing) + Frontend (TypeScript clean). Public surface partially built (9/12 tasks done).
 
 ## Quick Start
 ```bash
@@ -54,17 +54,17 @@ Parent PRD: `docs/active-dev/PRD_Thursday_Demo_Affiliate_Readiness.md`
 
 | ID | Description | Status | Est |
 |----|-------------|--------|-----|
-| task-001 | Middleware rewrite | ⬜ pending | 30m |
-| task-002 | Public layout shell | ⬜ pending | 45m |
-| task-003 | Homepage content | ⬜ pending | 30m |
-| task-004 | Backend public search endpoint | ⬜ pending | 45m |
-| task-005 | Frontend search API proxy | ⬜ pending | 15m |
-| task-006 | Public search results page | ⬜ pending | 45m |
+| task-001 | Middleware rewrite | ✅ done | 30m |
+| task-002 | Public layout shell | ✅ done | 45m |
+| task-003 | Homepage content | ✅ done | 30m |
+| task-004 | Backend public search endpoint | ✅ done | 45m |
+| task-005 | Frontend search API proxy | ✅ done | 15m |
+| task-006 | Public search results page | ✅ done | 45m |
 | task-007 | Adapt VendorContactModal | ⬜ pending | 45m |
-| task-008 | Static & legal pages | ⬜ pending | 45m |
+| task-008 | Static & legal pages | ✅ done | 45m |
 | task-009 | Editorial guide pages | ⬜ pending | 45m |
 | task-010 | Public vendor directory | ⬜ pending | 45m |
-| task-011 | Remove gating + fix scoring | ⬜ pending | 30m |
+| task-011 | Remove gating + fix scoring | ✅ done | 30m |
 | task-012 | Demo prep & polish | ⬜ pending | 45m |
 
 ## Session History
@@ -87,6 +87,18 @@ Parent PRD: `docs/active-dev/PRD_Thursday_Demo_Affiliate_Readiness.md`
 - Decomposed into 12 tasks (plan's 9 split into <45min chunks)
 - Estimated total: ~8.5 hours of implementation
 - Next: Run /implement to start task-001 (Middleware rewrite)
+
+### 2026-02-17 08:00 - Session 3 (Implementation Loop)
+- Completed 9 of 12 tasks in autonomous loop
+- task-001: Middleware inverted to protected-path blacklist (commit 74d0259)
+- task-002+003: Public layout shell + homepage with session detection (commit 05bf817)
+- task-004+005: Backend public search endpoint + frontend proxy (commit 21717dd)
+- task-006: Public search results page with product/vendor cards (commit 13ebe0d)
+- task-008: Static & legal pages — 5 pages created (commit 26995b5)
+- task-011: Scoring fix — vendor tier_fit 0.3→0.85, gating removed (commit abd24f4)
+- All 398 backend tests passing throughout
+- Remaining: task-007 (VendorContactModal), task-009 (guides), task-010 (vendor dir), task-012 (polish)
+- Next: Continue /implement loop with task-007
 
 ## How to Use This File
 
