@@ -9,8 +9,6 @@
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: #202124;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }

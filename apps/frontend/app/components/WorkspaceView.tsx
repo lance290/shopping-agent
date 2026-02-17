@@ -193,7 +193,7 @@ export default function WorkspaceView() {
 
   // Desktop layout: split pane
   return (
-    <main className="flex h-screen w-full bg-transparent text-onyx overflow-hidden font-sans selection:bg-agent-blurple/15 selection:text-agent-blurple">
+    <main className="flex h-screen w-full bg-[#202124] text-[rgb(232,234,237)] overflow-hidden font-sans selection:bg-agent-blurple/15 selection:text-agent-blurple">
       {/* Chat Pane (Center Left) */}
       <div 
         style={{ width: `${chatWidthPx}px` }} 

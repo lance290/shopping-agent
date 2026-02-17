@@ -16,18 +16,23 @@ const WorkspaceView = dynamic(() => import('./components/WorkspaceView'), {
   ),
 });
 
-function getCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
-  return match ? match[2] : null;
-}
+import { getMe } from '../utils/auth';
 
 export default function RootPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const token = getCookie('sa_session');
-    setIsAuthenticated(!!token);
+    const checkAuth = async () => {
+      try {
+        const user = await getMe();
+        console.log('[RootPage] Session check:', user ? 'AUTHENTICATED' : 'ANONYMOUS');
+        setIsAuthenticated(!!user?.authenticated);
+      } catch (err) {
+        console.error('[RootPage] Session check failed', err);
+        setIsAuthenticated(false);
+      }
+    };
+    checkAuth();
   }, []);
 
   // Loading state while checking auth
