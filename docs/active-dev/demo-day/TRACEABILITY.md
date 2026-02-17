@@ -9,13 +9,14 @@
 
 | Child PRD | Priority | Phase | Ship Order | Status | Dependencies | North Star Tie |
 |-----------|----------|-------|------------|--------|-------------|----------------|
-| **prd-00-middleware-public-routes** | P0 BLOCKER | MVP | 1 | Draft | None | Revenue per search: can't earn if anonymous users can't search |
-| **prd-01-public-homepage-layout** | P0 | MVP | 2 | Draft | PRD-00 | Search success rate: homepage is the entry point to all searches |
-| **prd-02-public-search-results** | P0 | MVP | 3 | Draft | PRD-00, PRD-01 | Revenue per search: this IS the affiliate monetization page |
-| **prd-03-static-legal-pages** | P0 | MVP | 4 | Draft | PRD-00, PRD-01 | Trust/legitimacy: affiliate networks require legal pages |
-| **prd-04-editorial-guides** | P0 | MVP | 5 | Draft | PRD-00, PRD-01 | Revenue per search: guides drive affiliate clicks + vendor introductions |
-| **prd-05-public-vendor-directory** | P1 | MVP | 6 | Draft | PRD-00, PRD-01 | Seller response rate: showcases vendor network, drives introductions |
-| **prd-06-demo-prep-polish** | P0 | MVP | 7 | Draft | PRD-00 through PRD-05 | All metrics: demo must show the full platform working end-to-end |
+| **prd-00-middleware-public-routes** | P0 BLOCKER | MVP | 1 | **Done** | None | Revenue per search: can't earn if anonymous users can't search |
+| **prd-01-public-homepage-layout** | P0 | MVP | 2 | **Done** | PRD-00 | Search success rate: homepage is the entry point to all searches |
+| **prd-02-public-search-results** | P0 | MVP | 3 | **Done** | PRD-00, PRD-01 | Revenue per search: this IS the affiliate monetization page |
+| **prd-03-static-legal-pages** | P0 | MVP | 4 | **Done** | PRD-00, PRD-01 | Trust/legitimacy: affiliate networks require legal pages |
+| **prd-04-editorial-guides** | P0 | MVP | 5 | **Done** | PRD-00, PRD-01 | Revenue per search: guides drive affiliate clicks + vendor introductions |
+| **prd-05-public-vendor-directory** | P1 | MVP | 6 | **Done** | PRD-00, PRD-01 | Seller response rate: showcases vendor network, drives introductions |
+| **prd-06-demo-prep-polish** | P0 | MVP | 7 | In Progress | PRD-00 through PRD-05 | All metrics: demo must show the full platform working end-to-end |
+| **prd-07-codebase-audit-fixes** | P0 | MVP | 8 | In Progress | PRD-00 through PRD-06 | Stability: zero crashes, zero result-display bugs during demo |
 
 ## Dependency Graph
 
@@ -28,6 +29,7 @@ PRD-00 (Middleware) ──┬──→ PRD-01 (Homepage) ──┬──→ PRD-
                       └──→ (also unblocks /share/* and /quote/* for anonymous users)
 
 PRD-00 through PRD-05 ──→ PRD-06 (Demo Prep — final polish after everything else ships)
+                       ──→ PRD-07 (Audit Fixes — stability hardening in parallel with PRD-06)
 ```
 
 ## Critical Path

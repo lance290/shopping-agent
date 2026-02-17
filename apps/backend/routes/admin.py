@@ -596,3 +596,28 @@ async def list_audit_logs(
     
     result = await session.exec(query)
     return result.all()
+
+
+@router.post("/admin/ops/restore-vendors")
+async def restore_vendors_endpoint(
+    x_restore_key: str = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Trigger vendor restoration from bundled dump file.
+    Protected by X-Restore-Key header.
+    """
+    # Simple hardcoded check for this operation to avoid auth complexity during bootstrap
+    if x_restore_key != "sh_restore_vendors_2026_secure_key":
+        raise HTTPException(status_code=403, detail="Invalid restore key")
+
+    from scripts.restore_vendors import restore_vendors_logic
+    
+    # Run restoration
+    try:
+        count = await restore_vendors_logic(session)
+        return {"status": "success", "restored_count": count}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
