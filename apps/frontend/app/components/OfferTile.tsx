@@ -34,7 +34,8 @@ export default function OfferTile({
   const { openPanel } = useDetailPanelStore();
 
   // Build clickout URL - service providers show modal, others go through clickout
-  const safePrice = Number.isFinite(offer.price) ? offer.price : 0;
+  const isQuoteBased = offer.price === null || offer.price === undefined;
+  const safePrice = Number.isFinite(offer.price) ? offer.price! : 0;
   const source = String(offer.source || '').toLowerCase();
   const isBiddable = source === 'manual' || source.includes('seller');
   const isSellerQuote = source === 'seller_quote';
@@ -45,6 +46,7 @@ export default function OfferTile({
   const isSelected = offer.is_selected === true;
   const isLiked = offer.is_liked === true;
   const canSelect = Boolean(onSelect && offer.bid_id);
+  const isVendorDirectory = offer.source === 'vendor_directory';
   const ratingValue = typeof offer.rating === 'number' ? offer.rating : null;
   const reviewsValue = typeof offer.reviews_count === 'number' ? offer.reviews_count : null;
   const hasRating = ratingValue !== null && ratingValue > 0;
@@ -108,9 +110,8 @@ export default function OfferTile({
             </div>
           )}
           {!isBiddable && !isSellerQuote && !isServiceProvider && (
-            <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-amber-500/10 text-amber-700 border border-amber-500/20">
-              <Truck size={10} />
-              Instant Offer
+            <div className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-black/5 text-onyx-muted border border-black/10">
+              {offer.source === 'vendor_directory' ? 'Specialist' : 'Marketplace'}
             </div>
           )}
         </div>
@@ -164,12 +165,12 @@ export default function OfferTile({
           )}
           
           <div className="mt-auto">
-            {isServiceProvider && (
+            {isQuoteBased && (
               <div className="text-xl font-bold text-onyx mb-8 text-center">
                 Request Quote
               </div>
             )}
-            {!isServiceProvider && (
+            {!isQuoteBased && (
               <div className="text-[13px] font-semibold text-onyx mb-2">
                 {offer.currency === 'USD' ? '$' : offer.currency}
                 {safePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -272,41 +273,6 @@ export default function OfferTile({
             </div>
             
             <div className="grid gap-2">
-              {!isServiceProvider && safePrice > 0 && offer.bid_id && !isSelected && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    try {
-                      const token = typeof window !== 'undefined' ? localStorage.getItem('session_token') || '' : '';
-                      const res = await fetch('/api/checkout', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          Authorization: `Bearer ${token}`,
-                        },
-                        body: JSON.stringify({
-                          bid_id: offer.bid_id,
-                          row_id: rowId,
-                        }),
-                      });
-                      if (res.ok) {
-                        const data = await res.json();
-                        if (data.checkout_url) {
-                          window.location.href = data.checkout_url;
-                        }
-                      }
-                    } catch (err) {
-                      console.error('[OfferTile] Checkout error:', err);
-                    }
-                  }}
-                  className="w-full h-8 text-xs"
-                >
-                  Buy Now
-                </Button>
-              )}
               {canSelect && !isSelected && (
                 <Button
                   size="sm"
@@ -319,6 +285,39 @@ export default function OfferTile({
                   className="w-full h-8 text-xs"
                 >
                   Select
+                </Button>
+              )}
+              {!isServiceProvider && safePrice > 0 && offer.bid_id && !isSelected && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    try {
+                      // No drop-ship / checkout: route user directly to merchant via clickout.
+                      window.open(clickUrl, '_blank', 'noopener,noreferrer');
+                    } catch (err) {
+                      console.error('[OfferTile] Clickout error:', err);
+                    }
+                  }}
+                  className="w-full h-8 text-xs"
+                >
+                  Buy Now
+                </Button>
+              )}
+              {isVendorDirectory && !isSelected && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowVendorModal(true);
+                  }}
+                  className="w-full h-8 text-xs"
+                >
+                  Request Quote
                 </Button>
               )}
               {isSelected && (
@@ -336,7 +335,7 @@ export default function OfferTile({
         onDismiss={() => setShowMobileTooltip(false)}
       />
 
-      {isServiceProvider && (
+      {(isServiceProvider || isVendorDirectory) && (
         <VendorContactModal
           isOpen={showVendorModal}
           onClose={() => setShowVendorModal(false)}

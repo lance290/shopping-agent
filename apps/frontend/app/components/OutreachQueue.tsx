@@ -160,8 +160,24 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
                 ))}
               </div>
 
+              {/* Request Quote button - centered in middle of card */}
+              {!isRequested && (
+                <div className="mt-4 flex items-center justify-center">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      requestQuote(bidId);
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    Request Quote
+                  </button>
+                </div>
+              )}
+
               {/* Contact info + expand */}
-              <div className="mt-3 flex items-center justify-between">
+              <div className="mt-auto pt-3 flex items-center justify-between border-t border-gray-100">
                 <div className="flex items-center gap-1.5 text-xs text-gray-400">
                   <ChannelIcon className="w-3.5 h-3.5" />
                   {offer.vendor_email || 'Contact available'}
@@ -179,19 +195,12 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
                 )}
               </div>
 
-              {/* Expanded: individual request quote */}
+              {/* Expanded: additional details if needed */}
               {isExpanded && !isRequested && (
                 <div className="mt-3 pt-3 border-t border-gray-100">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      requestQuote(bidId);
-                    }}
-                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition-colors"
-                  >
-                    <Send className="w-3 h-3" />
-                    Request Quote from {offer.vendor_company || offer.vendor_name || offer.merchant}
-                  </button>
+                  <p className="text-xs text-gray-500">
+                    Click Request Quote to send your requirements to {offer.vendor_company || offer.vendor_name || offer.merchant}.
+                  </p>
                 </div>
               )}
             </div>
