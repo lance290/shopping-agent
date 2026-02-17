@@ -478,3 +478,176 @@ async def send_triage_notification_email(
     print(f"[DEMO EMAIL] Triage notification to: {admin_email}")
     print(f"[DEMO EMAIL] Subject: {subject}")
     return EmailResult(success=True, message_id="demo-triage")
+
+
+async def send_merchant_verification_email(
+    to_email: str,
+    to_name: str,
+    verification_token: str,
+) -> EmailResult:
+    """
+    Send verification email to a new merchant.
+    """
+    verification_url = f"{APP_BASE_URL}/merchants/verify-email?token={verification_token}"
+    
+    subject = "Verify your email to complete your seller registration"
+    
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Welcome to BuyAnything!</h2>
+        
+        <p>Hi {to_name or 'there'},</p>
+        
+        <p>Thanks for registering as a seller. To activate your account and start receiving quote requests, please verify your email address.</p>
+        
+        <p style="text-align: center; margin: 30px 0;">
+            <a href="{verification_url}" 
+               style="background: #2563eb; color: white; padding: 12px 24px; 
+                      text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Verify Email
+            </a>
+        </p>
+        
+        <p style="color: #666; font-size: 14px;">
+            This link expires in 72 hours.
+        </p>
+        
+        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+        
+        <p style="color: #999; font-size: 12px;">
+            If you didn't create an account, you can safely ignore this email.
+        </p>
+    </body>
+    </html>
+    """
+    
+    text_content = f"""
+    Welcome to BuyAnything!
+    
+    Hi {to_name or 'there'},
+    
+    Thanks for registering as a seller. To activate your account, please verify your email address:
+    
+    {verification_url}
+    
+    This link expires in 72 hours.
+    
+    If you didn't create an account, you can safely ignore this email.
+    """
+    
+    if RESEND_API_KEY and resend is not None:
+        try:
+            params: resend.Emails.SendParams = {
+                "from": f"{FROM_NAME} <{FROM_EMAIL}>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+                "text": text_content,
+            }
+            
+            response = resend.Emails.send(params)
+            
+            return EmailResult(
+                success=True,
+                message_id=response.get("id"),
+            )
+        except Exception as e:
+            print(f"[RESEND ERROR] {e}")
+            return EmailResult(success=False, error=str(e))
+    
+    print(f"[DEMO EMAIL] Merchant verification to: {to_email}")
+    print(f"[DEMO EMAIL] Subject: {subject}")
+    print(f"[DEMO EMAIL] URL: {verification_url}")
+    return EmailResult(success=True, message_id="demo-merchant-verification")
+
+
+async def send_merchant_status_email(
+    to_email: str,
+    to_name: str,
+    status_type: str,  # "approved", "rejected", "suspended", "unsuspended"
+    reason: Optional[str] = None,
+) -> EmailResult:
+    """
+    Send notification to merchant about account status change.
+    """
+    subject_map = {
+        "approved": "🎉 Your business has been verified!",
+        "rejected": "Update on your seller application",
+        "suspended": "⚠️ Important: Your seller account has been suspended",
+        "unsuspended": "Your seller account has been restored",
+    }
+    
+    subject = subject_map.get(status_type, "Account Status Update")
+    
+    # Content variations
+    if status_type == "approved":
+        body_html = f"""
+        <p>Great news! Your business profile has been verified by our team.</p>
+        <p>Your quotes will now display a <strong>Verified Business</strong> badge to buyers, increasing trust and visibility.</p>
+        <p>Keep up the good work!</p>
+        """
+    elif status_type == "rejected":
+        body_html = f"""
+        <p>We reviewed your business profile and were unable to verify it at this time.</p>
+        <p><strong>Reason:</strong> {reason or 'Does not meet current marketplace criteria.'}</p>
+        <p>You can update your profile and reply to this email to request a re-review.</p>
+        """
+    elif status_type == "suspended":
+        body_html = f"""
+        <p>Your seller account has been suspended effective immediately.</p>
+        <p><strong>Reason:</strong> {reason or 'Violation of platform policies.'}</p>
+        <p>While suspended, your quotes will not be visible to buyers.</p>
+        <p>If you believe this is a mistake, please <a href="{APP_BASE_URL}/help/contact">contact support</a>.</p>
+        """
+    elif status_type == "unsuspended":
+        body_html = f"""
+        <p>Your account suspension has been lifted. Your previous verification status has been restored.</p>
+        <p>You can now submit quotes and interact with buyers again.</p>
+        """
+    else:
+        body_html = f"<p>Your account status has been updated to: <strong>{status_type}</strong>.</p>"
+
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>{subject}</h2>
+        
+        <p>Hi {to_name or 'there'},</p>
+        
+        {body_html}
+        
+        <p>—BuyAnything Team</p>
+    </body>
+    </html>
+    """
+    
+    body_text = body_html.replace('<p>', '').replace('</p>', '\n\n').replace('<strong>', '').replace('</strong>', '').replace('<a href="', '').replace('">contact support</a>', 'contact support')
+    text_content = f"""
+    {subject}
+    
+    Hi {to_name or 'there'},
+    
+    {body_text}
+    
+    —BuyAnything Team
+    """
+    
+    if RESEND_API_KEY and resend is not None:
+        try:
+            params: resend.Emails.SendParams = {
+                "from": f"{FROM_NAME} <{FROM_EMAIL}>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+                "text": text_content,
+            }
+            response = resend.Emails.send(params)
+            return EmailResult(success=True, message_id=response.get("id"))
+        except Exception as e:
+            print(f"[RESEND ERROR] {e}")
+            return EmailResult(success=False, error=str(e))
+    
+    print(f"[DEMO EMAIL] Status update ({status_type}) to: {to_email}")
+    print(f"[DEMO EMAIL] Subject: {subject}")
+    return EmailResult(success=True, message_id=f"demo-status-{status_type}")

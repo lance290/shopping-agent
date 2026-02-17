@@ -193,6 +193,11 @@ def _is_allowed_identifier(email: Optional[str], phone: Optional[str]) -> bool:
 
     allowed_phones = _get_allowed_phones()
     manager_phones = _get_manager_phones()
+
+    # Open to public: if no allowlist is configured, everyone is allowed
+    if not allowed_phones:
+        return True
+
     if phone:
         if phone in allowed_phones or phone in manager_phones:
             return True
