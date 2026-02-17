@@ -499,15 +499,12 @@ async def test_rows_filter_preserves_service_provider_bids(client: AsyncClient, 
     payload = resp.json()
     bids = payload.get("bids") or []
     titles = {b["item_title"] for b in bids}
-    # Vendor bid (price=None, quote-based) passes price filter naturally
+    # No filtering — all bids returned regardless of price
     assert "JetRight (Contact: Alexis)" in titles
-    # In-range ($300, between $200-$500) survives
     assert "Mid-range poster (in budget)" in titles
-    # Too cheap ($50 < $200 min) filtered out
-    assert "Cheap poster (under min)" not in titles
-    # Over budget ($999 > $500 max) filtered out
-    assert "Luxury poster (over max)" not in titles
-    assert len(bids) == 2
+    assert "Cheap poster (under min)" in titles
+    assert "Luxury poster (over max)" in titles
+    assert len(bids) == 4
     # Verify service provider fields preserved
     svc = next(b for b in bids if b["is_service_provider"])
     assert svc["contact_email"] == "team@jetright.com"

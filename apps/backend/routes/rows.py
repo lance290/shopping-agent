@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload, defer, joinedload
 
 from database import get_session
 from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project
-from dependencies import get_current_session
+from dependencies import get_current_session, resolve_user_id
 from routes.rows_search import router as rows_search_router
 from sourcing.safety import SafetyService
 from utils.json_utils import safe_json_loads
@@ -20,41 +20,6 @@ router = APIRouter(tags=["rows"])
 router.include_router(rows_search_router)
 
 
-def filter_bids_by_price(row: Row) -> List:
-    """Filter row.bids using the unified should_include_result filter."""
-    from sourcing.filters import should_include_result
-
-    if not row.bids:
-        return []
-    
-    min_price = None
-    max_price = None
-    
-    if row.choice_answers:
-        try:
-            answers = json.loads(row.choice_answers) if isinstance(row.choice_answers, str) else row.choice_answers
-            if answers.get("min_price"):
-                min_price = float(answers["min_price"])
-            if answers.get("max_price"):
-                max_price = float(answers["max_price"])
-        except Exception:
-            pass
-
-    filtered = []
-    for bid in row.bids:
-        source = (getattr(bid, "source", "") or "").lower()
-
-        if should_include_result(
-            price=bid.price,
-            source=source,
-            desire_tier=getattr(row, "desire_tier", None),
-            min_price=min_price,
-            max_price=max_price,
-            is_service_provider=getattr(bid, "is_service_provider", False),
-        ):
-            filtered.append(bid)
-
-    return filtered
 
 
 class SellerRead(BaseModel):
@@ -192,14 +157,12 @@ async def read_rows(
     session: AsyncSession = Depends(get_session)
 ):
     
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = await resolve_user_id(authorization, session)
 
     result = await session.exec(
         select(Row)
         .where(
-            Row.user_id == auth_session.user_id,
+            Row.user_id == user_id,
             True if include_archived else (Row.status != "archived"),
         )
         .options(
@@ -213,10 +176,6 @@ async def read_rows(
     )
     rows = result.all()
     
-    # Apply price filters from choice_answers to each row's bids
-    for row in rows:
-        row.bids = filter_bids_by_price(row)
-    
     return rows
 
 
@@ -227,13 +186,11 @@ async def read_row(
     session: AsyncSession = Depends(get_session)
 ):
     
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = await resolve_user_id(authorization, session)
 
     result = await session.exec(
         select(Row)
-        .where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        .where(Row.id == row_id, Row.user_id == user_id)
         .options(
             selectinload(Row.bids).options(
                 joinedload(Bid.seller),
@@ -246,9 +203,6 @@ async def read_row(
     
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
-    
-    # Apply price filter from choice_answers
-    row.bids = filter_bids_by_price(row)
     
     return row
 
