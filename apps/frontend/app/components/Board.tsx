@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Plus, ShoppingBag, Bug, FolderPlus, Trash2, Share2, Store } from 'lucide-react';
+import { Plus, ShoppingBag, Bug, FolderPlus, Trash2, Share2, Store, ArrowLeft } from 'lucide-react';
 import { useShoppingStore, Project, Row } from '../store';
 import { createRowInDb, createProjectInDb, deleteProjectFromDb } from '../utils/api';
 import RowStrip from './RowStrip';
@@ -245,35 +245,106 @@ export default function ProcurementBoard() {
       {/* Scrollable Content */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-8 space-y-8">
         {rows.length === 0 && projects.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-onyx-muted px-4">
-            <div className="w-16 h-16 mb-5 rounded-full bg-white border border-warm-grey flex items-center justify-center">
-              <ShoppingBag className="w-7 h-7 text-onyx/50" />
+          <div className="space-y-8 max-w-3xl mx-auto pb-12">
+            {/* Chat instruction */}
+            <div className="flex items-center gap-3 bg-agent-blurple/10 border border-agent-blurple/20 rounded-xl p-4">
+              <ArrowLeft className="w-5 h-5 text-agent-blurple shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-onyx">Type in the chat to search for anything</p>
+                <p className="text-xs text-onyx-muted mt-0.5">
+                  Ask our AI agent to find products, compare prices, or connect you with vendors.
+                </p>
+              </div>
             </div>
-            <h3 className="text-xl font-semibold text-onyx mb-2">Find anything</h3>
-            <p className="text-sm max-w-md text-center mb-8">
-              Search for products across major retailers and our network of 3,000+ vendors — from gift cards to private jets.
-            </p>
-            <div className="flex flex-wrap justify-center gap-2 mb-8 max-w-lg">
-              {['Roblox gift cards', 'running shoes', 'local caterers', 'private jet charter', 'custom jewelry', 'home office setup'].map((q) => (
-                <button
-                  key={q}
-                  onClick={() => {
-                    const store = useShoppingStore.getState();
-                    store.setCurrentQuery(q);
-                  }}
-                  className="text-xs px-3 py-1.5 rounded-full border border-warm-grey/60 text-onyx-muted hover:text-onyx hover:border-agent-blurple/40 transition-colors"
-                >
-                  {q}
-                </button>
-              ))}
+
+            {/* Account CTA */}
+            <div className="flex items-center justify-between bg-warm-light border border-warm-grey/50 rounded-xl p-4">
+              <div>
+                <p className="text-sm font-medium text-onyx">Save your searches &amp; track prices</p>
+                <p className="text-xs text-onyx-muted mt-0.5">Create a free account to organize requests, get price alerts, and request vendor quotes.</p>
+              </div>
+              <a
+                href="/login"
+                className="shrink-0 ml-4 px-4 py-2 text-xs font-semibold rounded-lg bg-agent-blurple text-white hover:bg-agent-blurple/90 transition-colors"
+              >
+                Sign Up Free
+              </a>
             </div>
-            <div className="flex flex-wrap justify-center gap-4 text-xs">
-              <a href="/guides" className="text-agent-blurple hover:underline">Buying Guides</a>
-              <a href="/vendors" className="text-agent-blurple hover:underline">Vendor Directory</a>
-              <a href="/how-it-works" className="text-agent-blurple hover:underline">How It Works</a>
+
+            {/* Trending Searches — buyable content for affiliate reviewers */}
+            <div>
+              <h3 className="text-sm font-semibold text-onyx mb-3 uppercase tracking-wider">Trending Searches</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {[
+                  { q: 'Roblox gift cards', emoji: '🎮', desc: 'Digital codes from $10–$200' },
+                  { q: 'running shoes', emoji: '👟', desc: 'Nike, Asics, Brooks & more' },
+                  { q: 'wireless earbuds', emoji: '🎧', desc: 'AirPods, Sony, Samsung' },
+                  { q: 'standing desk', emoji: '🖥️', desc: 'Electric sit-stand desks' },
+                  { q: 'coffee maker', emoji: '☕', desc: 'Drip, espresso, pour-over' },
+                  { q: 'luggage set', emoji: '🧳', desc: 'Carry-on & checked bags' },
+                ].map((item) => (
+                  <a
+                    key={item.q}
+                    href={`/search?q=${encodeURIComponent(item.q)}`}
+                    className="group bg-warm-light border border-warm-grey/50 rounded-lg p-3 hover:border-agent-blurple/40 transition-colors"
+                  >
+                    <div className="text-2xl mb-1">{item.emoji}</div>
+                    <div className="text-sm font-medium text-onyx group-hover:text-agent-blurple transition-colors">{item.q}</div>
+                    <div className="text-[11px] text-onyx-muted mt-0.5">{item.desc}</div>
+                  </a>
+                ))}
+              </div>
             </div>
-            <div className="mt-8 text-[10px] text-onyx-muted/50 text-center max-w-sm">
-              <a href="/disclosure" className="hover:underline">Affiliate Disclosure</a> · <a href="/privacy" className="hover:underline">Privacy</a> · <a href="/terms" className="hover:underline">Terms</a>
+
+            {/* Vendor categories */}
+            <div>
+              <h3 className="text-sm font-semibold text-onyx mb-3 uppercase tracking-wider">Find Local Vendors</h3>
+              <div className="flex flex-wrap gap-2">
+                {['caterers', 'photographers', 'florists', 'DJs & entertainment', 'custom jewelry', 'private chefs'].map((v) => (
+                  <a
+                    key={v}
+                    href={`/search?q=${encodeURIComponent(v)}`}
+                    className="text-xs px-3 py-1.5 rounded-full border border-warm-grey/60 text-onyx-muted hover:text-onyx hover:border-agent-blurple/40 transition-colors"
+                  >
+                    {v}
+                  </a>
+                ))}
+                <a href="/vendors" className="text-xs px-3 py-1.5 rounded-full bg-agent-blurple/10 text-agent-blurple hover:bg-agent-blurple/20 transition-colors">
+                  Browse all vendors →
+                </a>
+              </div>
+            </div>
+
+            {/* Guide previews — editorial content for affiliate approval */}
+            <div>
+              <h3 className="text-sm font-semibold text-onyx mb-3 uppercase tracking-wider">Buying Guides</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { title: 'How BuyAnything Works', slug: 'how-buyanything-works', desc: 'Your complete guide to finding anything — from gift cards to private jets.' },
+                  { title: 'Gift Vault: Tech Lovers', slug: 'gift-vault-tech-lovers', desc: 'Curated tech gifts for every budget, from $25 stocking stuffers to premium gear.' },
+                  { title: 'Best Luggage for Travel', slug: 'best-luggage-for-travel', desc: 'Top-rated luggage reviewed and compared — carry-ons, checked bags, and sets.' },
+                  { title: 'Home Office Setup Guide', slug: 'home-office-setup-guide', desc: 'Everything you need for a productive workspace, from desks to monitors.' },
+                ].map((guide) => (
+                  <a
+                    key={guide.slug}
+                    href={`/guides/${guide.slug}`}
+                    className="group bg-warm-light border border-warm-grey/50 rounded-lg p-4 hover:border-agent-blurple/40 transition-colors"
+                  >
+                    <h4 className="text-sm font-medium text-onyx group-hover:text-agent-blurple transition-colors">{guide.title}</h4>
+                    <p className="text-[11px] text-onyx-muted mt-1 line-clamp-2">{guide.desc}</p>
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* Legal footer */}
+            <div className="pt-4 border-t border-warm-grey/30 text-center space-y-2">
+              <p className="text-[11px] text-onyx-muted/70">
+                As an Amazon Associate, BuyAnything earns from qualifying purchases. We may earn commissions from other affiliate partners.
+              </p>
+              <div className="text-[10px] text-onyx-muted/50">
+                <a href="/disclosure" className="hover:underline">Affiliate Disclosure</a> · <a href="/privacy" className="hover:underline">Privacy Policy</a> · <a href="/terms" className="hover:underline">Terms of Service</a> · <a href="/about" className="hover:underline">About</a> · <a href="/contact" className="hover:underline">Contact</a>
+              </div>
             </div>
           </div>
         ) : (

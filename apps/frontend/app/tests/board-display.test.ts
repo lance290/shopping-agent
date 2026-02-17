@@ -74,7 +74,7 @@ describe('ProcurementBoard Display Logic', () => {
 
     render(React.createElement(ProcurementBoard));
 
-    expect(screen.getByText('Find anything')).toBeDefined();
+    expect(screen.getByText('Type in the chat to search for anything')).toBeDefined();
   });
 
   test('OfferTile links to clickout URL', () => {

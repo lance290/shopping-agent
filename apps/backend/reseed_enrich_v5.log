@@ -1212,3 +1212,271 @@ DEBUG: Connection pool: size=5, max_overflow=10, timeout=30s
 2026-02-17 01:40:39,199 WARNING LLM extract failed for The Clement Palo Alto: Unterminated string starting at: line 2 column 18 (char 19)
 2026-02-17 01:40:39,484 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
 2026-02-17 01:40:39,791 INFO    [390/2162] The Hollywood Roosevelt — https://preferredhotels.com/hotels/united-states/hollywood-roosevelt
+2026-02-17 01:40:45,076 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:40:46,089 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:40:46,283 INFO    [391/2162] The Inn at Spanish Bay™ — https://preferredhotels.com/hotels/united-states/inn-spanish-bay
+2026-02-17 01:40:51,288 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:40:52,422 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:40:52,607 INFO    [392/2162] The Lodge at Pebble Beach™ — https://preferredhotels.com/hotels/united-states/lodge-pebble-beach
+2026-02-17 01:40:58,244 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:40:59,393 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:40:59,804 INFO    [393/2162] Aspen Meadows Resort — https://preferredhotels.com/hotels/united-states/aspen-meadows-resort
+2026-02-17 01:41:03,376 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:41:04,878 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:41:05,169 INFO    [394/2162] MOLLIE ASPEN — https://preferredhotels.com/hotels/united-states/mollie-aspen
+2026-02-17 01:41:09,421 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:41:10,856 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:41:11,314 INFO    [395/2162] St Julien Hotel & Spa — https://preferredhotels.com/hotels/united-states/st-julien-hotel-spa
+2026-02-17 01:41:16,998 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:41:18,095 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:41:18,384 INFO    [396/2162] The Watergate Hotel — https://preferredhotels.com/hotels/united-states/watergate-hotel
+2026-02-17 01:41:22,878 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:41:24,415 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:41:24,674 INFO    [397/2162] Amrit Ocean Resort & Residences – Singer Island — https://preferredhotels.com/hotels/united-states/amrit-ocean-resort-residences-singer-island
+2026-02-17 01:41:28,910 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:41:30,570 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:41:30,956 INFO    [398/2162] Biltmore Hotel — https://preferredhotels.com/hotels/united-states/biltmore-hotel
+2026-02-17 01:41:34,647 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:41:36,103 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:41:36,275 INFO    [399/2162] Eide Bailly LLP — https://www.eidebailly.com
+2026-02-17 01:41:40,983 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:41:42,903 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:41:43,307 INFO    [400/2162] BKD CPAs & Advisors — https://www.bkd.com
+2026-02-17 01:41:49,837 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:41:51,886 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:41:52,159 INFO      Progress: 400/2162 | enriched=399 embedded=399 errors=1
+2026-02-17 01:41:52,159 INFO    [401/2162] Cherry Bekaert — https://www.cbh.com
+2026-02-17 01:41:55,255 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:41:56,542 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:41:56,854 INFO    [402/2162] RubinBrown — https://www.rubinbrown.com
+2026-02-17 01:42:01,254 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:42:02,608 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:42:02,985 INFO    [403/2162] Elliott Bay Book Company Seattle — https://www.elliottbaybook.com
+2026-02-17 01:42:03,561 INFO      Scrape: insufficient text (24 chars)
+2026-02-17 01:42:03,811 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:42:04,153 INFO    [404/2162] Founders Brewing Co — https://www.foundersbrewing.com
+2026-02-17 01:42:11,029 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:42:12,805 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:42:12,944 INFO    [405/2162] Victory Brewing Company — https://www.victorybeer.com
+2026-02-17 01:42:17,441 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:42:18,831 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:42:19,043 INFO    [406/2162] Marmol Radziner LA — https://www.marmol-radziner.com
+2026-02-17 01:42:22,125 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:42:23,718 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:42:23,993 INFO    [407/2162] Getty Museum LA — https://www.getty.edu
+2026-02-17 01:42:27,510 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:42:28,726 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:42:29,009 INFO    [408/2162] Innisbrook Resort — https://preferredhotels.com/hotels/united-states/innisbrook-resort
+2026-02-17 01:42:34,414 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:42:35,688 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:42:35,967 INFO    [409/2162] Mayfair House Hotel & Garden — https://preferredhotels.com/hotels/united-states/mayfair-house-hotel-garden
+2026-02-17 01:42:40,336 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:42:41,748 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:42:41,920 INFO    [410/2162] The Alfond Inn — https://preferredhotels.com/hotels/united-states/alfond-inn
+2026-02-17 01:42:47,151 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:42:48,731 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:42:49,180 INFO    [411/2162] Plante Moran — https://www.plantemoran.com
+2026-02-17 01:42:54,306 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:42:56,420 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:42:57,068 INFO    [412/2162] Hotel Phoenix Atlanta — https://preferredhotels.com/hotels/united-states/hotel-phoenix-atlanta
+2026-02-17 01:43:00,570 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:43:01,751 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:43:02,037 INFO    [413/2162] 'Alohilani Resort Waikiki Beach — https://preferredhotels.com/hotels/united-states/alohilani-resort-waikiki-beach
+2026-02-17 01:43:07,386 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:43:08,536 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:43:08,944 INFO    [414/2162] Halepuna Waikiki by Halekulani — https://preferredhotels.com/hotels/united-states/halepuna-waikiki-halekulani
+2026-02-17 01:43:14,087 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:43:15,701 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:43:16,049 INFO    [415/2162] Montage Kapalua Bay — https://preferredhotels.com/hotels/united-states/montage-kapalua-bay
+2026-02-17 01:43:20,903 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:43:22,172 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:43:22,744 INFO    [416/2162] Pendry Chicago — https://preferredhotels.com/hotels/united-states/pendry-chicago
+2026-02-17 01:43:27,435 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:43:28,545 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:43:28,784 INFO    [417/2162] SOPHY® Hyde Park — https://preferredhotels.com/hotels/united-states/sophy-hyde-park
+2026-02-17 01:43:34,319 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:43:35,492 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:43:35,976 INFO    [418/2162] French Lick Springs Hotel — https://preferredhotels.com/hotels/united-states/french-lick-springs-hotel
+2026-02-17 01:43:39,619 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:43:40,067 WARNING LLM extract failed for French Lick Springs Hotel: Unterminated string starting at: line 2 column 18 (char 19)
+2026-02-17 01:43:40,340 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:43:40,659 INFO    [419/2162] The Michelangelo New York - Starhotels Collezione — https://preferredhotels.com/hotels/united-states/michelangelo-new-york-starhotels-collezione
+2026-02-17 01:43:45,890 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:43:46,880 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:43:47,150 INFO    [420/2162] The Muse New York — https://preferredhotels.com/hotels/united-states/muse-new-york
+2026-02-17 01:43:52,648 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:43:54,495 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:43:54,783 INFO    [421/2162] NOPSI New Orleans — https://preferredhotels.com/hotels/united-states/nopsi-new-orleans
+2026-02-17 01:44:00,851 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:44:02,366 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:44:02,803 INFO    [422/2162] The Charles Hotel Harvard Square — https://preferredhotels.com/hotels/united-states/charles-hotel-harvard-square
+2026-02-17 01:44:08,932 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:44:10,598 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:44:10,893 INFO    [423/2162] The Colonnade Hotel Boston — https://preferredhotels.com/hotels/united-states/colonnade-hotel-boston
+2026-02-17 01:44:19,366 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:44:20,967 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:44:21,350 INFO    [424/2162] The Eliot Hotel — https://preferredhotels.com/hotels/united-states/eliot-hotel
+2026-02-17 01:44:26,087 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:44:27,189 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:44:27,401 INFO    [425/2162] Wequassett Resort and Golf Club — https://preferredhotels.com/hotels/united-states/wequassett-resort-and-golf-club
+2026-02-17 01:44:34,760 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:44:36,352 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:44:36,606 INFO    [426/2162] XV Beacon — https://preferredhotels.com/hotels/united-states/xv-beacon
+2026-02-17 01:44:41,613 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:44:43,013 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:44:43,281 INFO    [427/2162] Atheneum Suite Hotel — https://preferredhotels.com/hotels/united-states/atheneum-suite-hotel
+2026-02-17 01:44:46,506 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:44:48,470 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:44:48,770 INFO    [428/2162] Lake|Flato Architects San Antonio — https://www.lakeflato.com
+2026-02-17 01:44:52,641 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:44:54,196 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:44:54,348 INFO    [429/2162] Bohlin Cywinski Jackson — https://www.bcj.com
+2026-02-17 01:44:57,216 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:44:58,809 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:44:59,146 INFO    [430/2162] Olson Kundig Seattle — https://www.olsonkundig.com
+2026-02-17 01:45:04,766 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:45:06,279 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:45:06,497 INFO    [431/2162] Walker Warner Architects — https://www.walkerwarner.com
+2026-02-17 01:45:11,834 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:45:13,239 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:45:13,467 INFO    [432/2162] Hotel Rock Lititz — https://preferredhotels.com/hotels/united-states/hotel-rock-lititz
+2026-02-17 01:45:18,453 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:45:19,831 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:45:20,141 INFO    [433/2162] EisnerAmper — https://www.eisneramper.com
+2026-02-17 01:45:23,362 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:45:25,281 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:45:25,469 INFO    [434/2162] Durango Casino & Resort — https://preferredhotels.com/hotels/united-states/durango-casino-resort
+2026-02-17 01:45:31,470 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:45:33,606 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:45:33,832 INFO    [435/2162] Edgewood Tahoe Resort — https://preferredhotels.com/hotels/united-states/edgewood-tahoe-resort
+2026-02-17 01:45:39,214 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:45:40,776 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:45:41,031 INFO    [436/2162] Green Valley Ranch Resort Spa Casino — https://preferredhotels.com/hotels/united-states/green-valley-ranch-resort-spa-casino
+2026-02-17 01:45:44,993 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:45:46,456 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:45:46,741 INFO    [437/2162] ModernHaus SoHo — https://preferredhotels.com/hotels/united-states/modernhaus-soho
+2026-02-17 01:45:52,075 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:45:53,553 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:45:53,913 INFO    [438/2162] Park Lane New York — https://preferredhotels.com/hotels/united-states/park-lane-new-york
+2026-02-17 01:45:57,789 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:45:58,916 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:45:59,169 INFO    [439/2162] Pendry Manhattan West — https://preferredhotels.com/hotels/united-states/pendry-manhattan-west
+2026-02-17 01:46:04,056 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:46:05,685 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:46:06,064 INFO    [440/2162] CliftonLarsonAllen (CLA) — https://www.claconnect.com
+2026-02-17 01:46:09,977 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:46:11,916 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:46:12,243 INFO    [441/2162] The Maritime Hotel — https://preferredhotels.com/hotels/united-states/maritime-hotel
+2026-02-17 01:46:16,628 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:46:18,253 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:46:18,598 INFO    [442/2162] The Mark — https://preferredhotels.com/hotels/united-states/mark
+2026-02-17 01:46:23,080 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:46:24,222 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:46:24,523 INFO    [443/2162] Weil, Gotshal & Manges — https://www.weil.com
+2026-02-17 01:46:28,368 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:46:31,484 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:46:31,843 INFO    [444/2162] The Sanctuary at Kiawah Island Golf Resort — https://preferredhotels.com/hotels/united-states/sanctuary-kiawah-island-golf-resort
+2026-02-17 01:46:36,225 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:46:37,965 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:46:38,347 INFO    [445/2162] Bobby Hotel — https://preferredhotels.com/hotels/united-states/bobby-hotel
+2026-02-17 01:46:41,851 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:46:43,115 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:46:43,502 INFO    [446/2162] The Guest House at Graceland — https://preferredhotels.com/hotels/united-states/guest-house-graceland
+2026-02-17 01:46:46,960 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:46:48,402 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:46:48,795 INFO    [447/2162] The Hermitage Hotel — https://preferredhotels.com/hotels/united-states/hermitage-hotel
+2026-02-17 01:46:52,833 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:46:54,439 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:46:54,709 INFO    [448/2162] The Peabody Memphis — https://preferredhotels.com/hotels/united-states/peabody-memphis
+2026-02-17 01:47:00,906 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:47:02,485 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:47:02,765 INFO    [449/2162] Virgin Hotels Nashville — https://preferredhotels.com/hotels/united-states/virgin-hotels-nashville
+2026-02-17 01:47:08,137 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:47:09,710 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:47:10,216 INFO    [450/2162] The Jefferson Hotel — https://preferredhotels.com/hotels/united-states/jefferson-hotel
+2026-02-17 01:47:14,507 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:47:15,896 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:47:16,078 INFO      Progress: 450/2162 | enriched=449 embedded=449 errors=1
+2026-02-17 01:47:16,078 INFO    [451/2162] The Liberty Trust — https://preferredhotels.com/hotels/united-states/liberty-trust
+2026-02-17 01:47:19,815 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:47:21,058 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:47:21,466 INFO    [452/2162] The Pfister Hotel — https://preferredhotels.com/hotels/united-states/pfister-hotel
+2026-02-17 01:47:27,283 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:47:28,544 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:47:28,872 INFO    [453/2162] Bentwood Inn — https://preferredhotels.com/hotels/united-states/bentwood-inn
+2026-02-17 01:47:33,625 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:47:35,093 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:47:35,481 INFO    [454/2162] Great Lakes Brewing Company — https://www.greatlakesbrewing.com
+2026-02-17 01:47:40,083 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:47:41,469 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:47:41,766 INFO    [455/2162] The Brush Creek Luxury Ranch Collection — https://preferredhotels.com/hotels/united-states/brush-creek-luxury-ranch-collection
+2026-02-17 01:47:47,739 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:47:49,807 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:47:50,147 INFO    [456/2162] The Wort Hotel — https://preferredhotels.com/hotels/united-states/wort-hotel
+2026-02-17 01:47:53,970 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:47:55,389 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:47:55,632 INFO    [457/2162] Sullivan & Cromwell — https://www.sullcrom.com
+2026-02-17 01:47:58,999 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:48:00,729 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:48:01,030 INFO    [458/2162] Paul, Weiss, Rifkind, Wharton & Garrison — https://www.paulweiss.com
+2026-02-17 01:48:04,760 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:48:07,406 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:48:07,594 INFO    [459/2162] Zabar’s NYC — https://www.zabars.com
+2026-02-17 01:48:11,534 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:48:13,638 WARNING LLM extract failed for Zabar’s NYC: Unterminated string starting at: line 2 column 3 (char 4)
+2026-02-17 01:48:13,883 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:48:14,223 INFO    [460/2162] Marmol Radziner — https://www.marmol-radziner.com
+2026-02-17 01:48:17,461 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:48:18,703 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:48:19,010 INFO    [461/2162] Lake|Flato Architects — https://www.lakeflato.com
+2026-02-17 01:48:25,926 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:48:27,154 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:48:27,454 INFO    [462/2162] Canyon Ranch Tucson — https://www.canyonranch.com/tucson/
+2026-02-17 01:48:30,432 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:48:31,840 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:48:32,225 INFO    [463/2162] The Mayo Clinic — https://www.mayoclinic.org
+2026-02-17 01:48:35,194 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:48:37,155 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:48:37,480 INFO    [464/2162] Quinn Emanuel Urquhart & Sullivan — https://www.quinnemanuel.com
+2026-02-17 01:48:41,432 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:48:45,041 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:48:45,319 INFO    [465/2162] Reed Smith LLP — https://www.reedsmith.com
+2026-02-17 01:48:49,367 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:48:50,882 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:48:51,206 INFO    [466/2162] Covington & Burling — https://www.cov.com
+2026-02-17 01:48:55,772 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:48:56,794 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:48:57,094 INFO    [467/2162] Debevoise & Plimpton — https://www.debevoise.com
+2026-02-17 01:48:57,993 INFO      Scrape: insufficient text (31 chars)
+2026-02-17 01:48:58,286 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:48:58,537 INFO    [468/2162] Milbank LLP — https://www.milbank.com
+2026-02-17 01:49:03,128 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:49:04,859 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:49:05,159 INFO    [469/2162] Goodwin Procter — https://www.goodwinlaw.com
+2026-02-17 01:49:09,334 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:49:10,929 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:49:11,175 INFO    [470/2162] Willkie Farr & Gallagher — https://www.willkie.com
+2026-02-17 01:49:16,031 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:49:18,284 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:49:18,444 INFO    [471/2162] Winston & Strawn — https://www.winston.com
+2026-02-17 01:49:28,112 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:49:32,199 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:49:32,428 INFO    [472/2162] Mirazur — https://www.mirazur.fr
+2026-02-17 01:49:42,971 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:49:44,593 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:49:44,823 INFO    [473/2162] Apollo Global Management — https://www.apollo.com
+2026-02-17 01:49:48,040 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:49:49,128 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:49:49,338 INFO    [474/2162] Bain Capital — https://www.baincapital.com
+2026-02-17 01:49:52,989 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:49:55,192 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:49:55,458 INFO    [475/2162] Carr, Riggs & Ingram — https://www.cricpa.com
+2026-02-17 01:49:59,654 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:50:01,063 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:50:01,251 INFO    [476/2162] WithumSmith+Brown — https://www.withum.com
+2026-02-17 01:50:06,244 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:50:08,358 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:50:08,743 INFO    [477/2162] Wipfli LLP — https://www.wipfli.com
+2026-02-17 01:50:17,701 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-17 01:50:20,014 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:50:20,299 INFO    [478/2162] Kaufman Rossin — https://www.kaufmanrossin.com
