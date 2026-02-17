@@ -14,12 +14,9 @@ async function fetchWithAuth(url: string, init: RequestInit = {}): Promise<Respo
 
   const res = await fetch(url, { ...init, headers });
   
-  if (res.status === 401 && typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-    // Redirect to login on 401 if not already there
-    // Cookie is HttpOnly — server clears it on logout.
-    // Just redirect to login.
-    window.location.href = '/login';
-  }
+  // NOTE: Do NOT redirect to /login on 401 here.
+  // The workspace page must be accessible to anonymous visitors (affiliate requirement).
+  // Individual components should handle 401 gracefully (show empty state, prompt sign-in, etc.).
   
   return res;
 }
