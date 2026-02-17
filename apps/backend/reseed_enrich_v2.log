@@ -1,0 +1,25 @@
+DEBUG: DATABASE_URL starts with: postgresql+asyn...
+DEBUG: Connection pool: size=5, max_overflow=10, timeout=30s
+2026-02-16 21:44:06,609 INFO    [STATUS] Total vendors: 3027, with website: 2857
+2026-02-16 21:44:07,530 INFO    [ENRICH] 2163 vendors need enrichment (out of 2857 with websites)
+2026-02-16 21:44:07,531 INFO    [1/2163] Elite Roofing LLC — https://www.eliteroofpro.com/
+2026-02-16 21:44:08,964 INFO      Scrape: insufficient text (0 chars)
+2026-02-16 21:44:14,201 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 401 Unauthorized"
+2026-02-16 21:44:14,202 WARNING Embedding failed: Client error '401 Unauthorized' for url 'https://openrouter.ai/api/v1/embeddings'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401
+2026-02-16 21:44:14,225 INFO    [2/2163] Louisiana Bookstores — /independent-bookstores/louisiana-independent-bookstores/
+2026-02-16 21:44:14,226 INFO      Scrape: insufficient text (0 chars)
+2026-02-16 21:44:19,310 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 401 Unauthorized"
+2026-02-16 21:44:19,311 WARNING Embedding failed: Client error '401 Unauthorized' for url 'https://openrouter.ai/api/v1/embeddings'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401
+2026-02-16 21:44:19,325 INFO    [3/2163] Edge Retreats — https://edgeretreats.com/
+2026-02-16 21:44:21,752 INFO      Scrape: insufficient text (0 chars)
+2026-02-16 21:44:26,837 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 401 Unauthorized"
+2026-02-16 21:44:26,838 WARNING Embedding failed: Client error '401 Unauthorized' for url 'https://openrouter.ai/api/v1/embeddings'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401
+2026-02-16 21:44:26,854 INFO    [4/2163] AS Solution — https://assolution.com/
+2026-02-16 21:44:26,973 INFO      Scrape: insufficient text (0 chars)
+2026-02-16 21:44:32,056 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 401 Unauthorized"
+2026-02-16 21:44:32,056 WARNING Embedding failed: Client error '401 Unauthorized' for url 'https://openrouter.ai/api/v1/embeddings'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401
+2026-02-16 21:44:32,062 INFO    [5/2163] Harry Winston — https://www.harrywinston.com/en
