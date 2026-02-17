@@ -127,7 +127,6 @@ export const fetchCommentsApi = async (rowId: number): Promise<CommentDto[]> => 
 
 // Helper: Persist row to database
 export const persistRowToDb = async (rowId: number, title: string) => {
-  console.log('[API] Persisting to DB:', rowId, title);
   try {
     const res = await fetchWithAuth(`/api/rows?id=${rowId}`, {
       method: 'PATCH',
@@ -135,7 +134,6 @@ export const persistRowToDb = async (rowId: number, title: string) => {
       body: JSON.stringify({ title }),
     });
     if (res.ok) {
-      console.log('[API] DB persist success');
       return true;
     } else {
       console.error('[API] DB persist failed:', res.status);
@@ -173,23 +171,12 @@ export interface SearchApiResponse {
   userMessage?: string;
 }
 
-// Helper: Run search
-export const runSearchApi = async (
-  query: string,
-  rowId?: number | null,
-  options?: { providers?: string[] }
-): Promise<Offer[]> => {
-  const response = await runSearchApiWithStatus(query, rowId, options);
-  return response.results;
-};
-
 // Helper: Run search with status message
 export const runSearchApiWithStatus = async (
   query: string | null | undefined,
   rowId?: number | null,
   options?: { providers?: string[] }
 ): Promise<SearchApiResponse> => {
-  console.log('[API] Running search:', query ?? '(auto)', 'for rowId:', rowId);
   try {
     const body: any = rowId ? { rowId } : {};
     if (typeof query === 'string' && query.trim().length > 0) {
@@ -252,7 +239,6 @@ export const runSearchApiWithStatus = async (
 
 // Helper: Create a new row in database
 export const createRowInDb = async (title: string, projectId?: number | null): Promise<Row | null> => {
-  console.log('[API] Creating row in DB:', title, 'projectId:', projectId);
   try {
     const res = await fetchWithAuth('/api/rows', {
       method: 'POST',
@@ -269,7 +255,6 @@ export const createRowInDb = async (title: string, projectId?: number | null): P
     });
     if (res.ok) {
       const newRow = await res.json();
-      console.log('[API] Row created:', newRow);
       return newRow;
     } else {
       console.error('[API] Create row failed:', res.status, await res.text());
@@ -299,9 +284,7 @@ export const fetchSingleRowFromDb = async (rowId: number): Promise<Row | null> =
 // Helper: Fetch all rows from DB
 export const fetchRowsFromDb = async (): Promise<Row[] | null> => {
   try {
-    console.log('[API] fetchRowsFromDb: calling /api/rows');
     const res = await fetchWithAuth('/api/rows');
-    console.log('[API] fetchRowsFromDb: status', res.status);
     if (res.ok) {
       const rows = await res.json();
       return Array.isArray(rows) ? rows : [];
@@ -500,8 +483,6 @@ export interface BugReportResponse {
 
 export const submitBugReport = async (formData: FormData): Promise<BugReportResponse | null> => {
   const startTime = performance.now();
-  console.log('[API] Submitting bug report');
-  
   try {
     const res = await fetchWithAuth('/api/bugs', {
       method: 'POST',
@@ -512,10 +493,6 @@ export const submitBugReport = async (formData: FormData): Promise<BugReportResp
 
     if (res.ok) {
       const data = await res.json();
-      console.log(`[API] Bug report submitted successfully in ${duration.toFixed(0)}ms`, {
-        id: data.id,
-        status: data.status
-      });
       return data;
     } else {
       console.error(`[API] Bug report submission failed after ${duration.toFixed(0)}ms:`, res.status);

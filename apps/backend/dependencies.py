@@ -53,6 +53,29 @@ async def require_auth(
     return auth_session
 
 
+GUEST_EMAIL = "guest@buy-anything.com"
+
+
+async def resolve_user_id(
+    authorization: Optional[str],
+    session: AsyncSession,
+) -> int:
+    """
+    Resolve user_id from auth header, falling back to guest user for anonymous requests.
+
+    Use this when an endpoint should work for both authenticated and anonymous users.
+    """
+    auth_session = await get_current_session(authorization, session)
+    if auth_session:
+        return auth_session.user_id
+
+    guest_result = await session.exec(select(User).where(User.email == GUEST_EMAIL))
+    guest_user = guest_result.first()
+    if not guest_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return guest_user.id
+
+
 async def require_admin(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)

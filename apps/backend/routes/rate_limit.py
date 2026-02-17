@@ -10,6 +10,7 @@ RATE_LIMIT_MAX = {
     "search": 30,      # 30 searches per minute
     "clickout": 60,    # 60 clicks per minute
     "auth_start": 5,   # 5 login attempts per minute
+    "chat_anon": 10,   # 10 anonymous chat requests per minute
 }
 
 

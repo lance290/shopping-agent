@@ -139,22 +139,7 @@ def get_sourcing_repo():
     return _sourcing_repo
 
 
-GUEST_EMAIL = "guest@buy-anything.com"
-
-
-async def _resolve_user_id(authorization: Optional[str], session: AsyncSession) -> int:
-    """Resolve user_id from auth header, falling back to guest user for anonymous requests."""
-    from models.auth import User
-
-    auth_session = await get_current_session(authorization, session)
-    if auth_session:
-        return auth_session.user_id
-
-    guest_result = await session.exec(select(User).where(User.email == GUEST_EMAIL))
-    guest_user = guest_result.first()
-    if not guest_user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    return guest_user.id
+from dependencies import resolve_user_id as _resolve_user_id
 
 
 class RowSearchRequest(BaseModel):

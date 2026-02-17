@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import ErrorBoundary from '../../../components/ErrorBoundary';
 
 const WorkspaceView = dynamic(() => import('../../components/WorkspaceView'), {
   ssr: false,
@@ -12,5 +13,9 @@ const WorkspaceView = dynamic(() => import('../../components/WorkspaceView'), {
 });
 
 export default function WorkspacePage() {
-  return <WorkspaceView />;
+  return (
+    <ErrorBoundary>
+      <WorkspaceView />
+    </ErrorBoundary>
+  );
 }

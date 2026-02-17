@@ -356,12 +356,6 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   },
   
   setRows: (rows) => set((state) => {
-    // Debug: Log incoming rows and their bids
-    console.log('[Store] setRows called with', rows.length, 'rows');
-    rows.forEach(r => {
-      console.log(`[Store] Row ${r.id} "${r.title}" has ${r.bids?.length || 0} bids`);
-    });
-
     // Preserve last_engaged_at timestamps from existing state
     const existingEngagement = new Map<number, number>();
     state.rows.forEach((r) => {

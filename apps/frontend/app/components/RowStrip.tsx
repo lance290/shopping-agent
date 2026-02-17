@@ -402,8 +402,8 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         {/* Provider Status Badges */}
         {providerStatuses && providerStatuses.length > 0 && (
           <div className="flex-1 flex items-center justify-end px-4 gap-2 overflow-hidden opacity-80 hover:opacity-100 transition-opacity">
-            {providerStatuses.map((status, idx) => (
-              <ProviderStatusBadge key={status.provider_id + idx} status={status} />
+            {providerStatuses.map((status) => (
+              <ProviderStatusBadge key={status.provider_id} status={status} />
             ))}
           </div>
         )}

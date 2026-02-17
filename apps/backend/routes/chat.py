@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlmodel import select
@@ -251,6 +251,7 @@ async def _stream_search(
 @router.post("/api/chat")
 async def chat_endpoint(
     body: ChatRequest,
+    request: Request,
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
@@ -258,21 +259,16 @@ async def chat_endpoint(
     Unified chat endpoint — SSE stream.
     Replaces BFF's POST /api/chat entirely.
     """
+    from dependencies import resolve_user_id, get_current_session
+    from routes.rate_limit import check_rate_limit
+
     auth_session = await get_current_session(authorization, session)
-    if auth_session:
-        user_id = auth_session.user_id
-    else:
-        # Anonymous / guest user — find or create a shared guest account
-        from models import User
-        guest_email = "guest@buy-anything.com"
-        result = await session.exec(select(User).where(User.email == guest_email))
-        guest_user = result.first()
-        if not guest_user:
-            guest_user = User(email=guest_email)
-            session.add(guest_user)
-            await session.commit()
-            await session.refresh(guest_user)
-        user_id = guest_user.id
+    if not auth_session:
+        client_ip = request.client.host if request.client else "unknown"
+        if not check_rate_limit(f"chat_anon:{client_ip}", "chat_anon"):
+            raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again in a minute.")
+
+    user_id = await resolve_user_id(authorization, session)
 
     async def generate_events() -> AsyncGenerator[str, None]:
         try:
