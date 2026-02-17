@@ -1,12 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search } from 'lucide-react';
+import { Search, LayoutGrid } from 'lucide-react';
+import { getMe } from '../app/utils/auth';
 
 export default function PublicHeader() {
   const router = useRouter();
   const [query, setQuery] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    getMe().then((user) => {
+      if (user?.authenticated) setIsAuthenticated(true);
+    });
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +32,7 @@ export default function PublicHeader() {
             <span className="text-xl font-bold text-gray-900">BuyAnything</span>
           </a>
 
-          <form onSubmit={handleSearch} className="flex-1 max-w-xl">
+          <form onSubmit={handleSearch} className="flex-1 max-w-xl hidden sm:block">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
@@ -37,12 +45,24 @@ export default function PublicHeader() {
             </div>
           </form>
 
-          <a
-            href="/login"
-            className="shrink-0 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            Sign In
-          </a>
+          <div className="flex items-center gap-4 shrink-0">
+            {isAuthenticated ? (
+              <a
+                href="/app"
+                className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-4 py-2 rounded-full"
+              >
+                <LayoutGrid size={16} />
+                Workspace
+              </a>
+            ) : (
+              <a
+                href="/login"
+                className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Sign In
+              </a>
+            )}
+          </div>
         </div>
       </div>
     </header>

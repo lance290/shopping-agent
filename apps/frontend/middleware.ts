@@ -13,6 +13,7 @@ const PROTECTED_PREFIXES = [
   '/seller',
   '/merchants',
   '/bugs',
+  '/app',
 ];
 
 export function middleware(request: NextRequest) {

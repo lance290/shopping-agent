@@ -1,0 +1,48 @@
+DEBUG: DATABASE_URL starts with: postgresql+asyn...
+DEBUG: Connection pool: size=5, max_overflow=10, timeout=30s
+2026-02-17 01:00:00,917 INFO    [STATUS] Total vendors: 3027, with website: 2857
+2026-02-17 01:00:01,832 INFO    [ENRICH] 2163 vendors need enrichment (out of 2857 with websites)
+2026-02-17 01:00:01,832 INFO    [1/2163] Louisiana Bookstores — /independent-bookstores/louisiana-independent-bookstores/
+2026-02-17 01:00:01,833 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:00:02,222 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+/Volumes/PivotNorth/Shopping Agent/apps/backend/scripts/reseed_and_enrich.py:555: DeprecationWarning: 
+        🚨 You probably want to use `session.exec()` instead of `session.execute()`.
+
+        This is the original SQLAlchemy `session.execute()` method that returns objects
+        of type `Row`, and that you have to call `scalars()` to get the model objects.
+
+        For example:
+
+        ```Python
+        heroes = await session.execute(select(Hero)).scalars().all()
+        ```
+
+        instead you could use `exec()`:
+
+        ```Python
+        heroes = await session.exec(select(Hero)).all()
+        ```
+        
+  await session.execute(
+2026-02-17 01:00:02,712 INFO    [2/2163] Harry Winston — https://www.harrywinston.com/en
+2026-02-17 01:01:46,852 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:01:47,199 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:01:47,456 INFO    [3/2163] AS Solution — https://assolution.com/
+2026-02-17 01:01:47,529 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:01:47,774 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:01:47,955 INFO    [4/2163] Maine Bookstores — /independent-bookstores/maine-independent-bookstores/
+2026-02-17 01:01:47,956 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:01:48,225 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:01:48,485 INFO    [5/2163] Gulfstream Aerospace — https://www.gulfstream.com
+2026-02-17 01:01:49,754 INFO      Scrape: insufficient text (63 chars)
+2026-02-17 01:01:50,002 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:01:50,994 INFO    [6/2163] Alabama Bookstores — /independent-bookstores/alabama-independent-bookstores/
+2026-02-17 01:01:50,994 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:01:51,252 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:01:51,566 INFO    [7/2163] Kansas Bookstores — /independent-bookstores/kansas-independent-bookstores/
+2026-02-17 01:01:51,566 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:01:51,861 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:01:52,193 INFO    [8/2163] Cartier — https://www.cartier.com/
+2026-02-17 01:01:52,711 INFO      Scrape: insufficient text (0 chars)
+2026-02-17 01:01:52,810 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
+2026-02-17 01:01:53,102 INFO    [9/2163] Van Cleef & Arpels — https://www.vancleefarpels.com/

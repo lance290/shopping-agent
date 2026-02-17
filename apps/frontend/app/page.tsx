@@ -1,21 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
 import PublicHeader from '../components/PublicHeader';
 import PublicFooter from '../components/PublicFooter';
 import { Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-
-const WorkspaceView = dynamic(() => import('./components/WorkspaceView'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center h-screen">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-    </div>
-  ),
-});
-
 import { getMe } from './utils/auth';
 
 export default function RootPage() {
@@ -44,9 +33,9 @@ export default function RootPage() {
     );
   }
 
-  // Logged in → render workspace
+  // Logged in → still render public homepage (user can navigate to /app)
   if (isAuthenticated) {
-    return <WorkspaceView />;
+    return <PublicHomePage />;
   }
 
   // Anonymous → render public homepage

@@ -60,7 +60,7 @@ Parent PRD: `docs/active-dev/PRD_Thursday_Demo_Affiliate_Readiness.md`
 | task-004 | Backend public search endpoint | ✅ done | 45m |
 | task-005 | Frontend search API proxy | ✅ done | 15m |
 | task-006 | Public search results page | ✅ done | 45m |
-| task-007 | Adapt VendorContactModal | ⬜ pending | 45m |
+| task-007 | Adapt VendorContactModal | 🟡 alternative | 45m |
 | task-008 | Static & legal pages | ✅ done | 45m |
 | task-009 | Editorial guide pages | ✅ done | 45m |
 | task-010 | Public vendor directory | ✅ done | 45m |
@@ -89,20 +89,15 @@ Parent PRD: `docs/active-dev/PRD_Thursday_Demo_Affiliate_Readiness.md`
 - Next: Run /implement to start task-001 (Middleware rewrite)
 
 ### 2026-02-17 08:00 - Session 3 (Implementation Loop)
-- Completed 9 of 12 tasks in autonomous loop
-- task-001: Middleware inverted to protected-path blacklist (commit 74d0259)
-- task-002+003: Public layout shell + homepage with session detection (commit 05bf817)
-- task-004+005: Backend public search endpoint + frontend proxy (commit 21717dd)
-- task-006: Public search results page with product/vendor cards (commit 13ebe0d)
-- task-008: Static & legal pages — 5 pages created (commit 26995b5)
-- task-011: Scoring fix — vendor tier_fit 0.3→0.85, gating removed (commit abd24f4)
-- All 398 backend tests passing throughout
-- Remaining: task-007 (VendorContactModal), task-009 (guides), task-010 (vendor dir), task-012 (polish)
-- Continued: task-009 completed (5 editorial guides with 800+ words each, commit 5caf368)
-- Now 10/12 tasks done. Remaining: task-007, task-010, task-012
-- Continued: task-010 completed (vendor directory backend + frontend, commit 70bc679)
-- Now 11/12 tasks done. Remaining: task-007 (VendorContactModal — deferred, functional via website link), task-012 (demo polish)
-- Next: task-012 (demo polish) requires live browser testing — STOP for user
+- Completed 11 of 12 tasks in autonomous loop
+- **Foundation**: Middleware inverted (001), Layout/Home (002+003), Backend Search (004), Proxy (005), Search Page (006)
+- **Content**: Static Pages (008), Guides (009)
+- **Vendor Directory**: Backend+Frontend (010)
+- **Scoring**: Tier fit fix & gating removal (011)
+- **Hotfix**: Restored workspace access by fixing session check (cookie → API) and fixed public CSS styles (removed global dark mode force).
+- **Status**: Backend tests green (398 passed). Frontend builds.
+- **Task 007 Note**: Implemented "Request Quote" as direct website link + intent logging (privacy-safe alternative to mailto/modal without auth).
+- Next: task-012 (Demo prep & polish) requires live browser testing.
 
 ## How to Use This File
 
