@@ -27,6 +27,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const setRowOfferSort = useShoppingStore(state => state.setRowOfferSort);
   const setIsSearching = useShoppingStore(state => state.setIsSearching);
   const setRowResults = useShoppingStore(state => state.setRowResults);
+  const updateRowOffer = useShoppingStore(state => state.updateRowOffer);
   const updateRow = useShoppingStore(state => state.updateRow);
   const isPendingArchive = pendingRowDelete?.row.id === row.id;
   const sortMode: OfferSortMode = rowOfferSort[row.id] || 'original';
@@ -119,63 +120,44 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
   // is_liked now comes directly from the Bid via search results — no separate fetch/merge needed
 
-  // Helper to merge comment previews into offers (latest comment wins)
-  const mergeComments = (currentOffers: Offer[], comments: any[]): Offer[] => {
-    if (!comments || comments.length === 0) return currentOffers;
-
-    const latestByBidId = new Map<number, string>();
-    const latestByUrl = new Map<string, string>();
-    const countByBidId = new Map<number, number>();
-
-    for (const c of comments) {
-      const body = typeof c?.body === 'string' ? c.body : '';
-      if (!body) continue;
-      if (typeof c?.bid_id === 'number') {
-        if (!latestByBidId.has(c.bid_id)) latestByBidId.set(c.bid_id, body);
-        countByBidId.set(c.bid_id, (countByBidId.get(c.bid_id) || 0) + 1);
-        continue;
-      }
-      if (typeof c?.offer_url === 'string' && c.offer_url) {
-        if (!latestByUrl.has(c.offer_url)) latestByUrl.set(c.offer_url, body);
-      }
-    }
-
-    return currentOffers.map((offer) => {
-      const preview =
-        (offer.bid_id && latestByBidId.get(offer.bid_id)) ||
-        (offer.url && latestByUrl.get(offer.url)) ||
-        offer.comment_preview;
-      const commentCount = offer.bid_id ? (countByBidId.get(offer.bid_id) || 0) : 0;
-      return {
-        ...offer,
-        comment_preview: preview || offer.comment_preview,
-        comment_count: commentCount > 0 ? commentCount : offer.comment_count,
-      };
-    });
-  };
-
   // Load comments when active (once)
+  // Uses updateRowOffer for targeted mutation — safe during streaming
   useEffect(() => {
     if (isActive && !didLoadCommentsRef.current && row.id) {
       didLoadCommentsRef.current = true;
       fetchCommentsApi(row.id).then((comments) => {
-        if (comments.length > 0) {
-          const merged = mergeComments(offers, comments);
-          if (JSON.stringify(merged) !== JSON.stringify(offers)) {
-            setRowResults(row.id, merged);
-          }
+        if (!comments || comments.length === 0) return;
+
+        // Build lookup maps from comments
+        const latestByBidId = new Map<number, string>();
+        const countByBidId = new Map<number, number>();
+        for (const c of comments) {
+          const body = typeof c?.body === 'string' ? c.body : '';
+          if (!body || typeof c?.bid_id !== 'number') continue;
+          if (!latestByBidId.has(c.bid_id)) latestByBidId.set(c.bid_id, body);
+          countByBidId.set(c.bid_id, (countByBidId.get(c.bid_id) || 0) + 1);
         }
+
+        // Apply comment data via targeted mutations — never replaces the full array
+        latestByBidId.forEach((preview, bidId) => {
+          updateRowOffer(
+            row.id,
+            (o) => o.bid_id === bidId,
+            { comment_preview: preview, comment_count: countByBidId.get(bidId) || 0 },
+          );
+        });
       });
     }
-  }, [isActive, row.id, offers, setRowResults]);
+  }, [isActive, row.id, updateRowOffer]);
 
   const isSearching = useShoppingStore(state => state.isSearching);
+  const streamingRowIds = useShoppingStore(state => state.streamingRowIds);
   
   useEffect(() => {
     if (!isActive) return;
     if (didAutoLoadRef.current) return;
-    // Don't auto-refresh if Chat is already streaming results
-    const streamingInProgress = isSearching || (moreResultsIncoming[row.id] ?? false);
+    // Don't auto-refresh if Chat is already streaming results or streaming lock is held
+    const streamingInProgress = isSearching || (moreResultsIncoming[row.id] ?? false) || (streamingRowIds[row.id] ?? false);
     if (streamingInProgress) return;
     if (Array.isArray(offers) && offers.length > 0) {
         // If we have offers but haven't loaded likes yet, ensure we do (handled above)
@@ -237,45 +219,33 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const handleSelectOffer = async (offer: Offer) => {
     if (!offer.bid_id) return;
 
-    const previousOffers = offers.map((item) => ({ ...item }));
     const previousStatus = row.status;
-    const updatedOffers = offers.map((item) => ({
-      ...item,
-      is_selected: item.bid_id === offer.bid_id,
-    }));
-
-    setRowResults(row.id, updatedOffers);
+    // Optimistic: mark this offer selected, unselect others — targeted mutation
+    updateRowOffer(row.id, () => true, { is_selected: false });
+    updateRowOffer(row.id, (o: Offer) => o.bid_id === offer.bid_id, { is_selected: true });
     updateRow(row.id, { status: 'closed' });
 
     const success = await selectOfferForRow(row.id, offer.bid_id);
     if (!success) {
       console.error('[RowStrip] Failed to persist selection');
-      setRowResults(row.id, previousOffers);
+      // Revert: unselect all
+      updateRowOffer(row.id, (o: Offer) => o.bid_id === offer.bid_id, { is_selected: false });
       updateRow(row.id, { status: previousStatus });
       onToast?.('Could not select that deal. Try again.', 'error');
       return;
     }
 
-    onToast?.(`Selected “${offer.title}”`, 'success');
+    onToast?.(`Selected "${offer.title}"`, 'success');
   };
 
   const handleToggleLike = async (offer: Offer) => {
-    const previousOffers = [...offers];
     const optimisticIsLiked = !offer.is_liked;
     const offerBidId = offer.bid_id;
 
-    // Optimistic update - match by bid_id only
-    const updatedOffers = offers.map((item) => {
-      if (offerBidId && item.bid_id === offerBidId) {
-        return {
-          ...item,
-          is_liked: optimisticIsLiked,
-        };
-      }
-      return item;
-    });
-
-    setRowResults(row.id, updatedOffers);
+    // Optimistic update — targeted mutation, safe during streaming
+    if (offerBidId) {
+      updateRowOffer(row.id, (o: Offer) => o.bid_id === offerBidId, { is_liked: optimisticIsLiked });
+    }
 
     // Call API — ONE toggle endpoint
     const toggled = await toggleLikeApi(
@@ -287,8 +257,10 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     if (toggled) {
       onToast?.(toggled.is_liked ? 'Liked this offer.' : 'Removed like.', 'success');
     } else {
-      // Revert on failure
-      setRowResults(row.id, previousOffers);
+      // Revert on failure — targeted mutation
+      if (offerBidId) {
+        updateRowOffer(row.id, (o: Offer) => o.bid_id === offerBidId, { is_liked: !optimisticIsLiked });
+      }
       onToast?.('Failed to save like.', 'error');
     }
   };
@@ -298,19 +270,13 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     if (!comment || comment.trim().length === 0) return;
 
     const body = comment.trim();
-    const previousOffers = [...offers];
+    const previousPreview = _offer.comment_preview;
 
-    // Optimistic UI
-    const optimisticOffers = offers.map((item) => {
-      if (_offer.bid_id && item.bid_id === _offer.bid_id) {
-        return { ...item, comment_preview: body };
-      }
-      if (!_offer.bid_id && item.url === _offer.url) {
-        return { ...item, comment_preview: body };
-      }
-      return item;
-    });
-    setRowResults(row.id, optimisticOffers);
+    // Optimistic UI — targeted mutation, safe during streaming
+    const matcher = _offer.bid_id
+      ? (o: Offer) => o.bid_id === _offer.bid_id
+      : (o: Offer) => o.url === _offer.url;
+    updateRowOffer(row.id, matcher, { comment_preview: body });
 
     createCommentApi(row.id, body, _offer.bid_id, _offer.url)
       .then((created) => {
@@ -318,11 +284,11 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
           onToast?.('Comment saved.', 'success');
           return;
         }
-        setRowResults(row.id, previousOffers);
+        updateRowOffer(row.id, matcher, { comment_preview: previousPreview });
         onToast?.('Failed to save comment. Try again.', 'error');
       })
       .catch(() => {
-        setRowResults(row.id, previousOffers);
+        updateRowOffer(row.id, matcher, { comment_preview: previousPreview });
         onToast?.('Failed to save comment. Try again.', 'error');
       });
   };

@@ -192,6 +192,7 @@ interface ShoppingState {
   rowSearchErrors: Record<number, string | null>; // Per-row search error messages
   rowOfferSort: Record<number, OfferSortMode>; // Per-row UI sort mode
   moreResultsIncoming: Record<number, boolean>; // Per-row flag for streaming results
+  streamingRowIds: Record<number, boolean>; // Per-row lock: true while SSE is actively streaming results
   isSearching: boolean;           // Loading state for search
   cardClickQuery: string | null;  // Query from card click (triggers chat append)
 
@@ -209,10 +210,12 @@ interface ShoppingState {
   removeRow: (id: number) => void;
   setRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[], moreIncoming?: boolean, userMessage?: string) => void;
   appendRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[], moreIncoming?: boolean, userMessage?: string) => void;
+  updateRowOffer: (rowId: number, matcher: (offer: Offer) => boolean, updates: Partial<Offer>) => void;
   clearRowResults: (rowId: number) => void;
   setRowOfferSort: (rowId: number, sort: OfferSortMode) => void;
   setIsSearching: (searching: boolean) => void;
   setMoreResultsIncoming: (rowId: number, incoming: boolean) => void;
+  setStreamingLock: (rowId: number, locked: boolean) => void;
   clearSearch: () => void;
   setCardClickQuery: (query: string | null) => void;  // For card click -> chat append
 
@@ -245,6 +248,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   rowSearchErrors: {},
   rowOfferSort: {},
   moreResultsIncoming: {},
+  streamingRowIds: {},
   isSearching: false,
   cardClickQuery: null,
   isSidebarOpen: false, // Default closed
@@ -465,6 +469,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     activeRowId: state.activeRowId === id ? null : state.activeRowId,
   })),
   setRowResults: (rowId, results, providerStatuses, moreIncoming = false, userMessage) => set((state) => {
+    // STREAMING LOCK: If SSE is actively streaming for this row, skip the replace.
+    // This prevents auto-load, comment merge, and other paths from wiping SSE results.
+    if (state.streamingRowIds[rowId]) {
+      console.warn(`[Store] setRowResults BLOCKED for row ${rowId} — streaming lock active`);
+      return {};
+    }
+
     const existing = state.rowResults[rowId] || [];
 
     // Preserve service providers (mailto: links) when incoming results don't include them
@@ -506,6 +517,12 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       isSearching: moreIncoming,
     };
   }),
+  updateRowOffer: (rowId, matcher, updates) => set((state) => {
+    const existing = state.rowResults[rowId];
+    if (!existing) return {};
+    const updated = existing.map((offer) => matcher(offer) ? { ...offer, ...updates } : offer);
+    return { rowResults: { ...state.rowResults, [rowId]: updated } };
+  }),
   clearRowResults: (rowId) => set((state) => {
     const { [rowId]: _, ...rest } = state.rowResults;
     const { [rowId]: __, ...restStatuses } = state.rowProviderStatuses;
@@ -522,6 +539,9 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   setIsSearching: (searching) => set({ isSearching: searching }),
   setMoreResultsIncoming: (rowId, incoming) => set((state) => ({
     moreResultsIncoming: { ...state.moreResultsIncoming, [rowId]: incoming },
+  })),
+  setStreamingLock: (rowId, locked) => set((state) => ({
+    streamingRowIds: { ...state.streamingRowIds, [rowId]: locked },
   })),
   clearSearch: () => set({ rowResults: {}, rowProviderStatuses: {}, rowSearchErrors: {}, moreResultsIncoming: {}, currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
   setCardClickQuery: (query) => set({ cardClickQuery: query }),

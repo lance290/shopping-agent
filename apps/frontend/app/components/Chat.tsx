@@ -152,6 +152,7 @@ export default function Chat() {
     const effectiveActiveRowId = store.activeRowId;
 
     let assistantMessageId: string | null = null;
+    let streamingRowId: number | null = null; // Track which row SSE is streaming for
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -210,7 +211,7 @@ export default function Chat() {
               data = dataRaw;
             }
 
-            if (eventName === 'assistant_message') {
+            if (eventName === 'assistant_message' && typeof data?.text === 'string') {
               assistantContent = typeof data?.text === 'string' ? data.text : '';
             } else if (eventName === 'action_started') {
               if (data?.type === 'search') {
@@ -341,6 +342,11 @@ export default function Chat() {
               const userMessage = data?.user_message; // Extract user_message
               
               if (rowId) {
+                // Acquire streaming lock on first batch if not already locked
+                if (!streamingRowId && rowId) {
+                  streamingRowId = rowId;
+                  store.setStreamingLock(rowId, true);
+                }
                 // Always append during SSE streaming — never replace.
                 // The authoritative DB re-fetch happens on 'done'.
                 store.appendRowResults(rowId, results, providerStatuses, moreIncoming, userMessage);
@@ -398,7 +404,12 @@ export default function Chat() {
               }
             } else if (eventName === 'done') {
               store.setIsSearching(false);
-              const doneRowId = store.activeRowId;
+              const doneRowId = streamingRowId || store.activeRowId;
+              // Release streaming lock BEFORE authoritative re-fetch
+              if (streamingRowId) {
+                store.setStreamingLock(streamingRowId, false);
+                streamingRowId = null;
+              }
               if (doneRowId) {
                 store.setMoreResultsIncoming(doneRowId, false);
                 // Authoritative re-fetch: DB has all persisted, filtered bids.
@@ -414,6 +425,11 @@ export default function Chat() {
               const msg = typeof data?.message === 'string' ? data.message : 'Something went wrong.';
               assistantContent = msg;
               store.setIsSearching(false);
+              // Release streaming lock on error
+              if (streamingRowId) {
+                store.setStreamingLock(streamingRowId, false);
+                streamingRowId = null;
+              }
               const errorRowId = data?.row_id ?? store.activeRowId;
               if (errorRowId) {
                 store.setMoreResultsIncoming(errorRowId, false);
@@ -446,6 +462,12 @@ export default function Chat() {
       }
     } catch (error) {
       console.error('Chat error:', error);
+      // Safety net: release streaming lock on any unhandled error
+      if (streamingRowId) {
+        store.setStreamingLock(streamingRowId, false);
+        store.setIsSearching(false);
+        streamingRowId = null;
+      }
       const fallbackText = 'Sorry, something went wrong. Please try again.';
       if (assistantMessageId) {
         setMessages(prev =>
