@@ -23,10 +23,29 @@ class SourcingService:
         self.session = session
         self.repo = sourcing_repo
 
+    @staticmethod
+    def _parse_price_value(val) -> Optional[float]:
+        """Parse a price value that might be a number, string like '>50', or None."""
+        if val is None or val == "":
+            return None
+        if isinstance(val, (int, float)):
+            return float(val)
+        if isinstance(val, str):
+            # Strip currency symbols, comparison operators, whitespace
+            cleaned = val.strip().lstrip("><=~$€£").strip()
+            if not cleaned:
+                return None
+            try:
+                return float(cleaned.replace(",", ""))
+            except (ValueError, TypeError):
+                return None
+        return None
+
     def _extract_price_constraints(self, row: Row) -> tuple[Optional[float], Optional[float]]:
         min_price: Optional[float] = None
         max_price: Optional[float] = None
 
+        # 1. Check search_intent first (structured, most reliable)
         if row.search_intent:
             try:
                 payload = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
@@ -38,14 +57,40 @@ class SourcingService:
             except Exception:
                 pass
 
+        # 2. Fallback to choice_answers (LLM uses varying key names)
         if (min_price is None and max_price is None) and row.choice_answers:
             try:
                 answers = json.loads(row.choice_answers) if isinstance(row.choice_answers, str) else row.choice_answers
                 if isinstance(answers, dict):
-                    if answers.get("min_price") not in (None, ""):
-                        min_price = float(answers["min_price"])
-                    if answers.get("max_price") not in (None, ""):
-                        max_price = float(answers["max_price"])
+                    # Try all known key variants for min price
+                    for key in ("min_price", "price_min", "minimum_price"):
+                        v = self._parse_price_value(answers.get(key))
+                        if v is not None:
+                            min_price = v
+                            break
+
+                    # Try all known key variants for max price
+                    for key in ("max_price", "price_max", "maximum_price"):
+                        v = self._parse_price_value(answers.get(key))
+                        if v is not None:
+                            max_price = v
+                            break
+
+                    # Handle generic "price" key (e.g. ">50", "<100", "50-100")
+                    if min_price is None and max_price is None:
+                        price_val = answers.get("price")
+                        if isinstance(price_val, str) and price_val.strip():
+                            p = price_val.strip()
+                            if p.startswith(">"):
+                                min_price = self._parse_price_value(p)
+                            elif p.startswith("<"):
+                                max_price = self._parse_price_value(p)
+                            elif "-" in p:
+                                parts = p.split("-", 1)
+                                min_price = self._parse_price_value(parts[0])
+                                max_price = self._parse_price_value(parts[1])
+                        elif isinstance(price_val, (int, float)):
+                            max_price = float(price_val)
             except Exception:
                 pass
 
