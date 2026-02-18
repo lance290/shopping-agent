@@ -35,7 +35,7 @@ def _build_provenance(result: SearchResult, provider_id: str) -> dict:
     if getattr(result, "match_score", 0) > 0.7:
         matched_features.append("Strong match for your search")
 
-    return {
+    provenance = {
         "product_info": {
             "title": result.title,
             "brand": None,
@@ -45,6 +45,13 @@ def _build_provenance(result: SearchResult, provider_id: str) -> dict:
         "chat_excerpts": [],
         "source_provider": provider_id,
     }
+
+    # Preserve vector similarity score for the scorer (vendor_directory uses this)
+    ms = getattr(result, "match_score", None)
+    if ms is not None and ms > 0:
+        provenance["vector_similarity"] = float(ms)
+
+    return provenance
 
 
 def _normalize_result(result: SearchResult, provider_id: str) -> NormalizedResult:

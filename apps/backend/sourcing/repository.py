@@ -1056,6 +1056,7 @@ class SourcingRepository:
 
         providers_filter = kwargs.pop("providers", None)
         desire_tier = kwargs.pop("desire_tier", None)
+        vendor_query = kwargs.pop("vendor_query", None)
         selected_providers: Dict[str, SourcingProvider] = self.providers
         if providers_filter:
             allow = {str(p).strip() for p in providers_filter if str(p).strip()}
@@ -1066,6 +1067,9 @@ class SourcingRepository:
         # Apply desire-tier filtering
         selected_providers = self._filter_providers_by_tier(selected_providers, desire_tier)
         
+        if vendor_query:
+            print(f"[SourcingRepository] Vendor query (LLM intent): {vendor_query!r}")
+
         start_time = time.time()
         try:
             PROVIDER_TIMEOUT_SECONDS = float(os.getenv("SOURCING_PROVIDER_TIMEOUT_SECONDS", "5.0"))
@@ -1078,11 +1082,14 @@ class SourcingRepository:
         async def search_with_timeout(
             name: str, provider: SourcingProvider
         ) -> tuple[str, List[SearchResult], ProviderStatusSnapshot]:
-            print(f"[SourcingRepository] Starting search with provider: {name}")
+            # Vendor directory gets the LLM's clean intent query (no location noise)
+            # Other providers get the full query (locations help web search)
+            effective_query = vendor_query if (name == "vendor_directory" and vendor_query) else query
+            print(f"[SourcingRepository] Starting search with provider: {name} query={effective_query!r}")
             results, status = await run_provider_with_status(
                 name,
                 provider,
-                query,
+                effective_query,
                 timeout_seconds=PROVIDER_TIMEOUT_SECONDS,
                 **kwargs,
             )
@@ -1199,6 +1206,7 @@ class SourcingRepository:
 
         providers_filter = kwargs.pop("providers", None)
         desire_tier = kwargs.pop("desire_tier", None)
+        vendor_query = kwargs.pop("vendor_query", None)
         selected_providers: Dict[str, SourcingProvider] = self.providers
         if providers_filter:
             allow = {str(p).strip() for p in providers_filter if str(p).strip()}
@@ -1214,11 +1222,12 @@ class SourcingRepository:
         async def search_with_timeout(
             name: str, provider: SourcingProvider
         ) -> tuple[str, List[SearchResult], ProviderStatusSnapshot]:
-            print(f"[SourcingRepository] [STREAM] Starting provider: {name}")
+            effective_query = vendor_query if (name == "vendor_directory" and vendor_query) else query
+            print(f"[SourcingRepository] [STREAM] Starting provider: {name} query={effective_query!r}")
             results, status = await run_provider_with_status(
                 name,
                 provider,
-                query,
+                effective_query,
                 timeout_seconds=PROVIDER_TIMEOUT_SECONDS,
                 **kwargs,
             )

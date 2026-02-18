@@ -141,8 +141,21 @@ class SourcingService:
         metrics = get_metrics_collector()
         log_search_start(row_id, query, providers or [])
         
-        # Extract desire_tier for logging/repo context
+        # Extract desire_tier and product_name for search context
         desire_tier = row.desire_tier if row else None
+
+        # Extract clean product intent for vendor vector search.
+        # The LLM distills "jet to nashville" → product_name: "Private jet charter".
+        # Web providers get the full query (locations help find routes).
+        # Vendor provider gets the clean intent (no location noise in embeddings).
+        vendor_query = None
+        if row and row.search_intent:
+            try:
+                si = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
+                if isinstance(si, dict):
+                    vendor_query = si.get("product_name") or si.get("raw_input")
+            except Exception:
+                pass
 
         with metrics.track_search(row_id=row_id, query=query):
             search_response = await self.repo.search_all_with_status(
@@ -151,6 +164,7 @@ class SourcingService:
                 min_price=min_price,
                 max_price=max_price,
                 desire_tier=desire_tier,
+                vendor_query=vendor_query,
             )
 
             normalized_results = search_response.normalized_results

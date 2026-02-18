@@ -167,13 +167,27 @@ def _relevance_score(
 
     This is the most important scoring dimension — it determines whether
     a result actually matches what the user asked for.
+
+    For vendor_directory results, the vector similarity score IS the
+    relevance signal. The embedding model already understands that
+    "Jettly" means private aviation and "Gepetto" means toy store —
+    no keyword matching on vendor names needed.
     """
+    # Vendor directory: use vector similarity directly as relevance
+    # This is the LLM's understanding of semantic relevance.
+    vec_sim = result.provenance.get("vector_similarity")
+    if vec_sim is not None and result.source == "vendor_directory":
+        # vec_sim is 0.45-0.62 for threshold 0.55 (1 - distance)
+        # Scale to 0-1 range: 0.45 → 0.0, 0.62 → 1.0
+        # (tighter matches get dramatically higher scores)
+        scaled = max(0.0, min(1.0, (vec_sim - 0.40) / 0.25))
+        return scaled
+
     if not intent:
         return 0.5
 
     score = 0.0
     title_lower = result.title.lower() if result.title else ""
-    # Also check merchant name and raw_data description for broader matching
     merchant_lower = result.merchant_name.lower() if result.merchant_name else ""
     desc_lower = ""
     if result.raw_data:
@@ -192,30 +206,28 @@ def _relevance_score(
 
     # Keyword match (strongest signal — these are the core "what" words)
     if intent.keywords:
-        # Check against title first (strongest), then full searchable text
         title_matched = sum(1 for kw in intent.keywords if kw.lower() in title_lower)
         full_matched = sum(1 for kw in intent.keywords if kw.lower() in searchable)
         kw_count = len(intent.keywords)
-        # Title matches are worth more than description matches
         title_ratio = title_matched / kw_count if kw_count else 0
         full_ratio = full_matched / kw_count if kw_count else 0
         score += title_ratio * 0.35 + (full_ratio - title_ratio) * 0.10
 
-    # Product name match (if set, check if the product name appears in title)
+    # Product name match
     if intent.product_name:
         name_words = [w for w in intent.product_name.lower().split() if len(w) > 2]
         if name_words:
             name_matched = sum(1 for w in name_words if w in title_lower)
             score += (name_matched / len(name_words)) * 0.15
 
-    # Category match (looser — check if category words appear)
+    # Category match
     if intent.product_category:
         cat_words = intent.product_category.lower().replace("_", " ").split()
         cat_matched = sum(1 for w in cat_words if w in searchable)
         cat_ratio = cat_matched / max(len(cat_words), 1)
         score += cat_ratio * 0.10
 
-    # Base relevance — results came from a targeted search, so some baseline
+    # Base relevance
     score += 0.05
 
     return min(score, 1.0)

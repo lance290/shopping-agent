@@ -277,6 +277,17 @@ async def search_row_listings_stream(
     # Extract price constraints from search_intent / choice_answers
     min_price, max_price = sourcing_service._extract_price_constraints(row)
 
+    # Extract clean product intent for vendor vector search
+    vendor_query = None
+    if row.search_intent:
+        try:
+            import json as _json
+            si = _json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
+            if isinstance(si, dict):
+                vendor_query = si.get("product_name") or si.get("raw_input")
+        except Exception:
+            pass
+
     row.status = "bids_arriving"
     row.updated_at = datetime.utcnow()
     session.add(row)
@@ -293,6 +304,7 @@ async def search_row_listings_stream(
             desire_tier=row.desire_tier,
             min_price=min_price,
             max_price=max_price,
+            vendor_query=vendor_query,
         ):
             all_statuses.append(status)
 

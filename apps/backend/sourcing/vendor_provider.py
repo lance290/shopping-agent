@@ -124,6 +124,7 @@ class VendorDirectoryProvider(SourcingProvider):
                 merchant_domain=r["website"].replace("https://", "").replace("http://", "").split("/")[0] if r["website"] else "",
                 image_url=favicon,
                 source="vendor_directory",
+                match_score=1.0 - float(r["distance"]),
                 rating=None,
                 reviews_count=None,
                 shipping_info=f"Category: {r['category'] or 'General'}" if r["category"] else None,
