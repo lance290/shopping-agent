@@ -131,20 +131,16 @@ export default function Chat() {
         store.setProjects(projects);
       }
     };
-    loadData();
-  }, []);
-
-  // Replay search after login redirect (anonymous → register → come back)
-  useEffect(() => {
-    const pending = sessionStorage.getItem('pending_search');
-    console.log('[Chat] Checking pending_search:', pending);
-    if (pending) {
-      sessionStorage.removeItem('pending_search');
-      console.log('[Chat] Replaying search via cardClickQuery:', pending);
-      // Use the proven cardClickQuery mechanism (same as trending pills)
-      store.setCardClickQuery(pending);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadData().then(() => {
+      // Replay search after login redirect (anonymous → register → come back)
+      const pending = sessionStorage.getItem('pending_search');
+      console.log('[Chat] Checking pending_search after load:', pending);
+      if (pending) {
+        sessionStorage.removeItem('pending_search');
+        console.log('[Chat] Replaying search via cardClickQuery:', pending);
+        store.setCardClickQuery(pending);
+      }
+    });
   }, []);
   
   const handleSubmit = async (e: React.FormEvent | null, overrideText?: string) => {
