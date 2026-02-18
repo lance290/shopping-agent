@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlmodel import select
 
 from models import (
-    Row, SellerQuote, OutreachEvent, VendorProfile,
+    Row, SellerQuote, OutreachEvent, VendorProfile, User,
     generate_magic_link_token,
 )
 from database import get_session
@@ -280,7 +280,14 @@ async def send_outreach(
         if evt:
             evt.sent_at = datetime.utcnow()
             evt.message_id = email_result.message_id
-            await session.commit()
+
+        # Persist reply-to email to user profile if not already set
+        if request.reply_to_email and auth_session.user_id:
+            user = await session.get(User, auth_session.user_id)
+            if user and not user.email:
+                user.email = request.reply_to_email
+
+        await session.commit()
 
     return {
         "status": "sent" if email_result.success else "error",

@@ -50,9 +50,13 @@ export default function VendorContactModal({
 
     const init = async () => {
       // Get user's email for reply-to
+      let userEmail = '';
       try {
         const user = await getMe();
-        if (user?.email) setReplyToEmail(user.email);
+        if (user?.email) {
+          userEmail = user.email;
+          setReplyToEmail(user.email);
+        }
       } catch { /* no-op */ }
 
       // Generate email via LLM
@@ -60,7 +64,7 @@ export default function VendorContactModal({
         rowId,
         vendorEmail,
         vendorCompany,
-        replyToEmail || 'your@email.com',
+        userEmail || 'your@email.com',
       );
 
       if (result) {
@@ -83,7 +87,11 @@ export default function VendorContactModal({
 
   const handleSend = async () => {
     if (!replyToEmail.trim()) {
-      setErrorMsg('Please enter your reply-to email address.');
+      setErrorMsg('Please enter your email address so the vendor can reply to you.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyToEmail.trim())) {
+      setErrorMsg('Please enter a valid email address.');
       return;
     }
     if (!subject.trim() || !body.trim()) {
