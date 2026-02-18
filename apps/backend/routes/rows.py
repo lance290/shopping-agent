@@ -86,15 +86,13 @@ async def create_row(
     session: AsyncSession = Depends(get_session)
 ):
     
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = await resolve_user_id(authorization, session)
 
     if row.project_id is not None:
         project = await session.get(Project, row.project_id)
         if not project:
             raise HTTPException(status_code=400, detail="Project not found")
-        if project.user_id != auth_session.user_id:
+        if project.user_id != user_id:
             raise HTTPException(status_code=403, detail="Project not owned by user")
 
     request_spec_data = row.request_spec
@@ -104,7 +102,7 @@ async def create_row(
         status=row.status,
         budget_max=row.budget_max,
         currency=row.currency,
-        user_id=auth_session.user_id,
+        user_id=user_id,
         project_id=row.project_id,
         choice_factors=row.choice_factors,
         choice_answers=row.choice_answers,
@@ -242,14 +240,10 @@ async def update_row(
     session: AsyncSession = Depends(get_session)
 ):
     
-    print(f"Received PATCH request for row {row_id} with data: {row_update}")
-    
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = await resolve_user_id(authorization, session)
 
     result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        select(Row).where(Row.id == row_id, Row.user_id == user_id)
     )
     row = result.first()
 
