@@ -132,6 +132,19 @@ class SearchAPIProvider(SourcingProvider):
             "gl": kwargs.get("gl", "us"),
             "hl": kwargs.get("hl", "en"),
         }
+
+        # Price range filtering via tbs param (Google Shopping format)
+        tbs_parts = []
+        min_price = kwargs.get("min_price")
+        max_price = kwargs.get("max_price")
+        if min_price is not None or max_price is not None:
+            tbs_parts.append("mr:1")
+            tbs_parts.append("price:1")
+            if min_price is not None:
+                tbs_parts.append(f"ppr_min:{int(float(min_price) * 100)}")
+            if max_price is not None:
+                tbs_parts.append(f"ppr_max:{int(float(max_price) * 100)}")
+            params["tbs"] = ",".join(tbs_parts)
         
         async with httpx.AsyncClient() as client:
             response = await client.get(self.base_url, params=params)
@@ -307,6 +320,19 @@ class SerpAPIProvider(SourcingProvider):
             "gl": kwargs.get("gl", "us"),
             "hl": kwargs.get("hl", "en"),
         }
+
+        # Price range filtering via tbs param (Google Shopping format)
+        tbs_parts = []
+        min_price = kwargs.get("min_price")
+        max_price = kwargs.get("max_price")
+        if min_price is not None or max_price is not None:
+            tbs_parts.append("mr:1")
+            tbs_parts.append("price:1")
+            if min_price is not None:
+                tbs_parts.append(f"ppr_min:{int(float(min_price) * 100)}")
+            if max_price is not None:
+                tbs_parts.append(f"ppr_max:{int(float(max_price) * 100)}")
+            params["tbs"] = ",".join(tbs_parts)
         
         async with httpx.AsyncClient() as client:
             response = await client.get(self.base_url, params=params)
@@ -354,6 +380,19 @@ class ValueSerpProvider(SourcingProvider):
             "gl": kwargs.get("gl", "us"),
             "hl": kwargs.get("hl", "en"),
         }
+
+        # Price range filtering via tbs param (Google Shopping format)
+        tbs_parts = []
+        min_price = kwargs.get("min_price")
+        max_price = kwargs.get("max_price")
+        if min_price is not None or max_price is not None:
+            tbs_parts.append("mr:1")
+            tbs_parts.append("price:1")
+            if min_price is not None:
+                tbs_parts.append(f"ppr_min:{int(float(min_price) * 100)}")
+            if max_price is not None:
+                tbs_parts.append(f"ppr_max:{int(float(max_price) * 100)}")
+            params["tbs"] = ",".join(tbs_parts)
         
         async with httpx.AsyncClient() as client:
             response = await client.get(self.base_url, params=params)
@@ -729,7 +768,16 @@ class GoogleCustomSearchProvider(SourcingProvider):
         self.base_url = "https://www.googleapis.com/customsearch/v1"
 
     async def search(self, query: str, **kwargs) -> List[SearchResult]:
-        search_query = f"{query} buy price"
+        min_price = kwargs.get("min_price")
+        max_price = kwargs.get("max_price")
+        price_hint = ""
+        if min_price is not None and max_price is not None:
+            price_hint = f" ${int(min_price)}-${int(max_price)}"
+        elif min_price is not None:
+            price_hint = f" over ${int(min_price)}"
+        elif max_price is not None:
+            price_hint = f" under ${int(max_price)}"
+        search_query = f"{query} buy price{price_hint}"
         print(f"[GoogleCSE] Searching: {search_query}")
         
         params = {

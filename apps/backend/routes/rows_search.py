@@ -274,6 +274,9 @@ async def search_row_listings_stream(
     sourcing_repo = get_sourcing_repo()
     sourcing_service = SourcingService(session, sourcing_repo)
 
+    # Extract price constraints from search_intent / choice_answers
+    min_price, max_price = sourcing_service._extract_price_constraints(row)
+
     row.status = "bids_arriving"
     row.updated_at = datetime.utcnow()
     session.add(row)
@@ -288,6 +291,8 @@ async def search_row_listings_stream(
             sanitized_query,
             providers=body.providers,
             desire_tier=row.desire_tier,
+            min_price=min_price,
+            max_price=max_price,
         ):
             all_statuses.append(status)
 
