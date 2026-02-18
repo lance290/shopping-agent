@@ -323,7 +323,9 @@ export default function OfferTile({
               variant="primary"
               className="w-full mb-3"
               onClick={() => {
-                if (row.title) sessionStorage.setItem('pending_search', row.title);
+                const query = row.title || offer.title || offer.merchant || '';
+                console.log('[OfferTile] Saving pending_search:', query);
+                if (query) sessionStorage.setItem('pending_search', query);
                 window.location.href = '/login';
               }}
             >

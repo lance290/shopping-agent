@@ -137,11 +137,12 @@ export default function Chat() {
   // Replay search after login redirect (anonymous → register → come back)
   useEffect(() => {
     const pending = sessionStorage.getItem('pending_search');
+    console.log('[Chat] Checking pending_search:', pending);
     if (pending) {
       sessionStorage.removeItem('pending_search');
-      // Small delay to let rows load first
-      const timer = setTimeout(() => handleSubmit(null, pending), 500);
-      return () => clearTimeout(timer);
+      console.log('[Chat] Replaying search via cardClickQuery:', pending);
+      // Use the proven cardClickQuery mechanism (same as trending pills)
+      store.setCardClickQuery(pending);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
