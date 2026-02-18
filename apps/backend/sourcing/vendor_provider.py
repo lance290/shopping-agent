@@ -29,8 +29,8 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/embeddings"
 DISTANCE_THRESHOLD = float(os.getenv("VENDOR_DISTANCE_THRESHOLD", "0.55"))
 
 
-async def _embed_query(text: str) -> Optional[List[float]]:
-    """Embed a single query string via OpenRouter."""
+async def _embed_texts(texts: List[str]) -> Optional[List[List[float]]]:
+    """Embed one or more texts via OpenRouter in a single batched call."""
     if not OPENROUTER_API_KEY:
         return None
     try:
@@ -43,16 +43,31 @@ async def _embed_query(text: str) -> Optional[List[float]]:
                 },
                 json={
                     "model": EMBEDDING_MODEL,
-                    "input": [text],
+                    "input": texts,
                     "dimensions": EMBEDDING_DIMENSIONS,
                 },
             )
             resp.raise_for_status()
             data = resp.json()
-            return data["data"][0]["embedding"]
+            return [item["embedding"] for item in data["data"]]
     except Exception as e:
         logger.warning(f"[VendorProvider] Embedding failed: {e}")
         return None
+
+
+def _weighted_blend(vecs: List[List[float]], weights: List[float]) -> List[float]:
+    """Blend multiple embedding vectors with weights, then L2-normalize."""
+    import math
+    dim = len(vecs[0])
+    blended = [0.0] * dim
+    for vec, w in zip(vecs, weights):
+        for i in range(dim):
+            blended[i] += vec[i] * w
+    # L2-normalize so cosine distance works correctly
+    norm = math.sqrt(sum(x * x for x in blended))
+    if norm > 0:
+        blended = [x / norm for x in blended]
+    return blended
 
 
 class VendorDirectoryProvider(SourcingProvider):
@@ -69,12 +84,30 @@ class VendorDirectoryProvider(SourcingProvider):
         )
 
     async def search(self, query: str, **kwargs) -> List[SearchResult]:
-        """Embed query, cosine search vendor table, return SearchResults."""
-        # 1. Embed the query
-        embedding = await _embed_query(query)
-        if not embedding:
-            logger.info("[VendorProvider] No embedding — skipping vector search")
-            return []
+        """Embed query, cosine search vendor table, return SearchResults.
+
+        If a context_query kwarg is provided (the full user query with locations
+        etc.), we blend two embeddings:
+          - 70% intent query (product_name from LLM, e.g. 'Private jet charter')
+          - 30% context query (full query, e.g. 'private jet charter san diego nashville')
+        This keeps intent dominant while still boosting vendors that match context.
+        """
+        context_query = kwargs.get("context_query")
+
+        # 1. Embed — batched if we have both intent + context
+        if context_query and context_query.strip().lower() != query.strip().lower():
+            vecs = await _embed_texts([query, context_query])
+            if not vecs or len(vecs) < 2:
+                logger.info("[VendorProvider] No embedding — skipping vector search")
+                return []
+            embedding = _weighted_blend(vecs, [0.7, 0.3])
+            logger.info(f"[VendorProvider] Blended embedding: 70% '{query}' + 30% '{context_query}'")
+        else:
+            vecs = await _embed_texts([query])
+            if not vecs:
+                logger.info("[VendorProvider] No embedding — skipping vector search")
+                return []
+            embedding = vecs[0]
 
         vec_str = "[" + ",".join(str(f) for f in embedding) + "]"
 

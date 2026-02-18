@@ -1082,16 +1082,21 @@ class SourcingRepository:
         async def search_with_timeout(
             name: str, provider: SourcingProvider
         ) -> tuple[str, List[SearchResult], ProviderStatusSnapshot]:
-            # Vendor directory gets the LLM's clean intent query (no location noise)
-            # Other providers get the full query (locations help web search)
-            effective_query = vendor_query if (name == "vendor_directory" and vendor_query) else query
+            # Vendor directory: use LLM's clean intent as primary query,
+            # pass full query as context_query for weighted blending (70/30)
+            if name == "vendor_directory" and vendor_query:
+                effective_query = vendor_query
+                extra_kwargs = {**kwargs, "context_query": query}
+            else:
+                effective_query = query
+                extra_kwargs = kwargs
             print(f"[SourcingRepository] Starting search with provider: {name} query={effective_query!r}")
             results, status = await run_provider_with_status(
                 name,
                 provider,
                 effective_query,
                 timeout_seconds=PROVIDER_TIMEOUT_SECONDS,
-                **kwargs,
+                **extra_kwargs,
             )
             if status.status != "ok":
                 error_str = redact_secrets(status.message or "")
@@ -1222,14 +1227,19 @@ class SourcingRepository:
         async def search_with_timeout(
             name: str, provider: SourcingProvider
         ) -> tuple[str, List[SearchResult], ProviderStatusSnapshot]:
-            effective_query = vendor_query if (name == "vendor_directory" and vendor_query) else query
+            if name == "vendor_directory" and vendor_query:
+                effective_query = vendor_query
+                extra_kwargs = {**kwargs, "context_query": query}
+            else:
+                effective_query = query
+                extra_kwargs = kwargs
             print(f"[SourcingRepository] [STREAM] Starting provider: {name} query={effective_query!r}")
             results, status = await run_provider_with_status(
                 name,
                 provider,
                 effective_query,
                 timeout_seconds=PROVIDER_TIMEOUT_SECONDS,
-                **kwargs,
+                **extra_kwargs,
             )
             if status.status != "ok":
                 error_str = redact_secrets(status.message or "")
