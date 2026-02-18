@@ -1,9 +1,11 @@
 import { Offer, Row } from '../store';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Heart, MessageSquare, Share2, ShieldCheck, Star, Truck } from 'lucide-react';
+import { Heart, MessageSquare, Share2, ShieldCheck, Star, Truck, X, UserPlus } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { getToken } from '../utils/auth';
 import VendorContactModal from './VendorContactModal';
 
 interface OfferTileProps {
@@ -28,6 +30,7 @@ export default function OfferTile({
   onShare,
 }: OfferTileProps) {
   const [showVendorModal, setShowVendorModal] = useState(false);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
 
   // Build clickout URL - service providers show modal, others go through clickout
   const isQuoteBased = offer.price === null || offer.price === undefined;
@@ -283,7 +286,11 @@ export default function OfferTile({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    setShowVendorModal(true);
+                    if (!getToken()) {
+                      setShowAuthPrompt(true);
+                    } else {
+                      setShowVendorModal(true);
+                    }
                   }}
                   className="w-full h-8 text-xs"
                 >
@@ -299,6 +306,33 @@ export default function OfferTile({
           </div>
         </div>
       </a>
+
+      {showAuthPrompt && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAuthPrompt(false)} />
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6 text-center">
+            <button onClick={() => setShowAuthPrompt(false)} className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+              <UserPlus size={24} className="text-blue-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Create a free account</h3>
+            <p className="text-sm text-gray-500 mb-5">
+              Sign up in 30 seconds to request quotes from vendors. We&apos;ll keep your search history too.
+            </p>
+            <Button
+              variant="primary"
+              className="w-full mb-3"
+              onClick={() => { window.location.href = '/login'; }}
+            >
+              Sign Up / Log In
+            </Button>
+            <button onClick={() => setShowAuthPrompt(false)} className="text-sm text-gray-400 hover:text-gray-600">
+              Maybe later
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {(isServiceProvider || isVendorDirectory) && (
         <VendorContactModal
