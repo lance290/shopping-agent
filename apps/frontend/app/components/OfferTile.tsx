@@ -1,4 +1,4 @@
-import { Offer, Row } from '../store';
+import { Offer, Row, useShoppingStore } from '../store';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Heart, MessageSquare, Share2, ShieldCheck, Star, Truck, X, UserPlus } from 'lucide-react';
@@ -323,9 +323,11 @@ export default function OfferTile({
               variant="primary"
               className="w-full mb-3"
               onClick={() => {
-                const query = row.title || offer.title || offer.merchant || '';
-                console.log('[OfferTile] Saving pending_search:', query);
-                if (query) sessionStorage.setItem('pending_search', query);
+                // Save all anonymous row IDs so they can be claimed after login
+                const storeState = useShoppingStore.getState();
+                const rowIds = storeState.rows.map((r: { id: number }) => r.id);
+                console.log('[OfferTile] Saving anonymous row IDs for claim:', rowIds);
+                if (rowIds.length) sessionStorage.setItem('pending_claim_rows', JSON.stringify(rowIds));
                 window.location.href = '/login';
               }}
             >

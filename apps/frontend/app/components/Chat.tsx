@@ -131,16 +131,7 @@ export default function Chat() {
         store.setProjects(projects);
       }
     };
-    loadData().then(() => {
-      // Replay search after login redirect (anonymous → register → come back)
-      const pending = sessionStorage.getItem('pending_search');
-      console.log('[Chat] Checking pending_search after load:', pending);
-      if (pending) {
-        sessionStorage.removeItem('pending_search');
-        console.log('[Chat] Replaying search via cardClickQuery:', pending);
-        store.setCardClickQuery(pending);
-      }
-    });
+    loadData();
   }, []);
   
   const handleSubmit = async (e: React.FormEvent | null, overrideText?: string) => {

@@ -302,6 +302,27 @@ export const fetchRowsFromDb = async (): Promise<Row[] | null> => {
   return null;
 };
 
+// Helper: Claim anonymous (guest) rows for the authenticated user
+export const claimGuestRows = async (rowIds: number[]): Promise<number> => {
+  if (!rowIds.length) return 0;
+  try {
+    const res = await fetchWithAuth('/api/rows/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ row_ids: rowIds }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      console.log('[API] Claimed guest rows:', data.claimed);
+      return data.claimed ?? 0;
+    }
+    console.error('[API] claimGuestRows failed:', res.status);
+  } catch (err) {
+    console.error('[API] claimGuestRows error:', err);
+  }
+  return 0;
+};
+
 // Helper: Fetch projects
 export const fetchProjectsFromDb = async (): Promise<Project[] | null> => {
   try {

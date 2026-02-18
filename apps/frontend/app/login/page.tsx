@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { startAuth, verifyAuth, setLoggedIn } from '../utils/auth';
+import { claimGuestRows } from '../utils/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,6 +42,19 @@ export default function LoginPage() {
     try {
       await verifyAuth(phone, code);
       setLoggedIn();
+
+      // Claim anonymous rows created before login
+      const pendingRaw = sessionStorage.getItem('pending_claim_rows');
+      if (pendingRaw) {
+        sessionStorage.removeItem('pending_claim_rows');
+        try {
+          const rowIds: number[] = JSON.parse(pendingRaw);
+          if (rowIds.length) await claimGuestRows(rowIds);
+        } catch (e) {
+          console.error('[Login] Failed to claim guest rows:', e);
+        }
+      }
+
       router.push('/');
       router.refresh();
     } catch (err: unknown) {

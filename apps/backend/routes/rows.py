@@ -147,6 +147,59 @@ async def create_row(
     return db_row
 
 
+class ClaimRowsRequest(BaseModel):
+    row_ids: List[int]
+
+
+@router.post("/rows/claim")
+async def claim_guest_rows(
+    body: ClaimRowsRequest,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Migrate anonymous (guest) rows to the authenticated user.
+
+    Called after login/register so the user keeps their anonymous search
+    results, bids, and selections.
+    """
+    from dependencies import GUEST_EMAIL, require_auth
+
+    auth_session = await require_auth(authorization, session)
+    user_id = auth_session.user_id
+
+    if not body.row_ids:
+        return {"claimed": 0}
+
+    # Look up the guest user
+    guest_result = await session.exec(
+        select(Row.user_id)
+        .where(Row.id.in_(body.row_ids))  # type: ignore[attr-defined]
+        .distinct()
+    )
+    owner_ids = set(guest_result.all())
+
+    from models import User
+    guest_result2 = await session.exec(select(User).where(User.email == GUEST_EMAIL))
+    guest_user = guest_result2.first()
+    guest_user_id = guest_user.id if guest_user else None
+
+    # Only claim rows that belong to the guest user (prevent stealing other users' rows)
+    import sqlalchemy as sa
+    stmt = (
+        sa.update(Row.__table__)
+        .where(Row.id.in_(body.row_ids))  # type: ignore[attr-defined]
+        .where(Row.user_id == guest_user_id)
+        .values(user_id=user_id)
+    )
+    result = await session.exec(stmt)
+    await session.commit()
+
+    claimed = result.rowcount  # type: ignore[union-attr]
+    print(f"[ROWS] Claimed {claimed} guest rows for user {user_id}")
+    return {"claimed": claimed}
+
+
 @router.get("/rows", response_model=List[RowReadWithBids])
 async def read_rows(
     authorization: Optional[str] = Header(None),
