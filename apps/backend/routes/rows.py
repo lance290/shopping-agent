@@ -21,7 +21,6 @@ router.include_router(rows_search_router)
 
 
 
-
 class SellerRead(BaseModel):
     id: int
     name: str

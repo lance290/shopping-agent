@@ -4,7 +4,6 @@ import { Button } from '../../components/ui/Button';
 import { Heart, MessageSquare, Share2, ShieldCheck, Star, Truck } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useState } from 'react';
-import { MobileDetailTooltip } from './MobileDetailTooltip';
 import VendorContactModal from './VendorContactModal';
 
 interface OfferTileProps {
@@ -28,7 +27,6 @@ export default function OfferTile({
   onComment,
   onShare,
 }: OfferTileProps) {
-  const [showMobileTooltip, setShowMobileTooltip] = useState(false);
   const [showVendorModal, setShowVendorModal] = useState(false);
 
   // Build clickout URL - service providers show modal, others go through clickout
@@ -301,11 +299,6 @@ export default function OfferTile({
           </div>
         </div>
       </a>
-
-      <MobileDetailTooltip
-        show={showMobileTooltip}
-        onDismiss={() => setShowMobileTooltip(false)}
-      />
 
       {(isServiceProvider || isVendorDirectory) && (
         <VendorContactModal

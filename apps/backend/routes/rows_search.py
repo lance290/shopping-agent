@@ -14,7 +14,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import Row, RequestSpec, Bid, Seller
-from dependencies import get_current_session
 from sourcing import (
     SourcingRepository,
     SearchResult,

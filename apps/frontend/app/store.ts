@@ -502,7 +502,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     return {
       rowResults: { ...state.rowResults, [rowId]: [...existingResults, ...newResults] },
       rowProviderStatuses: providerStatuses 
-        ? { ...state.rowProviderStatuses, [rowId]: [...existingStatuses, ...providerStatuses] }
+        ? { ...state.rowProviderStatuses, [rowId]: (() => {
+            // Dedupe by provider_id — keep latest status per provider
+            const merged = [...existingStatuses, ...providerStatuses];
+            const byId = new Map<string, ProviderStatusSnapshot>();
+            merged.forEach(s => byId.set(s.provider_id, s));
+            return Array.from(byId.values());
+          })() }
         : state.rowProviderStatuses,
       rowSearchErrors: userMessage !== undefined 
         ? { ...state.rowSearchErrors, [rowId]: userMessage }
