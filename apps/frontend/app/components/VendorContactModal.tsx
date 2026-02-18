@@ -85,7 +85,7 @@ export default function VendorContactModal({
 
     const subjectTemplate = typeof existingOutreach?.subject_template === 'string'
       ? existingOutreach.subject_template
-      : 'Quote request — {from} to {to} on {date}';
+      : isAviation ? 'Quote request — {from} to {to} on {date}' : 'Inquiry — {row_title}';
 
     const bodyTemplate = typeof existingOutreach?.body_template === 'string'
       ? existingOutreach.body_template
@@ -246,21 +246,19 @@ Thanks,
 {persona_name}
 {persona_role}`;
     }
+    // General-purpose template for non-aviation vendors
     return `Hi {provider},
 
-I'm reaching out on behalf of my client regarding a quote:
-Route: {from} → {to}
-Date: {date}
-Departure: {time}
-Passengers: {pax}
-{passenger_names}
+I'm reaching out on behalf of my client who is looking for:
 
-Please include in your quote:
-• All-in price
-• Cancellation/change policy
-• Quote validity window
+  {row_title}
 
-Please send your quote to: {reply_to_email}
+Could you please let us know:
+• Pricing and availability
+• Any relevant product or service details
+• Estimated timeline or lead time
+
+Please send your response to: {reply_to_email}
 
 Thanks,
 {persona_name}
@@ -519,151 +517,155 @@ Thanks,
               <textarea
                 value={bodyRendered}
                 onChange={(e) => setBodyEdited(e.target.value)}
-                rows={14}
+                rows={isAviation ? 14 : 8}
                 className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none resize-y"
               />
             </div>
 
-            <div>
-              <div className="text-xs text-onyx-muted mb-1">Trip type</div>
-              <select
-                value={tripType}
-                onChange={(e) => {
-                  const tt = e.target.value as 'one-way' | 'round-trip';
-                  setTripType(tt);
-                  if (bodyEdited === null) setBodyTemplateRaw(getDefaultBodyTemplate(tt));
-                }}
-                className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-              >
-                <option value="one-way">One-way</option>
-                <option value="round-trip">Round-trip</option>
-              </select>
-            </div>
-
-            <div className="text-[10px] uppercase tracking-wider text-onyx-muted font-semibold mt-2">{isAviation ? 'Leg 1 — Outbound' : 'Details'}</div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'From (airport)' : 'Origin'}</div>
-                <input
-                  value={fromAirport}
-                  onChange={(e) => setFromAirport(e.target.value.toUpperCase())}
-                  placeholder={isAviation ? 'BNA' : 'Origin'}
-                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-                />
-              </div>
-              <div>
-                <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'To (airport)' : 'Destination'}</div>
-                <input
-                  value={toAirport}
-                  onChange={(e) => setToAirport(e.target.value.toUpperCase())}
-                  placeholder={isAviation ? 'FWA' : 'Destination'}
-                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <div className="text-xs text-onyx-muted mb-1">Date</div>
-                <input
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  placeholder="2026-02-13"
-                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-                />
-              </div>
-              <div>
-                <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'Wheels up' : 'Time'}</div>
-                <input
-                  value={timeFixed}
-                  onChange={(e) => { setTimeFixed(e.target.value); setTimeMode('fixed'); }}
-                  placeholder="2:00 PM CT"
-                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-                />
-              </div>
-              <div>
-                <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'Passengers' : 'Attendees'}</div>
-                <input
-                  value={passengers}
-                  onChange={(e) => setPassengers(e.target.value)}
-                  placeholder="2"
-                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'Passenger names' : 'Attendee names'}</div>
-              <input
-                value={passengerNames}
-                onChange={(e) => setPassengerNames(e.target.value)}
-                placeholder={isAviation ? 'e.g. John Doe, Jane Doe' : 'Names (comma-separated)'}
-                className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-              />
-            </div>
-
-            {tripType === 'round-trip' && (
+            {isAviation && (
               <>
-                <div className="text-[10px] uppercase tracking-wider text-onyx-muted font-semibold mt-3 pt-3 border-t border-warm-grey/40">{isAviation ? 'Leg 2 — Return' : 'Return'}</div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'From (airport)' : 'Origin'}</div>
-                    <input
-                      value={returnFrom}
-                      onChange={(e) => setReturnFrom(e.target.value.toUpperCase())}
-                      placeholder={toAirport || (isAviation ? 'FWA' : 'Return origin')}
-                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-                    />
-                  </div>
-                  <div>
-                    <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'To (airport)' : 'Destination'}</div>
-                    <input
-                      value={returnTo}
-                      onChange={(e) => setReturnTo(e.target.value.toUpperCase())}
-                      placeholder={fromAirport || (isAviation ? 'BNA' : 'Return dest')}
-                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <div className="text-xs text-onyx-muted mb-1">Return date</div>
-                    <input
-                      value={returnDate}
-                      onChange={(e) => setReturnDate(e.target.value)}
-                      placeholder="2026-02-15"
-                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-                    />
-                  </div>
-                  <div>
-                    <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'Wheels up' : 'Time'}</div>
-                    <input
-                      value={returnTime}
-                      onChange={(e) => setReturnTime(e.target.value)}
-                      placeholder="2:30 PM ET"
-                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-                    />
-                  </div>
-                  <div>
-                    <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'Passengers' : 'Attendees'}</div>
-                    <input
-                      value={returnPassengers}
-                      onChange={(e) => setReturnPassengers(e.target.value)}
-                      placeholder={passengers || '3'}
-                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
-                    />
-                  </div>
-                </div>
+              <div>
+                <div className="text-xs text-onyx-muted mb-1">Trip type</div>
+                <select
+                  value={tripType}
+                  onChange={(e) => {
+                    const tt = e.target.value as 'one-way' | 'round-trip';
+                    setTripType(tt);
+                    if (bodyEdited === null) setBodyTemplateRaw(getDefaultBodyTemplate(tt));
+                  }}
+                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                >
+                  <option value="one-way">One-way</option>
+                  <option value="round-trip">Round-trip</option>
+                </select>
+              </div>
+
+              <div className="text-[10px] uppercase tracking-wider text-onyx-muted font-semibold mt-2">Leg 1 — Outbound</div>
+
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <div className="text-xs text-onyx-muted mb-1">{isAviation ? 'Return passenger names' : 'Return attendee names'}</div>
+                  <div className="text-xs text-onyx-muted mb-1">From (airport)</div>
                   <input
-                    value={returnPassengerNames}
-                    onChange={(e) => setReturnPassengerNames(e.target.value)}
-                    placeholder={isAviation ? 'e.g. John Doe, Jane Doe' : 'Names (comma-separated)'}
+                    value={fromAirport}
+                    onChange={(e) => setFromAirport(e.target.value.toUpperCase())}
+                    placeholder="BNA"
                     className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
                   />
                 </div>
+                <div>
+                  <div className="text-xs text-onyx-muted mb-1">To (airport)</div>
+                  <input
+                    value={toAirport}
+                    onChange={(e) => setToAirport(e.target.value.toUpperCase())}
+                    placeholder="FWA"
+                    className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <div className="text-xs text-onyx-muted mb-1">Date</div>
+                  <input
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    placeholder="2026-02-13"
+                    className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-onyx-muted mb-1">Wheels up</div>
+                  <input
+                    value={timeFixed}
+                    onChange={(e) => { setTimeFixed(e.target.value); setTimeMode('fixed'); }}
+                    placeholder="2:00 PM CT"
+                    className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-onyx-muted mb-1">Passengers</div>
+                  <input
+                    value={passengers}
+                    onChange={(e) => setPassengers(e.target.value)}
+                    placeholder="2"
+                    className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs text-onyx-muted mb-1">Passenger names</div>
+                <input
+                  value={passengerNames}
+                  onChange={(e) => setPassengerNames(e.target.value)}
+                  placeholder="e.g. John Doe, Jane Doe"
+                  className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                />
+              </div>
+
+              {tripType === 'round-trip' && (
+                <>
+                  <div className="text-[10px] uppercase tracking-wider text-onyx-muted font-semibold mt-3 pt-3 border-t border-warm-grey/40">Leg 2 — Return</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="text-xs text-onyx-muted mb-1">From (airport)</div>
+                      <input
+                        value={returnFrom}
+                        onChange={(e) => setReturnFrom(e.target.value.toUpperCase())}
+                        placeholder={toAirport || 'FWA'}
+                        className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-xs text-onyx-muted mb-1">To (airport)</div>
+                      <input
+                        value={returnTo}
+                        onChange={(e) => setReturnTo(e.target.value.toUpperCase())}
+                        placeholder={fromAirport || 'BNA'}
+                        className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <div className="text-xs text-onyx-muted mb-1">Return date</div>
+                      <input
+                        value={returnDate}
+                        onChange={(e) => setReturnDate(e.target.value)}
+                        placeholder="2026-02-15"
+                        className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-xs text-onyx-muted mb-1">Wheels up</div>
+                      <input
+                        value={returnTime}
+                        onChange={(e) => setReturnTime(e.target.value)}
+                        placeholder="2:30 PM ET"
+                        className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-xs text-onyx-muted mb-1">Passengers</div>
+                      <input
+                        value={returnPassengers}
+                        onChange={(e) => setReturnPassengers(e.target.value)}
+                        placeholder={passengers || '3'}
+                        className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-onyx-muted mb-1">Return passenger names</div>
+                    <input
+                      value={returnPassengerNames}
+                      onChange={(e) => setReturnPassengerNames(e.target.value)}
+                      placeholder="e.g. John Doe, Jane Doe"
+                      className="w-full px-3 py-2 bg-white border border-warm-grey/60 rounded-lg text-xs text-gray-900 focus:border-agent-blurple transition-colors outline-none"
+                    />
+                  </div>
+                </>
+              )}
               </>
             )}
 
