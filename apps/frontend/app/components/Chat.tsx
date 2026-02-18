@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, LogOut, Store } from 'lucide-react';
 import { useShoppingStore, mapBidToOffer } from '../store';
-import { fetchRowsFromDb, fetchProjectsFromDb, fetchSingleRowFromDb, saveChatHistory, runSearchApiWithStatus } from '../utils/api';
+import { fetchRowsFromDb, fetchProjectsFromDb, fetchSingleRowFromDb, saveChatHistory } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
@@ -361,20 +361,9 @@ export default function Chat() {
                 }
               }
 
-              // Re-search if row already has results — ensures constraints (e.g. min_price) take effect
-              const resolvedRowId = row?.id ?? rowId;
-              const existingResults = resolvedRowId ? (store.rowResults[resolvedRowId] || []) : [];
-              if (resolvedRowId && existingResults.length > 0) {
-                const storeRow = store.rows.find(r => r.id === resolvedRowId);
-                const title = storeRow?.title || row?.title;
-                if (title) {
-                  console.log('[Chat] Re-searching after factors_updated for row', resolvedRowId);
-                  store.setIsSearching(true);
-                  const searchRes = await runSearchApiWithStatus(title, resolvedRowId);
-                  store.setRowResults(resolvedRowId, searchRes.results, searchRes.providerStatuses);
-                  store.setIsSearching(false);
-                }
-              }
+              // No re-search needed here — the LLM's own search in the SSE stream
+              // already incorporates updated constraints (min_price, etc.).
+              // A re-search here would be blocked by the streaming lock anyway.
             } else if (eventName === 'search_results') {
               const rowId = data?.row_id;
               const results = Array.isArray(data?.results) ? data.results : [];
