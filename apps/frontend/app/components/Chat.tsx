@@ -274,8 +274,8 @@ export default function Chat() {
                 if (pendingClarification) {
                   const currentMessages = [...messages, userMessage, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
                   saveChatHistory(row.id, currentMessages);
-                  const rowWithHistory = { ...row, chat_history: JSON.stringify(currentMessages) };
-                  const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
+                  const rowWithHistory = { ...row, chat_history: JSON.stringify(currentMessages), last_engaged_at: Date.now() };
+                  const mergedRows = [rowWithHistory, ...store.rows.filter((r) => r.id !== row.id)];
                   store.setRows(mergedRows);
                 } else {
                   // New request — save outgoing row's chat, then start fresh for the new row
@@ -286,8 +286,8 @@ export default function Chat() {
                   }
                   const freshMessages = [userMessage, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
                   saveChatHistory(row.id, freshMessages);
-                  const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages) };
-                  const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
+                  const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages), last_engaged_at: Date.now() };
+                  const mergedRows = [rowWithHistory, ...store.rows.filter((r) => r.id !== row.id)];
                   store.setRows(mergedRows);
                   setMessages(freshMessages);
                 }
@@ -322,8 +322,8 @@ export default function Chat() {
                   { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }
                 ];
                 saveChatHistory(row.id, freshMessages);
-                const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages) };
-                const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
+                const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages), last_engaged_at: Date.now() };
+                const mergedRows = [rowWithHistory, ...store.rows.filter((r) => r.id !== row.id)];
                 store.setRows(mergedRows);
                 store.setIsSearching(true);
                 store.setMoreResultsIncoming(row.id, true);
