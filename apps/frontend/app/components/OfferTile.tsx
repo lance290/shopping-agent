@@ -322,7 +322,10 @@ export default function OfferTile({
             <Button
               variant="primary"
               className="w-full mb-3"
-              onClick={() => { window.location.href = '/login'; }}
+              onClick={() => {
+                if (row.title) sessionStorage.setItem('pending_search', row.title);
+                window.location.href = '/login';
+              }}
             >
               Sign Up / Log In
             </Button>

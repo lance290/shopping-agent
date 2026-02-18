@@ -133,6 +133,18 @@ export default function Chat() {
     };
     loadData();
   }, []);
+
+  // Replay search after login redirect (anonymous → register → come back)
+  useEffect(() => {
+    const pending = sessionStorage.getItem('pending_search');
+    if (pending) {
+      sessionStorage.removeItem('pending_search');
+      // Small delay to let rows load first
+      const timer = setTimeout(() => handleSubmit(null, pending), 500);
+      return () => clearTimeout(timer);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   const handleSubmit = async (e: React.FormEvent | null, overrideText?: string) => {
     if (e) e.preventDefault();
