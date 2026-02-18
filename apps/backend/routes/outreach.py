@@ -172,6 +172,95 @@ async def trigger_outreach(
     }
 
 
+class QuoteLinkRequest(BaseModel):
+    vendor_email: str
+    vendor_name: Optional[str] = None
+    vendor_company: str
+
+
+@router.post("/rows/{row_id}/quote-link")
+async def create_quote_link(
+    row_id: int,
+    request: QuoteLinkRequest,
+    authorization: Optional[str] = Header(None),
+    session=Depends(get_session),
+):
+    """
+    Create a single-vendor quote link for the VendorContactModal.
+
+    The EA reviews the email, clicks Send (mailto:), and the email body
+    includes a tracked /quote/[token] link. The vendor clicks the link,
+    submits a formal quote on our platform, and enters the viral loop.
+
+    Returns the token so the frontend can build the full URL.
+    """
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Verify row ownership
+    result = await session.execute(
+        select(Row).where(
+            Row.id == row_id,
+            Row.user_id == auth_session.user_id,
+        )
+    )
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    # Check for existing quote link for this vendor+row (avoid duplicates)
+    existing = await session.execute(
+        select(SellerQuote).where(
+            SellerQuote.row_id == row_id,
+            SellerQuote.seller_email == request.vendor_email,
+            SellerQuote.status == "pending",
+        )
+    )
+    existing_quote = existing.scalar_one_or_none()
+    if existing_quote and existing_quote.token_expires_at and existing_quote.token_expires_at > datetime.utcnow():
+        # Reuse existing valid token
+        return {
+            "token": existing_quote.token,
+            "quote_url": f"/quote/{existing_quote.token}",
+            "expires_at": existing_quote.token_expires_at.isoformat(),
+            "reused": True,
+        }
+
+    # Generate fresh token
+    token = generate_magic_link_token()
+
+    quote = SellerQuote(
+        row_id=row_id,
+        token=token,
+        token_expires_at=datetime.utcnow() + timedelta(days=14),
+        seller_email=request.vendor_email,
+        seller_name=request.vendor_name,
+        seller_company=request.vendor_company,
+        status="pending",
+    )
+    session.add(quote)
+
+    event = OutreachEvent(
+        row_id=row_id,
+        vendor_email=request.vendor_email,
+        vendor_name=request.vendor_name,
+        vendor_company=request.vendor_company,
+        vendor_source="modal",
+        quote_token=token,
+    )
+    session.add(event)
+
+    await session.commit()
+
+    return {
+        "token": token,
+        "quote_url": f"/quote/{token}",
+        "expires_at": (datetime.utcnow() + timedelta(days=14)).isoformat(),
+        "reused": False,
+    }
+
+
 @router.get("/rows/{row_id}/status", response_model=OutreachStatus)
 async def get_outreach_status(
     row_id: int,

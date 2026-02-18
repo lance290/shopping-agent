@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { X, Copy, Check, Mail, Building2, User } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { parseChoiceAnswers, useShoppingStore } from '../store';
-import { saveOutreachToDb } from '../utils/api';
+import { saveOutreachToDb, createQuoteLink } from '../utils/api';
 import { getMe } from '../utils/auth';
 
 interface VendorContactModalProps {
@@ -148,6 +148,8 @@ export default function VendorContactModal({
   const [aircraftClass, setAircraftClass] = useState<string>('');
   const [requirements, setRequirements] = useState<string>('');
   const [copiedBody, setCopiedBody] = useState(false);
+  const [quoteUrl, setQuoteUrl] = useState<string | null>(null);
+  const [creatingLink, setCreatingLink] = useState(false);
 
   const getDefaultBodyTemplate = (tt: string) => {
     if (isAviation && tt === 'round-trip') {
@@ -361,12 +363,30 @@ Thanks,
     }
   };
 
-  const handleEmailClick = () => {
+  const handleEmailClick = async () => {
+    setCreatingLink(true);
+
+    // Create tracked quote link before composing email
+    let finalQuoteUrl = quoteUrl;
+    if (!finalQuoteUrl) {
+      const result = await createQuoteLink(rowId, vendorEmail, vendorCompany, vendorName);
+      if (result?.quote_url) {
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        finalQuoteUrl = `${origin}${result.quote_url}`;
+        setQuoteUrl(finalQuoteUrl);
+      }
+    }
+
     const subject = subjectRendered.trim();
     let body = bodyRendered.trim();
     if (notes && notes.trim().length > 0) {
       body = `${body}\n\nNotes:\n${notes.trim()}`;
     }
+    if (finalQuoteUrl) {
+      body = `${body}\n\n---\nSubmit your formal quote online: ${finalQuoteUrl}`;
+    }
+
+    setCreatingLink(false);
 
     const params = new URLSearchParams();
     if (subject) params.set('subject', subject);

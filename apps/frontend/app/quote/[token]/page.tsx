@@ -112,13 +112,48 @@ export default function QuotePage() {
   if (success) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <div className="text-green-500 text-5xl mb-4">✅</div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Quote Submitted!</h1>
-          <p className="text-gray-600 mb-4">
-            Thank you for your quote. The buyer will be notified and may reach out soon.
-          </p>
-          <p className="text-sm text-gray-500">You can close this window.</p>
+        <div className="max-w-md w-full space-y-6">
+          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <div className="text-green-500 text-5xl mb-4">✅</div>
+            <h1 className="text-xl font-bold text-gray-900 mb-2">Quote Submitted!</h1>
+            <p className="text-gray-600 mb-4">
+              Thank you for your quote. The buyer will be notified and may reach out soon.
+            </p>
+          </div>
+
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg shadow-lg p-8 text-center text-white">
+            <h2 className="text-lg font-bold mb-2">What do YOU need to buy?</h2>
+            <p className="text-blue-100 text-sm mb-6">
+              From office supplies to catering equipment to a new delivery van — we connect you with the right vendor or the best deal online. Try it free.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const input = (e.target as HTMLFormElement).elements.namedItem('need') as HTMLInputElement;
+                const q = input?.value?.trim();
+                if (q) {
+                  window.location.href = `/?q=${encodeURIComponent(q)}&ref=quote`;
+                }
+              }}
+              className="flex gap-2"
+            >
+              <input
+                name="need"
+                type="text"
+                placeholder="e.g. standing desk, catering for 50, packaging supplies..."
+                className="flex-1 px-4 py-3 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:ring-2 focus:ring-white/50 outline-none"
+              />
+              <button
+                type="submit"
+                className="bg-white text-blue-700 font-semibold px-6 py-3 rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap"
+              >
+                Search
+              </button>
+            </form>
+            <p className="text-blue-200 text-xs mt-4">
+              Powered by BuyAnything — the platform that finds anything, from anyone, at any price.
+            </p>
+          </div>
         </div>
       </div>
     );

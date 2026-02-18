@@ -388,6 +388,30 @@ export const saveChoiceAnswerToDb = async (
   }
 };
 
+export const createQuoteLink = async (
+  rowId: number,
+  vendorEmail: string,
+  vendorCompany: string,
+  vendorName?: string,
+): Promise<{ token: string; quote_url: string } | null> => {
+  try {
+    const res = await fetchWithAuth(`/api/outreach/${rowId}/quote-link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        vendor_email: vendorEmail,
+        vendor_company: vendorCompany,
+        vendor_name: vendorName || null,
+      }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Create quote link error:', err);
+    return null;
+  }
+};
+
 export const saveOutreachToDb = async (
   rowId: number,
   outreach: Record<string, any>,
