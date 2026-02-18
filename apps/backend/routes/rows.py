@@ -1,17 +1,18 @@
 """Rows routes - CRUD for procurement rows."""
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List
 from datetime import datetime
 import json
+import sqlalchemy as sa
 
 from sqlmodel import select, delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload, defer, joinedload
 
 from database import get_session
-from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project
-from dependencies import get_current_session, resolve_user_id
+from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project, User
+from dependencies import get_current_session, resolve_user_id, require_auth, GUEST_EMAIL
 from routes.rows_search import router as rows_search_router
 from sourcing.safety import SafetyService
 from utils.json_utils import safe_json_loads
@@ -150,6 +151,13 @@ async def create_row(
 class ClaimRowsRequest(BaseModel):
     row_ids: List[int]
 
+    @field_validator("row_ids")
+    @classmethod
+    def limit_row_ids(cls, v: List[int]) -> List[int]:
+        if len(v) > 100:
+            raise ValueError("Cannot claim more than 100 rows at once")
+        return v
+
 
 @router.post("/rows/claim")
 async def claim_guest_rows(
@@ -163,33 +171,23 @@ async def claim_guest_rows(
     Called after login/register so the user keeps their anonymous search
     results, bids, and selections.
     """
-    from dependencies import GUEST_EMAIL, require_auth
-
     auth_session = await require_auth(authorization, session)
     user_id = auth_session.user_id
 
     if not body.row_ids:
         return {"claimed": 0}
 
-    # Look up the guest user
-    guest_result = await session.exec(
-        select(Row.user_id)
-        .where(Row.id.in_(body.row_ids))  # type: ignore[attr-defined]
-        .distinct()
-    )
-    owner_ids = set(guest_result.all())
-
-    from models import User
-    guest_result2 = await session.exec(select(User).where(User.email == GUEST_EMAIL))
-    guest_user = guest_result2.first()
-    guest_user_id = guest_user.id if guest_user else None
+    # Look up the guest user — bail early if it doesn't exist
+    guest_result = await session.exec(select(User).where(User.email == GUEST_EMAIL))
+    guest_user = guest_result.first()
+    if not guest_user:
+        return {"claimed": 0}
 
     # Only claim rows that belong to the guest user (prevent stealing other users' rows)
-    import sqlalchemy as sa
     stmt = (
         sa.update(Row.__table__)
         .where(Row.id.in_(body.row_ids))  # type: ignore[attr-defined]
-        .where(Row.user_id == guest_user_id)
+        .where(Row.user_id == guest_user.id)
         .values(user_id=user_id)
     )
     result = await session.exec(stmt)
