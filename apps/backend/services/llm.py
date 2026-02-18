@@ -525,3 +525,67 @@ Return JSON ONLY:
         return q or _heuristic_provider_query(display_query or row_title or "")
     except Exception:
         return _heuristic_provider_query(display_query or row_title or "")
+
+
+async def generate_outreach_email(
+    row_title: str,
+    vendor_company: str,
+    sender_name: str,
+    sender_role: str,
+    chat_history: Optional[str] = None,
+    choice_answers: Optional[str] = None,
+    search_intent: Optional[str] = None,
+) -> dict:
+    """
+    Generate a personalized vendor outreach email using the LLM.
+
+    Returns {"subject": "...", "body": "..."} with a professional,
+    context-aware email derived from the chat conversation.
+    """
+    context_parts = []
+    if chat_history:
+        context_parts.append(f"Chat history:\n{chat_history[:2000]}")
+    if choice_answers:
+        context_parts.append(f"Structured answers:\n{choice_answers[:1000]}")
+    if search_intent:
+        context_parts.append(f"Search intent:\n{search_intent[:500]}")
+
+    context = "\n\n".join(context_parts) if context_parts else "No additional context."
+
+    prompt = f"""You are writing a professional outreach email to a vendor on behalf of a buyer.
+
+CONTEXT:
+- Buyer is looking for: {json.dumps(row_title)}
+- Vendor company: {json.dumps(vendor_company)}
+- Sender name: {json.dumps(sender_name)}
+- Sender role: {json.dumps(sender_role)}
+
+CONVERSATION CONTEXT:
+{context}
+
+INSTRUCTIONS:
+- Write a concise, professional email from {sender_name} ({sender_role}) to {vendor_company}.
+- Reference specific details from the conversation (dates, locations, quantities, preferences, etc.).
+- Keep it warm but professional. 3-5 short paragraphs max.
+- Ask for pricing, availability, and any relevant details.
+- End with the sender's name and role.
+- Do NOT include a subject line in the body.
+- Do NOT include placeholder brackets like [date] — use the actual values from context, or omit if unknown.
+
+Return JSON ONLY:
+{{"subject": "...", "body": "..."}}"""
+
+    try:
+        text = await call_gemini(prompt, timeout=20.0)
+        parsed = _extract_json(text)
+        subject = parsed.get("subject", f"Inquiry: {row_title}").strip()
+        body = parsed.get("body", "").strip()
+        if not body:
+            raise ValueError("Empty body")
+        return {"subject": subject, "body": body}
+    except Exception as e:
+        logger.warning(f"[LLM] Email generation failed, using fallback: {e}")
+        return {
+            "subject": f"Inquiry — {row_title}",
+            "body": f"Hi {vendor_company},\n\nI'm reaching out on behalf of my client who is looking for:\n\n  {row_title}\n\nCould you please let us know about pricing, availability, and any relevant details?\n\nThanks,\n{sender_name}\n{sender_role}",
+        }

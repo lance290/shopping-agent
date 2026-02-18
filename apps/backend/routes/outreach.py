@@ -19,7 +19,8 @@ from utils.json_utils import safe_json_loads
 from services.vendors import (
     search_checklist, get_checklist_summary, get_email_template,
 )
-from services.email import send_outreach_email, send_reminder_email
+from services.email import send_outreach_email, send_reminder_email, send_custom_outreach_email
+from services.llm import generate_outreach_email
 
 router = APIRouter(prefix="/outreach", tags=["outreach"])
 
@@ -172,10 +173,161 @@ async def trigger_outreach(
     }
 
 
+class SendOutreachRequest(BaseModel):
+    vendor_email: str
+    vendor_name: Optional[str] = None
+    vendor_company: str
+    subject: Optional[str] = None
+    body: Optional[str] = None
+    reply_to_email: str
+    sender_name: str = "Betty"
+    sender_role: str = "Executive Assistant, BuyAnything"
+
+
 class QuoteLinkRequest(BaseModel):
     vendor_email: str
     vendor_name: Optional[str] = None
     vendor_company: str
+
+
+@router.post("/rows/{row_id}/send")
+async def send_outreach(
+    row_id: int,
+    request: SendOutreachRequest,
+    authorization: Optional[str] = Header(None),
+    session=Depends(get_session),
+):
+    """
+    Generate + send a vendor outreach email via Resend.
+
+    If subject/body are provided, use them directly (user edited).
+    If not, LLM generates from chat context.
+    Reply-to is set to the user's email — vendor replies go to them.
+    """
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Verify row ownership
+    result = await session.execute(
+        select(Row).where(
+            Row.id == row_id,
+            Row.user_id == auth_session.user_id,
+        )
+    )
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    # Generate email via LLM if not provided
+    subject = request.subject
+    body = request.body
+    if not subject or not body:
+        generated = await generate_outreach_email(
+            row_title=row.title or "",
+            vendor_company=request.vendor_company,
+            sender_name=request.sender_name,
+            sender_role=request.sender_role,
+            chat_history=row.chat_history,
+            choice_answers=row.choice_answers,
+            search_intent=row.search_intent,
+        )
+        subject = subject or generated["subject"]
+        body = body or generated["body"]
+
+    # Create outreach record + quote link
+    token = generate_magic_link_token()
+
+    quote = SellerQuote(
+        row_id=row_id,
+        token=token,
+        token_expires_at=datetime.utcnow() + timedelta(days=14),
+        seller_email=request.vendor_email,
+        seller_name=request.vendor_name,
+        seller_company=request.vendor_company,
+        status="pending",
+    )
+    session.add(quote)
+
+    event = OutreachEvent(
+        row_id=row_id,
+        vendor_email=request.vendor_email,
+        vendor_name=request.vendor_name,
+        vendor_company=request.vendor_company,
+        vendor_source="modal",
+        quote_token=token,
+    )
+    session.add(event)
+    await session.commit()
+
+    # Send via Resend with reply-to
+    email_result = await send_custom_outreach_email(
+        to_email=request.vendor_email,
+        vendor_company=request.vendor_company,
+        subject=subject,
+        body_text=body,
+        quote_token=token,
+        reply_to_email=request.reply_to_email,
+        sender_name=request.sender_name,
+    )
+
+    # Update event with send status
+    if email_result.success and email_result.message_id:
+        result = await session.execute(
+            select(OutreachEvent).where(OutreachEvent.quote_token == token)
+        )
+        evt = result.scalar_one_or_none()
+        if evt:
+            evt.sent_at = datetime.utcnow()
+            evt.message_id = email_result.message_id
+            await session.commit()
+
+    return {
+        "status": "sent" if email_result.success else "error",
+        "message_id": email_result.message_id,
+        "error": email_result.error,
+        "subject": subject,
+        "body": body,
+        "quote_token": token,
+    }
+
+
+@router.post("/rows/{row_id}/generate-email")
+async def generate_email_preview(
+    row_id: int,
+    request: SendOutreachRequest,
+    authorization: Optional[str] = Header(None),
+    session=Depends(get_session),
+):
+    """
+    Generate an email preview using the LLM without sending.
+    Called when the modal opens to pre-populate the email.
+    """
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    result = await session.execute(
+        select(Row).where(
+            Row.id == row_id,
+            Row.user_id == auth_session.user_id,
+        )
+    )
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    generated = await generate_outreach_email(
+        row_title=row.title or "",
+        vendor_company=request.vendor_company,
+        sender_name=request.sender_name,
+        sender_role=request.sender_role,
+        chat_history=row.chat_history,
+        choice_answers=row.choice_answers,
+        search_intent=row.search_intent,
+    )
+
+    return generated
 
 
 @router.post("/rows/{row_id}/quote-link")

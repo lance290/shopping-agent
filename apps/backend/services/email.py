@@ -162,6 +162,101 @@ async def send_outreach_email(
     return EmailResult(success=True, message_id="demo-" + quote_token[:8])
 
 
+async def send_custom_outreach_email(
+    to_email: str,
+    vendor_company: str,
+    subject: str,
+    body_text: str,
+    quote_token: str,
+    reply_to_email: str,
+    sender_name: str = "BuyAnything",
+) -> EmailResult:
+    """
+    Send a custom outreach email via Resend with reply-to set to the user's email.
+
+    The email is sent FROM our domain (deliverability) but REPLY-TO goes to the user.
+    Includes: quote link, tracking pixel, unsubscribe, affiliate disclosure.
+    """
+    quote_url = get_quote_url(quote_token)
+    tracking_url = get_tracking_pixel_url(quote_token)
+    backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+
+    # Convert plain text body to HTML paragraphs
+    body_html = body_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    body_html = "<br>\n".join(body_html.split("\n"))
+
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="white-space: pre-wrap; line-height: 1.6;">
+{body_html}
+        </div>
+
+        <p style="text-align: center; margin: 30px 0;">
+            <a href="{quote_url}"
+               style="background: #2563eb; color: white; padding: 12px 24px;
+                      text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Submit Your Quote
+            </a>
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+
+        <p style="color: #999; font-size: 12px;">
+            Sent on behalf of {sender_name} via BuyAnything
+            <br>
+            <a href="{backend_url}/outreach/unsubscribe/{quote_token}" style="color: #999;">Unsubscribe</a>
+        </p>
+
+        <p style="color: #bbb; font-size: 10px;">
+            BuyAnything.ai is a marketplace platform. We may earn a referral fee or commission
+            when transactions are completed through our platform.
+        </p>
+
+        <img src="{tracking_url}" width="1" height="1" style="display:none;" alt="">
+    </body>
+    </html>
+    """
+
+    plain_text = f"""{body_text}
+
+---
+Submit your quote: {quote_url}
+
+Sent on behalf of {sender_name} via BuyAnything
+Disclosure: BuyAnything.ai may earn a referral fee or commission on transactions.
+"""
+
+    if RESEND_API_KEY and resend is not None:
+        try:
+            params: resend.Emails.SendParams = {
+                "from": f"{FROM_NAME} <{FROM_EMAIL}>",
+                "to": [to_email],
+                "reply_to": reply_to_email,
+                "subject": subject,
+                "html": html_content,
+                "text": plain_text,
+            }
+
+            response = resend.Emails.send(params)
+
+            return EmailResult(
+                success=True,
+                message_id=response.get("id"),
+            )
+        except Exception as e:
+            print(f"[RESEND ERROR] {e}")
+            return EmailResult(success=False, error=str(e))
+
+    # Demo mode
+    print(f"[DEMO EMAIL] To: {to_email}")
+    print(f"[DEMO EMAIL] Reply-To: {reply_to_email}")
+    print(f"[DEMO EMAIL] Subject: {subject}")
+    print(f"[DEMO EMAIL] Quote URL: {quote_url}")
+
+    return EmailResult(success=True, message_id="demo-custom-" + quote_token[:8])
+
+
 async def send_reminder_email(
     to_email: str,
     to_name: str,
