@@ -63,11 +63,22 @@ export const verifyAuth = async (phone: string, code: string): Promise<AuthVerif
 
 export const logout = async (): Promise<void> => {
   await fetch('/api/auth/logout', { method: 'POST' });
-  // Cookie is HttpOnly — server clears it via the proxy route response.
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('session_token');
+    localStorage.removeItem('is_logged_in');
+  }
 };
 
 export function getToken(): string {
   return typeof window !== 'undefined' ? localStorage.getItem('session_token') || '' : '';
+}
+
+export function isLoggedIn(): boolean {
+  return typeof window !== 'undefined' && localStorage.getItem('is_logged_in') === '1';
+}
+
+export function setLoggedIn(): void {
+  if (typeof window !== 'undefined') localStorage.setItem('is_logged_in', '1');
 }
 
 export function authHeaders(): Record<string, string> {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { startAuth, verifyAuth } from '../utils/auth';
+import { startAuth, verifyAuth, setLoggedIn } from '../utils/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,6 +40,7 @@ export default function LoginPage() {
 
     try {
       await verifyAuth(phone, code);
+      setLoggedIn();
       router.push('/');
       router.refresh();
     } catch (err: unknown) {

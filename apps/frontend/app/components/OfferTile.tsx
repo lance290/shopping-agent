@@ -5,7 +5,7 @@ import { Heart, MessageSquare, Share2, ShieldCheck, Star, Truck, X, UserPlus } f
 import { cn } from '../../utils/cn';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { getToken } from '../utils/auth';
+import { isLoggedIn } from '../utils/auth';
 import VendorContactModal from './VendorContactModal';
 
 interface OfferTileProps {
@@ -286,7 +286,7 @@ export default function OfferTile({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (!getToken()) {
+                    if (!isLoggedIn()) {
                       setShowAuthPrompt(true);
                     } else {
                       setShowVendorModal(true);
