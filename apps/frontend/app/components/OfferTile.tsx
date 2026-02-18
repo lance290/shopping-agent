@@ -1,10 +1,9 @@
 import { Offer, Row } from '../store';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Heart, MessageSquare, Share2, ShieldCheck, Star, Truck, Info } from 'lucide-react';
+import { Heart, MessageSquare, Share2, ShieldCheck, Star, Truck } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useState } from 'react';
-import { useDetailPanelStore } from '../stores/detailPanelStore';
 import { MobileDetailTooltip } from './MobileDetailTooltip';
 import VendorContactModal from './VendorContactModal';
 
@@ -31,7 +30,6 @@ export default function OfferTile({
 }: OfferTileProps) {
   const [showMobileTooltip, setShowMobileTooltip] = useState(false);
   const [showVendorModal, setShowVendorModal] = useState(false);
-  const { openPanel } = useDetailPanelStore();
 
   // Build clickout URL - service providers show modal, others go through clickout
   const isQuoteBased = offer.price === null || offer.price === undefined;
@@ -52,22 +50,6 @@ export default function OfferTile({
   const hasRating = ratingValue !== null && ratingValue > 0;
   const merchantLabel = offer.merchant_domain || offer.merchant;
 
-  const handleDetailClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (!offer.bid_id) return;
-
-    // Check if mobile (< 768px)
-    const isMobile = window.innerWidth < 768;
-
-    if (isMobile) {
-      setShowMobileTooltip(true);
-    } else {
-      openPanel(offer.bid_id);
-    }
-  };
-  
   return (
     <Card
       variant="hover"
@@ -177,16 +159,6 @@ export default function OfferTile({
               </div>
             )}
             <div className="flex items-center gap-2 mb-2">
-              {offer.bid_id && (
-                <button
-                  type="button"
-                  onClick={handleDetailClick}
-                  className="h-7 w-7 rounded-full border border-warm-grey/70 flex items-center justify-center bg-white text-onyx-muted hover:text-onyx transition-colors"
-                  title="View details"
-                >
-                  <Info size={12} />
-                </button>
-              )}
               <button
                 type="button"
                 onClick={(e) => {

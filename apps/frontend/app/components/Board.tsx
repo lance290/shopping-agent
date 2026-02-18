@@ -448,16 +448,25 @@ export default function ProcurementBoard() {
       </div>
 
       {toast && (
-        <div className="absolute top-20 right-6 z-50">
-          <div className={cn(
-            "px-4 py-3 rounded-xl border text-sm font-medium flex items-center gap-2 bg-white shadow-[0_12px_24px_rgba(0,0,0,0.08)]",
-            toast.tone === 'error'
-              ? "border-status-error/40 text-status-error"
-              : "border-status-success/40 text-status-success"
-          )}>
-            <span>{toast.message}</span>
+        toast.tone === 'error' ? (
+          <div className="fixed inset-0 z-50 flex items-start justify-center pointer-events-none" style={{ paddingTop: '120px' }}>
+            <div className="pointer-events-auto px-6 py-4 rounded-2xl border-2 border-status-error/50 bg-white text-status-error shadow-[0_16px_48px_rgba(0,0,0,0.15)] text-base font-semibold flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300 max-w-md">
+              <span>{toast.message}</span>
+              <button
+                onClick={() => setToast(null)}
+                className="ml-2 text-status-error/60 hover:text-status-error transition-colors text-lg font-bold leading-none"
+              >
+                ✕
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="absolute top-20 right-6 z-50">
+            <div className="px-4 py-3 rounded-xl border text-sm font-medium flex items-center gap-2 bg-white shadow-[0_12px_24px_rgba(0,0,0,0.08)] border-status-success/40 text-status-success">
+              <span>{toast.message}</span>
+            </div>
+          </div>
+        )
       )}
 
       {pendingRowDelete && (

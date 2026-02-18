@@ -265,6 +265,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       if (offerBidId) {
         updateRowOffer(row.id, (o: Offer) => o.bid_id === offerBidId, { is_liked: !optimisticIsLiked });
       }
+      localStorage.removeItem('session_token');
       onToast?.('Sign up to save likes and track your finds → /login', 'error');
       return;
     }
@@ -300,7 +301,8 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       .then((created) => {
         if (created === AUTH_REQUIRED) {
           updateRowOffer(row.id, matcher, { comment_preview: previousPreview });
-          onToast?.('Create an account to leave comments → /login', 'error');
+          localStorage.removeItem('session_token');
+          onToast?.('Sign up to leave comments → /login', 'error');
           return;
         }
         if (created) {

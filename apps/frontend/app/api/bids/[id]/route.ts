@@ -12,5 +12,5 @@ export async function GET(
   const path = includeProvenance
     ? `/bids/${id}?include_provenance=true`
     : `/bids/${id}`;
-  return proxyGet(request, path);
+  return proxyGet(request, path, { allowAnonymous: true });
 }
