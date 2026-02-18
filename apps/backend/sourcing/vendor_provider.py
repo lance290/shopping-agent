@@ -7,14 +7,14 @@ vendor embeddings in the vendor table (pgvector).
 Always returns results as SearchResult objects so they merge naturally
 with web search results in the sourcing pipeline.
 """
+import math
 import os
 import logging
 from typing import List, Optional
 
 import httpx
 import sqlalchemy as sa
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession as SAAsyncSession
-from sqlalchemy.pool import NullPool
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from sourcing.repository import SearchResult, SourcingProvider
 
@@ -57,7 +57,6 @@ async def _embed_texts(texts: List[str]) -> Optional[List[List[float]]]:
 
 def _weighted_blend(vecs: List[List[float]], weights: List[float]) -> List[float]:
     """Blend multiple embedding vectors with weights, then L2-normalize."""
-    import math
     dim = len(vecs[0])
     blended = [0.0] * dim
     for vec, w in zip(vecs, weights):

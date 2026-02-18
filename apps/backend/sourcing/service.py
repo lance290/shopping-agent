@@ -41,6 +41,24 @@ class SourcingService:
                 return None
         return None
 
+    @staticmethod
+    def extract_vendor_query(row) -> Optional[str]:
+        """Extract the LLM's clean product_name from search_intent for vendor vector search.
+
+        The LLM distills 'jet to nashville' → product_name: 'Private jet charter'.
+        Web providers get the full query (locations help find routes).
+        Vendor provider gets the clean intent (no location noise in embeddings).
+        """
+        if not row or not row.search_intent:
+            return None
+        try:
+            si = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
+            if isinstance(si, dict):
+                return si.get("product_name") or si.get("raw_input") or None
+        except Exception:
+            pass
+        return None
+
     def _extract_price_constraints(self, row: Row) -> tuple[Optional[float], Optional[float]]:
         min_price: Optional[float] = None
         max_price: Optional[float] = None
@@ -145,17 +163,7 @@ class SourcingService:
         desire_tier = row.desire_tier if row else None
 
         # Extract clean product intent for vendor vector search.
-        # The LLM distills "jet to nashville" → product_name: "Private jet charter".
-        # Web providers get the full query (locations help find routes).
-        # Vendor provider gets the clean intent (no location noise in embeddings).
-        vendor_query = None
-        if row and row.search_intent:
-            try:
-                si = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
-                if isinstance(si, dict):
-                    vendor_query = si.get("product_name") or si.get("raw_input")
-            except Exception:
-                pass
+        vendor_query = self.extract_vendor_query(row) if row else None
 
         with metrics.track_search(row_id=row_id, query=query):
             search_response = await self.repo.search_all_with_status(

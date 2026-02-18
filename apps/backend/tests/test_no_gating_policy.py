@@ -13,7 +13,7 @@ that violates the "trust providers, only re-rank" policy.
 
 import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 from sourcing.models import NormalizedResult, SearchIntent
 from sourcing.scorer import score_results
