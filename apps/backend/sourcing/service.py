@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import selectinload
-from sqlmodel import delete, select
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models import Bid, Row, Seller
@@ -140,21 +140,6 @@ class SourcingService:
         row = row_res.first()
         min_price, max_price = self._extract_price_constraints(row) if row else (None, None)
 
-        if row and max_price is not None:
-            # Only hard-delete bids that exceed the budget ceiling (max_price).
-            # Keep bids with no price and bids below min_price — scorer ranks them.
-            # Protect liked/selected bids and service providers.
-            await self.session.exec(
-                delete(Bid).where(
-                    Bid.row_id == row_id,
-                    Bid.price > max_price,
-                    Bid.source != "vendor_directory",
-                    Bid.is_liked == False,
-                    Bid.is_selected == False,
-                )
-            )
-            await self.session.commit()
-
         # 1. Execute Search with metrics tracking
         metrics = get_metrics_collector()
         log_search_start(row_id, query, providers or [])
@@ -189,35 +174,8 @@ class SourcingService:
                     error_message=status.message
                 )
         
-        # If no normalized results (e.g. legacy providers only), fallback to normalizing raw results
-        if not normalized_results and search_response.results:
-            # Fallback logic if needed, or rely on repo to handle normalization
-            pass
-
-        # Unified price/source filtering
-        from sourcing.filters import should_include_result
-        desire_tier = row.desire_tier if row else None
-        if min_price is not None or max_price is not None:
-            filtered: List[NormalizedResult] = []
-            dropped = 0
-            for res in normalized_results:
-                if should_include_result(
-                    price=res.price,
-                    source=res.source,
-                    desire_tier=desire_tier,
-                    min_price=min_price,
-                    max_price=max_price,
-                ):
-                    filtered.append(res)
-                else:
-                    dropped += 1
-            logger.info(f"[SourcingService] Price filter: {len(normalized_results)} -> {len(filtered)} (dropped={dropped})")
-            metrics.record_price_filter(applied=True, dropped=dropped)
-            normalized_results = filtered
-        else:
-            metrics.record_price_filter(applied=False, dropped=0)
-
-        # Record result counts
+        # Record result counts (no filtering — scorer handles ranking)
+        metrics.record_price_filter(applied=False, dropped=0)
         metrics.record_results(
             total=len(search_response.results),
             unique=len(search_response.normalized_results),
@@ -228,9 +186,8 @@ class SourcingService:
             f"[SourcingService] Row {row_id}: Got {len(normalized_results)} normalized results from {len(provider_statuses)} providers"
         )
 
-        # 2. Score & Rank Results
+        # 2. Score & Rank Results (no filtering — only re-ranking)
         search_intent = self._parse_search_intent(row) if row else None
-        desire_tier = row.desire_tier if row else None
         normalized_results = score_results(
             normalized_results,
             intent=search_intent,
@@ -239,75 +196,9 @@ class SourcingService:
             desire_tier=desire_tier,
         )
 
-        # 2b. Quantum re-ranking (for results with embeddings)
-        try:
-            from sourcing.quantum.reranker import QuantumReranker
-            if not hasattr(self, '_quantum_reranker'):
-                self._quantum_reranker = QuantumReranker()
-            reranker = self._quantum_reranker
-            if reranker.is_available() and row:
-                # Build result dicts with embeddings for quantum scoring, keyed by index
-                results_for_quantum = []
-                for idx, res in enumerate(normalized_results):
-                    rd = {
-                        "_idx": idx,
-                        "title": res.title,
-                        "embedding": res.raw_data.get("embedding") if res.raw_data else None,
-                    }
-                    results_for_quantum.append(rd)
-
-                # Get query embedding from search intent
-                query_emb = None
-                if row.search_intent:
-                    try:
-                        intent_data = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
-                        query_emb = intent_data.get("query_embedding")
-                    except Exception:
-                        pass
-
-                if query_emb and any(r.get("embedding") for r in results_for_quantum):
-                    reranked = await reranker.rerank_results(
-                        query_embedding=query_emb,
-                        search_results=results_for_quantum,
-                        top_k=len(normalized_results),
-                    )
-                    # Apply quantum scores back using the _idx key to match correctly
-                    score_map = {}
-                    for r in reranked:
-                        if r.get("quantum_reranked") and "_idx" in r:
-                            score_map[r["_idx"]] = r
-                    for idx, res in enumerate(normalized_results):
-                        if idx in score_map:
-                            qr = score_map[idx]
-                            res.provenance["quantum_score"] = qr.get("quantum_score", 0.0)
-                            res.provenance["blended_score"] = qr.get("blended_score", 0.0)
-                            res.provenance["novelty_score"] = qr.get("novelty_score", 0.0)
-                            res.provenance["coherence_score"] = qr.get("coherence_score", 0.0)
-                    logger.info(f"[SourcingService] Quantum reranking applied to {len(score_map)} results")
-        except ImportError:
-            pass  # Quantum module not available — classical scoring only
-        except Exception as e:
-            logger.warning(f"[SourcingService] Quantum reranking failed (graceful degradation): {e}")
-
-        # 2c. Constraint satisfaction scoring
-        if row and row.structured_constraints:
-            try:
-                from sourcing.quantum.constraint_scorer import constraint_satisfaction_score
-                constraints = json.loads(row.structured_constraints) if isinstance(row.structured_constraints, str) else row.structured_constraints
-                if isinstance(constraints, dict) and constraints:
-                    for res in normalized_results:
-                        result_data = {"title": res.title, "raw_data": res.raw_data}
-                        c_score = constraint_satisfaction_score(result_data, constraints)
-                        res.provenance["constraint_score"] = round(c_score, 4)
-                    logger.info(f"[SourcingService] Constraint scoring applied to {len(normalized_results)} results")
-            except Exception as e:
-                logger.warning(f"[SourcingService] Constraint scoring failed: {e}")
-
         # 3. Persist Results
         bids = await self._persist_results(row_id, normalized_results, row)
         
-        # Record persistence metrics
-        new_count = sum(1 for b in bids if not any(eb.id == b.id for eb in []))
         metrics.record_persistence(created=len(bids), updated=0)
 
         return bids, provider_statuses, user_message
