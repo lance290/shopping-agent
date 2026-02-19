@@ -18,6 +18,11 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade():
     conn = op.get_bind()
     inspector = sa.inspect(conn)
+
+    # Guard: skip entirely if user table doesn't exist yet
+    if 'user' not in inspector.get_table_names():
+        return
+
     columns = [c['name'] for c in inspector.get_columns('user')]
     
     # Add phone_number column if not exists

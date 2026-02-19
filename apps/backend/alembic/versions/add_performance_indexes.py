@@ -33,6 +33,20 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(conn, table: str) -> bool:
+    r = conn.execute(text(
+        "SELECT 1 FROM information_schema.tables WHERE table_name = :t"
+    ), {"t": table})
+    return r.first() is not None
+
+
+def _col_exists(conn, table: str, col: str) -> bool:
+    r = conn.execute(text(
+        "SELECT 1 FROM information_schema.columns WHERE table_name = :t AND column_name = :c"
+    ), {"t": table, "c": col})
+    return r.first() is not None
+
+
 def upgrade():
     """Add performance indexes for frequently queried columns."""
 
@@ -40,255 +54,113 @@ def upgrade():
     conn = op.get_bind()
 
     # Row table indexes
-    print("Adding indexes to 'row' table...")
-
-    # Row.status - frequently filtered in queries (sourcing, inviting, etc.)
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_row_status
-        ON "row" (status)
-    """))
-
-    # Row.user_id - already has index from FK, verify it exists
-    # This is auto-created by SQLModel but we ensure it's there
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_row_user_id
-        ON "row" (user_id)
-    """))
-
-    # Row.created_at - for time-based filtering and sorting
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_row_created_at
-        ON "row" (created_at DESC)
-    """))
-
-    # Row.outreach_status - for outreach filtering
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_row_outreach_status
-        ON "row" (outreach_status)
-    """))
+    if _table_exists(conn, 'row'):
+        print("Adding indexes to 'row' table...")
+        conn.execute(text('CREATE INDEX IF NOT EXISTS ix_row_status ON "row" (status)'))
+        conn.execute(text('CREATE INDEX IF NOT EXISTS ix_row_user_id ON "row" (user_id)'))
+        conn.execute(text('CREATE INDEX IF NOT EXISTS ix_row_created_at ON "row" (created_at DESC)'))
+        if _col_exists(conn, 'row', 'outreach_status'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_row_outreach_status ON "row" (outreach_status)'))
 
     # Bid table indexes
-    print("Adding indexes to 'bid' table...")
-
-    # Bid.row_id - critical for fetching bids for a row
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_bid_row_id
-        ON bid (row_id)
-    """))
-
-    # Bid.created_at - for sorting bids by recency
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_bid_created_at
-        ON bid (created_at DESC)
-    """))
-
-    # Bid.is_selected - for filtering selected bids
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_bid_is_selected
-        ON bid (is_selected)
-    """))
-
-    # Composite index: Bid(row_id, is_selected) - highly selective for selected bid queries
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_bid_row_selected
-        ON bid (row_id, is_selected)
-    """))
-
-    # Composite index: Bid(row_id, created_at) - for recent bids per row
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_bid_row_created
-        ON bid (row_id, created_at DESC)
-    """))
-
-    # Bid.is_liked - for filtering liked bids
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_bid_is_liked
-        ON bid (is_liked)
-    """))
-
-    # Bid.seller_id - for seller's bid history
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_bid_seller_id
-        ON bid (seller_id)
-    """))
+    if _table_exists(conn, 'bid'):
+        print("Adding indexes to 'bid' table...")
+        conn.execute(text('CREATE INDEX IF NOT EXISTS ix_bid_row_id ON bid (row_id)'))
+        if _col_exists(conn, 'bid', 'created_at'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_bid_created_at ON bid (created_at DESC)'))
+        if _col_exists(conn, 'bid', 'is_selected'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_bid_is_selected ON bid (is_selected)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_bid_row_selected ON bid (row_id, is_selected)'))
+        if _col_exists(conn, 'bid', 'created_at'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_bid_row_created ON bid (row_id, created_at DESC)'))
+        if _col_exists(conn, 'bid', 'is_liked'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_bid_is_liked ON bid (is_liked)'))
+        if _col_exists(conn, 'bid', 'seller_id'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_bid_seller_id ON bid (seller_id)'))
 
     # AuthSession table indexes
-    print("Adding indexes to 'auth_session' table...")
-
-    # AuthSession.session_token_hash - critical for auth lookups
-    # This should already exist but we ensure it's there
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_auth_session_token_hash
-        ON auth_session (session_token_hash)
-    """))
-
-    # AuthSession.revoked_at - for filtering active sessions
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_auth_session_revoked_at
-        ON auth_session (revoked_at)
-    """))
-
-    # Composite index: AuthSession(session_token_hash, revoked_at) - for active session lookups
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_auth_session_token_active
-        ON auth_session (session_token_hash, revoked_at)
-    """))
-
-    # AuthSession.created_at - for session cleanup
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_auth_session_created_at
-        ON auth_session (created_at)
-    """))
+    if _table_exists(conn, 'auth_session'):
+        print("Adding indexes to 'auth_session' table...")
+        if _col_exists(conn, 'auth_session', 'session_token_hash'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_auth_session_token_hash ON auth_session (session_token_hash)'))
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_auth_session_token_active ON auth_session (session_token_hash, revoked_at)'))
+        if _col_exists(conn, 'auth_session', 'revoked_at'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_auth_session_revoked_at ON auth_session (revoked_at)'))
+        conn.execute(text('CREATE INDEX IF NOT EXISTS ix_auth_session_created_at ON auth_session (created_at)'))
 
     # AuthLoginCode table indexes
-    print("Adding indexes to 'auth_login_code' table...")
-
-    # AuthLoginCode.is_active - for active code filtering
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_auth_login_code_is_active
-        ON auth_login_code (is_active)
-    """))
-
-    # AuthLoginCode.locked_until - for rate limiting checks
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_auth_login_code_locked_until
-        ON auth_login_code (locked_until)
-    """))
+    if _table_exists(conn, 'auth_login_code'):
+        print("Adding indexes to 'auth_login_code' table...")
+        if _col_exists(conn, 'auth_login_code', 'is_active'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_auth_login_code_is_active ON auth_login_code (is_active)'))
+        if _col_exists(conn, 'auth_login_code', 'locked_until'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_auth_login_code_locked_until ON auth_login_code (locked_until)'))
 
     # Comment table indexes
-    print("Adding indexes to 'comment' table...")
-
-    # Composite index: Comment(row_id, created_at) - for loading comments in order
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_comment_row_created
-        ON comment (row_id, created_at DESC)
-    """))
-
-    # Comment.bid_id - for bid-specific comments
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_comment_bid_id
-        ON comment (bid_id)
-    """))
+    if _table_exists(conn, 'comment'):
+        print("Adding indexes to 'comment' table...")
+        conn.execute(text('CREATE INDEX IF NOT EXISTS ix_comment_row_created ON comment (row_id, created_at DESC)'))
+        if _col_exists(conn, 'comment', 'bid_id'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_comment_bid_id ON comment (bid_id)'))
 
     # ClickoutEvent table indexes
-    print("Adding indexes to 'clickout_event' table...")
-
-    # ClickoutEvent.created_at - for analytics and time-based filtering
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_clickout_event_created_at
-        ON clickout_event (created_at DESC)
-    """))
-
-    # ClickoutEvent.is_suspicious - for filtering fraudulent clicks
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_clickout_event_suspicious
-        ON clickout_event (is_suspicious)
-    """))
-
-    # ClickoutEvent.handler_name - for handler performance analysis
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_clickout_event_handler
-        ON clickout_event (handler_name)
-    """))
+    if _table_exists(conn, 'clickout_event'):
+        print("Adding indexes to 'clickout_event' table...")
+        conn.execute(text('CREATE INDEX IF NOT EXISTS ix_clickout_event_created_at ON clickout_event (created_at DESC)'))
+        if _col_exists(conn, 'clickout_event', 'is_suspicious'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_clickout_event_suspicious ON clickout_event (is_suspicious)'))
+        if _col_exists(conn, 'clickout_event', 'handler_name'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_clickout_event_handler ON clickout_event (handler_name)'))
 
     # PurchaseEvent table indexes
-    print("Adding indexes to 'purchase_event' table...")
-
-    # PurchaseEvent.created_at - for revenue analytics
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_purchase_event_created_at
-        ON purchase_event (created_at DESC)
-    """))
-
-    # PurchaseEvent.status - for filtering completed purchases
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_purchase_event_status
-        ON purchase_event (status)
-    """))
+    if _table_exists(conn, 'purchase_event'):
+        print("Adding indexes to 'purchase_event' table...")
+        conn.execute(text('CREATE INDEX IF NOT EXISTS ix_purchase_event_created_at ON purchase_event (created_at DESC)'))
+        if _col_exists(conn, 'purchase_event', 'status'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_purchase_event_status ON purchase_event (status)'))
 
     # ShareLink table indexes
-    print("Adding indexes to 'share_link' table...")
-
-    # ShareLink.created_at - for recent shares
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_share_link_created_at
-        ON share_link (created_at DESC)
-    """))
-
-    # Composite index: ShareLink(resource_type, resource_id) - for finding shares by resource
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_share_link_resource
-        ON share_link (resource_type, resource_id)
-    """))
+    if _table_exists(conn, 'share_link'):
+        print("Adding indexes to 'share_link' table...")
+        conn.execute(text('CREATE INDEX IF NOT EXISTS ix_share_link_created_at ON share_link (created_at DESC)'))
+        if _col_exists(conn, 'share_link', 'resource_type') and _col_exists(conn, 'share_link', 'resource_id'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_share_link_resource ON share_link (resource_type, resource_id)'))
 
     # OutreachEvent table indexes
-    print("Adding indexes to 'outreach_event' table...")
-
-    # OutreachEvent.status - for filtering pending/expired outreach
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_outreach_event_status
-        ON outreach_event (status)
-    """))
-
-    # OutreachEvent.expired_at - for cleanup queries
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_outreach_event_expired_at
-        ON outreach_event (expired_at)
-    """))
-
-    # Composite index: OutreachEvent(row_id, status) - for row outreach status
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_outreach_event_row_status
-        ON outreach_event (row_id, status)
-    """))
+    if _table_exists(conn, 'outreach_event'):
+        print("Adding indexes to 'outreach_event' table...")
+        if _col_exists(conn, 'outreach_event', 'status'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_outreach_event_status ON outreach_event (status)'))
+        if _col_exists(conn, 'outreach_event', 'expired_at'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_outreach_event_expired_at ON outreach_event (expired_at)'))
+        if _col_exists(conn, 'outreach_event', 'status'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_outreach_event_row_status ON outreach_event (row_id, status)'))
 
     # SellerQuote table indexes
-    print("Adding indexes to 'seller_quote' table...")
-
-    # SellerQuote.status - for filtering pending/submitted quotes
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_seller_quote_status
-        ON seller_quote (status)
-    """))
-
-    # SellerQuote.token_expires_at - for expired token cleanup
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_seller_quote_expires_at
-        ON seller_quote (token_expires_at)
-    """))
+    if _table_exists(conn, 'seller_quote'):
+        print("Adding indexes to 'seller_quote' table...")
+        if _col_exists(conn, 'seller_quote', 'status'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_seller_quote_status ON seller_quote (status)'))
+        if _col_exists(conn, 'seller_quote', 'token_expires_at'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_seller_quote_expires_at ON seller_quote (token_expires_at)'))
 
     # Merchant table indexes
-    print("Adding indexes to 'merchant' table...")
-
-    # Merchant.status - for filtering verified merchants
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_merchant_status
-        ON merchant (status)
-    """))
-
-    # Merchant.stripe_onboarding_complete - for payment-ready merchants
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_merchant_stripe_complete
-        ON merchant (stripe_onboarding_complete)
-    """))
+    if _table_exists(conn, 'merchant'):
+        print("Adding indexes to 'merchant' table...")
+        if _col_exists(conn, 'merchant', 'status'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_merchant_status ON merchant (status)'))
+        if _col_exists(conn, 'merchant', 'stripe_onboarding_complete'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_merchant_stripe_complete ON merchant (stripe_onboarding_complete)'))
 
     # NOTE: UserSignal, UserPreference, and SellerBookmark tables removed
     # See DEAD_CODE_REMOVAL_ANALYSIS.md for details
 
     # AuditLog table indexes
-    print("Adding indexes to 'audit_log' table...")
-
-    # Composite index: AuditLog(action, timestamp) - for action-specific queries
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_audit_log_action_time
-        ON audit_log (action, timestamp DESC)
-    """))
-
-    # AuditLog.success - for error filtering
-    conn.execute(text("""
-        CREATE INDEX IF NOT EXISTS ix_audit_log_success
-        ON audit_log (success)
-    """))
+    if _table_exists(conn, 'audit_log'):
+        print("Adding indexes to 'audit_log' table...")
+        conn.execute(text('CREATE INDEX IF NOT EXISTS ix_audit_log_action_time ON audit_log (action, timestamp DESC)'))
+        if _col_exists(conn, 'audit_log', 'success'):
+            conn.execute(text('CREATE INDEX IF NOT EXISTS ix_audit_log_success ON audit_log (success)'))
 
     print("✓ All performance indexes created successfully")
 
