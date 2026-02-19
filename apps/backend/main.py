@@ -279,12 +279,15 @@ async def startup_event():
 
     # Always run lightweight migrations for new columns
     from database import engine
-    async with engine.begin() as conn:
-        # Add chat_history column if it doesn't exist (safe idempotent migration)
-        await conn.execute(text("""
-            ALTER TABLE row ADD COLUMN IF NOT EXISTS chat_history TEXT;
-        """))
-        print("Migration check: chat_history column ensured")
+    try:
+        async with engine.begin() as conn:
+            # Add chat_history column if it doesn't exist (safe idempotent migration)
+            await conn.execute(text("""
+                ALTER TABLE row ADD COLUMN IF NOT EXISTS chat_history TEXT;
+            """))
+            print("Migration check: chat_history column ensured")
+    except Exception as e:
+        print(f"Migration check skipped (table may not exist yet, Alembic will create it): {e}")
 
     # ── Data integrity check — warn if vendor/user data is missing ──
     async with engine.begin() as conn:
