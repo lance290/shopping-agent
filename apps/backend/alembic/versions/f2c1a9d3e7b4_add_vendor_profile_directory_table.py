@@ -28,7 +28,7 @@ class VectorType(sa.types.UserDefinedType):
 
 # revision identifiers, used by Alembic.
 revision: str = "f2c1a9d3e7b4"
-down_revision: Union[str, Sequence[str], None] = ("a7b8c9d0e1f2", "add_performance_indexes", "p4_phase4_models")
+down_revision: Union[str, Sequence[str], None] = ("a7b8c9d0e1f2", "add_performance_indexes")
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

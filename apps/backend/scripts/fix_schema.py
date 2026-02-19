@@ -118,7 +118,7 @@ async def fix_schema(conn):
                 contact_name VARCHAR,
                 is_verified BOOLEAN NOT NULL DEFAULT false,
                 status VARCHAR NOT NULL DEFAULT 'unverified',
-                user_id INTEGER REFERENCES "user"(id),
+                user_id INTEGER,
                 stripe_account_id VARCHAR,
                 stripe_onboarding_complete BOOLEAN NOT NULL DEFAULT false,
                 default_commission_rate FLOAT NOT NULL DEFAULT 0.05,
