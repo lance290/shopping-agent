@@ -22,7 +22,8 @@ def test_amazon_handler_adds_tag(context):
     assert result.handler_name == "amazon_associates"
     assert result.rewrite_applied
 
-def test_amazon_handler_no_tag_configured(context):
+def test_amazon_handler_no_tag_configured(context, monkeypatch):
+    monkeypatch.delenv("AMAZON_AFFILIATE_TAG", raising=False)
     handler = AmazonAssociatesHandler(tag="")
     result = handler.transform("https://amazon.com/dp/B08N5/", context)
     assert result.final_url == "https://amazon.com/dp/B08N5/"
