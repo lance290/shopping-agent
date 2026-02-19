@@ -51,7 +51,8 @@ def score_results(
         # Tier fit is a MULTIPLIER, not additive — mismatched sources get a real penalty.
         # tr=1.0 → full score. tr=0.2 → 44% of base score.
         base = (rs * 0.45) + (ps * 0.20) + (qs * 0.20) + (db * 0.15)
-        combined = base * (0.3 + 0.7 * tr)
+        am = _affiliate_multiplier(r.source)
+        combined = base * (0.3 + 0.7 * tr) * am
 
         # Enrich provenance with score breakdown
         r.provenance["score"] = {
@@ -61,6 +62,7 @@ def score_results(
             "price": round(ps, 4),
             "quality": round(qs, 4),
             "diversity": round(db, 4),
+            "affiliate_multiplier": round(am, 4),
         }
 
         scored.append((combined, r))
@@ -282,3 +284,23 @@ def _diversity_bonus(
         return 0.4
     else:
         return 0.2
+
+
+def _affiliate_multiplier(source: str) -> float:
+    """
+    Boost sources we have affiliate programs for; penalize those we don't.
+
+    - rainforest (Amazon): boosted — we have Amazon Associates configured.
+    - vendor_directory: neutral — our own vendors, always show.
+    - Google Shopping (serpapi, searchapi, google_cse, google_shopping): penalized
+      until we have affiliate coverage for those merchants.
+    - ebay_browse: neutral for now — eBay Partner Network not yet configured.
+    """
+    BOOSTED = {"rainforest"}
+    PENALIZED = {"serpapi", "searchapi", "google_cse", "google_shopping"}
+
+    if source in BOOSTED:
+        return 1.25
+    if source in PENALIZED:
+        return 0.60
+    return 1.0
