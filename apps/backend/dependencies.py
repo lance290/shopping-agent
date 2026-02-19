@@ -72,7 +72,10 @@ async def resolve_user_id(
     guest_result = await session.exec(select(User).where(User.email == GUEST_EMAIL))
     guest_user = guest_result.first()
     if not guest_user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        guest_user = User(email=GUEST_EMAIL)
+        session.add(guest_user)
+        await session.commit()
+        await session.refresh(guest_user)
     return guest_user.id
 
 

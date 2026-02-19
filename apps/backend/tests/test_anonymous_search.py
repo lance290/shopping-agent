@@ -103,16 +103,17 @@ async def test_anonymous_search_stream_returns_200(
 
 
 @pytest.mark.asyncio
-async def test_anonymous_search_without_guest_user_returns_401(
+async def test_anonymous_search_without_guest_user_auto_creates_guest(
     client: AsyncClient, session: AsyncSession
 ):
-    """Without a guest user in DB, anonymous search should return 401."""
+    """Without a guest user in DB, anonymous search should auto-create the guest user."""
     response = await client.post(
         "/rows/999/search",
         json={"query": "test"},
-        # NO authorization header, NO guest user in DB
+        # NO authorization header, NO guest user in DB — guest auto-created
     )
-    assert response.status_code == 401
+    # Should not be 401 (guest auto-created); 404 for non-existent row is expected
+    assert response.status_code != 401
 
 
 @pytest.mark.asyncio
