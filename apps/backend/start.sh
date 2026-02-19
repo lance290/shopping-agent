@@ -11,32 +11,58 @@ if [ -d "/data" ]; then
 fi
 
 # Create base SQLModel tables if they don't exist (idempotent)
-# This is critical for fresh DBs where init_db() doesn't run (production skips it)
+# This is critical for fresh DBs where init_db() doesn't run in production
 echo "[STARTUP] Ensuring base tables exist (SQLModel create_all)..."
 if ! su fastapi -s /bin/sh -c "python -c 'from database import init_db; import asyncio; asyncio.run(init_db())'"; then
     echo "[STARTUP] WARNING: Base table creation failed, but continuing startup."
 fi
 
-# Patch missing tables/columns FIRST (idempotent safety net)
+# Patch missing tables/columns (idempotent safety net)
 echo "[STARTUP] Running schema fix (pre-migration)..."
 if ! su fastapi -s /bin/sh -c "python scripts/fix_schema.py"; then
     echo "[STARTUP] WARNING: Schema fix failed, but continuing startup."
 fi
 
-# Run migrations (non-fatal — DB may already be at head)
+# Determine if DB is fresh (no alembic_version rows) or existing
+# Fresh DB: init_db already created all tables with current schema, so stamp heads
+# Existing DB: run upgrade heads to apply pending migrations
 echo "[STARTUP] Running database migrations..."
-echo "[STARTUP] Migration files present:"
-ls -1 alembic/versions/*.py 2>/dev/null | wc -l
-if su fastapi -s /bin/sh -c "alembic upgrade heads 2>&1"; then
-    echo "[STARTUP] Migrations completed successfully."
-else
-    echo "[STARTUP] WARNING: Migrations returned non-zero. Checking if DB is usable..."
-    su fastapi -s /bin/sh -c "alembic current 2>&1" || true
-    if su fastapi -s /bin/sh -c "python -c \"from database import engine; import asyncio; asyncio.run(engine.dispose())\"" 2>/dev/null; then
-        echo "[STARTUP] DB connection OK — continuing despite migration warning."
+ALEMBIC_ROWS=$(su fastapi -s /bin/sh -c "python -c \"
+import asyncio
+from database import engine
+from sqlalchemy import text
+async def check():
+    try:
+        async with engine.begin() as conn:
+            r = await conn.execute(text('SELECT COUNT(*) FROM alembic_version'))
+            return r.scalar() or 0
+    except:
+        return 0
+print(asyncio.run(check()))
+\"" 2>/dev/null || echo "0")
+
+echo "[STARTUP] Alembic version rows: $ALEMBIC_ROWS"
+
+if [ "$ALEMBIC_ROWS" = "0" ]; then
+    echo "[STARTUP] Fresh DB detected — stamping Alembic heads (tables already created by init_db)..."
+    if su fastapi -s /bin/sh -c "alembic stamp heads 2>&1"; then
+        echo "[STARTUP] Alembic heads stamped successfully."
     else
-        echo "[STARTUP] ERROR: DB connection failed. Exiting."
-        exit 1
+        echo "[STARTUP] WARNING: Alembic stamp failed, but continuing startup."
+    fi
+else
+    echo "[STARTUP] Existing DB — running Alembic upgrade..."
+    if su fastapi -s /bin/sh -c "alembic upgrade heads 2>&1"; then
+        echo "[STARTUP] Migrations completed successfully."
+    else
+        echo "[STARTUP] WARNING: Migrations returned non-zero. Checking if DB is usable..."
+        su fastapi -s /bin/sh -c "alembic current 2>&1" || true
+        if su fastapi -s /bin/sh -c "python -c \"from database import engine; import asyncio; asyncio.run(engine.dispose())\"" 2>/dev/null; then
+            echo "[STARTUP] DB connection OK — continuing despite migration warning."
+        else
+            echo "[STARTUP] ERROR: DB connection failed. Exiting."
+            exit 1
+        fi
     fi
 fi
 

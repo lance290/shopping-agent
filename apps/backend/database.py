@@ -109,8 +109,8 @@ if ENABLE_QUERY_LOGGING:
     print(f"DEBUG: Query logging enabled (threshold={SLOW_QUERY_THRESHOLD}s)")
 
 async def init_db():
+    import models  # noqa: F401 — populate SQLModel.metadata with all table definitions
     async with engine.begin() as conn:
-        # This creates tables if they don't exist
         await conn.run_sync(SQLModel.metadata.create_all)
 
 async def get_session() -> AsyncSession:
