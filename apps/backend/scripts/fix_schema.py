@@ -217,7 +217,7 @@ async def fix_schema(conn):
                     item_name VARCHAR NOT NULL,
                     constraints VARCHAR NOT NULL,
                     preferences VARCHAR,
-                    row_id INTEGER REFERENCES "row"(id)
+                    row_id INTEGER
                 )
             """))
             print("[SCHEMA-FIX] Created request_spec table")

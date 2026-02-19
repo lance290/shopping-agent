@@ -10,6 +10,13 @@ if [ -d "/data" ]; then
     chown -R 1001:1001 /data/uploads || true
 fi
 
+# Create base SQLModel tables if they don't exist (idempotent)
+# This is critical for fresh DBs where init_db() doesn't run (production skips it)
+echo "[STARTUP] Ensuring base tables exist (SQLModel create_all)..."
+if ! su fastapi -s /bin/sh -c "python -c 'from database import init_db; import asyncio; asyncio.run(init_db())'"; then
+    echo "[STARTUP] WARNING: Base table creation failed, but continuing startup."
+fi
+
 # Patch missing tables/columns FIRST (idempotent safety net)
 echo "[STARTUP] Running schema fix (pre-migration)..."
 if ! su fastapi -s /bin/sh -c "python scripts/fix_schema.py"; then
