@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 from pgvector.sqlalchemy import Vector
 from sqlmodel import Field, SQLModel, Relationship, Column
+import sqlalchemy as sa
 from pydantic import ConfigDict, computed_field
 
 if TYPE_CHECKING:
@@ -24,7 +25,7 @@ class Vendor(SQLModel, table=True):
     website: Optional[str] = None
     # Classification
     category: Optional[str] = Field(default=None, index=True)
-    service_areas: Optional[str] = None  # JSON
+    service_areas: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
     specialties: Optional[str] = None
     description: Optional[str] = None
     tagline: Optional[str] = None
