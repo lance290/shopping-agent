@@ -299,6 +299,7 @@ async def search_row_listings_stream(
     # Extract price constraints from search_intent / choice_answers
     min_price, max_price = sourcing_service._extract_price_constraints(row)
     search_intent = sourcing_service._parse_search_intent(row)
+    logger.info(f"[SEARCH STREAM] row={row_id} min_price={min_price} max_price={max_price} search_intent_snippet={str(row.search_intent)[:200]}")
 
     # Extract clean product intent for vendor vector search
     vendor_query = sourcing_service.extract_vendor_query(row)
