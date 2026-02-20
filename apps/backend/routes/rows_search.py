@@ -25,6 +25,7 @@ from sourcing import (
 from sourcing.normalizers import normalize_results_for_provider
 from sourcing.service import SourcingService
 from sourcing.scorer import score_results
+from sourcing.filters import should_exclude_by_exclusions
 from sourcing.messaging import determine_search_user_message
 
 router = APIRouter(tags=["rows"])
@@ -307,6 +308,9 @@ async def search_row_listings_stream(
     # Extract clean product intent for vendor vector search
     vendor_query = sourcing_service.extract_vendor_query(row)
 
+    # Extract LLM-populated exclusions for post-search filtering
+    exclude_kw, exclude_merchants = sourcing_service._extract_exclusions(row)
+
     row.status = "bids_arriving"
     row.updated_at = datetime.utcnow()
     session.add(row)
@@ -339,6 +343,19 @@ async def search_row_listings_stream(
                             max_price=max_price,
                             desire_tier=row.desire_tier,
                         )
+                        # Apply LLM-extracted exclusions (Amazon can't do negative keywords)
+                        if exclude_kw or exclude_merchants:
+                            before = len(scored_batch)
+                            scored_batch = [
+                                r for r in scored_batch
+                                if not should_exclude_by_exclusions(
+                                    r.title, r.merchant_name, r.merchant_domain,
+                                    exclude_kw, exclude_merchants,
+                                )
+                            ]
+                            dropped = before - len(scored_batch)
+                            if dropped:
+                                logger.info(f"[SEARCH STREAM] Excluded {dropped}/{before} results from {provider_name} by user exclusions")
                         await sourcing_service._persist_results(row_id, scored_batch, row)
                         # Emit ranked results for this provider batch so UI "Featured"
                         # order reflects scorer output during streaming.

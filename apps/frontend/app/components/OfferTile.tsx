@@ -149,8 +149,12 @@ export default function OfferTile({
           
           <div className="mt-auto">
             {isQuoteBased && (
-              <div className="text-xl font-bold text-onyx mb-8 text-center">
-                Request Quote
+              <div className="text-[11px] font-medium text-onyx-muted mb-8 text-center leading-snug">
+                {isVendorDirectory
+                  ? (offer.description
+                      ? <span className="line-clamp-2">{offer.description}</span>
+                      : <span>Specialist · Custom pricing</span>)
+                  : 'Pricing on request'}
               </div>
             )}
             {!isQuoteBased && (

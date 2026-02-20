@@ -225,7 +225,7 @@ Schema:
   "product_category": "string (concise slug, e.g. 'running_shoes')",
   "taxonomy_version": "string|null",
   "category_path": ["array", "of", "strings"],
-  "product_name": "string|null",
+  "product_name": "string|null — CLEAN product name, positive terms only, NO negations",
   "brand": "string|null",
   "model": "string|null",
   "min_price": "number|null",
@@ -233,17 +233,20 @@ Schema:
   "price_flexibility": "'strict'|'flexible'|'unknown'|null",
   "condition": "'new'|'used'|'refurbished'|null",
   "features": {{"key": "value pairs"}},
-  "keywords": ["short", "lowercase", "tokens"],
-  "exclude_keywords": [],
+  "keywords": ["short", "lowercase", "positive tokens ONLY — no negations"],
+  "exclude_keywords": ["terms to FILTER OUT from results, e.g. 'digital', 'electronic'. Extract from user negations like 'no digital'. Empty if none."],
+  "exclude_merchants": ["retailer names to exclude, e.g. 'amazon', 'target'. Extract from 'NOT from Amazon'. Empty if none."],
   "confidence": 0.0-1.0,
-  "raw_input": "string"
+  "raw_input": "string — the original user query, CLEAN, no negation words"
 }}
 
 Rules:
 - product_category is required and should be a concise slug (e.g. "running_shoes").
 - min_price/max_price should be numbers if present.
 - features should include non-price constraints.
-- keywords should be short, lower-case tokens.
+- keywords should be short, lower-case tokens describing what the user WANTS (never what they don't want).
+- exclude_keywords: terms the user wants to EXCLUDE from results (e.g. "digital", "electronic"). Extracted from negations.
+- exclude_merchants: retailer/merchant names to exclude (e.g. "amazon", "target"). Extracted from "NOT from X".
 - confidence should be 0-1.
 """
 

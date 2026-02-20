@@ -147,7 +147,14 @@ def _should_force_context_switch(
 # INTERNAL HELPERS (replace BFF HTTP calls with direct DB ops)
 # =============================================================================
 
-def _build_search_intent_json(title: str, search_query: str, constraints: Dict[str, Any], service_category: Optional[str]) -> str:
+def _build_search_intent_json(
+    title: str,
+    search_query: str,
+    constraints: Dict[str, Any],
+    service_category: Optional[str],
+    exclude_keywords: Optional[List[str]] = None,
+    exclude_merchants: Optional[List[str]] = None,
+) -> str:
     """Build a SearchIntent JSON from LLM intent fields so the scorer can rank by relevance."""
     # Extract keywords from the title (the core "what")
     stop_words = {"a", "an", "the", "for", "my", "i", "me", "to", "and", "or", "of", "in", "on", "with"}
@@ -158,6 +165,8 @@ def _build_search_intent_json(title: str, search_query: str, constraints: Dict[s
         "product_name": title,
         "brand": constraints.get("brand") or constraints.get("preferred_brand"),
         "keywords": keywords,
+        "exclude_keywords": exclude_keywords or [],
+        "exclude_merchants": [m.lower() for m in (exclude_merchants or [])],
         "min_price": constraints.get("min_price"),
         "max_price": constraints.get("max_price") or constraints.get("budget") or constraints.get("max_budget"),
         "raw_input": search_query or title,
@@ -165,7 +174,7 @@ def _build_search_intent_json(title: str, search_query: str, constraints: Dict[s
                      if k not in ("brand", "preferred_brand", "min_price", "max_price", "budget", "max_budget")
                      and v is not None and str(v).lower() != "not answered"},
     }
-    # Remove None values
+    # Remove None values (but keep empty lists — they're meaningful)
     intent_data = {k: v for k, v in intent_data.items() if v is not None}
     return json.dumps(intent_data)
 
@@ -180,6 +189,8 @@ async def _create_row(
     constraints: Dict[str, Any],
     search_query: Optional[str] = None,
     desire_tier: Optional[str] = None,
+    exclude_keywords: Optional[List[str]] = None,
+    exclude_merchants: Optional[List[str]] = None,
 ) -> Row:
     """Create a new Row directly in DB."""
     row = Row(
@@ -191,7 +202,7 @@ async def _create_row(
         service_category=service_category or None,
         desire_tier=desire_tier,
         structured_constraints=json.dumps(constraints) if constraints else None,
-        search_intent=_build_search_intent_json(title, search_query or title, constraints, service_category),
+        search_intent=_build_search_intent_json(title, search_query or title, constraints, service_category, exclude_keywords, exclude_merchants),
     )
     session.add(row)
     await session.flush()
@@ -425,8 +436,10 @@ async def chat_endpoint(
             service_category = intent.service_type
             title = intent.what[0].upper() + intent.what[1:] if intent.what else intent.what
             search_query = intent.search_query
+            exclude_keywords = intent.exclude_keywords or []
+            exclude_merchants = intent.exclude_merchants or []
             # Strip meta-fields that LLM may accidentally put in constraints
-            _META_KEYS = {"what", "is_service", "service_category", "search_query", "title", "category", "desire_tier", "desire_confidence"}
+            _META_KEYS = {"what", "is_service", "service_category", "search_query", "title", "category", "desire_tier", "desire_confidence", "exclude_keywords", "exclude_merchants"}
             constraints = {k: v for k, v in (intent.constraints or {}).items() if k not in _META_KEYS}
 
             # === HANDLE EACH ACTION TYPE ===
@@ -460,6 +473,8 @@ async def chat_endpoint(
                     session, user_id, title, project_id,
                     is_service, service_category, constraints, search_query,
                     desire_tier=tier,
+                    exclude_keywords=exclude_keywords,
+                    exclude_merchants=exclude_merchants,
                 )
                 yield sse_event(event_name, {"row": row_to_dict(row)})
                 yield sse_event("desire_tier_classified", {
@@ -513,6 +528,8 @@ async def chat_endpoint(
                         session, user_id, title, project_id,
                         is_service, service_category, constraints, search_query,
                         desire_tier=tier,
+                        exclude_keywords=exclude_keywords,
+                        exclude_merchants=exclude_merchants,
                     )
                     yield sse_event("row_created", {"row": row_to_dict(row)})
                     yield sse_event("desire_tier_classified", {
@@ -571,6 +588,7 @@ async def chat_endpoint(
                 row_service_cat_for_intent = service_category or (active_row_data or {}).get("service_category")
                 row.search_intent = _build_search_intent_json(
                     row.title, search_query or row.title, next_constraints, row_service_cat_for_intent,
+                    exclude_keywords=exclude_keywords, exclude_merchants=exclude_merchants,
                 )
                 session.add(row)
                 await session.commit()
@@ -621,6 +639,8 @@ async def chat_endpoint(
                         session, user_id, title, project_id,
                         is_service, service_category, constraints, search_query,
                         desire_tier=decision.desire_tier,
+                        exclude_keywords=exclude_keywords,
+                        exclude_merchants=exclude_merchants,
                     )
                     yield sse_event("row_created", {"row": row_to_dict(row)})
                     active_row_id = row.id

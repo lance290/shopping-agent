@@ -15,6 +15,7 @@ from sourcing.models import NormalizedResult, ProviderStatusSnapshot, SearchInte
 from sourcing.repository import SourcingRepository
 from sourcing.metrics import get_metrics_collector, log_search_start
 from sourcing.scorer import score_results
+from sourcing.filters import should_exclude_by_exclusions
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +188,22 @@ class SourcingService:
         return min_price, max_price
 
     @staticmethod
+    def _extract_exclusions(row) -> tuple[List[str], List[str]]:
+        """Extract LLM-populated exclude_keywords and exclude_merchants from row.search_intent."""
+        if not row or not row.search_intent:
+            return [], []
+        try:
+            si = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
+            if isinstance(si, dict):
+                return (
+                    si.get("exclude_keywords") or [],
+                    si.get("exclude_merchants") or [],
+                )
+        except Exception:
+            pass
+        return [], []
+
+    @staticmethod
     def extract_vendor_query(row) -> Optional[str]:
         """Extract the LLM's clean product_name from search_intent for vendor vector search.
 
@@ -313,6 +330,21 @@ class SourcingService:
             max_price=max_price,
             desire_tier=desire_tier,
         )
+
+        # 2b. Apply LLM-extracted exclusions (Amazon doesn't support negative keywords)
+        exclude_kw, exclude_merchants = self._extract_exclusions(row)
+        if exclude_kw or exclude_merchants:
+            before = len(normalized_results)
+            normalized_results = [
+                r for r in normalized_results
+                if not should_exclude_by_exclusions(
+                    r.title, r.merchant_name, r.merchant_domain,
+                    exclude_kw, exclude_merchants,
+                )
+            ]
+            dropped = before - len(normalized_results)
+            if dropped:
+                logger.info(f"[SourcingService] Row {row_id}: Excluded {dropped} results by user exclusions (keywords={exclude_kw}, merchants={exclude_merchants})")
 
         # 3. Persist Results
         bids = await self._persist_results(row_id, normalized_results, row)

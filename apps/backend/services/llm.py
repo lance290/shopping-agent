@@ -144,8 +144,10 @@ class UserIntent(BaseModel):
     service_type: Optional[str] = None  # vendor_category hint (e.g. "private_aviation")
     search_query: str
     constraints: Dict[str, Any] = {}
-    desire_tier: str = "commodity"  # one of DESIRE_TIERS
-    desire_confidence: float = 0.8  # 0.0-1.0
+    exclude_keywords: List[str] = []  # terms to filter OUT of results (e.g. ["digital", "electronic"])
+    exclude_merchants: List[str] = []  # merchants/retailers to exclude (e.g. ["amazon", "target"])
+    desire_tier: Optional[str] = None  # LLM must classify — None means unclassified
+    desire_confidence: float = 0.0  # 0.0-1.0, LLM sets this
 
 
 class ClarificationAction(BaseModel):
@@ -174,8 +176,8 @@ class UnifiedDecision(BaseModel):
     action: Dict[str, Any]  # flexible to handle all action types
 
     @property
-    def desire_tier(self) -> str:
-        return self.intent.desire_tier if self.intent.desire_tier in DESIRE_TIERS else "commodity"
+    def desire_tier(self) -> Optional[str]:
+        return self.intent.desire_tier if self.intent.desire_tier in DESIRE_TIERS else None
 
     @property
     def skip_web_search(self) -> bool:
@@ -241,8 +243,10 @@ You MUST always return an "intent" object that captures WHAT THE USER WANTS:
     "what": "The core thing they want - e.g., 'private jet charter', 'kids baseball glove', 'custom diamonds'",
     "category": "request",
     "service_type": "optional vendor category hint: private_aviation, roofing, hvac, jewelry, catering, etc. Use when a vendor directory might have relevant providers. null if unsure.",
-    "search_query": "The query to find this - derived from WHAT, not conversation snippets",
+    "search_query": "A CLEAN product search query. ONLY include positive terms describing what the user WANTS. NEVER include negations, exclusions, 'NOT', 'no', 'excluding', or retailer names to avoid. Example: user says 'Roblox gift card, no digital, not from Amazon' → search_query: 'Roblox physical gift card'",
     "constraints": {{ structured data ONLY: origin, destination, date, size, color, price, recipient, etc. NEVER include 'what', 'is_service', 'service_category', 'search_query', or 'title' in constraints — those belong in the parent intent fields. }},
+    "exclude_keywords": ["terms to FILTER OUT from results — e.g. 'digital', 'electronic', 'download', 'code'. Extract from user negations like 'no digital', 'not electronic'. Empty array if none."],
+    "exclude_merchants": ["retailer/merchant names to exclude — e.g. 'amazon', 'target', 'walmart'. Extract from user statements like 'NOT from Amazon', 'excluding Target'. Empty array if none."],
     "desire_tier": "one of: commodity, considered, service, bespoke, high_value, advisory",
     "desire_confidence": 0.0-1.0
   }}
@@ -335,7 +339,7 @@ COMPLEX REQUESTS (services, custom/bespoke items, high-value purchases):
 Return ONLY valid JSON:
 {{
   "message": "Conversational response to user (REQUIRED)",
-  "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}}, "desire_tier": "commodity|considered|service|bespoke|high_value|advisory", "desire_confidence": 0.9 }},
+  "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}}, "exclude_keywords": [], "exclude_merchants": [], "desire_tier": "commodity|considered|service|bespoke|high_value|advisory", "desire_confidence": 0.9 }},
   "action": {{ "type": "..." }}
 }}"""
 
