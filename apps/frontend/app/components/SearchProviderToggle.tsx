@@ -2,13 +2,13 @@
 
 import { useShoppingStore } from '../store';
 import { cn } from '../../utils/cn';
-import { ShoppingBag, Globe, Store, Briefcase } from 'lucide-react';
+import { ShoppingBag, Globe, Store, Briefcase, Check, X } from 'lucide-react';
 
 const PROVIDERS = [
-  { id: 'amazon', label: 'Amazon', icon: ShoppingBag, activeColor: 'bg-orange-100 text-orange-700 border-orange-300' },
-  { id: 'serpapi', label: 'Google', icon: Globe, activeColor: 'bg-blue-100 text-blue-700 border-blue-300' },
-  { id: 'ebay', label: 'eBay', icon: Store, activeColor: 'bg-red-100 text-red-700 border-red-300' },
-  { id: 'vendor_directory', label: 'Bespoke', icon: Briefcase, activeColor: 'bg-purple-100 text-purple-700 border-purple-300' },
+  { id: 'amazon', label: 'Amazon', icon: ShoppingBag, color: 'text-orange-600' },
+  { id: 'serpapi', label: 'Google', icon: Globe, color: 'text-blue-600' },
+  { id: 'ebay', label: 'eBay', icon: Store, color: 'text-red-600' },
+  { id: 'vendor_directory', label: 'Bespoke', icon: Briefcase, color: 'text-purple-600' },
 ] as const;
 
 export default function SearchProviderToggle() {
@@ -18,27 +18,35 @@ export default function SearchProviderToggle() {
   const activeCount = Object.values(selectedProviders).filter(Boolean).length;
 
   return (
-    <div className="grid grid-cols-2 gap-1.5">
-      {PROVIDERS.map(({ id, label, icon: Icon, activeColor }) => {
+    <div className="flex items-center gap-1 flex-wrap">
+      <span className="text-[10px] text-gray-400 mr-0.5">Sources:</span>
+      {PROVIDERS.map(({ id, label, icon: Icon, color }) => {
         const isActive = selectedProviders[id] ?? false;
         return (
           <button
             key={id}
             type="button"
+            role="switch"
+            aria-checked={isActive}
             onClick={() => {
               if (isActive && activeCount <= 1) return;
               toggleProvider(id);
             }}
             className={cn(
-              "inline-flex items-center justify-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold border transition-all duration-150",
+              "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all duration-150",
               isActive
-                ? activeColor
-                : "bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200"
+                ? "bg-white border border-gray-200 shadow-sm"
+                : "bg-transparent border border-transparent text-gray-400 hover:bg-gray-50"
             )}
-            title={isActive ? `Disable ${label}` : `Enable ${label}`}
+            title={isActive ? `${label} ON — click to disable` : `${label} OFF — click to enable`}
           >
-            <Icon size={11} className={isActive ? '' : 'opacity-40'} />
-            {label}
+            {isActive ? (
+              <Check size={10} className="text-green-500 shrink-0" strokeWidth={3} />
+            ) : (
+              <X size={10} className="text-red-400 shrink-0" strokeWidth={3} />
+            )}
+            <Icon size={11} className={cn(isActive ? color : 'text-gray-400')} />
+            <span className={cn(isActive ? 'text-gray-700' : 'text-gray-400')}>{label}</span>
           </button>
         );
       })}
