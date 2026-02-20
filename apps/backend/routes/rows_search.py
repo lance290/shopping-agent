@@ -279,6 +279,9 @@ async def search_row_listings_stream(
     if not check_rate_limit(rate_key, "search"):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
+    # Expire all cached objects so we read fresh data committed by the chat route
+    session.expire_all()
+
     result = await session.exec(
         select(Row).where(Row.id == row_id, Row.user_id == user_id)
     )
