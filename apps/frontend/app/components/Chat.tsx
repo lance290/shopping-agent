@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, LogOut, Store } from 'lucide-react';
+import { Send, Bot, User } from 'lucide-react';
 import { useShoppingStore, mapBidToOffer } from '../store';
 import { fetchRowsFromDb, fetchProjectsFromDb, fetchSingleRowFromDb, saveChatHistory } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
-import { logout, getMe } from '../utils/auth';
+import { getMe } from '../utils/auth';
 
 interface Message {
   id: string;
@@ -539,17 +539,6 @@ export default function Chat() {
     }
   }, [store.cardClickQuery]);
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      window.location.href = '/login';
-    } catch (err) {
-      console.error('Logout failed', err);
-      // Force redirect anyway
-      window.location.href = '/login';
-    }
-  };
-
   return (
     <div className="flex flex-col h-full bg-warm-light border-r border-warm-grey/70">
       <div className="h-20 px-6 border-b border-warm-grey/70 bg-warm-light flex items-center justify-between gap-4">
@@ -573,24 +562,6 @@ export default function Chat() {
           <div className="text-xs text-onyx-muted hidden sm:block">
             {userEmail || userPhone || 'User'}
           </div>
-          <a
-            href="/merchants/register"
-            className="flex items-center gap-1.5 text-xs text-onyx-muted hover:text-agent-blurple transition-colors"
-            title="Become a seller"
-          >
-            <Store className="w-4 h-4" />
-            <span className="hidden sm:inline">Sell</span>
-          </a>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleLogout}
-            className="text-xs text-onyx-muted hover:text-agent-blurple"
-            title="Sign out"
-          >
-            <LogOut className="w-4 h-4" />
-          </Button>
         </div>
       </div>
 

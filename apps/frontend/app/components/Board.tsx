@@ -1,14 +1,23 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Plus, ShoppingBag, Bug, FolderPlus, Trash2, Share2, Store, ArrowLeft } from 'lucide-react';
-import { useShoppingStore, Project, Row } from '../store';
-import { createRowInDb, createProjectInDb, deleteProjectFromDb } from '../utils/api';
+import { Plus, Bug, FolderPlus, Trash2, Share2, Store, ArrowLeft, User, LogOut } from 'lucide-react';
+import { useShoppingStore, Row } from '../store';
+import { createProjectInDb, deleteProjectFromDb } from '../utils/api';
 import RowStrip from './RowStrip';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 import { TileDetailPanel } from './TileDetailPanel';
 import Link from 'next/link';
+import { getMe, logout } from '../utils/auth';
+
+const ACCOUNT_DETAILS_KEY = 'sa_account_details';
+
+type AccountDetails = {
+  name: string;
+  email: string;
+  phone: string;
+};
 
 export default function ProcurementBoard() {
   const rows = useShoppingStore(state => state.rows);
@@ -18,7 +27,6 @@ export default function ProcurementBoard() {
   const targetProjectId = useShoppingStore(state => state.targetProjectId);
   const setTargetProjectId = useShoppingStore(state => state.setTargetProjectId);
   const setActiveRowId = useShoppingStore(state => state.setActiveRowId);
-  const addRow = useShoppingStore(state => state.addRow);
   const addProject = useShoppingStore(state => state.addProject);
   const removeProject = useShoppingStore(state => state.removeProject);
   const pendingRowDelete = useShoppingStore(state => state.pendingRowDelete);
@@ -26,8 +34,16 @@ export default function ProcurementBoard() {
   const setReportBugModalOpen = useShoppingStore(state => state.setReportBugModalOpen);
   const [dismissing, setDismissing] = useState(false);
   const [toast, setToast] = useState<{ message: string; tone?: 'success' | 'error' } | null>(null);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [accountDetails, setAccountDetails] = useState<AccountDetails>({
+    name: '',
+    email: '',
+    phone: '',
+  });
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
 
   const handlePillClick = (query: string) => {
     setDismissing(true);
@@ -51,6 +67,72 @@ export default function ProcurementBoard() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && typeof window.localStorage?.getItem === 'function') {
+        const savedRaw = window.localStorage.getItem(ACCOUNT_DETAILS_KEY);
+        if (savedRaw) {
+          const saved = JSON.parse(savedRaw);
+          setAccountDetails(prev => ({
+            ...prev,
+            name: typeof saved?.name === 'string' ? saved.name : prev.name,
+            email: typeof saved?.email === 'string' ? saved.email : prev.email,
+            phone: typeof saved?.phone === 'string' ? saved.phone : prev.phone,
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load account details', err);
+    }
+
+    let cancelled = false;
+    const canCallAuthApi =
+      typeof window !== 'undefined' &&
+      /^https?:/i.test(window.location?.origin || '') &&
+      process.env.NODE_ENV !== 'test';
+
+    if (canCallAuthApi) {
+      getMe().then(user => {
+        if (cancelled) return;
+        if (!user?.authenticated) {
+          setIsAuthenticated(false);
+          return;
+        }
+        setIsAuthenticated(true);
+        setAccountDetails(prev => ({
+          ...prev,
+          email: user.email || prev.email,
+          phone: user.phone_number || prev.phone,
+        }));
+      });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const onMouseDown = (event: MouseEvent) => {
+      if (!accountMenuRef.current) return;
+      if (!accountMenuRef.current.contains(event.target as Node)) {
+        setAccountMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setAccountMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [accountMenuOpen]);
 
   // Auto-scroll to center the selected row when activeRowId changes
   useEffect(() => {
@@ -121,15 +203,6 @@ export default function ProcurementBoard() {
     showToast(`Adding to "${project?.title || 'project'}"...`);
   };
 
-  const handleNewRequest = () => {
-    setTargetProjectId(null);
-    setActiveRowId(null);
-
-    const chatInput = document.querySelector('input[placeholder*="looking for"], input[placeholder*="Refine"]') as HTMLInputElement | null;
-    chatInput?.focus();
-    showToast('Tell us what you are buying to start a new request.');
-  };
-
   const handleShareBoard = async () => {
     if (rows.length === 0) {
       showToast('No requests to share', 'error');
@@ -151,6 +224,32 @@ export default function ProcurementBoard() {
       console.error('Failed to copy board link:', err);
       showToast('Failed to copy link', 'error');
     }
+  };
+
+  const handleAccountFieldChange = (field: keyof AccountDetails, value: string) => {
+    setAccountDetails(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveAccount = () => {
+    try {
+      if (typeof window !== 'undefined' && typeof window.localStorage?.setItem === 'function') {
+        window.localStorage.setItem(ACCOUNT_DETAILS_KEY, JSON.stringify(accountDetails));
+      }
+      showToast('Account details saved');
+      setAccountMenuOpen(false);
+    } catch (err) {
+      console.error('Failed to save account details', err);
+      showToast('Failed to save account details', 'error');
+    }
+  };
+
+  const handleAccountLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.error('Logout failed', err);
+    }
+    window.location.href = '/login';
   };
 
   // Grouping logic with sorting by last_engaged_at (most recent first)
@@ -240,14 +339,96 @@ export default function ProcurementBoard() {
             <FolderPlus size={16} />
             New Project
           </Button>
-          <Button
-            size="sm"
-            onClick={handleNewRequest}
-            className="flex items-center gap-2"
-          >
-            <Plus size={16} />
-            New Request
-          </Button>
+          <div ref={accountMenuRef} className="relative">
+            <Button
+              size="sm"
+              onClick={() => setAccountMenuOpen(open => !open)}
+              className="flex items-center gap-2"
+            >
+              <User size={16} />
+              Account
+            </Button>
+            {accountMenuOpen && (
+              <div className="absolute right-0 top-12 w-[320px] rounded-2xl border border-warm-grey/70 bg-white shadow-[0_18px_40px_rgba(0,0,0,0.16)] p-4 space-y-3">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.14em] text-onyx-muted/80">Account</div>
+                  <div className="text-sm text-onyx-muted mt-0.5">
+                    Update your contact details for quotes and follow-ups.
+                  </div>
+                </div>
+
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium uppercase tracking-wider text-onyx-muted">Name</span>
+                  <input
+                    type="text"
+                    value={accountDetails.name}
+                    onChange={(e) => handleAccountFieldChange('name', e.target.value)}
+                    placeholder="Your full name"
+                    className="w-full h-10 px-3 rounded-xl border border-warm-grey/70 text-sm text-onyx bg-warm-light focus:outline-none focus:ring-2 focus:ring-agent-blurple/35 focus:border-agent-blurple/40"
+                  />
+                </label>
+
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium uppercase tracking-wider text-onyx-muted">Email</span>
+                  <input
+                    type="email"
+                    value={accountDetails.email}
+                    onChange={(e) => handleAccountFieldChange('email', e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full h-10 px-3 rounded-xl border border-warm-grey/70 text-sm text-onyx bg-warm-light focus:outline-none focus:ring-2 focus:ring-agent-blurple/35 focus:border-agent-blurple/40"
+                  />
+                </label>
+
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium uppercase tracking-wider text-onyx-muted">Phone</span>
+                  <input
+                    type="tel"
+                    value={accountDetails.phone}
+                    onChange={(e) => handleAccountFieldChange('phone', e.target.value)}
+                    placeholder="+1 (555) 555-5555"
+                    className="w-full h-10 px-3 rounded-xl border border-warm-grey/70 text-sm text-onyx bg-warm-light focus:outline-none focus:ring-2 focus:ring-agent-blurple/35 focus:border-agent-blurple/40"
+                  />
+                </label>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setAccountMenuOpen(false)}
+                    className="flex-1"
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveAccount}
+                    className="flex-1"
+                  >
+                    Save
+                  </Button>
+                </div>
+
+                {isAuthenticated ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleAccountLogout}
+                    className="w-full justify-center gap-2 text-onyx-muted hover:text-agent-blurple"
+                  >
+                    <LogOut size={16} />
+                    Sign Out
+                  </Button>
+                ) : (
+                  <a
+                    href="/login"
+                    className="block text-center text-sm font-medium text-agent-blurple hover:text-agent-blurple/80 transition-colors"
+                  >
+                    Sign In
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
       

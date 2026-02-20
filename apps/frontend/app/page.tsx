@@ -8,7 +8,7 @@ import ReportBugModal from './components/ReportBugModal';
 import { cn } from '../utils/cn';
 import { useShoppingStore } from './store';
 import { fetchSingleRowFromDb, runSearchApiWithStatus, createRowInDb, fetchRowsFromDb } from './utils/api';
-import { MessageSquare, LayoutGrid, Store } from 'lucide-react';
+import { MessageSquare, LayoutGrid } from 'lucide-react';
 
 export default function Home() {
   const CHAT_MIN_PX = 360;
@@ -177,13 +177,6 @@ export default function Home() {
             <LayoutGrid size={20} />
             Board
           </button>
-          <a
-            href="/merchants/register"
-            className="flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-semibold text-onyx-muted transition-colors"
-          >
-            <Store size={20} />
-            Sell
-          </a>
         </nav>
 
         <ReportBugModal />
