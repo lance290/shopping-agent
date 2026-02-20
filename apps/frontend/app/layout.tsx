@@ -22,7 +22,7 @@ export default function RootLayout({
         {children}
         {/* Skimlinks affiliate link conversion */}
         <Script
-          src="https://s.skimresources.com/js/297674X1785170.skimlinks.js"
+          src="https://s.skimresources.com/js/299029X1786654.skimlinks.js"
           strategy="afterInteractive"
         />
       </body>

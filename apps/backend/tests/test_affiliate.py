@@ -52,7 +52,8 @@ def test_resolver_routes_to_correct_handler(context):
     assert result.handler_name == "amazon_associates"
     assert "tag=test-tag" in result.final_url
 
-def test_resolver_fallback_to_default(context):
+def test_resolver_fallback_to_default(context, monkeypatch):
+    monkeypatch.delenv("SKIMLINKS_PUBLISHER_ID", raising=False)
     context.merchant_domain = "randomshop.com"
     resolver = LinkResolver()
     result = resolver.resolve("https://randomshop.com/product", context)
