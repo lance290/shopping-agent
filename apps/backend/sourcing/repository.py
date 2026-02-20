@@ -431,6 +431,15 @@ class RainforestAPIProvider(SourcingProvider):
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.base_url = "https://api.rainforestapi.com/request"
+        self.affiliate_tag = os.getenv("AMAZON_AFFILIATE_TAG", "")
+
+    def _append_affiliate_tag(self, url: str) -> str:
+        """Append ?tag=<affiliate> to an Amazon URL (or replace existing tag)."""
+        if not self.affiliate_tag or not url:
+            return url
+        url = re.sub(r"[?&]tag=[^&]*", "", url)
+        sep = "&" if "?" in url else "?"
+        return f"{url}{sep}tag={self.affiliate_tag}"
 
     def _parse_price_to_float(self, price_info) -> float:
         if price_info is None:
@@ -614,18 +623,19 @@ class RainforestAPIProvider(SourcingProvider):
                     continue
                 
                 url = normalize_url(item.get("link", ""))
+                url = self._append_affiliate_tag(url)
                 
                 results.append(SearchResult(
                     title=item.get("title", "Unknown"),
                     price=price_f,
                     merchant="Amazon",
                     url=url,
-                    merchant_domain=extract_merchant_domain(url),
+                    merchant_domain="amazon.com",
                     image_url=item.get("image"),
                     rating=item.get("rating"),
                     reviews_count=item.get("ratings_total"),
                     shipping_info=item.get("delivery", {}).get("tagline"),
-                    source="rainforest_amazon"
+                    source="amazon"
                 ))
 
             if (not results) and search_results:
