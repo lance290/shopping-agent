@@ -457,8 +457,8 @@ class SourcingService:
         for name, domain in unique_merchants:
             seller_cache[name] = await self._get_or_create_seller(name, domain)
 
-        # Fetch existing bids to handle upserts (deduplication)
-        existing_bids_stmt = select(Bid).where(Bid.row_id == row_id)
+        # Fetch existing bids to handle upserts (deduplication) — exclude superseded
+        existing_bids_stmt = select(Bid).where(Bid.row_id == row_id, Bid.is_superseded == False)
         existing_bids_res = await self.session.exec(existing_bids_stmt)
         existing_bids = existing_bids_res.all()
         
@@ -546,7 +546,7 @@ class SourcingService:
         # Never rely on in-memory object IDs which may be expired after async commit.
         stmt = (
             select(Bid)
-            .where(Bid.row_id == row_id)
+            .where(Bid.row_id == row_id, Bid.is_superseded == False)
             .options(selectinload(Bid.seller))
             .order_by(Bid.combined_score.desc().nullslast(), Bid.id)
         )

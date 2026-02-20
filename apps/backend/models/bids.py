@@ -111,6 +111,10 @@ class Bid(SQLModel, table=True):
     is_liked: bool = False
     liked_at: Optional[datetime] = None
 
+    # Soft delete — superseded bids are hidden from results but never deleted
+    is_superseded: bool = False
+    superseded_at: Optional[datetime] = None
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     row: "Row" = Relationship(back_populates="bids")

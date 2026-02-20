@@ -226,7 +226,8 @@ async def read_rows(
         .order_by(Row.updated_at.desc())
     )
     rows = result.all()
-    
+    for row in rows:
+        row.bids = [b for b in row.bids if not b.is_superseded]
     return rows
 
 
@@ -254,6 +255,7 @@ async def read_row(
     
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
+    row.bids = [b for b in row.bids if not b.is_superseded]
     
     return row
 
@@ -325,7 +327,13 @@ async def update_row(
         row.status = "closed"
 
     if reset_bids:
-        await session.exec(delete(Bid).where(Bid.row_id == row_id))
+        from sqlalchemy import update as sql_update
+        await session.exec(
+            sql_update(Bid).where(
+                Bid.row_id == row_id,
+                Bid.is_superseded == False,
+            ).values(is_superseded=True, superseded_at=datetime.utcnow())
+        )
 
     for key, value in row_data.items():
         setattr(row, key, value)

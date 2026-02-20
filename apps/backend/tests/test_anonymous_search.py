@@ -261,12 +261,12 @@ async def test_chat_update_row_with_bid_reset(
 
     assert updated.title == "Updated title"
 
-    # Verify the unloved bid was deleted
+    # Verify the unloved bid was superseded (soft delete)
     from sqlmodel import select as sql_select
     remaining = await session.exec(
-        sql_select(Bid).where(Bid.row_id == row.id)
+        sql_select(Bid).where(Bid.row_id == row.id, Bid.is_superseded == False)
     )
-    assert len(remaining.all()) == 0, "Unloved bid should be deleted after reset"
+    assert len(remaining.all()) == 0, "Unloved bid should be superseded after reset"
 
 
 @pytest.mark.asyncio
@@ -309,7 +309,7 @@ async def test_chat_update_row_preserves_liked_bids(
     await _update_row(session, row, reset_bids=True)
 
     from sqlmodel import select as sql_select
-    remaining = await session.exec(sql_select(Bid).where(Bid.row_id == row.id))
+    remaining = await session.exec(sql_select(Bid).where(Bid.row_id == row.id, Bid.is_superseded == False))
     remaining_bids = remaining.all()
     assert len(remaining_bids) == 1, f"Only liked bid should survive, got {len(remaining_bids)}"
     assert remaining_bids[0].is_liked is True

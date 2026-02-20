@@ -220,13 +220,14 @@ async def _update_row(
 ) -> Row:
     """Update an existing Row directly in DB."""
     if reset_bids:
-        from sqlmodel import delete as sql_delete
+        from sqlalchemy import update as sql_update
         await session.exec(
-            sql_delete(Bid).where(
+            sql_update(Bid).where(
                 Bid.row_id == row.id,
                 Bid.is_liked == False,
                 Bid.is_selected == False,
-            )
+                Bid.is_superseded == False,
+            ).values(is_superseded=True, superseded_at=datetime.utcnow())
         )
     if title:
         row.title = title

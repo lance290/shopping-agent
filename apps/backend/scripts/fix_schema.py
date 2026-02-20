@@ -26,6 +26,8 @@ RUN_USER_PHONE_MERGE = os.environ.get("RUN_USER_PHONE_MERGE", "").lower() in {"1
 # (table, column, pg_type, default_expr_or_None)
 EXPECTED_COLS = [
     ("bid", "liked_at", "TIMESTAMP", None),
+    ("bid", "is_superseded", "BOOLEAN", "false"),
+    ("bid", "superseded_at", "TIMESTAMP", None),
     ("bid", "vendor_id", "INTEGER", None),
     ("bid", "canonical_url", "VARCHAR", None),
     ("bid", "source_payload", "TEXT", None),

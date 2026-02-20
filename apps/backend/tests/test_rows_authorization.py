@@ -558,7 +558,8 @@ async def test_reset_bids_clears_existing_bids(client: AsyncClient, session):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert refreshed.status_code == 200
-    assert refreshed.json().get("bids") == []
+    bids_in_response = [b for b in refreshed.json().get("bids", []) if not b.get("is_superseded")]
+    assert bids_in_response == []
 
 
 
