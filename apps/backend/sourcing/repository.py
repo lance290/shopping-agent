@@ -775,6 +775,11 @@ class ScaleSerpAmazonProvider(SourcingProvider):
                 return False
         return "amazon.com" in lower
 
+    def _get_amazon_placeholder_image(self) -> str:
+        """Return a generic Amazon product placeholder image."""
+        # Use Amazon's standard "no image available" placeholder
+        return "https://m.media-amazon.com/images/G/01/ui/loadIndicators/loading-large_labeled._CB485921773_.gif"
+
     async def search(self, query: str, **kwargs) -> List[SearchResult]:
         print(f"[ScaleSerpAmazon] Searching Amazon for: {query!r}")
 
@@ -785,6 +790,8 @@ class ScaleSerpAmazonProvider(SourcingProvider):
         price_hint = ""
         if min_price is not None and max_price is not None:
             price_hint = f" ${int(min_price)}-${int(max_price)}"
+        elif min_price is not None:
+            price_hint = f" over ${int(min_price)}"
         elif max_price is not None:
             price_hint = f" under ${int(max_price)}"
 
@@ -841,19 +848,20 @@ class ScaleSerpAmazonProvider(SourcingProvider):
             if price <= 0:
                 price = self._extract_price(title, snippet)
 
-            # Enforce price constraints
-            if min_price is not None and price > 0 and price < float(min_price):
-                continue
-            if max_price is not None and price > 0 and price > float(max_price):
-                continue
+            # Skip price filtering for Amazon organic results — prices are unreliable
+            # The query hint (e.g. "over $50") guides Amazon's search algorithm instead
 
-            # Extract image from rich snippet or page map
+            # Extract image from rich snippet or use placeholder
             image_url = None
             rich = item.get("rich_snippet", {})
             if isinstance(rich, dict):
                 top = rich.get("top", {})
                 if isinstance(top, dict):
                     image_url = top.get("image")
+            
+            # Use placeholder if no image from API
+            if not image_url:
+                image_url = self._get_amazon_placeholder_image()
 
             results.append(SearchResult(
                 title=title,
