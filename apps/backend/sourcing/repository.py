@@ -725,6 +725,154 @@ class ScaleSerpProvider(SourcingProvider):
             raise
 
 
+class ScaleSerpAmazonProvider(SourcingProvider):
+    """Amazon product search via ScaleSerp organic results scoped to amazon.com.
+
+    Uses ``site:amazon.com`` queries to return direct Amazon product links.
+    Appends an Amazon Associates affiliate tag when configured.
+    """
+
+    # Regex to pull a price from an Amazon snippet like "$12.99" or "$1,299.00"
+    _PRICE_RE = re.compile(r"\$(\d[\d,]*\.?\d*)")
+
+    def __init__(self, api_key: str, affiliate_tag: str | None = None):
+        self.api_key = api_key
+        self.base_url = "https://api.scaleserp.com/search"
+        self.affiliate_tag = affiliate_tag or os.getenv("AMAZON_AFFILIATE_TAG", "")
+
+    def _append_affiliate_tag(self, url: str) -> str:
+        """Append ?tag=<affiliate> to an Amazon URL (or replace existing tag)."""
+        if not self.affiliate_tag:
+            return url
+        sep = "&" if "?" in url else "?"
+        # Strip existing tag param if present
+        url = re.sub(r"[?&]tag=[^&]*", "", url)
+        return f"{url}{sep}tag={self.affiliate_tag}"
+
+    def _extract_price(self, *texts: str) -> float:
+        """Best-effort price extraction from title, snippet, or any text fields."""
+        for text in texts:
+            if not text:
+                continue
+            m = self._PRICE_RE.search(text)
+            if m:
+                try:
+                    val = float(m.group(1).replace(",", ""))
+                    if val > 0:
+                        return val
+                except (ValueError, TypeError):
+                    pass
+        return 0.0
+
+    def _is_product_url(self, url: str) -> bool:
+        """Filter to actual Amazon product/store pages, skip Q&A / forums."""
+        if not url:
+            return False
+        lower = url.lower()
+        # Skip non-product pages
+        for skip in ("/ask/", "/forum/", "/gp/help", "/ap/signin", "/review/"):
+            if skip in lower:
+                return False
+        return "amazon.com" in lower
+
+    async def search(self, query: str, **kwargs) -> List[SearchResult]:
+        print(f"[ScaleSerpAmazon] Searching Amazon for: {query!r}")
+
+        min_price = kwargs.get("min_price")
+        max_price = kwargs.get("max_price")
+
+        # Build price hint for the query
+        price_hint = ""
+        if min_price is not None and max_price is not None:
+            price_hint = f" ${int(min_price)}-${int(max_price)}"
+        elif max_price is not None:
+            price_hint = f" under ${int(max_price)}"
+
+        params = {
+            "api_key": self.api_key,
+            "q": f"{query}{price_hint} site:amazon.com",
+            "num": 15,
+            "gl": "us",
+            "hl": "en",
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=12.0) as client:
+                response = await client.get(self.base_url, params=params)
+                response.raise_for_status()
+                data = response.json()
+        except httpx.HTTPStatusError as e:
+            status = getattr(e.response, "status_code", None)
+            safe_msg = redact_secrets(str(e))
+            print(f"[ScaleSerpAmazon] HTTP error status={status}: {safe_msg}")
+            raise
+        except Exception as e:
+            safe_msg = redact_secrets(str(e))
+            print(f"[ScaleSerpAmazon] Error: {safe_msg}")
+            raise
+
+        organic = data.get("organic_results", [])
+        print(f"[ScaleSerpAmazon] Got {len(organic)} organic results")
+
+        results: List[SearchResult] = []
+        for item in organic:
+            url = item.get("link", "")
+            if not self._is_product_url(url):
+                continue
+
+            url = normalize_url(url)
+            url = self._append_affiliate_tag(url)
+
+            title = item.get("title", "Unknown")
+            snippet = item.get("snippet", "")
+
+            # Try rich snippet price first, then title/snippet
+            price = 0.0
+            rich = item.get("rich_snippet", {})
+            if isinstance(rich, dict):
+                top = rich.get("top", {})
+                if isinstance(top, dict):
+                    detected = top.get("detected_extensions", {})
+                    if isinstance(detected, dict) and "price" in detected:
+                        try:
+                            price = float(str(detected["price"]).replace(",", ""))
+                        except (ValueError, TypeError):
+                            pass
+            if price <= 0:
+                price = self._extract_price(title, snippet)
+
+            # Enforce price constraints
+            if min_price is not None and price > 0 and price < float(min_price):
+                continue
+            if max_price is not None and price > 0 and price > float(max_price):
+                continue
+
+            # Extract image from rich snippet or page map
+            image_url = None
+            rich = item.get("rich_snippet", {})
+            if isinstance(rich, dict):
+                top = rich.get("top", {})
+                if isinstance(top, dict):
+                    image_url = top.get("image")
+
+            results.append(SearchResult(
+                title=title,
+                price=price,
+                currency="USD",
+                merchant="Amazon",
+                url=url,
+                merchant_domain="amazon.com",
+                image_url=image_url,
+                rating=None,
+                reviews_count=None,
+                shipping_info=None,
+                source="amazon",
+            ))
+
+        print(f"[ScaleSerpAmazon] Returning {len(results)} Amazon product results")
+        return results
+
+
 class MockShoppingProvider(SourcingProvider):
     """Mock provider for testing - returns sample data based on query"""
     def __init__(self):
@@ -953,16 +1101,10 @@ class SourcingRepository:
         # if serpapi_key and serpapi_key != "demo":
         #     self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
         
-        # Rainforest API - Amazon search
-        rainforest_key = os.getenv("RAINFOREST_API_KEY")
-        rainforest_key_len = len(rainforest_key) if rainforest_key is not None else None
-        rainforest_present = rainforest_key is not None and rainforest_key_len > 0
-        print(
-            f"[SourcingRepository] RAINFOREST_API_KEY present: {rainforest_present} "
-            f"(is_none={rainforest_key is None}, len={rainforest_key_len})"
-        )
-        if rainforest_present:
-            self.providers["rainforest"] = RainforestAPIProvider(rainforest_key)
+        # Rainforest API - DISABLED (replaced by ScaleSerp Google Shopping which includes Amazon)
+        # rainforest_key = os.getenv("RAINFOREST_API_KEY")
+        # if rainforest_key:
+        #     self.providers["rainforest"] = RainforestAPIProvider(rainforest_key)
 
         serpapi_key = os.getenv("SERPAPI_API_KEY")
         if serpapi_key and serpapi_key != "demo":
@@ -980,6 +1122,10 @@ class SourcingRepository:
         scaleserp_key = os.getenv("SCALESERP_API_KEY")
         if scaleserp_key and scaleserp_key != "demo":
             self.providers["google_shopping"] = ScaleSerpProvider(scaleserp_key)
+        
+        # Amazon via ScaleSerp (site:amazon.com organic search + affiliate tag)
+        if scaleserp_key and scaleserp_key != "demo":
+            self.providers["amazon"] = ScaleSerpAmazonProvider(scaleserp_key)
         
         # Other providers DISABLED - using only Rainforest for now
         # ValueSerp - cheap alternative

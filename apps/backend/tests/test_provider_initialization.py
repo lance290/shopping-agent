@@ -56,8 +56,8 @@ class TestProviderInitialization:
             
             assert "google_shopping" not in repo.providers
 
-    def test_rainforest_provider_initialized_when_key_present(self):
-        """RainforestAPIProvider should be initialized when RAINFOREST_API_KEY is set."""
+    def test_rainforest_provider_disabled(self):
+        """RainforestAPIProvider is disabled — should NOT be initialized even with key."""
         with patch.dict(os.environ, {
             "RAINFOREST_API_KEY": "test_rainforest_key",
             "SCALESERP_API_KEY": "",
@@ -70,7 +70,24 @@ class TestProviderInitialization:
             from sourcing.repository import SourcingRepository
             repo = SourcingRepository()
             
-            assert "rainforest" in repo.providers
+            assert "rainforest" not in repo.providers
+
+    def test_amazon_provider_initialized_when_scaleserp_key_present(self):
+        """ScaleSerpAmazonProvider should be initialized when SCALESERP_API_KEY is set."""
+        with patch.dict(os.environ, {
+            "SCALESERP_API_KEY": "test_scaleserp_key",
+            "RAINFOREST_API_KEY": "",
+            "SERPAPI_API_KEY": "",
+            "SEARCHAPI_API_KEY": "",
+            "VALUESERP_API_KEY": "",
+            "GOOGLE_CSE_API_KEY": "",
+            "GOOGLE_CSE_CX": "",
+        }, clear=False):
+            from sourcing.repository import SourcingRepository
+            repo = SourcingRepository()
+            
+            assert "amazon" in repo.providers
+            assert repo.providers["amazon"].api_key == "test_scaleserp_key"
 
     def test_google_cse_provider_requires_both_key_and_cx(self):
         """GoogleCustomSearchProvider requires both API key and CX."""
@@ -133,8 +150,9 @@ class TestProviderInitialization:
             from sourcing.repository import SourcingRepository
             repo = SourcingRepository()
             
-            assert "rainforest" in repo.providers
+            assert "rainforest" not in repo.providers  # Disabled
             assert "google_shopping" in repo.providers
+            assert "amazon" in repo.providers
             assert "serpapi" in repo.providers
             assert "searchapi" in repo.providers
             assert "valueserp" in repo.providers
@@ -188,6 +206,6 @@ class TestProviderPriority:
             
             provider_names = list(repo.providers.keys())
             
-            # Rainforest should be before google_shopping based on init order
-            if "rainforest" in provider_names and "google_shopping" in provider_names:
-                assert provider_names.index("rainforest") < provider_names.index("google_shopping")
+            # Amazon should come right after google_shopping based on init order
+            if "amazon" in provider_names and "google_shopping" in provider_names:
+                assert provider_names.index("google_shopping") < provider_names.index("amazon")
