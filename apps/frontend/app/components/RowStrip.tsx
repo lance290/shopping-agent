@@ -172,7 +172,19 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
   const sortOffers = (list: Offer[]) => {
     if (!list || list.length === 0) return [];
-    if (sortMode === 'original') return list;
+    if (sortMode === 'original') {
+      const hasScore = list.some((o) => Number.isFinite(o.match_score as number));
+      if (!hasScore) return list;
+      return list
+        .map((offer, idx) => ({ offer, idx }))
+        .sort((a, b) => {
+          const aScore = Number.isFinite(a.offer.match_score as number) ? (a.offer.match_score as number) : -1;
+          const bScore = Number.isFinite(b.offer.match_score as number) ? (b.offer.match_score as number) : -1;
+          if (bScore !== aScore) return bScore - aScore;
+          return a.idx - b.idx;
+        })
+        .map((entry) => entry.offer);
+    }
 
     const byPrice = [...list].sort((a, b) => {
       const ap = (a.price !== null && Number.isFinite(a.price)) ? a.price : Number.POSITIVE_INFINITY;

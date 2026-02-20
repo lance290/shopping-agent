@@ -48,6 +48,7 @@ export interface Bid {
   image_url: string | null;
   source: string;
   is_selected: boolean;
+  combined_score?: number | null;
   is_liked?: boolean;
   liked_at?: string | null;
   is_service_provider?: boolean;
@@ -114,6 +115,7 @@ export function mapBidToOffer(bid: Bid): Offer {
     source: bid.source,
     merchant_domain: bid.seller?.domain || undefined,
     click_url: `/api/clickout?url=${encodeURIComponent(bid.item_url || '')}`,
+    match_score: typeof bid.combined_score === 'number' ? bid.combined_score : undefined,
     bid_id: bid.id,
     is_selected: bid.is_selected,
     is_liked: bid.is_liked,

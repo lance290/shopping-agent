@@ -138,3 +138,40 @@ def test_advisory_tier(mixed_results):
     
     # Vendor should be top for advisory if forced to rank
     assert ranked[0].source == "vendor_directory"
+
+
+def test_vendor_obvious_commodity_prefers_vendor():
+    """Commodity query can still prefer vendors when intent strongly matches vendor inventory."""
+    intent = SearchIntent(
+        product_category="gift_cards",
+        product_name="Roblox gift card",
+        keywords=["roblox", "gift", "card"],
+        raw_input="roblox gift cards over $50",
+    )
+    results = [
+        NormalizedResult(
+            title="Roblox Gift Card - 50",
+            price=50.0,
+            source="rainforest",
+            url="https://amazon.com/roblox-50",
+            merchant_name="Amazon",
+            merchant_domain="amazon.com",
+            provenance={},
+        ),
+        NormalizedResult(
+            title="Gaming GiftCard Vendor",
+            price=None,
+            source="vendor_directory",
+            url="https://giftcardvendor.example",
+            merchant_name="GiftCard Vendor",
+            merchant_domain="giftcardvendor.example",
+            provenance={"vector_similarity": 0.62},
+        ),
+    ]
+
+    ranked = score_results(results, intent=intent, desire_tier="commodity")
+
+    assert ranked[0].source == "vendor_directory"
+    assert ranked[0].provenance["score"]["vendor_preferred"] is True
+    amazon_result = next(r for r in ranked if r.source == "rainforest")
+    assert amazon_result.provenance["score"]["affiliate_multiplier"] < 1.0

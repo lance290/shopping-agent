@@ -173,6 +173,18 @@ class TestPriceConstraintExtraction:
         min_p, max_p = svc._extract_price_constraints(row)
         assert min_p == 50.0
 
+    def test_minimum_value_key(self):
+        svc = self._get_service()
+        row = self._make_row(choice_answers={"minimum_value": 50})
+        min_p, max_p = svc._extract_price_constraints(row)
+        assert min_p == 50.0
+
+    def test_spaced_minimum_value_key(self):
+        svc = self._get_service()
+        row = self._make_row(choice_answers={"minimum value": ">$50"})
+        min_p, max_p = svc._extract_price_constraints(row)
+        assert min_p == 50.0
+
     def test_max_price_key(self):
         svc = self._get_service()
         row = self._make_row(choice_answers={"max_price": 100})
@@ -215,6 +227,13 @@ class TestPriceConstraintExtraction:
         row = self._make_row(choice_answers={"price": ">$50"})
         min_p, max_p = svc._extract_price_constraints(row)
         assert min_p == 50.0
+
+    def test_budget_range_string(self):
+        svc = self._get_service()
+        row = self._make_row(choice_answers={"budget": "50-100"})
+        min_p, max_p = svc._extract_price_constraints(row)
+        assert min_p == 50.0
+        assert max_p == 100.0
 
     def test_search_intent_takes_priority(self):
         svc = self._get_service()

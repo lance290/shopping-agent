@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from datetime import datetime
 from typing import List, Optional, Tuple
 
@@ -42,6 +43,146 @@ class SourcingService:
         return None
 
     @staticmethod
+    def _normalize_constraint_key(key: object) -> str:
+        """Normalize choice/intent keys to a stable snake_case-like token."""
+        return re.sub(r"[^a-z0-9]+", "_", str(key or "").strip().lower()).strip("_")
+
+    def _parse_range_hint_value(self, val) -> tuple[Optional[float], Optional[float]]:
+        """Parse range-style strings such as '>50', '<100', or '50-100'."""
+        if val is None or val == "":
+            return None, None
+
+        if isinstance(val, (int, float)):
+            # Bare numbers under generic budget/value fields are treated as max.
+            return None, float(val)
+
+        if not isinstance(val, str):
+            return None, None
+
+        raw = val.strip()
+        if not raw:
+            return None, None
+
+        if raw[0] in (">", "≥"):
+            return self._parse_price_value(raw), None
+        if raw[0] in ("<", "≤"):
+            return None, self._parse_price_value(raw)
+
+        range_match = re.match(
+            r"^\s*[^0-9]*([\d,]+(?:\.\d+)?)\s*[-–—]\s*[^0-9]*([\d,]+(?:\.\d+)?)\s*$",
+            raw,
+        )
+        if range_match:
+            lo = self._parse_price_value(range_match.group(1))
+            hi = self._parse_price_value(range_match.group(2))
+            return lo, hi
+
+        lower = raw.lower()
+        parsed = self._parse_price_value(raw)
+        if parsed is None:
+            return None, None
+
+        if re.search(r"\b(over|above|at\s*least|min(?:imum)?)\b", lower):
+            return parsed, None
+        if re.search(r"\b(under|below|at\s*most|max(?:imum)?)\b", lower):
+            return None, parsed
+
+        return None, parsed
+
+    def _extract_prices_from_mapping(self, payload: dict) -> tuple[Optional[float], Optional[float]]:
+        """Extract min/max price from a dict with flexible key naming."""
+        if not isinstance(payload, dict):
+            return None, None
+
+        normalized: dict[str, object] = {}
+        for raw_key, raw_val in payload.items():
+            key = self._normalize_constraint_key(raw_key)
+            if key and key not in normalized:
+                normalized[key] = raw_val
+
+        min_price: Optional[float] = None
+        max_price: Optional[float] = None
+
+        min_keys = (
+            "min_price",
+            "price_min",
+            "minimum_price",
+            "min_budget",
+            "budget_min",
+            "minimum_budget",
+            "min_value",
+            "value_min",
+            "minimum_value",
+            "min_amount",
+            "amount_min",
+            "minimum_amount",
+            "at_least",
+        )
+        max_keys = (
+            "max_price",
+            "price_max",
+            "maximum_price",
+            "max_budget",
+            "budget_max",
+            "maximum_budget",
+            "max_value",
+            "value_max",
+            "maximum_value",
+            "max_amount",
+            "amount_max",
+            "maximum_amount",
+            "at_most",
+        )
+
+        for key in min_keys:
+            parsed = self._parse_price_value(normalized.get(key))
+            if parsed is not None:
+                min_price = parsed
+                break
+
+        for key in max_keys:
+            parsed = self._parse_price_value(normalized.get(key))
+            if parsed is not None:
+                max_price = parsed
+                break
+
+        priceish_tokens = {"price", "budget", "value", "amount", "cost"}
+        min_hints = ("min", "minimum", "at_least", "from", "over", "above", "greater")
+        max_hints = ("max", "maximum", "at_most", "to", "under", "below", "less")
+
+        if min_price is None or max_price is None:
+            for key, raw_val in normalized.items():
+                parsed = self._parse_price_value(raw_val)
+                if parsed is None:
+                    continue
+
+                has_priceish = any(tok in key for tok in priceish_tokens)
+                if not has_priceish:
+                    continue
+
+                if min_price is None and any(h in key for h in min_hints):
+                    min_price = parsed
+                if max_price is None and any(h in key for h in max_hints):
+                    max_price = parsed
+                if min_price is not None and max_price is not None:
+                    break
+
+        # Generic fields can still carry encoded range hints (e.g. ">50", "50-100").
+        if min_price is None or max_price is None:
+            for key in ("price", "budget", "value", "amount", "cost", "gift_card_value"):
+                if key not in normalized:
+                    continue
+                hint_min, hint_max = self._parse_range_hint_value(normalized.get(key))
+                if min_price is None and hint_min is not None:
+                    min_price = hint_min
+                if max_price is None and hint_max is not None:
+                    max_price = hint_max
+                if min_price is not None and max_price is not None:
+                    break
+
+        return min_price, max_price
+
+    @staticmethod
     def extract_vendor_query(row) -> Optional[str]:
         """Extract the LLM's clean product_name from search_intent for vendor vector search.
 
@@ -68,47 +209,20 @@ class SourcingService:
             try:
                 payload = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
                 if isinstance(payload, dict):
-                    if payload.get("min_price") is not None:
-                        min_price = float(payload["min_price"])
-                    if payload.get("max_price") is not None:
-                        max_price = float(payload["max_price"])
+                    min_price, max_price = self._extract_prices_from_mapping(payload)
             except Exception:
                 pass
 
-        # 2. Fallback to choice_answers (LLM uses varying key names)
-        if (min_price is None and max_price is None) and row.choice_answers:
+        # 2. Fallback to choice_answers (LLM/UI use varying key names)
+        if row.choice_answers and (min_price is None or max_price is None):
             try:
                 answers = json.loads(row.choice_answers) if isinstance(row.choice_answers, str) else row.choice_answers
                 if isinstance(answers, dict):
-                    # Try all known key variants for min price
-                    for key in ("min_price", "price_min", "minimum_price"):
-                        v = self._parse_price_value(answers.get(key))
-                        if v is not None:
-                            min_price = v
-                            break
-
-                    # Try all known key variants for max price
-                    for key in ("max_price", "price_max", "maximum_price"):
-                        v = self._parse_price_value(answers.get(key))
-                        if v is not None:
-                            max_price = v
-                            break
-
-                    # Handle generic "price" key (e.g. ">50", "<100", "50-100")
-                    if min_price is None and max_price is None:
-                        price_val = answers.get("price")
-                        if isinstance(price_val, str) and price_val.strip():
-                            p = price_val.strip()
-                            if p.startswith(">"):
-                                min_price = self._parse_price_value(p)
-                            elif p.startswith("<"):
-                                max_price = self._parse_price_value(p)
-                            elif "-" in p:
-                                parts = p.split("-", 1)
-                                min_price = self._parse_price_value(parts[0])
-                                max_price = self._parse_price_value(parts[1])
-                        elif isinstance(price_val, (int, float)):
-                            max_price = float(price_val)
+                    fallback_min, fallback_max = self._extract_prices_from_mapping(answers)
+                    if min_price is None:
+                        min_price = fallback_min
+                    if max_price is None:
+                        max_price = fallback_max
             except Exception:
                 pass
 

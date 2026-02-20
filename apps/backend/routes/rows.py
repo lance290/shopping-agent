@@ -40,6 +40,7 @@ class BidRead(BaseModel):
     is_liked: bool = False
     liked_at: Optional[datetime] = None
     is_service_provider: bool = False
+    combined_score: Optional[float] = None
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None

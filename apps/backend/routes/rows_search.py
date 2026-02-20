@@ -24,6 +24,7 @@ from sourcing import (
 )
 from sourcing.normalizers import normalize_results_for_provider
 from sourcing.service import SourcingService
+from sourcing.scorer import score_results
 from sourcing.messaging import determine_search_user_message
 
 router = APIRouter(tags=["rows"])
@@ -112,6 +113,26 @@ def _parse_intent_payload(payload: Optional[Any]) -> Optional[SearchIntent]:
         return SearchIntent.model_validate(data)
     except Exception:
         return None
+
+
+def _normalized_to_search_result(res) -> SearchResult:
+    score_data = res.provenance.get("score", {}) if res.provenance else {}
+    combined = score_data.get("combined")
+    match_score = float(combined) if isinstance(combined, (int, float)) else 0.0
+    return SearchResult(
+        title=res.title,
+        price=res.price,
+        currency=res.currency,
+        merchant=res.merchant_name,
+        url=res.url,
+        merchant_domain=res.merchant_domain,
+        image_url=res.image_url,
+        rating=res.rating,
+        reviews_count=res.reviews_count,
+        shipping_info=res.shipping_info,
+        source=res.source,
+        match_score=match_score,
+    )
 
 
 class SearchResponse(BaseModel):
@@ -221,6 +242,7 @@ async def search_row_listings(
                 is_selected=bid.is_selected,
                 is_liked=bid.is_liked,
                 liked_at=bid.liked_at.isoformat() if bid.liked_at else None,
+                match_score=bid.combined_score if bid.combined_score is not None else 0.0,
                 # Optional fields that might be missing in Bid but exist in SearchResult
                 shipping_info=None, # Bid has shipping_cost (float), SearchResult has shipping_info (str)
                 rating=None, 
@@ -276,6 +298,7 @@ async def search_row_listings_stream(
 
     # Extract price constraints from search_intent / choice_answers
     min_price, max_price = sourcing_service._extract_price_constraints(row)
+    search_intent = sourcing_service._parse_search_intent(row)
 
     # Extract clean product intent for vendor vector search
     vendor_query = sourcing_service.extract_vendor_query(row)
@@ -305,7 +328,17 @@ async def search_row_listings_stream(
                 try:
                     normalized_batch = normalize_results_for_provider(provider_name, results)
                     if normalized_batch:
-                        await sourcing_service._persist_results(row_id, normalized_batch)
+                        scored_batch = score_results(
+                            normalized_batch,
+                            intent=search_intent,
+                            min_price=min_price,
+                            max_price=max_price,
+                            desire_tier=row.desire_tier,
+                        )
+                        await sourcing_service._persist_results(row_id, scored_batch, row)
+                        # Emit ranked results for this provider batch so UI "Featured"
+                        # order reflects scorer output during streaming.
+                        results = [_normalized_to_search_result(r) for r in scored_batch]
                 except Exception as err:
                     logger.error(f"[SEARCH STREAM] Failed to persist results for provider {provider_name}: {err}")
 
