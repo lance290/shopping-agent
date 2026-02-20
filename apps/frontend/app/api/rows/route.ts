@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  return proxyPost(request, '/rows');
+  return proxyPost(request, '/rows', { allowAnonymous: true });
 }
 
 export async function DELETE(request: NextRequest) {
@@ -18,7 +18,7 @@ export async function DELETE(request: NextRequest) {
   if (!id) {
     return NextResponse.json({ error: 'Missing row ID' }, { status: 400 });
   }
-  return proxyDelete(request, `/rows/${id}`);
+  return proxyDelete(request, `/rows/${id}`, { allowAnonymous: true });
 }
 
 export async function PATCH(request: NextRequest) {
@@ -26,5 +26,5 @@ export async function PATCH(request: NextRequest) {
   if (!id) {
     return NextResponse.json({ error: 'Missing row ID' }, { status: 400 });
   }
-  return proxyPatch(request, `/rows/${id}`);
+  return proxyPatch(request, `/rows/${id}`, { allowAnonymous: true });
 }

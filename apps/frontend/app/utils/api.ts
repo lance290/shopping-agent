@@ -3,10 +3,10 @@ import { Row, Offer, Project, ProviderStatusSnapshot } from '../store';
 export const AUTH_REQUIRED = 'auth_required' as const;
 
 function getAuthToken(): string {
-  // Cookie is HttpOnly — cannot be read from JS.
-  // All /api/* routes are same-origin, so the cookie is sent automatically.
-  // Server-side route handlers read the cookie and forward as Authorization header.
-  return '';
+  // Prefer cookie-based auth via same-origin requests, but keep legacy token
+  // fallback for environments where only localStorage is populated.
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem('session_token') || '';
 }
 
 async function fetchWithAuth(url: string, init: RequestInit = {}): Promise<Response> {
@@ -14,7 +14,7 @@ async function fetchWithAuth(url: string, init: RequestInit = {}): Promise<Respo
   const token = getAuthToken();
   const headers = token ? { ...baseHeaders, Authorization: `Bearer ${token}` } : baseHeaders;
 
-  const res = await fetch(url, { ...init, headers });
+  const res = await fetch(url, { ...init, headers, credentials: 'same-origin' });
   
   // NOTE: Do NOT redirect to /login on 401 here.
   // The workspace page must be accessible to anonymous visitors (affiliate requirement).
@@ -760,4 +760,3 @@ export const getShareMetrics = async (token: string): Promise<ShareMetricsRespon
     return null;
   }
 };
-

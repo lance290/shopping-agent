@@ -228,6 +228,12 @@ class TestPriceConstraintExtraction:
         min_p, max_p = svc._extract_price_constraints(row)
         assert min_p == 50.0
 
+    def test_price_with_freeform_suffix(self):
+        svc = self._get_service()
+        row = self._make_row(choice_answers={"minimum price": ">$50, please"})
+        min_p, max_p = svc._extract_price_constraints(row)
+        assert min_p == 50.0
+
     def test_budget_range_string(self):
         svc = self._get_service()
         row = self._make_row(choice_answers={"budget": "50-100"})

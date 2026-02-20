@@ -32,12 +32,16 @@ class SourcingService:
         if isinstance(val, (int, float)):
             return float(val)
         if isinstance(val, str):
-            # Strip currency symbols, comparison operators, whitespace
-            cleaned = val.strip().lstrip("><=~$€£").strip()
+            # Be permissive: extract the first numeric token from free-form text
+            # like ">$50", "$50, please", "minimum 50", etc.
+            cleaned = re.sub(r"^[\s><=~$€£:]+", "", val.strip())
             if not cleaned:
                 return None
+            match = re.search(r"(-?\d[\d,]*(?:\.\d+)?)", cleaned)
+            if not match:
+                return None
             try:
-                return float(cleaned.replace(",", ""))
+                return float(match.group(1).replace(",", ""))
             except (ValueError, TypeError):
                 return None
         return None
