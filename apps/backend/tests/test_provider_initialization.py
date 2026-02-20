@@ -105,8 +105,8 @@ class TestProviderInitialization:
             
             assert "google_cse" not in repo.providers
 
-    def test_only_amazon_and_vendor_directory_active(self):
-        """Only Amazon (Rainforest) + Vendor Directory should be active. All Google providers disabled."""
+    def test_active_providers_with_all_keys(self):
+        """Amazon (Rainforest) + SerpAPI (Google Shopping) + Vendor Directory should be active."""
         with patch.dict(os.environ, {
             "RAINFOREST_API_KEY": "test_rainforest",
             "SCALESERP_API_KEY": "test_scaleserp",
@@ -119,12 +119,12 @@ class TestProviderInitialization:
             from sourcing.repository import SourcingRepository
             repo = SourcingRepository()
             
+            assert "amazon" in repo.providers
+            assert "serpapi" in repo.providers
             assert "google_shopping" not in repo.providers
-            assert "serpapi" not in repo.providers
             assert "searchapi" not in repo.providers
             assert "valueserp" not in repo.providers
             assert "google_cse" not in repo.providers
-            assert "amazon" in repo.providers
 
     def test_provider_timeout_configurable(self):
         """Provider timeout should be configurable via environment variable."""

@@ -1114,20 +1114,15 @@ class SourcingRepository:
         self.providers: Dict[str, SourcingProvider] = {}
         
         # Initialize providers in priority order
-        # SerpAPI - DISABLED (registration issues)
-        # serpapi_key = os.getenv("SERPAPI_API_KEY")
-        # if serpapi_key and serpapi_key != "demo":
-        #     self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
-        
         # Rainforest API - Amazon search with real images, prices, and ratings
         rainforest_key = os.getenv("RAINFOREST_API_KEY")
         if rainforest_key:
             self.providers["amazon"] = RainforestAPIProvider(rainforest_key)
 
-        # Google providers - ALL DISABLED (results show as google.com, not useful)
-        # serpapi_key = os.getenv("SERPAPI_API_KEY")
-        # if serpapi_key and serpapi_key != "demo":
-        #     self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
+        # Google Shopping via SerpAPI
+        serpapi_key = os.getenv("SERPAPI_API_KEY")
+        if serpapi_key and serpapi_key != "demo":
+            self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
 
         # valueserp_key = os.getenv("VALUESERP_API_KEY")
         # if valueserp_key and valueserp_key != "demo":
