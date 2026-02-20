@@ -20,47 +20,11 @@ from sourcing.scorer import score_results
 
 
 # =============================================================================
-# 1. _filter_providers_by_tier MUST be a pass-through
+# 1. No tier-based provider gating exists (removed — LLM decides, not heuristics)
 # =============================================================================
 
-class TestProviderTierPassThrough:
-    """_filter_providers_by_tier must NEVER filter providers."""
-
-    def _get_repo_with_providers(self):
-        """Create a SourcingRepository-like object with mock providers."""
-        from sourcing.repository import SourcingRepository
-
-        repo = SourcingRepository.__new__(SourcingRepository)
-        repo.providers = {
-            "rainforest": MagicMock(),
-            "searchapi": MagicMock(),
-            "serpapi": MagicMock(),
-            "google_cse": MagicMock(),
-            "google_shopping": MagicMock(),
-            "vendor_directory": MagicMock(),
-            "ticketmaster": MagicMock(),
-        }
-        return repo
-
-    @pytest.mark.parametrize("tier", [
-        None, "commodity", "considered", "service", "bespoke", "high_value", "advisory",
-        "unknown_future_tier",
-    ])
-    def test_all_providers_returned_for_every_tier(self, tier):
-        repo = self._get_repo_with_providers()
-        result = repo._filter_providers_by_tier(repo.providers, desire_tier=tier)
-        assert set(result.keys()) == set(repo.providers.keys()), (
-            f"Tier '{tier}' filtered providers! Got {set(result.keys())} "
-            f"but expected {set(repo.providers.keys())}"
-        )
-
-    def test_provider_count_unchanged(self):
-        repo = self._get_repo_with_providers()
-        for tier in ["commodity", "service", "advisory", "bespoke", None]:
-            result = repo._filter_providers_by_tier(repo.providers, desire_tier=tier)
-            assert len(result) == len(repo.providers), (
-                f"Tier '{tier}' changed provider count from {len(repo.providers)} to {len(result)}"
-            )
+# _filter_providers_by_tier was removed entirely. There is no method to test.
+# Provider selection is driven only by user toggle (providers_filter).
 
 
 # =============================================================================

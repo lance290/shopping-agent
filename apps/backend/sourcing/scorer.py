@@ -34,7 +34,6 @@ def score_results(
         return results
 
     scored: List[tuple[float, NormalizedResult]] = []
-    prefer_vendors = _should_prefer_vendors(results, intent, desire_tier)
 
     # Count results per source for diversity bonus
     source_counts: Dict[str, int] = {}
@@ -47,24 +46,22 @@ def score_results(
         rs = _relevance_score(r, intent)
         qs = _quality_score(r)
         db = _diversity_bonus(r.source, source_counts, total)
-        tr = _tier_relevance_score(r.source, desire_tier, prefer_vendors=prefer_vendors)
+        sf = _source_fit_score(r)
+        am = _affiliate_multiplier(r.source)
 
-        # Tier fit is a MULTIPLIER, not additive — mismatched sources get a real penalty.
-        # tr=1.0 → full score. tr=0.2 → 44% of base score.
+        # Source fit is a soft multiplier — vendor vector similarity drives ranking
         base = (rs * 0.45) + (ps * 0.20) + (qs * 0.20) + (db * 0.15)
-        am = _affiliate_multiplier(r.source, prefer_vendors=prefer_vendors)
-        combined = base * (0.3 + 0.7 * tr) * am
+        combined = base * (0.3 + 0.7 * sf) * am
 
         # Enrich provenance with score breakdown
         r.provenance["score"] = {
             "combined": round(combined, 4),
             "relevance": round(rs, 4),
-            "tier_fit": round(tr, 4),
+            "source_fit": round(sf, 4),
             "price": round(ps, 4),
             "quality": round(qs, 4),
             "diversity": round(db, 4),
             "affiliate_multiplier": round(am, 4),
-            "vendor_preferred": prefer_vendors,
         }
 
         scored.append((combined, r))
@@ -80,130 +77,32 @@ def score_results(
     return [r for _, r in scored]
 
 
-def _max_vendor_similarity(results: List[NormalizedResult]) -> Optional[float]:
-    sims: List[float] = []
-    for r in results:
-        if r.source != "vendor_directory":
-            continue
-        try:
-            raw = r.provenance.get("vector_similarity") if isinstance(r.provenance, dict) else None
-            if raw is None:
-                continue
-            sims.append(float(raw))
-        except Exception:
-            continue
-    return max(sims) if sims else None
-
-
-def _intent_looks_vendor_first(intent: Optional[SearchIntent]) -> bool:
-    if not intent:
-        return False
-
-    fields = [
-        intent.product_category or "",
-        intent.product_name or "",
-        intent.raw_input or "",
-        " ".join(intent.keywords or []),
-    ]
-    text = " ".join(fields).lower()
-    if not text.strip():
-        return False
-
-    keyword_hits = (
-        "charter",
-        "broker",
-        "agency",
-        "concierge",
-        "custom",
-        "bespoke",
-        "enterprise",
-        "consulting",
-        "advisor",
-        "installer",
-        "installation",
-        "repair",
-        "maintenance",
-        "wedding",
-        "catering",
-        "event planning",
-        "yacht",
-        "private jet",
-        "aviation",
-        "gift card",
-        "voucher",
-    )
-
-    if any(term in text for term in keyword_hits):
-        return True
-
-    tokens = set(text.replace("-", " ").replace("_", " ").split())
-    return "gift" in tokens and "card" in tokens
-
-
-def _should_prefer_vendors(
-    results: List[NormalizedResult],
-    intent: Optional[SearchIntent],
-    desire_tier: Optional[str],
-) -> bool:
-    if desire_tier in ("service", "bespoke", "high_value"):
-        return True
-
-    if _intent_looks_vendor_first(intent):
-        return True
-
-    max_vendor_sim = _max_vendor_similarity(results)
-    return bool(max_vendor_sim is not None and max_vendor_sim >= 0.52)
-
-
-def _tier_relevance_score(
-    source: str,
-    desire_tier: Optional[str],
-    *,
-    prefer_vendors: bool = False,
+def _source_fit_score(
+    result: NormalizedResult,
 ) -> float:
     """
-    Score how well the source fits the desire tier.
-    This acts as a soft router/reranker.
+    Score how well the source fits the result, using LLM-derived signals only.
+
+    For vendor_directory results, the vector similarity score already encodes
+    semantic relevance (set by the embedding model). We just pass it through.
+
+    For marketplace results, we return a neutral score — the relevance_score
+    function handles keyword/brand matching for those.
+
+    No hardcoded tier→provider matrices. No keyword heuristics.
     """
-    # Group providers
-    BIG_BOX_PROVIDERS = {
-        "rainforest", "amazon", "ebay_browse", "google_shopping", 
-        "searchapi", "google_cse", "serpapi", "ticketmaster"
-    }
-    VENDOR_PROVIDERS = {"vendor_directory"}
-
-    if not desire_tier:
-        if prefer_vendors:
-            if source in VENDOR_PROVIDERS:
-                return 1.0
-            if source in BIG_BOX_PROVIDERS:
-                return 0.6
+    # Vendor results: use vector similarity as the source-fit signal.
+    # High similarity = the embedding model thinks this vendor is relevant.
+    if result.source == "vendor_directory":
+        vec_sim = result.provenance.get("vector_similarity")
+        if vec_sim is not None:
+            try:
+                return max(0.3, min(1.0, float(vec_sim) * 1.5))
+            except (ValueError, TypeError):
+                pass
         return 0.5
 
-    # Commodity / Considered -> Big box is natural fit, but vendors span all tiers
-    # (toy stores, bicycle shops, bookstores ARE commodity sellers).
-    # Vector search similarity handles vendor relevance; don't double-penalize.
-    if desire_tier in ("commodity", "considered"):
-        if source in BIG_BOX_PROVIDERS:
-            return 0.75 if prefer_vendors else 1.0
-        if source in VENDOR_PROVIDERS:
-            return 1.0 if prefer_vendors else 0.85
-        return 0.5
-
-    # Service / Bespoke / High Value -> Prefer Vendor Directory
-    if desire_tier in ("service", "bespoke", "high_value"):
-        if source in VENDOR_PROVIDERS:
-            return 1.0
-        if source in BIG_BOX_PROVIDERS:
-            return 0.2  # Heavy penalty for big box (Amazon doesn't sell private jets)
-        return 0.5
-    
-    # Advisory -> Should be handled by chat, but if searching, prefer vendors
-    if desire_tier == "advisory":
-        if source in VENDOR_PROVIDERS:
-            return 0.9 if prefer_vendors else 0.8
-        return 0.1
-
+    # All other sources: neutral — let relevance_score do the work
     return 0.5
 
 
@@ -373,7 +272,7 @@ def _diversity_bonus(
         return 0.2
 
 
-def _affiliate_multiplier(source: str, *, prefer_vendors: bool = False) -> float:
+def _affiliate_multiplier(source: str) -> float:
     """
     Boost sources we have affiliate programs for; penalize those we don't.
 
@@ -385,15 +284,6 @@ def _affiliate_multiplier(source: str, *, prefer_vendors: bool = False) -> float
     """
     BOOSTED = {"rainforest", "amazon"}
     PENALIZED = {"serpapi", "searchapi", "google_cse", "google_shopping"}
-
-    if prefer_vendors:
-        if source == "vendor_directory":
-            return 1.45
-        if source in BOOSTED:
-            return 0.85
-        if source in PENALIZED:
-            return 0.55
-        return 0.95
 
     if source in BOOSTED:
         return 1.25

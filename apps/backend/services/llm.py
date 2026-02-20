@@ -258,7 +258,7 @@ Before deciding the action, classify what KIND of desire this is:
 | Tier | When to use | Examples |
 | commodity | Simple product or standard ticket/event | "AA batteries", "Roblox gift card", "running shoes", "Taylor Swift concert tickets", "NBA game tickets" |
 | considered | Complex product or event needing comparison | "laptop for video editing", "best DSLR camera", "Notre Dame vs Clemson tickets", "Broadway show for anniversary" |
-| service | Hire someone / book a service | "private jet charter", "HVAC repair", "catering for 200", "wedding photographer" |
+| service | Hire someone / book a service / travel booking | "private jet charter", "HVAC repair", "catering for 200", "wedding photographer", "flight to Nashville", "hotel in Paris", "car rental in Miami", "cruise to Alaska" |
 | bespoke | Custom-made / commissioned item | "custom engagement ring", "commission a mural", "bespoke suit" |
 | high_value | Major asset purchase (>$100k typically) | "mega-yacht", "aircraft purchase", "commercial real estate" |
 | advisory | Needs professional advisory, not a search | "acquire a SaaS company", "set up a family trust", "corporate M&A" |

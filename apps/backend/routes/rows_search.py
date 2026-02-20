@@ -377,7 +377,6 @@ async def search_row_listings_stream(
             
             yield f"data: {json.dumps(event_data)}\n\n"
         
-        # Determine user_message based on results and statuses
         user_message = determine_search_user_message(all_results, all_statuses)
 
         # Final event with complete status

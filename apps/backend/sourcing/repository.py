@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Set
 from pydantic import BaseModel, Field
 from abc import ABC, abstractmethod
 import httpx
@@ -44,6 +44,16 @@ def normalize_url(url: str) -> str:
 # Redaction moved to utils.security.redact_secrets_from_text
 # Keeping this alias for backward compatibility
 redact_secrets = redact_secrets_from_text
+
+
+_PROVIDER_FILTER_ALIASES: Dict[str, str] = {
+    "rainforest": "amazon",
+    "google": "serpapi",
+    "google_shopping": "serpapi",
+    "ebay": "ebay_browse",
+}
+
+
 
 class SearchResult(BaseModel):
     title: str
@@ -1185,20 +1195,17 @@ class SourcingRepository:
         result = await self.search_all_with_status(query, **kwargs)
         return result.results
 
-    def _filter_providers_by_tier(self, providers: Dict[str, "SourcingProvider"], desire_tier: Optional[str] = None) -> Dict[str, "SourcingProvider"]:
-        """
-        PASS-THROUGH: All providers run for all queries. No hard-gating.
+    def _normalize_provider_filter(self, providers_filter: Optional[List[str]]) -> Optional[Set[str]]:
+        if not providers_filter:
+            return None
+        allow: Set[str] = set()
+        for provider_id in providers_filter:
+            raw = str(provider_id).strip().lower()
+            if not raw:
+                continue
+            allow.add(_PROVIDER_FILTER_ALIASES.get(raw, raw))
+        return allow or None
 
-        The three-stage re-ranker's tier_fit multiplier in scorer.py handles
-        relevance scoring (Amazon scores 0.2 for service queries, vendors score
-        0.85 for commodity). Hard-gating was removed because:
-        - Vendors span all tiers (toy stores ARE commodity sellers)
-        - Prevents serendipitous discoveries
-        - Fails on edge cases (e.g., "catering equipment" IS on Amazon)
-        """
-        if desire_tier:
-            print(f"[SourcingRepository] Tier '{desire_tier}' — running ALL providers (no gating): {list(providers.keys())}")
-        return providers
 
     async def search_all_with_status(self, query: str, **kwargs) -> SearchResultWithStatus:
         """Search all providers and return results with provider status."""
@@ -1211,23 +1218,29 @@ class SourcingRepository:
         desire_tier = kwargs.pop("desire_tier", None)
         vendor_query = kwargs.pop("vendor_query", None)
         selected_providers: Dict[str, SourcingProvider] = self.providers
-        if providers_filter:
-            allow = {str(p).strip() for p in providers_filter if str(p).strip()}
+        allow = self._normalize_provider_filter(providers_filter)
+        if allow:
             selected_providers = {k: v for k, v in self.providers.items() if k in allow}
             print(f"[SourcingRepository] Provider filter requested: {sorted(list(allow))}")
             print(f"[SourcingRepository] Providers selected: {list(selected_providers.keys())}")
 
-        # Apply desire-tier filtering
-        selected_providers = self._filter_providers_by_tier(selected_providers, desire_tier)
+        if not selected_providers:
+            return SearchResultWithStatus(
+                results=[],
+                normalized_results=[],
+                provider_statuses=[],
+                all_providers_failed=False,
+                user_message="No enabled providers are available for this search.",
+            )
         
         if vendor_query:
             print(f"[SourcingRepository] Vendor query (LLM intent): {vendor_query!r}")
 
         start_time = time.time()
         try:
-            PROVIDER_TIMEOUT_SECONDS = float(os.getenv("SOURCING_PROVIDER_TIMEOUT_SECONDS", "5.0"))
+            PROVIDER_TIMEOUT_SECONDS = float(os.getenv("SOURCING_PROVIDER_TIMEOUT_SECONDS", "15.0"))
         except Exception:
-            PROVIDER_TIMEOUT_SECONDS = 5.0
+            PROVIDER_TIMEOUT_SECONDS = 15.0
 
         provider_statuses: List[ProviderStatusSnapshot] = []
         normalized_results: List[NormalizedResult] = []
@@ -1366,12 +1379,12 @@ class SourcingRepository:
         desire_tier = kwargs.pop("desire_tier", None)
         vendor_query = kwargs.pop("vendor_query", None)
         selected_providers: Dict[str, SourcingProvider] = self.providers
-        if providers_filter:
-            allow = {str(p).strip() for p in providers_filter if str(p).strip()}
+        allow = self._normalize_provider_filter(providers_filter)
+        if allow:
             selected_providers = {k: v for k, v in self.providers.items() if k in allow}
 
-        # Apply desire-tier filtering
-        selected_providers = self._filter_providers_by_tier(selected_providers, desire_tier)
+        if not selected_providers:
+            return
 
         # No timeout for streaming - results flow in as each provider completes
         # Slow providers just arrive later in the stream

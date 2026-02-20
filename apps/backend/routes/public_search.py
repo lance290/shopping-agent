@@ -6,7 +6,7 @@ Runs the full sourcing pipeline:
   2. extract_search_intent() → structured SearchIntent
   3. build_provider_query_map() → per-retailer adapted queries
   4. SourcingRepository.search_all_with_status() → ALL providers in parallel, NO gating
-  5. score_results() → classical scoring with tier_fit multiplier
+  5. score_results() → scoring with relevance, price, quality, source fit
   6. Quantum re-ranking (if enabled)
   7. Constraint satisfaction scoring
 
@@ -172,7 +172,7 @@ async def public_search(body: PublicSearchRequest, request: Request):
         f"{len(provider_statuses)} providers for query: {raw_query!r}"
     )
 
-    # Step 5: Classical scoring with tier_fit multiplier
+    # Step 5: Score and rank results
     if normalized_results:
         min_price = search_intent.min_price if search_intent else None
         max_price = search_intent.max_price if search_intent else None
@@ -187,7 +187,7 @@ async def public_search(body: PublicSearchRequest, request: Request):
     # Steps 6 & 7: Quantum re-ranking and constraint satisfaction
     # These are applied in the workspace flow via SourcingService but require
     # row context (embeddings, structured_constraints). For public search,
-    # classical scoring + tier_fit is sufficient. Quantum/constraint scoring
+    # classical scoring is sufficient. Quantum/constraint scoring
     # can be added later if we store intent embeddings in the search flow.
 
     # Convert to response format
