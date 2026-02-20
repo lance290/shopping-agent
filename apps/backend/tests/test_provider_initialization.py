@@ -7,8 +7,8 @@ import os
 class TestProviderInitialization:
     """Test suite for SourcingRepository provider initialization."""
 
-    def test_scaleserp_provider_initialized_when_key_present(self):
-        """ScaleSerpProvider should be initialized when SCALESERP_API_KEY is set."""
+    def test_google_shopping_provider_disabled(self):
+        """ScaleSerpProvider (google_shopping) is DISABLED — should NOT be initialized."""
         with patch.dict(os.environ, {
             "SCALESERP_API_KEY": "test_scaleserp_key",
             "RAINFOREST_API_KEY": "",
@@ -21,11 +21,10 @@ class TestProviderInitialization:
             from sourcing.repository import SourcingRepository
             repo = SourcingRepository()
             
-            assert "google_shopping" in repo.providers
-            assert repo.providers["google_shopping"].api_key == "test_scaleserp_key"
+            assert "google_shopping" not in repo.providers
 
-    def test_scaleserp_provider_not_initialized_when_key_missing(self):
-        """ScaleSerpProvider should not be initialized when SCALESERP_API_KEY is empty."""
+    def test_amazon_not_initialized_when_scaleserp_key_missing(self):
+        """Amazon provider should not be initialized when SCALESERP_API_KEY is empty."""
         with patch.dict(os.environ, {
             "SCALESERP_API_KEY": "",
             "RAINFOREST_API_KEY": "test_rainforest_key",
@@ -38,10 +37,10 @@ class TestProviderInitialization:
             from sourcing.repository import SourcingRepository
             repo = SourcingRepository()
             
-            assert "google_shopping" not in repo.providers
+            assert "amazon" not in repo.providers
 
-    def test_scaleserp_provider_not_initialized_when_key_is_demo(self):
-        """ScaleSerpProvider should not be initialized when SCALESERP_API_KEY is 'demo'."""
+    def test_amazon_not_initialized_when_key_is_demo(self):
+        """Amazon provider should not be initialized when SCALESERP_API_KEY is 'demo'."""
         with patch.dict(os.environ, {
             "SCALESERP_API_KEY": "demo",
             "RAINFOREST_API_KEY": "",
@@ -54,7 +53,7 @@ class TestProviderInitialization:
             from sourcing.repository import SourcingRepository
             repo = SourcingRepository()
             
-            assert "google_shopping" not in repo.providers
+            assert "amazon" not in repo.providers
 
     def test_rainforest_provider_disabled(self):
         """RainforestAPIProvider is disabled — should NOT be initialized even with key."""
@@ -89,39 +88,8 @@ class TestProviderInitialization:
             assert "amazon" in repo.providers
             assert repo.providers["amazon"].api_key == "test_scaleserp_key"
 
-    def test_google_cse_provider_requires_both_key_and_cx(self):
-        """GoogleCustomSearchProvider requires both API key and CX."""
-        # Only key, no CX
-        with patch.dict(os.environ, {
-            "GOOGLE_CSE_API_KEY": "test_key",
-            "GOOGLE_CSE_CX": "",
-            "RAINFOREST_API_KEY": "",
-            "SCALESERP_API_KEY": "",
-            "SERPAPI_API_KEY": "",
-            "SEARCHAPI_API_KEY": "",
-            "VALUESERP_API_KEY": "",
-        }, clear=False):
-            from sourcing.repository import SourcingRepository
-            repo = SourcingRepository()
-            
-            assert "google_cse" not in repo.providers
-        
-        # Only CX, no key
-        with patch.dict(os.environ, {
-            "GOOGLE_CSE_API_KEY": "",
-            "GOOGLE_CSE_CX": "test_cx",
-            "RAINFOREST_API_KEY": "",
-            "SCALESERP_API_KEY": "",
-            "SERPAPI_API_KEY": "",
-            "SEARCHAPI_API_KEY": "",
-            "VALUESERP_API_KEY": "",
-        }, clear=False):
-            from sourcing.repository import SourcingRepository
-            repo = SourcingRepository()
-            
-            assert "google_cse" not in repo.providers
-        
-        # Both present
+    def test_google_cse_provider_disabled(self):
+        """GoogleCustomSearchProvider is DISABLED — should NOT be initialized even with both keys."""
         with patch.dict(os.environ, {
             "GOOGLE_CSE_API_KEY": "test_key",
             "GOOGLE_CSE_CX": "test_cx",
@@ -134,10 +102,10 @@ class TestProviderInitialization:
             from sourcing.repository import SourcingRepository
             repo = SourcingRepository()
             
-            assert "google_cse" in repo.providers
+            assert "google_cse" not in repo.providers
 
-    def test_multiple_providers_can_be_initialized(self):
-        """Multiple providers should be initialized when their keys are present."""
+    def test_only_amazon_and_vendor_directory_active(self):
+        """Only Amazon + Vendor Directory should be active. All Google providers disabled."""
         with patch.dict(os.environ, {
             "RAINFOREST_API_KEY": "test_rainforest",
             "SCALESERP_API_KEY": "test_scaleserp",
@@ -150,13 +118,13 @@ class TestProviderInitialization:
             from sourcing.repository import SourcingRepository
             repo = SourcingRepository()
             
-            assert "rainforest" not in repo.providers  # Disabled
-            assert "google_shopping" in repo.providers
+            assert "rainforest" not in repo.providers
+            assert "google_shopping" not in repo.providers
+            assert "serpapi" not in repo.providers
+            assert "searchapi" not in repo.providers
+            assert "valueserp" not in repo.providers
+            assert "google_cse" not in repo.providers
             assert "amazon" in repo.providers
-            assert "serpapi" in repo.providers
-            assert "searchapi" in repo.providers
-            assert "valueserp" in repo.providers
-            assert "google_cse" in repo.providers
 
     def test_provider_timeout_configurable(self):
         """Provider timeout should be configurable via environment variable."""
@@ -190,11 +158,11 @@ class TestProviderInitialization:
 class TestProviderPriority:
     """Test that providers are initialized in expected priority order."""
 
-    def test_providers_dict_order_maintained(self):
-        """Provider dict should maintain insertion order (Python 3.7+)."""
+    def test_amazon_is_first_provider(self):
+        """Amazon should be the first marketplace provider initialized."""
         with patch.dict(os.environ, {
-            "RAINFOREST_API_KEY": "test_rainforest",
             "SCALESERP_API_KEY": "test_scaleserp",
+            "RAINFOREST_API_KEY": "",
             "SERPAPI_API_KEY": "",
             "SEARCHAPI_API_KEY": "",
             "VALUESERP_API_KEY": "",
@@ -205,7 +173,6 @@ class TestProviderPriority:
             repo = SourcingRepository()
             
             provider_names = list(repo.providers.keys())
-            
-            # Amazon should come right after google_shopping based on init order
-            if "amazon" in provider_names and "google_shopping" in provider_names:
-                assert provider_names.index("google_shopping") < provider_names.index("amazon")
+            assert "amazon" in provider_names
+            # Amazon should be first (before vendor_directory)
+            assert provider_names[0] == "amazon"
