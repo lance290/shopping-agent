@@ -292,13 +292,41 @@ async def startup_event():
     # ── Data integrity check — warn if vendor/user data is missing ──
     async with engine.begin() as conn:
         try:
-            seller_count = (await conn.execute(text('SELECT COUNT(*) FROM seller'))).scalar() or 0
-            user_count = (await conn.execute(text('SELECT COUNT(*) FROM "user"'))).scalar() or 0
-            if seller_count == 0:
-                print("⚠️  WARNING: seller table is EMPTY — vendor data may have been wiped!")
-                print("   Run: python scripts/seed_vendors.py  to restore early-adopter vendors.")
+            vendor_exists = (
+                await conn.execute(
+                    text(
+                        "SELECT EXISTS ("
+                        "SELECT 1 FROM information_schema.tables "
+                        "WHERE table_schema = 'public' AND table_name = 'vendor'"
+                        ")"
+                    )
+                )
+            ).scalar()
+            user_exists = (
+                await conn.execute(
+                    text(
+                        "SELECT EXISTS ("
+                        "SELECT 1 FROM information_schema.tables "
+                        "WHERE table_schema = 'public' AND table_name = 'user'"
+                        ")"
+                    )
+                )
+            ).scalar()
+
+            vendor_count = (
+                (await conn.execute(text('SELECT COUNT(*) FROM vendor'))).scalar() or 0
+            ) if vendor_exists else 0
+            user_count = (
+                (await conn.execute(text('SELECT COUNT(*) FROM "user"'))).scalar() or 0
+            ) if user_exists else 0
+
+            if not vendor_exists:
+                print("⚠️  WARNING: vendor table does not exist yet.")
+            elif vendor_count == 0:
+                print("⚠️  WARNING: vendor table is EMPTY — vendor data may be missing.")
+                print("   Run: python scripts/seed_vendors.py to restore vendor records.")
             else:
-                print(f"✓  Data check: {seller_count} sellers, {user_count} users in DB")
+                print(f"✓  Data check: {vendor_count} vendors, {user_count} users in DB")
         except Exception as e:
             print(f"⚠️  Data integrity check skipped (table may not exist yet): {e}")
 

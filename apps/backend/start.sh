@@ -95,5 +95,6 @@ else
 fi
 
 # Start application
-echo "[STARTUP] Starting Uvicorn server..."
-exec su fastapi -s /bin/sh -c "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080} --workers 4"
+WORKERS="${UVICORN_WORKERS:-1}"
+echo "[STARTUP] Starting Uvicorn server with ${WORKERS} worker(s)..."
+exec su fastapi -s /bin/sh -c "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080} --workers ${WORKERS}"

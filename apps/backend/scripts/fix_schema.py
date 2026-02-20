@@ -16,11 +16,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
-# One-time migration: old managed Postgres on Railway internal network
-OLD_DATABASE_URL = os.environ.get(
-    "OLD_DATABASE_URL",
-    "postgresql://postgres:fWObfWzOKVFUIIuxSwqsfJlRFsCozCSi@postgres.railway.internal:5432/railway"
-)
+# One-time migration source. Intentionally empty by default.
+OLD_DATABASE_URL = os.environ.get("OLD_DATABASE_URL", "").strip()
+# Run legacy data migration only when explicitly requested.
+RUN_LEGACY_MIGRATION = os.environ.get("RUN_LEGACY_MIGRATION", "").lower() in {"1", "true", "yes"}
+# Run phone/user merge hack only when explicitly requested.
+RUN_USER_PHONE_MERGE = os.environ.get("RUN_USER_PHONE_MERGE", "").lower() in {"1", "true", "yes"}
 
 # (table, column, pg_type, default_expr_or_None)
 EXPECTED_COLS = [
@@ -235,6 +236,10 @@ async def migrate_data():
         print("[MIGRATE] OLD_DATABASE_URL not set, skipping migration.")
         return
 
+    if not RUN_LEGACY_MIGRATION:
+        print("[MIGRATE] RUN_LEGACY_MIGRATION is disabled, skipping migration.")
+        return
+
     from database import engine as target_engine
 
     # Skip if migration fully completed (user 1 has phone AND request_spec has data)
@@ -391,7 +396,10 @@ async def main():
     async with engine.begin() as conn:
         await fix_schema(conn)
     await migrate_data()
-    await merge_phone_to_user1()
+    if RUN_USER_PHONE_MERGE:
+        await merge_phone_to_user1()
+    else:
+        print("[MERGE] RUN_USER_PHONE_MERGE is disabled, skipping phone merge step.")
 
 
 if __name__ == "__main__":

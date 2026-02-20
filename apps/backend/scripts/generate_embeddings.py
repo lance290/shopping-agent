@@ -70,8 +70,8 @@ async def generate_embeddings(force: bool = False):
         query = select(VendorProfile)
         if not force:
             query = query.where(VendorProfile.embedding.is_(None))
-        result = await session.execute(query)
-        vendors = list(result.scalars().all())
+        result = await session.exec(query)
+        vendors = list(result.all())
 
         if not vendors:
             print("All vendors already have embeddings. Use --force to re-embed.")

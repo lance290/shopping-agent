@@ -14,11 +14,6 @@ class GitHubClient:
         self.token = token or GITHUB_TOKEN
         self.repo = repo or GITHUB_REPO
         self.base_url = "https://api.github.com"
-        
-        if not self.token:
-            logger.warning("[GITHUB] Warning: GITHUB_TOKEN not set")
-        if not self.repo:
-            logger.warning("[GITHUB] Warning: GITHUB_REPO not set")
 
     def _get_headers(self) -> Dict[str, str]:
         return {

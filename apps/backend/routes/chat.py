@@ -8,6 +8,7 @@ All backend calls are now direct DB/service calls instead of HTTP round-trips.
 import json
 import logging
 import os
+import re
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
@@ -86,6 +87,60 @@ def row_to_dict(row: Row) -> dict:
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
+
+
+def _should_force_context_switch(
+    user_message: str,
+    active_row_title: str,
+    pending_clarification: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """
+    Conservative guardrail:
+    If LLM returns ask_clarification on an active row, but the new user message
+    is clearly unrelated, force a context switch so a new row is created.
+
+    We intentionally disable this while clarification is pending to avoid
+    misclassifying short detail answers ("tomorrow", "2 passengers") as new
+    requests.
+    """
+    if pending_clarification:
+        return False
+
+    msg = (user_message or "").strip().lower()
+    active = (active_row_title or "").strip().lower()
+    if not msg or not active:
+        return False
+
+    if msg in active or active in msg:
+        return False
+
+    # Refinement-like messages should stay on the current row.
+    refinement_regex = re.compile(
+        r"\b(over|under|below|above|cheaper|more|less|budget|price|min|max|"
+        r"round[-\s]?trip|one[-\s]?way|return|departure|arrival|date|time|"
+        r"passengers?|quantity|qty|size|color|brand|model)\b|\$\s*\d+|\b\d+\s*(usd|dollars)\b",
+        re.IGNORECASE,
+    )
+    if refinement_regex.search(msg):
+        return False
+
+    stop_words = {
+        "a", "an", "the", "for", "with", "and", "or", "to", "of", "in", "on",
+        "my", "me", "i", "please", "show", "find", "get", "need", "want",
+    }
+
+    def _tokens(text: str) -> set[str]:
+        raw = re.findall(r"[a-zA-Z][a-zA-Z0-9'-]*", text)
+        return {t for t in raw if len(t) > 2 and t not in stop_words}
+
+    msg_tokens = _tokens(msg)
+    active_tokens = _tokens(active)
+    if len(msg_tokens) < 2 or not active_tokens:
+        return False
+
+    overlap = len(msg_tokens & active_tokens)
+    similarity = overlap / max(1, min(len(msg_tokens), len(active_tokens)))
+    return similarity < 0.2
 
 
 # =============================================================================
@@ -343,6 +398,21 @@ async def chat_endpoint(
             intent = decision.intent
             action = decision.action
             action_type = action.get("type", "")
+
+            if (
+                action_type == "ask_clarification"
+                and active_row_data
+                and _should_force_context_switch(
+                    user_message=user_message,
+                    active_row_title=active_row_data.get("title", ""),
+                    pending_clarification=pending_clarification,
+                )
+            ):
+                logger.info(
+                    "Overriding action ask_clarification -> context_switch "
+                    "due to clear topic shift from active row."
+                )
+                action_type = "context_switch"
 
             logger.info(f"Decision: action={action_type}, intent.what={intent.what}, intent.category={intent.category}")
 
