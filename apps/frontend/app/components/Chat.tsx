@@ -623,7 +623,7 @@ export default function Chat() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="px-6 py-5 bg-white border-t border-warm-grey space-y-3">
+      <div className="px-6 py-4 bg-white border-t border-warm-grey space-y-2">
         <SearchProviderToggle />
         <form onSubmit={handleSubmit} className="flex gap-3 items-end">
           <Input
