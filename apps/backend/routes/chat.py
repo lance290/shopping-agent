@@ -564,7 +564,7 @@ async def chat_endpoint(
                     session, row,
                     title=title if title_changed else None,
                     constraints=next_constraints if constraints else None,
-                    reset_bids=title_changed,
+                    reset_bids=True,
                 )
                 # Refresh search_intent so scorer has current relevance data
                 row_service_cat_for_intent = service_category or (active_row_data or {}).get("service_category")
