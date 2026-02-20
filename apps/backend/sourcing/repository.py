@@ -621,7 +621,7 @@ class RainforestAPIProvider(SourcingProvider):
                 if max_price is not None and price_f > float(max_price):
                     dropped_constraints += 1
                     continue
-                
+
                 url = normalize_url(item.get("link", ""))
                 url = self._append_affiliate_tag(url)
                 

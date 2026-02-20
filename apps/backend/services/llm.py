@@ -513,6 +513,8 @@ Goal:
 - Output a provider_query that maximizes product relevance.
 - Do NOT include price phrases like "$50 and up", "over $50", "under $50", "50+", "or more" in provider_query.
 - Keep it short (2-6 words), only the core product/category.
+- PRESERVE format qualifiers like "physical", "digital", "virtual", "card", "gift card" — these are critical for finding the right product type.
+- If the user specifies a brand (e.g. "Roblox", "Steam", "iTunes"), include it in the query.
 - If the project title helps disambiguate meaning, use it ONLY as context to choose the right meaning; do not include project title in provider_query.
 
 Return JSON ONLY:

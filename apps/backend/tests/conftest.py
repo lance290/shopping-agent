@@ -23,6 +23,10 @@ async def session_fixture():
     from urllib.parse import urlparse, urlunparse
 
     main_url = engine.url.render_as_string(hide_password=False)
+    # If DATABASE_URL env var is set, use it directly (overrides default port)
+    env_url = os.environ.get("DATABASE_URL", "")
+    if env_url:
+        main_url = env_url
     parsed = urlparse(main_url)
 
     # Replace DB name: /shopping_agent -> /shopping_agent_test
