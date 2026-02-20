@@ -391,10 +391,22 @@ async def merge_phone_to_user1():
         print(f"[MERGE] Done. User 1 phone = {u1[0] if u1 else 'NOT FOUND'}")
 
 
+async def reset_vendor_sequence():
+    """Reset vendor id sequence to MAX(id) to prevent UniqueViolationError after restore."""
+    from database import engine
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "SELECT setval(pg_get_serial_sequence('vendor','id'), "
+            "COALESCE((SELECT MAX(id) FROM vendor), 1))"
+        ))
+    print("[FIX] vendor id sequence reset to MAX(id).")
+
+
 async def main():
     from database import engine
     async with engine.begin() as conn:
         await fix_schema(conn)
+    await reset_vendor_sequence()
     await migrate_data()
     if RUN_USER_PHONE_MERGE:
         await merge_phone_to_user1()
