@@ -72,6 +72,14 @@ if ! su fastapi -s /bin/sh -c "python scripts/fix_schema.py"; then
     echo "[STARTUP] WARNING: Post-migration schema fix failed, but continuing startup."
 fi
 
+# Restore vendor backup if dump file exists (upsert — safe to run repeatedly)
+if [ -f "data/vendors_prod_dump.json" ] || [ -f "data/vendors_prod_dump.json.gz" ]; then
+    echo "[STARTUP] Restoring vendor backup from data/vendors_prod_dump.json..."
+    if ! su fastapi -s /bin/sh -c "python scripts/restore_vendors.py"; then
+        echo "[STARTUP] WARNING: Vendor restore failed, but continuing startup."
+    fi
+fi
+
 # Run seed script (early-adopter vendors from vendors.py)
 echo "[STARTUP] Seeding vendor data..."
 if ! su fastapi -s /bin/sh -c "python scripts/seed_vendors.py"; then

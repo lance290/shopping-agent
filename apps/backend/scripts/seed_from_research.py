@@ -18,7 +18,7 @@ from database import engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
-from models import VendorProfile
+from models.bids import Vendor
 
 # ── Section heading → category slug mapping ──────────────────────────────────
 SECTION_CATEGORIES = {
@@ -198,11 +198,8 @@ async def seed_from_research():
 
                 categories_seen[category] = categories_seen.get(category, 0) + 1
 
-                # Upsert: match on company + category
-                query = select(VendorProfile).where(
-                    VendorProfile.company == company,
-                    VendorProfile.category == category,
-                )
+                # Upsert: match on name
+                query = select(Vendor).where(Vendor.name == company)
                 result = await session.execute(query)
                 existing = result.scalar_one_or_none()
 
@@ -212,19 +209,20 @@ async def seed_from_research():
 
                 if existing:
                     existing.website = website or existing.website
-                    existing.contact_email = email or existing.contact_email
-                    existing.contact_phone = phone or existing.contact_phone
+                    existing.email = email or existing.email
+                    existing.phone = phone or existing.phone
                     existing.description = notes or existing.description
                     existing.profile_text = profile_text
+                    existing.category = category or existing.category
                     existing.updated_at = datetime.utcnow()
                     updated += 1
                 else:
-                    session.add(VendorProfile(
+                    session.add(Vendor(
+                        name=company,
                         category=category,
-                        company=company,
                         website=website,
-                        contact_email=email,
-                        contact_phone=phone,
+                        email=email,
+                        phone=phone,
                         description=notes,
                         profile_text=profile_text,
                     ))
