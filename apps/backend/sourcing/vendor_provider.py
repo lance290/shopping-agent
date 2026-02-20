@@ -26,7 +26,7 @@ EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "1536"))
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/embeddings"
 
 # Cosine distance threshold: 0 = identical, 2 = opposite
-DISTANCE_THRESHOLD = float(os.getenv("VENDOR_DISTANCE_THRESHOLD", "0.55"))
+DISTANCE_THRESHOLD = float(os.getenv("VENDOR_DISTANCE_THRESHOLD", "0.45"))
 
 
 async def _embed_texts(texts: List[str]) -> Optional[List[List[float]]]:

@@ -80,6 +80,19 @@ if [ -f "data/vendors_prod_dump.json" ] || [ -f "data/vendors_prod_dump.json.gz"
     fi
 fi
 
+# Reset vendor id sequence to avoid UniqueViolationError after restore
+echo "[STARTUP] Resetting vendor id sequence..."
+su fastapi -s /bin/sh -c "python -c \"
+import asyncio
+from database import engine
+from sqlalchemy import text
+async def fix():
+    async with engine.begin() as conn:
+        await conn.execute(text(\\\"SELECT setval(pg_get_serial_sequence('vendor','id'), COALESCE((SELECT MAX(id) FROM vendor),1))\\\"))
+asyncio.run(fix())
+print('Sequence reset OK')
+\"" || echo "[STARTUP] WARNING: Sequence reset failed, continuing."
+
 # Run seed script (early-adopter vendors from vendors.py)
 echo "[STARTUP] Seeding vendor data..."
 if ! su fastapi -s /bin/sh -c "python scripts/seed_vendors.py"; then

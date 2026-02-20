@@ -145,6 +145,18 @@ async def restore_vendors_logic(session: AsyncSession):
             print(f"❌ Error batch {i} (first item id={batch[0].get('id')}): {err_str}")
             await session.rollback()
 
+    # Reset the sequence so new inserts don't conflict with restored IDs
+    try:
+        async with session.bind.connect() as conn:
+            await conn.execute(text(
+                "SELECT setval(pg_get_serial_sequence('vendor', 'id'), "
+                "(SELECT MAX(id) FROM vendor))"
+            ))
+            await conn.commit()
+        print("✅ Sequence reset to MAX(id).")
+    except Exception as e:
+        print(f"⚠️  Sequence reset failed (non-fatal): {e}")
+
     print("✅ Restore complete.")
     return total
 
