@@ -221,6 +221,11 @@ interface ShoppingState {
   clearSearch: () => void;
   setCardClickQuery: (query: string | null) => void;  // For card click -> chat append
 
+  // Search provider toggles
+  selectedProviders: Record<string, boolean>;
+  toggleProvider: (providerId: string) => void;
+  setSelectedProviders: (providers: Record<string, boolean>) => void;
+
   // UI State
   isSidebarOpen: boolean;
   setSidebarOpen: (isOpen: boolean) => void;
@@ -253,6 +258,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   streamingRowIds: {},
   isSearching: false,
   cardClickQuery: null,
+  selectedProviders: { amazon: true, serpapi: true, vendor_directory: true },
   isSidebarOpen: false, // Default closed
 
   pendingRowDelete: null,
@@ -270,6 +276,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
 
     return { activeRowId: id, rows: updatedRows };
   }),
+  toggleProvider: (providerId) => set((state) => ({
+    selectedProviders: {
+      ...state.selectedProviders,
+      [providerId]: !state.selectedProviders[providerId],
+    },
+  })),
+  setSelectedProviders: (providers) => set({ selectedProviders: providers }),
   setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
 

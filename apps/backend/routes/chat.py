@@ -61,6 +61,7 @@ class ChatRequest(BaseModel):
     activeRowId: Optional[int] = None
     projectId: Optional[int] = None
     pendingClarification: Optional[Dict[str, Any]] = None
+    providers: Optional[List[str]] = None
 
 
 # =============================================================================
@@ -277,6 +278,7 @@ async def _stream_search(
     row_id: int,
     query: str,
     authorization: Optional[str],
+    providers: Optional[List[str]] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Stream search results from the backend's own search/stream endpoint.
@@ -293,7 +295,7 @@ async def _stream_search(
             "POST",
             f"{_SELF_BASE_URL}/rows/{row_id}/search/stream",
             headers=headers,
-            json={"query": query},
+            json={"query": query, **(({"providers": providers}) if providers else {})},
             timeout=60.0,
         ) as resp:
             buffer = ""
@@ -494,7 +496,7 @@ async def chat_endpoint(
 
                 # Search — all providers run, tier used for re-ranking only
                 yield sse_event("action_started", {"type": "search", "row_id": row.id, "query": search_query})
-                async for batch in _stream_search(row.id, search_query, authorization):
+                async for batch in _stream_search(row.id, search_query, authorization, providers=body.providers):
                     if batch.get("event") == "complete":
                         if batch.get("user_message"):
                             yield sse_event("search_results", {
@@ -547,7 +549,7 @@ async def chat_endpoint(
                     yield sse_event("factors_updated", {"row": row_to_dict(row)})
 
                     yield sse_event("action_started", {"type": "search", "row_id": row.id, "query": search_query})
-                    async for batch in _stream_search(row.id, search_query, authorization):
+                    async for batch in _stream_search(row.id, search_query, authorization, providers=body.providers):
                         if batch.get("event") == "complete":
                             if batch.get("user_message"):
                                 yield sse_event("search_results", {"row_id": row.id, "results": [], "more_incoming": False, "user_message": batch["user_message"]})
@@ -608,7 +610,7 @@ async def chat_endpoint(
                 # Search — all providers run, tier used for re-ranking only
                 if search_query:
                     yield sse_event("action_started", {"type": "search", "row_id": active_row_id, "query": search_query})
-                    async for batch in _stream_search(active_row_id, search_query, authorization):
+                    async for batch in _stream_search(active_row_id, search_query, authorization, providers=body.providers):
                         if batch.get("event") == "complete":
                             if batch.get("user_message"):
                                 yield sse_event("search_results", {
@@ -653,7 +655,7 @@ async def chat_endpoint(
                     yield sse_event("factors_updated", {"row": row_to_dict(row)})
 
                 yield sse_event("action_started", {"type": "search", "row_id": active_row_id, "query": search_query})
-                async for batch in _stream_search(active_row_id, search_query, authorization):
+                async for batch in _stream_search(active_row_id, search_query, authorization, providers=body.providers):
                     if batch.get("event") == "complete":
                         if batch.get("user_message"):
                             yield sse_event("search_results", {

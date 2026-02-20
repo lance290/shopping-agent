@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
 import { getMe } from '../utils/auth';
+import SearchProviderToggle from './SearchProviderToggle';
 
 interface Message {
   id: string;
@@ -190,6 +191,9 @@ export default function Chat() {
           projectId: intendedProjectId,
           // Include pending clarification context if we're in a multi-turn flow
           pendingClarification: pendingClarification,
+          providers: Object.entries(store.selectedProviders)
+            .filter(([, enabled]) => enabled)
+            .map(([id]) => id),
         }),
       });
       
@@ -619,7 +623,8 @@ export default function Chat() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="px-6 py-5 bg-white border-t border-warm-grey">
+      <div className="px-6 py-5 bg-white border-t border-warm-grey space-y-3">
+        <SearchProviderToggle />
         <form onSubmit={handleSubmit} className="flex gap-3 items-end">
           <Input
             ref={inputRef}
