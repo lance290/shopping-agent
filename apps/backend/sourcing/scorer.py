@@ -88,7 +88,7 @@ def _tier_relevance_score(source: str, desire_tier: Optional[str]) -> float:
 
     # Group providers
     BIG_BOX_PROVIDERS = {
-        "rainforest", "ebay_browse", "google_shopping", 
+        "rainforest", "amazon", "ebay_browse", "google_shopping", 
         "searchapi", "google_cse", "serpapi", "ticketmaster"
     }
     VENDOR_PROVIDERS = {"vendor_directory"}
@@ -296,7 +296,7 @@ def _affiliate_multiplier(source: str) -> float:
       until we have affiliate coverage for those merchants.
     - ebay_browse: neutral for now — eBay Partner Network not yet configured.
     """
-    BOOSTED = {"rainforest"}
+    BOOSTED = {"rainforest", "amazon"}
     PENALIZED = {"serpapi", "searchapi", "google_cse", "google_shopping"}
 
     if source in BOOSTED:
