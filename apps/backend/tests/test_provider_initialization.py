@@ -7,11 +7,11 @@ import os
 class TestProviderInitialization:
     """Test suite for SourcingRepository provider initialization."""
 
-    def test_google_shopping_provider_disabled(self):
-        """ScaleSerpProvider (google_shopping) is DISABLED — should NOT be initialized."""
+    def test_rainforest_initialized_as_amazon_provider(self):
+        """RainforestAPIProvider should be initialized as 'amazon' when key is present."""
         with patch.dict(os.environ, {
-            "SCALESERP_API_KEY": "test_scaleserp_key",
-            "RAINFOREST_API_KEY": "",
+            "RAINFOREST_API_KEY": "test_rainforest_key",
+            "SCALESERP_API_KEY": "",
             "SERPAPI_API_KEY": "",
             "SEARCHAPI_API_KEY": "",
             "VALUESERP_API_KEY": "",
@@ -21,13 +21,14 @@ class TestProviderInitialization:
             from sourcing.repository import SourcingRepository
             repo = SourcingRepository()
             
-            assert "google_shopping" not in repo.providers
+            assert "amazon" in repo.providers
+            assert isinstance(repo.providers["amazon"], __import__("sourcing.repository", fromlist=["RainforestAPIProvider"]).RainforestAPIProvider)
 
-    def test_amazon_not_initialized_when_scaleserp_key_missing(self):
-        """Amazon provider should not be initialized when SCALESERP_API_KEY is empty."""
+    def test_amazon_not_initialized_when_rainforest_key_missing(self):
+        """Amazon provider should not be initialized when RAINFOREST_API_KEY is empty."""
         with patch.dict(os.environ, {
-            "SCALESERP_API_KEY": "",
-            "RAINFOREST_API_KEY": "test_rainforest_key",
+            "RAINFOREST_API_KEY": "",
+            "SCALESERP_API_KEY": "test_scaleserp_key",
             "SERPAPI_API_KEY": "",
             "SEARCHAPI_API_KEY": "",
             "VALUESERP_API_KEY": "",
@@ -39,10 +40,10 @@ class TestProviderInitialization:
             
             assert "amazon" not in repo.providers
 
-    def test_amazon_not_initialized_when_key_is_demo(self):
-        """Amazon provider should not be initialized when SCALESERP_API_KEY is 'demo'."""
+    def test_scaleserp_amazon_provider_disabled(self):
+        """ScaleSerpAmazonProvider is DISABLED — SCALESERP_API_KEY alone should not create amazon provider."""
         with patch.dict(os.environ, {
-            "SCALESERP_API_KEY": "demo",
+            "SCALESERP_API_KEY": "test_scaleserp_key",
             "RAINFOREST_API_KEY": "",
             "SERPAPI_API_KEY": "",
             "SEARCHAPI_API_KEY": "",
@@ -71,11 +72,11 @@ class TestProviderInitialization:
             
             assert "rainforest" not in repo.providers
 
-    def test_amazon_provider_initialized_when_scaleserp_key_present(self):
-        """ScaleSerpAmazonProvider should be initialized when SCALESERP_API_KEY is set."""
+    def test_rainforest_provider_has_correct_api_key(self):
+        """RainforestAPIProvider should have the correct API key."""
         with patch.dict(os.environ, {
-            "SCALESERP_API_KEY": "test_scaleserp_key",
-            "RAINFOREST_API_KEY": "",
+            "RAINFOREST_API_KEY": "test_rainforest_key",
+            "SCALESERP_API_KEY": "",
             "SERPAPI_API_KEY": "",
             "SEARCHAPI_API_KEY": "",
             "VALUESERP_API_KEY": "",
@@ -86,7 +87,7 @@ class TestProviderInitialization:
             repo = SourcingRepository()
             
             assert "amazon" in repo.providers
-            assert repo.providers["amazon"].api_key == "test_scaleserp_key"
+            assert repo.providers["amazon"].api_key == "test_rainforest_key"
 
     def test_google_cse_provider_disabled(self):
         """GoogleCustomSearchProvider is DISABLED — should NOT be initialized even with both keys."""
@@ -105,7 +106,7 @@ class TestProviderInitialization:
             assert "google_cse" not in repo.providers
 
     def test_only_amazon_and_vendor_directory_active(self):
-        """Only Amazon + Vendor Directory should be active. All Google providers disabled."""
+        """Only Amazon (Rainforest) + Vendor Directory should be active. All Google providers disabled."""
         with patch.dict(os.environ, {
             "RAINFOREST_API_KEY": "test_rainforest",
             "SCALESERP_API_KEY": "test_scaleserp",
@@ -118,7 +119,6 @@ class TestProviderInitialization:
             from sourcing.repository import SourcingRepository
             repo = SourcingRepository()
             
-            assert "rainforest" not in repo.providers
             assert "google_shopping" not in repo.providers
             assert "serpapi" not in repo.providers
             assert "searchapi" not in repo.providers
@@ -159,10 +159,10 @@ class TestProviderPriority:
     """Test that providers are initialized in expected priority order."""
 
     def test_amazon_is_first_provider(self):
-        """Amazon should be the first marketplace provider initialized."""
+        """Amazon (Rainforest) should be the first provider initialized."""
         with patch.dict(os.environ, {
-            "SCALESERP_API_KEY": "test_scaleserp",
-            "RAINFOREST_API_KEY": "",
+            "RAINFOREST_API_KEY": "test_rainforest",
+            "SCALESERP_API_KEY": "",
             "SERPAPI_API_KEY": "",
             "SEARCHAPI_API_KEY": "",
             "VALUESERP_API_KEY": "",
@@ -174,5 +174,4 @@ class TestProviderPriority:
             
             provider_names = list(repo.providers.keys())
             assert "amazon" in provider_names
-            # Amazon should be first (before vendor_directory)
             assert provider_names[0] == "amazon"

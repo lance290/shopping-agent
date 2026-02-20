@@ -1109,10 +1109,10 @@ class SourcingRepository:
         # if serpapi_key and serpapi_key != "demo":
         #     self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
         
-        # Rainforest API - DISABLED (replaced by ScaleSerp Google Shopping which includes Amazon)
-        # rainforest_key = os.getenv("RAINFOREST_API_KEY")
-        # if rainforest_key:
-        #     self.providers["rainforest"] = RainforestAPIProvider(rainforest_key)
+        # Rainforest API - Amazon search with real images, prices, and ratings
+        rainforest_key = os.getenv("RAINFOREST_API_KEY")
+        if rainforest_key:
+            self.providers["amazon"] = RainforestAPIProvider(rainforest_key)
 
         # Google providers - ALL DISABLED (results show as google.com, not useful)
         # serpapi_key = os.getenv("SERPAPI_API_KEY")
@@ -1136,10 +1136,10 @@ class SourcingRepository:
         # if google_key and google_cx:
         #     self.providers["google_cse"] = GoogleCustomSearchProvider(google_key, google_cx)
 
-        # Amazon via ScaleSerp (site:amazon.com organic search + affiliate tag)
-        scaleserp_key = os.getenv("SCALESERP_API_KEY")
-        if scaleserp_key and scaleserp_key != "demo":
-            self.providers["amazon"] = ScaleSerpAmazonProvider(scaleserp_key)
+        # ScaleSerpAmazon - DISABLED (organic search has no images or prices)
+        # scaleserp_key = os.getenv("SCALESERP_API_KEY")
+        # if scaleserp_key and scaleserp_key != "demo":
+        #     self.providers["amazon"] = ScaleSerpAmazonProvider(scaleserp_key)
         
         # SearchAPI (original)
         # searchapi_key = os.getenv("SEARCHAPI_API_KEY")
