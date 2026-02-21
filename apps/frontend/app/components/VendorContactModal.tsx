@@ -35,6 +35,8 @@ export default function VendorContactModal({
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [replyToEmail, setReplyToEmail] = useState('');
+  const [senderName, setSenderName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
@@ -49,13 +51,23 @@ export default function VendorContactModal({
     setErrorMsg('');
 
     const init = async () => {
-      // Get user's email for reply-to
+      // Get user's profile for reply-to, name, company
       let userEmail = '';
+      let userName = '';
+      let userCompany = '';
       try {
         const user = await getMe();
         if (user?.email) {
           userEmail = user.email;
           setReplyToEmail(user.email);
+        }
+        if (user?.name) {
+          userName = user.name;
+          setSenderName(user.name);
+        }
+        if (user?.company) {
+          userCompany = user.company;
+          setCompanyName(user.company);
         }
       } catch { /* no-op */ }
 
@@ -65,6 +77,8 @@ export default function VendorContactModal({
         vendorEmail,
         vendorCompany,
         userEmail || 'your@email.com',
+        userName || undefined,
+        userCompany ? `${userCompany}` : undefined,
       );
 
       if (result) {
@@ -74,8 +88,10 @@ export default function VendorContactModal({
       } else {
         // Fallback if LLM fails
         setSubject(`Inquiry — ${rowTitle}`);
+        const fallbackName = senderName || 'Your Name';
+        const fallbackCompany = companyName || 'Your Company';
         setBody(
-          `Hi ${vendorCompany},\n\nI'm reaching out on behalf of my client who is looking for:\n\n  ${rowTitle}\n\nCould you please let us know about pricing, availability, and any relevant details?\n\nThanks,\nBetty\nExecutive Assistant, BuyAnything`
+          `Hi ${vendorCompany},\n\nI'm reaching out regarding:\n\n  ${rowTitle}\n\nCould you please let us know about pricing, availability, and any relevant details?\n\nThanks,\n${fallbackName}\n${fallbackCompany}`
         );
         setState('review');
       }
@@ -110,6 +126,8 @@ export default function VendorContactModal({
       subject,
       body,
       vendorName,
+      senderName || undefined,
+      companyName || undefined,
     );
 
     if (result?.status === 'sent') {
@@ -192,6 +210,27 @@ export default function VendorContactModal({
                   <p className="text-sm text-red-700">{errorMsg}</p>
                 </div>
               )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs text-gray-500 mb-1">Your name</div>
+                  <input
+                    value={senderName}
+                    onChange={(e) => setSenderName(e.target.value)}
+                    placeholder="Your Name"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500 mb-1">Company</div>
+                  <input
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="Your Company"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              </div>
 
               <div>
                 <div className="text-xs text-gray-500 mb-1">Reply-to (your email)</div>

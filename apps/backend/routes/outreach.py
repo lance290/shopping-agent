@@ -180,8 +180,9 @@ class SendOutreachRequest(BaseModel):
     subject: Optional[str] = None
     body: Optional[str] = None
     reply_to_email: str
-    sender_name: str = "Betty"
-    sender_role: str = "Executive Assistant, BuyAnything"
+    sender_name: Optional[str] = None
+    sender_role: Optional[str] = None
+    sender_company: Optional[str] = None
 
 
 class QuoteLinkRequest(BaseModel):
@@ -231,6 +232,7 @@ async def send_outreach(
             chat_history=row.chat_history,
             choice_answers=row.choice_answers,
             search_intent=row.search_intent,
+            sender_company=request.sender_company,
         )
         subject = subject or generated["subject"]
         body = body or generated["body"]
@@ -281,11 +283,16 @@ async def send_outreach(
             evt.sent_at = datetime.utcnow()
             evt.message_id = email_result.message_id
 
-        # Persist reply-to email to user profile if not already set
-        if request.reply_to_email and auth_session.user_id:
+        # Persist user profile fields from outreach modal
+        if auth_session.user_id:
             user = await session.get(User, auth_session.user_id)
-            if user and not user.email:
-                user.email = request.reply_to_email
+            if user:
+                if request.reply_to_email and not user.email:
+                    user.email = request.reply_to_email
+                if request.sender_name and not user.name:
+                    user.name = request.sender_name
+                if request.sender_company and not user.company:
+                    user.company = request.sender_company
 
         await session.commit()
 
@@ -332,6 +339,7 @@ async def generate_email_preview(
         chat_history=row.chat_history,
         choice_answers=row.choice_answers,
         search_intent=row.search_intent,
+        sender_company=request.sender_company,
     )
 
     return generated

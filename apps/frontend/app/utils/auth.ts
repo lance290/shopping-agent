@@ -15,6 +15,8 @@ export interface AuthMeResponse {
   email?: string;
   phone_number?: string;
   user_id?: number;
+  name?: string;
+  company?: string;
 }
 
 export const startAuth = async (phone: string): Promise<AuthStartResponse> => {

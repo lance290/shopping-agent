@@ -536,11 +536,12 @@ Return JSON ONLY:
 async def generate_outreach_email(
     row_title: str,
     vendor_company: str,
-    sender_name: str,
-    sender_role: str,
+    sender_name: Optional[str] = None,
+    sender_role: Optional[str] = None,
     chat_history: Optional[str] = None,
     choice_answers: Optional[str] = None,
     search_intent: Optional[str] = None,
+    sender_company: Optional[str] = None,
 ) -> dict:
     """
     Generate a personalized vendor outreach email using the LLM.
@@ -548,6 +549,12 @@ async def generate_outreach_email(
     Returns {"subject": "...", "body": "..."} with a professional,
     context-aware email derived from the chat conversation.
     """
+    name = sender_name or "the buyer"
+    company = sender_company or ""
+    signature = name
+    if company:
+        signature = f"{name}, {company}"
+
     context_parts = []
     if chat_history:
         context_parts.append(f"Chat history:\n{chat_history[:2000]}")
@@ -563,20 +570,21 @@ async def generate_outreach_email(
 CONTEXT:
 - Buyer is looking for: {json.dumps(row_title)}
 - Vendor company: {json.dumps(vendor_company)}
-- Sender name: {json.dumps(sender_name)}
-- Sender role: {json.dumps(sender_role)}
+- Sender name: {json.dumps(name)}
+- Sender company: {json.dumps(company) if company else "not specified"}
 
 CONVERSATION CONTEXT:
 {context}
 
 INSTRUCTIONS:
-- Write a concise, professional email from {sender_name} ({sender_role}) to {vendor_company}.
+- Write a concise, professional email from {name} to {vendor_company}.
 - Reference specific details from the conversation (dates, locations, quantities, preferences, etc.).
 - Keep it warm but professional. 3-5 short paragraphs max.
 - Ask for pricing, availability, and any relevant details.
-- End with the sender's name and role.
+- Sign off with the sender's name{f' and company ({company})' if company else ''}.
 - Do NOT include a subject line in the body.
 - Do NOT include placeholder brackets like [date] — use the actual values from context, or omit if unknown.
+- If the sender name is "the buyer", write in first person ("I'm looking for...") instead of third person.
 
 Return JSON ONLY:
 {{"subject": "...", "body": "..."}}"""
@@ -593,5 +601,5 @@ Return JSON ONLY:
         logger.warning(f"[LLM] Email generation failed, using fallback: {e}")
         return {
             "subject": f"Inquiry — {row_title}",
-            "body": f"Hi {vendor_company},\n\nI'm reaching out on behalf of my client who is looking for:\n\n  {row_title}\n\nCould you please let us know about pricing, availability, and any relevant details?\n\nThanks,\n{sender_name}\n{sender_role}",
+            "body": f"Hi {vendor_company},\n\nI'm reaching out regarding:\n\n  {row_title}\n\nCould you please let us know about pricing, availability, and any relevant details?\n\nThanks,\n{signature}",
         }

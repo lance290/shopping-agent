@@ -1,4 +1,4 @@
-import { Row, Offer, Project, ProviderStatusSnapshot } from '../store';
+import { Row, Offer, Project, ProviderStatusSnapshot, useShoppingStore } from '../store';
 
 export const AUTH_REQUIRED = 'auth_required' as const;
 
@@ -6,7 +6,9 @@ function getAuthToken(): string {
   // Prefer cookie-based auth via same-origin requests, but keep legacy token
   // fallback for environments where only localStorage is populated.
   if (typeof window === 'undefined') return '';
-  return localStorage.getItem('session_token') || '';
+  const storage = (globalThis as any).localStorage;
+  if (!storage || typeof storage.getItem !== 'function') return '';
+  return storage.getItem('session_token') || '';
 }
 
 async function fetchWithAuth(url: string, init: RequestInit = {}): Promise<Response> {
@@ -174,6 +176,34 @@ export interface SearchApiResponse {
   userMessage?: string;
 }
 
+const PROVIDER_ALIASES: Record<string, string> = {
+  rainforest: 'amazon',
+  google: 'serpapi',
+  google_shopping: 'serpapi',
+  ebay: 'ebay_browse',
+};
+
+function normalizeProviders(providerIds: string[]): string[] {
+  const dedup = new Set<string>();
+  for (const providerId of providerIds) {
+    const raw = String(providerId || '').trim().toLowerCase();
+    if (!raw) continue;
+    dedup.add(PROVIDER_ALIASES[raw] || raw);
+  }
+  return Array.from(dedup.values());
+}
+
+function getEnabledProvidersFromStore(): string[] {
+  try {
+    const selected = useShoppingStore.getState().selectedProviders || {};
+    return Object.entries(selected)
+      .filter(([, enabled]) => Boolean(enabled))
+      .map(([providerId]) => providerId);
+  } catch {
+    return [];
+  }
+}
+
 // Helper: Run search with status message
 export const runSearchApiWithStatus = async (
   query: string | null | undefined,
@@ -185,8 +215,12 @@ export const runSearchApiWithStatus = async (
     if (typeof query === 'string' && query.trim().length > 0) {
       body.query = query;
     }
-    if (options?.providers && options.providers.length > 0) {
-      body.providers = options.providers;
+    const requestedProviders = options?.providers && options.providers.length > 0
+      ? options.providers
+      : getEnabledProvidersFromStore();
+    const normalizedProviders = normalizeProviders(requestedProviders);
+    if (normalizedProviders.length > 0) {
+      body.providers = normalizedProviders;
     }
 
     const res = await fetchWithAuth('/api/search', {
@@ -415,7 +449,7 @@ export const generateOutreachEmail = async (
   vendorCompany: string,
   replyToEmail: string,
   senderName?: string,
-  senderRole?: string,
+  senderCompany?: string,
 ): Promise<{ subject: string; body: string } | null> => {
   try {
     const res = await fetchWithAuth(`/api/outreach/${rowId}/generate-email`, {
@@ -425,8 +459,8 @@ export const generateOutreachEmail = async (
         vendor_email: vendorEmail,
         vendor_company: vendorCompany,
         reply_to_email: replyToEmail,
-        sender_name: senderName || 'Betty',
-        sender_role: senderRole || 'Executive Assistant, BuyAnything',
+        sender_name: senderName || null,
+        sender_company: senderCompany || null,
       }),
     });
     if (!res.ok) return null;
@@ -446,7 +480,7 @@ export const sendOutreachEmail = async (
   body: string,
   vendorName?: string,
   senderName?: string,
-  senderRole?: string,
+  senderCompany?: string,
 ): Promise<{ status: string; message_id?: string; error?: string } | null> => {
   try {
     const res = await fetchWithAuth(`/api/outreach/${rowId}/send`, {
@@ -459,8 +493,8 @@ export const sendOutreachEmail = async (
         reply_to_email: replyToEmail,
         subject,
         body,
-        sender_name: senderName || 'Betty',
-        sender_role: senderRole || 'Executive Assistant, BuyAnything',
+        sender_name: senderName || null,
+        sender_company: senderCompany || null,
       }),
     });
     if (!res.ok) return null;

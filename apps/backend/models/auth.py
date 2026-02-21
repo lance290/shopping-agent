@@ -34,6 +34,8 @@ class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email: Optional[str] = Field(default=None, index=True)
     phone_number: Optional[str] = Field(default=None)
+    name: Optional[str] = Field(default=None)
+    company: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     is_admin: bool = Field(default=False)
 

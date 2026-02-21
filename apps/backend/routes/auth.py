@@ -292,6 +292,8 @@ class AuthMeResponse(BaseModel):
     email: Optional[str] = None
     phone_number: Optional[str] = None
     user_id: Optional[int] = None
+    name: Optional[str] = None
+    company: Optional[str] = None
 
 
 class MintSessionRequest(BaseModel):
@@ -625,18 +627,24 @@ async def auth_me(
     # If we have a user_id, get the latest user details (in case phone/email changed)
     phone_number = auth_session.phone_number
     email = auth_session.email
+    name = None
+    company = None
     
     if auth_session.user_id:
          user = await session.get(User, auth_session.user_id)
          if user:
              phone_number = user.phone_number
              email = user.email
+             name = user.name
+             company = user.company
 
     return {
         "authenticated": True, 
         "email": email,
         "phone_number": phone_number,
-        "user_id": auth_session.user_id
+        "user_id": auth_session.user_id,
+        "name": name,
+        "company": company,
     }
 
 
