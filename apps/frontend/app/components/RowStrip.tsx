@@ -83,7 +83,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     return extract(raw) || extract(offer.click_url || '');
   };
 
-  const refresh = async (mode: 'all' | 'rainforest') => {
+  const refresh = async (mode: 'all' | 'amazon') => {
     if (!canRefresh()) {
       return;
     }
@@ -99,7 +99,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       const searchResponse = await runSearchApiWithStatus(
         row.title,
         row.id,
-        mode === 'rainforest' ? { providers: ['rainforest'] } : undefined
+        mode === 'amazon' ? { providers: ['amazon'] } : undefined
       );
 
       if (searchResponse.userMessage) {
@@ -152,6 +152,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
   const isSearching = useShoppingStore(state => state.isSearching);
   const streamingRowIds = useShoppingStore(state => state.streamingRowIds);
+  const selectedProviders = useShoppingStore(state => state.selectedProviders);
   
   useEffect(() => {
     if (!isActive) return;
@@ -169,6 +170,19 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     // Run search — vendor directory results come through the normal search pipeline
     refresh('all');
   }, [isActive, row.id, isSearching, moreResultsIncoming, row.service_category, row.status, setRowResults, updateRow]);
+
+  // Re-search when provider toggles change on the active row
+  const prevProvidersRef = useRef<string>(JSON.stringify(selectedProviders));
+  useEffect(() => {
+    if (!isActive) return;
+    const current = JSON.stringify(selectedProviders);
+    if (current === prevProvidersRef.current) return;
+    prevProvidersRef.current = current;
+    // Skip if initial load hasn't happened yet or if already searching
+    if (!didAutoLoadRef.current) return;
+    if (isSearching) return;
+    refresh('all');
+  }, [isActive, selectedProviders, isSearching]);
 
   const sortOffers = (list: Offer[]) => {
     if (!list || list.length === 0) return [];

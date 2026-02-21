@@ -85,6 +85,7 @@ def row_to_dict(row: Row) -> dict:
         "desire_tier": row.desire_tier,
         "choice_factors": row.choice_factors,
         "choice_answers": row.choice_answers,
+        "selected_providers": row.selected_providers,
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
@@ -192,6 +193,7 @@ async def _create_row(
     desire_tier: Optional[str] = None,
     exclude_keywords: Optional[List[str]] = None,
     exclude_merchants: Optional[List[str]] = None,
+    selected_providers: Optional[str] = None,
 ) -> Row:
     """Create a new Row directly in DB."""
     row = Row(
@@ -204,6 +206,7 @@ async def _create_row(
         desire_tier=desire_tier,
         structured_constraints=json.dumps(constraints) if constraints else None,
         search_intent=_build_search_intent_json(title, search_query or title, constraints, service_category, exclude_keywords, exclude_merchants),
+        selected_providers=selected_providers,
     )
     session.add(row)
     await session.flush()
@@ -346,6 +349,11 @@ async def chat_endpoint(
             project_id = body.projectId
             pending_clarification = body.pendingClarification
 
+            # Build per-row provider selection JSON from the providers list
+            providers_json = None
+            if body.providers:
+                providers_json = json.dumps({p: True for p in body.providers})
+
             # Extract last user message
             last_user_msg = None
             for m in reversed(messages):
@@ -477,6 +485,7 @@ async def chat_endpoint(
                     desire_tier=tier,
                     exclude_keywords=exclude_keywords,
                     exclude_merchants=exclude_merchants,
+                    selected_providers=providers_json,
                 )
                 yield sse_event(event_name, {"row": row_to_dict(row)})
                 yield sse_event("desire_tier_classified", {
@@ -532,6 +541,7 @@ async def chat_endpoint(
                         desire_tier=tier,
                         exclude_keywords=exclude_keywords,
                         exclude_merchants=exclude_merchants,
+                        selected_providers=providers_json,
                     )
                     yield sse_event("row_created", {"row": row_to_dict(row)})
                     yield sse_event("desire_tier_classified", {
@@ -641,6 +651,7 @@ async def chat_endpoint(
                         session, user_id, title, project_id,
                         is_service, service_category, constraints, search_query,
                         desire_tier=decision.desire_tier,
+                        selected_providers=providers_json,
                         exclude_keywords=exclude_keywords,
                         exclude_merchants=exclude_merchants,
                     )

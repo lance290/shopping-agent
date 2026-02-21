@@ -74,6 +74,7 @@ class RowUpdate(BaseModel):
     reset_bids: Optional[bool] = None
     is_service: Optional[bool] = None
     service_category: Optional[str] = None
+    selected_providers: Optional[str] = None
 
 
 def _default_choice_factors_for_row(row: Row) -> str:

@@ -77,6 +77,7 @@ export interface Row {
   is_service?: boolean;      // True if this is a service request (not a product)
   service_category?: string; // e.g., "private_aviation", "catering"
   desire_tier?: string;      // commodity, considered, service, bespoke, high_value, advisory
+  selected_providers?: string; // JSON string: {"amazon": true, "serpapi": false, ...}
 }
 
 export interface Project {
@@ -275,14 +276,45 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       row.id === id ? { ...row, last_engaged_at: Date.now() } : row
     );
 
-    return { activeRowId: id, rows: updatedRows };
+    // Load per-row providers into toggles when switching rows
+    const targetRow = state.rows.find((r) => r.id === id);
+    let providers = state.selectedProviders;
+    if (targetRow?.selected_providers) {
+      try {
+        const parsed = JSON.parse(targetRow.selected_providers);
+        if (parsed && typeof parsed === 'object') {
+          providers = parsed;
+        }
+      } catch { /* keep current */ }
+    }
+
+    return { activeRowId: id, rows: updatedRows, selectedProviders: providers };
   }),
-  toggleProvider: (providerId) => set((state) => ({
-    selectedProviders: {
+  toggleProvider: (providerId) => set((state) => {
+    const newProviders = {
       ...state.selectedProviders,
       [providerId]: !state.selectedProviders[providerId],
-    },
-  })),
+    };
+
+    // Save to active row if one exists
+    if (state.activeRowId !== null) {
+      const serialized = JSON.stringify(newProviders);
+      const newRows = state.rows.map((row) =>
+        row.id === state.activeRowId
+          ? { ...row, selected_providers: serialized }
+          : row
+      );
+      // Fire-and-forget persist to backend
+      fetch(`/api/rows?id=${state.activeRowId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selected_providers: serialized }),
+      }).catch(() => {});
+      return { selectedProviders: newProviders, rows: newRows };
+    }
+
+    return { selectedProviders: newProviders };
+  }),
   setSelectedProviders: (providers) => set({ selectedProviders: providers }),
   setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),

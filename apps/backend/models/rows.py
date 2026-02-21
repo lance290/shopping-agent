@@ -40,6 +40,9 @@ class RowBase(SQLModel):
     desire_tier: Optional[str] = None  # commodity, considered, service, bespoke, high_value, advisory
     structured_constraints: Optional[str] = None  # JSON of extracted structured constraints
 
+    # Per-row provider selection (JSON object: {"amazon": true, "serpapi": false, ...})
+    selected_providers: Optional[str] = None
+
 
 class RequestSpecBase(SQLModel):
     item_name: str
