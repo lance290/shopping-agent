@@ -21,6 +21,7 @@ export interface Offer {
   liked_at?: string; // ISO timestamp when liked
   comment_preview?: string;
   // Vendor/service provider fields
+  description?: string;
   is_service_provider?: boolean;
   vendor_email?: string;
   vendor_name?: string;
