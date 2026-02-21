@@ -14,7 +14,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("row", sa.Column("selected_providers", sa.Text(), nullable=True))
+    op.execute("ALTER TABLE row ADD COLUMN IF NOT EXISTS selected_providers TEXT")
 
 
 def downgrade() -> None:

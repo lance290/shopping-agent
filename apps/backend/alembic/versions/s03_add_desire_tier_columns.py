@@ -14,8 +14,8 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("row", sa.Column("desire_tier", sa.String(length=20), nullable=True))
-    op.add_column("row", sa.Column("structured_constraints", sa.Text(), nullable=True))
+    op.execute("ALTER TABLE row ADD COLUMN IF NOT EXISTS desire_tier VARCHAR(20)")
+    op.execute("ALTER TABLE row ADD COLUMN IF NOT EXISTS structured_constraints TEXT")
 
 
 def downgrade() -> None:

@@ -14,6 +14,14 @@ depends_on = None
 
 
 def upgrade() -> None:
+    from sqlalchemy import inspect
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    existing_tables = inspector.get_table_names()
+
+    if "outreach_campaign" in existing_tables:
+        return  # Tables already exist (created by init_db)
+
     op.create_table(
         "outreach_campaign",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
