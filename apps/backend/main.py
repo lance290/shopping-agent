@@ -285,7 +285,10 @@ async def startup_event():
             await conn.execute(text("""
                 ALTER TABLE row ADD COLUMN IF NOT EXISTS chat_history TEXT;
             """))
-            print("Migration check: chat_history column ensured")
+            await conn.execute(text("""
+                ALTER TABLE row ADD COLUMN IF NOT EXISTS selected_providers TEXT;
+            """))
+            print("Migration check: chat_history + selected_providers columns ensured")
     except Exception as e:
         print(f"Migration check skipped (table may not exist yet, Alembic will create it): {e}")
 
