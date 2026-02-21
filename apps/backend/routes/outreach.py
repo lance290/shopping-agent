@@ -707,3 +707,67 @@ async def send_reminders(
             sent_count += 1
 
     return {"status": "reminders_sent", "sent": sent_count, "total_eligible": len(events)}
+
+
+@router.get("/rows/{row_id}/contact-statuses")
+async def get_contact_statuses(
+    row_id: int,
+    authorization: Optional[str] = Header(None),
+    session=Depends(get_session),
+):
+    """
+    Return outreach status per vendor_email for a row.
+    Used by frontend to show "Contacted" / "Quote Received" badges on offer tiles.
+
+    Returns: { statuses: { [vendor_email]: { status, sent_at, quoted_at } } }
+    """
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Verify row ownership
+    result = await session.execute(
+        select(Row).where(
+            Row.id == row_id,
+            Row.user_id == auth_session.user_id,
+        )
+    )
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    # Get all outreach events for this row
+    result = await session.execute(
+        select(OutreachEvent).where(OutreachEvent.row_id == row_id)
+    )
+    events = result.scalars().all()
+
+    # Get all submitted seller quotes for this row
+    result = await session.execute(
+        select(SellerQuote).where(
+            SellerQuote.row_id == row_id,
+            SellerQuote.status == "submitted",
+        )
+    )
+    submitted_quotes = result.scalars().all()
+    quoted_emails = {q.seller_email.lower() for q in submitted_quotes if q.seller_email}
+
+    statuses: dict = {}
+    for evt in events:
+        email_key = evt.vendor_email.lower()
+        has_quote = email_key in quoted_emails
+        if has_quote:
+            status = "quoted"
+        elif evt.sent_at:
+            status = "contacted"
+        else:
+            status = "pending"
+
+        statuses[email_key] = {
+            "status": status,
+            "sent_at": evt.sent_at.isoformat() if evt.sent_at else None,
+            "quoted_at": evt.quote_submitted_at.isoformat() if evt.quote_submitted_at else None,
+            "vendor_company": evt.vendor_company,
+        }
+
+    return {"statuses": statuses}

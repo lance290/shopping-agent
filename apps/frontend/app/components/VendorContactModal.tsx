@@ -17,6 +17,7 @@ interface VendorContactModalProps {
   vendorName: string;
   vendorCompany: string;
   vendorEmail: string;
+  onSent?: () => void;
 }
 
 type ModalState = 'loading' | 'review' | 'sending' | 'sent' | 'error';
@@ -29,6 +30,7 @@ export default function VendorContactModal({
   vendorName,
   vendorCompany,
   vendorEmail,
+  onSent,
 }: VendorContactModalProps) {
   const [mounted, setMounted] = useState(false);
   const [state, setState] = useState<ModalState>('loading');
@@ -132,6 +134,7 @@ export default function VendorContactModal({
 
     if (result?.status === 'sent') {
       setState('sent');
+      onSent?.();
     } else {
       setErrorMsg(result?.error || 'Failed to send email. Please try again.');
       setState('error');

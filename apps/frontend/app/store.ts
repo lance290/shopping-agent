@@ -28,6 +28,7 @@ export interface Offer {
   vendor_company?: string;
   like_count?: number;
   comment_count?: number;
+  outreach_status?: 'contacted' | 'quoted' | 'pending';
 }
 
 export type ProviderStatusType = 'ok' | 'error' | 'timeout' | 'exhausted' | 'rate_limited';

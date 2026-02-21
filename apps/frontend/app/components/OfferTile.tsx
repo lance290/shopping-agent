@@ -1,7 +1,7 @@
 import { Offer, Row, useShoppingStore } from '../store';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Heart, MessageSquare, Share2, ShieldCheck, Star, Truck, X, UserPlus } from 'lucide-react';
+import { Heart, MessageSquare, Share2, ShieldCheck, Star, Truck, X, UserPlus, Mail, MailCheck } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -31,6 +31,7 @@ export default function OfferTile({
 }: OfferTileProps) {
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const updateRowOffer = useShoppingStore(state => state.updateRowOffer);
 
   // Build clickout URL - service providers show modal, others go through clickout
   const isQuoteBased = offer.price === null || offer.price === undefined;
@@ -85,6 +86,18 @@ export default function OfferTile({
             <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
               <ShieldCheck size={10} />
               Vendor Quote
+            </div>
+          )}
+          {offer.outreach_status === 'contacted' && (
+            <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-amber-500/10 text-amber-700 border border-amber-500/20">
+              <Mail size={10} />
+              Contacted
+            </div>
+          )}
+          {offer.outreach_status === 'quoted' && (
+            <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+              <MailCheck size={10} />
+              Quote Received
             </div>
           )}
           {isBiddable && !isSellerQuote && !isServiceProvider && (
@@ -356,6 +369,17 @@ export default function OfferTile({
           vendorName={offer.vendor_name || 'Contact'}
           vendorCompany={offer.vendor_company || offer.merchant}
           vendorEmail={offer.vendor_email || ''}
+          onSent={() => {
+            // Update the offer's outreach_status to 'contacted' after successful send
+            const email = offer.vendor_email;
+            if (email) {
+              updateRowOffer(
+                rowId,
+                (o) => (o.vendor_email || '').toLowerCase() === email.toLowerCase(),
+                { outreach_status: 'contacted' },
+              );
+            }
+          }}
         />
       )}
     </Card>

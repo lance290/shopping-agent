@@ -4,7 +4,7 @@ import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import ProviderStatusBadge from './ProviderStatusBadge';
 import { RefreshCw, FlaskConical, Undo2, Link2, X } from 'lucide-react';
-import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, createCommentApi, fetchCommentsApi, AUTH_REQUIRED } from '../utils/api';
+import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, createCommentApi, fetchCommentsApi, fetchContactStatuses, AUTH_REQUIRED } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -42,6 +42,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didAutoLoadRef = useRef<boolean>(false);
   const didLoadCommentsRef = useRef<boolean>(false);
+  const didLoadContactStatusRef = useRef<boolean>(false);
 
   useEffect(() => {
     return () => {
@@ -146,6 +147,25 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
             { comment_preview: preview, comment_count: countByBidId.get(bidId) || 0 },
           );
         });
+      });
+    }
+  }, [isActive, row.id, updateRowOffer]);
+
+  // Load contact statuses when active (once) — shows "Contacted" / "Quote Received" badges
+  useEffect(() => {
+    if (isActive && !didLoadContactStatusRef.current && row.id) {
+      didLoadContactStatusRef.current = true;
+      fetchContactStatuses(row.id).then((statuses) => {
+        if (!statuses) return;
+        // Merge outreach_status into offers by matching vendor_email
+        for (const [email, info] of Object.entries(statuses)) {
+          const status = info.status as 'contacted' | 'quoted' | 'pending';
+          updateRowOffer(
+            row.id,
+            (o) => (o.vendor_email || '').toLowerCase() === email,
+            { outreach_status: status },
+          );
+        }
       });
     }
   }, [isActive, row.id, updateRowOffer]);

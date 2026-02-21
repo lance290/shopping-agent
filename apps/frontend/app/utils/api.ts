@@ -505,6 +505,20 @@ export const sendOutreachEmail = async (
   }
 };
 
+export const fetchContactStatuses = async (
+  rowId: number,
+): Promise<Record<string, { status: string; sent_at: string | null; quoted_at: string | null }> | null> => {
+  try {
+    const res = await fetchWithAuth(`/api/outreach/${rowId}/contact-statuses`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.statuses || null;
+  } catch (err) {
+    console.error('[API] Fetch contact statuses error:', err);
+    return null;
+  }
+};
+
 export const createQuoteLink = async (
   rowId: number,
   vendorEmail: string,
