@@ -161,7 +161,8 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     const streamingInProgress = isSearching || (moreResultsIncoming[row.id] ?? false) || (streamingRowIds[row.id] ?? false);
     if (streamingInProgress) return;
     if (Array.isArray(offers) && offers.length > 0) {
-        // If we have offers but haven't loaded likes yet, ensure we do (handled above)
+        // Results already loaded (e.g. via chat SSE) — mark as loaded so toggle re-search works
+        didAutoLoadRef.current = true;
         return;
     }
 
