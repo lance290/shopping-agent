@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Bug, FolderPlus, Trash2, Share2, Store, ArrowLeft, User, LogOut } from 'lucide-react';
+import { Plus, FolderPlus, Trash2, Share2, Store, ArrowLeft, User, LogOut } from 'lucide-react';
 import { useShoppingStore, Row } from '../store';
 import { createProjectInDb, deleteProjectFromDb } from '../utils/api';
 import RowStrip from './RowStrip';
@@ -31,7 +31,6 @@ export default function ProcurementBoard() {
   const removeProject = useShoppingStore(state => state.removeProject);
   const pendingRowDelete = useShoppingStore(state => state.pendingRowDelete);
   const undoDeleteRow = useShoppingStore(state => state.undoDeleteRow);
-  const setReportBugModalOpen = useShoppingStore(state => state.setReportBugModalOpen);
   const [dismissing, setDismissing] = useState(false);
   const [toast, setToast] = useState<{ message: string; tone?: 'success' | 'error' } | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -312,7 +311,7 @@ export default function ProcurementBoard() {
               Become a Seller
             </Button>
           </a>
-          <Button
+          {/* <Button
             variant="secondary"
             size="sm"
             onClick={() => setReportBugModalOpen(true)}
@@ -320,7 +319,7 @@ export default function ProcurementBoard() {
           >
             <Bug size={16} />
             Report Bug
-          </Button>
+          </Button> */}
           <Button
             variant="secondary"
             size="sm"
