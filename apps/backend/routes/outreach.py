@@ -177,8 +177,6 @@ async def trigger_outreach(
 class BlastRequest(BaseModel):
     subject: str  # e.g. "Looking for {{vendor_company}}'s help"
     body: str  # Plain text with {{vendor_name}}, {{vendor_company}}, {{row_title}} placeholders
-    reply_to_email: str  # Replies go to this address
-    sender_name: Optional[str] = "BuyAnything"
     dry_run: bool = False  # If true, return preview without sending
 
 
@@ -198,6 +196,12 @@ async def blast_outreach(
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
         raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Get the user's name and email for reply-to and sender
+    user_result = await session.execute(select(User).where(User.id == auth_session.user_id))
+    user = user_result.scalar_one_or_none()
+    reply_to_email = (user.email if user and user.email else "noreply@buyanything.ai")
+    sender_name = (user.name if user and user.name else "BuyAnything")
 
     # Verify row ownership
     result = await session.execute(
@@ -328,7 +332,7 @@ async def blast_outreach(
 
             <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
             <p style="color: #999; font-size: 12px;">
-                Sent on behalf of {request.sender_name} via BuyAnything
+                Sent on behalf of {sender_name} via BuyAnything
                 <br><a href="{unsubscribe_url}" style="color: #999;">Unsubscribe</a>
             </p>
             <p style="color: #bbb; font-size: 10px;">
@@ -346,8 +350,8 @@ async def blast_outreach(
             subject=subj,
             body_text=body_text,
             quote_token=token,
-            reply_to_email=request.reply_to_email,
-            sender_name=request.sender_name or "BuyAnything",
+            reply_to_email=reply_to_email,
+            sender_name=sender_name,
         )
 
         if email_result.success:
