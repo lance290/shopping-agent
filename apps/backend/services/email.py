@@ -774,15 +774,17 @@ async def send_admin_vendor_alert(
         "clicked": f"🔗 {vendor_display} clicked the quote link",
         "quote_submitted": f"💰 {vendor_display} submitted a quote!",
         "deal_selected": f"🤝 Deal selected: {vendor_display}",
+        "blast_sent": f"📨 Blast sent to {vendor_display}",
     }
     subject = subjects.get(event_type, f"Vendor activity: {event_type}")
 
-    emoji = {"opened": "📬", "clicked": "🔗", "quote_submitted": "💰", "deal_selected": "🤝"}.get(event_type, "📋")
+    emoji = {"opened": "📬", "clicked": "🔗", "quote_submitted": "💰", "deal_selected": "🤝", "blast_sent": "📨"}.get(event_type, "📋")
     action = {
         "opened": "opened your outreach email",
         "clicked": "clicked the quote link",
         "quote_submitted": "submitted a quote",
         "deal_selected": "was selected by a buyer — deal in progress!",
+        "blast_sent": "— outreach blast sent",
     }.get(event_type, event_type)
 
     quote_html = ""
