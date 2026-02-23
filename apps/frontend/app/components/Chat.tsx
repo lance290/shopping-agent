@@ -511,6 +511,15 @@ export default function Chat() {
       }
     } finally {
       setIsLoading(false);
+      // Aggressive cleanup: ensure no orphaned spinners remain if the stream drops prematurely
+      store.setIsSearching(false);
+      releaseStreamingLock();
+      
+      const finalRowId = store.activeRowId;
+      if (finalRowId) {
+        store.setMoreResultsIncoming(finalRowId, false);
+      }
+
       // Save chat history after stream completes
       setMessages(currentMsgs => {
         saveCurrentChat(currentMsgs);
@@ -518,7 +527,6 @@ export default function Chat() {
       });
       // Belt-and-suspenders: force-refetch active row after stream ends
       // to ensure factors/answers are loaded even if SSE events were missed
-      const finalRowId = store.activeRowId;
       if (finalRowId) {
         console.log('[Chat] Stream ended, force-refetching row', finalRowId);
         fetchSingleRowFromDb(finalRowId).then(freshRow => {
