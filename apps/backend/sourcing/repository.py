@@ -1129,10 +1129,10 @@ class SourcingRepository:
         if rainforest_key:
             self.providers["amazon"] = RainforestAPIProvider(rainforest_key)
 
-        # Google Shopping via SerpAPI
-        serpapi_key = os.getenv("SERPAPI_API_KEY")
-        if serpapi_key and serpapi_key != "demo":
-            self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
+        # Google Shopping via SerpAPI — DISABLED (Skimlinks conflict)
+        # serpapi_key = os.getenv("SERPAPI_API_KEY")
+        # if serpapi_key and serpapi_key != "demo":
+        #     self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
 
         # valueserp_key = os.getenv("VALUESERP_API_KEY")
         # if valueserp_key and valueserp_key != "demo":

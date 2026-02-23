@@ -106,7 +106,7 @@ class TestProviderInitialization:
             assert "google_cse" not in repo.providers
 
     def test_active_providers_with_all_keys(self):
-        """Amazon (Rainforest) + SerpAPI (Google Shopping) + Vendor Directory should be active."""
+        """Amazon (Rainforest) + Vendor Directory should be active. SerpAPI disabled (Skimlinks conflict)."""
         with patch.dict(os.environ, {
             "RAINFOREST_API_KEY": "test_rainforest",
             "SCALESERP_API_KEY": "test_scaleserp",
@@ -120,7 +120,7 @@ class TestProviderInitialization:
             repo = SourcingRepository()
             
             assert "amazon" in repo.providers
-            assert "serpapi" in repo.providers
+            assert "serpapi" not in repo.providers
             assert "google_shopping" not in repo.providers
             assert "searchapi" not in repo.providers
             assert "valueserp" not in repo.providers
