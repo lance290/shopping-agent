@@ -200,8 +200,24 @@ async def blast_outreach(
     # Get the user's name and email for reply-to and sender
     user_result = await session.execute(select(User).where(User.id == auth_session.user_id))
     user = user_result.scalar_one_or_none()
-    reply_to_email = (user.email if user and user.email else "noreply@buyanything.ai")
-    sender_name = (user.name if user and user.name else "BuyAnything")
+
+    if not user or not user.email:
+        raise HTTPException(
+            status_code=422,
+            detail="Please add your email address to your profile before sending outreach. "
+                   "Vendors need a way to reply to you. "
+                   "Update via PATCH /auth/profile with {\"email\": \"you@example.com\"}",
+        )
+    if not user.name:
+        raise HTTPException(
+            status_code=422,
+            detail="Please add your name to your profile before sending outreach. "
+                   "Emails are sent on your behalf. "
+                   "Update via PATCH /auth/profile with {\"name\": \"Your Name\"}",
+        )
+
+    reply_to_email = user.email
+    sender_name = user.name
 
     # Verify row ownership
     result = await session.execute(

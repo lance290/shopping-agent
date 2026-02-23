@@ -294,6 +294,7 @@ class AuthMeResponse(BaseModel):
     user_id: Optional[int] = None
     name: Optional[str] = None
     company: Optional[str] = None
+    profile_complete: bool = False
 
 
 class MintSessionRequest(BaseModel):
@@ -645,7 +646,57 @@ async def auth_me(
         "user_id": auth_session.user_id,
         "name": name,
         "company": company,
+        "profile_complete": bool(name and email),
     }
+
+
+class ProfileUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    company: Optional[str] = None
+
+
+class ProfileUpdateResponse(BaseModel):
+    status: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+    company: Optional[str] = None
+    profile_complete: bool = False
+
+
+@router.patch("/auth/profile", response_model=ProfileUpdateResponse)
+async def update_profile(
+    body: ProfileUpdateRequest,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """Update user profile (name, email, company). Required before sending outreach."""
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user = await session.get(User, auth_session.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if body.name is not None:
+        user.name = body.name.strip()
+    if body.email is not None:
+        user.email = body.email.strip().lower()
+    if body.company is not None:
+        user.company = body.company.strip()
+
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    return ProfileUpdateResponse(
+        status="ok",
+        name=user.name,
+        email=user.email,
+        company=user.company,
+        profile_complete=bool(user.name and user.email),
+    )
 
 
 @router.post("/auth/logout")
