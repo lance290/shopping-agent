@@ -28,8 +28,20 @@ FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@buyanything.ai")
 FROM_NAME = os.getenv("FROM_NAME", "BuyAnything")
 ADMIN_EMAIL = os.getenv("ADMIN_NOTIFY_EMAIL", "")
 
+# Dev mode: redirect ALL vendor-facing emails to this address instead
+# Set to "" or unset in production to send to real vendors
+DEV_EMAIL_OVERRIDE = os.getenv("DEV_EMAIL_OVERRIDE", "")
+
 # Base URL for magic links
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:3003")
+
+
+def _maybe_intercept(to_email: str, subject: str) -> tuple[str, str]:
+    """In dev mode, redirect email to DEV_EMAIL_OVERRIDE and tag the subject."""
+    if DEV_EMAIL_OVERRIDE:
+        tagged_subject = f"[DEV → {to_email}] {subject}"
+        return DEV_EMAIL_OVERRIDE, tagged_subject
+    return to_email, subject
 
 
 def get_quote_url(token: str) -> str:
@@ -135,6 +147,7 @@ async def send_outreach_email(
     """
     
     # If Resend is configured, send real email
+    to_email, subject = _maybe_intercept(to_email, subject)
     if RESEND_API_KEY and resend is not None:
         try:
             params: resend.Emails.SendParams = {
@@ -228,6 +241,7 @@ Sent on behalf of {sender_name} via BuyAnything
 Disclosure: BuyAnything.ai may earn a referral fee or commission on transactions.
 """
 
+    to_email, subject = _maybe_intercept(to_email, subject)
     if RESEND_API_KEY and resend is not None:
         try:
             params: resend.Emails.SendParams = {
@@ -314,6 +328,7 @@ async def send_reminder_email(
     </html>
     """
     
+    to_email, subject = _maybe_intercept(to_email, subject)
     if RESEND_API_KEY and resend is not None:
         try:
             params: resend.Emails.SendParams = {
@@ -390,6 +405,7 @@ async def send_handoff_buyer_email(
     </html>
     """
     
+    buyer_email, subject = _maybe_intercept(buyer_email, subject)
     if RESEND_API_KEY and resend is not None:
         try:
             params: resend.Emails.SendParams = {
@@ -465,6 +481,7 @@ async def send_handoff_seller_email(
     </html>
     """
     
+    seller_email, subject = _maybe_intercept(seller_email, subject)
     if RESEND_API_KEY and resend is not None:
         try:
             params: resend.Emails.SendParams = {
@@ -632,6 +649,7 @@ async def send_merchant_verification_email(
     If you didn't create an account, you can safely ignore this email.
     """
     
+    to_email, subject = _maybe_intercept(to_email, subject)
     if RESEND_API_KEY and resend is not None:
         try:
             params: resend.Emails.SendParams = {
@@ -652,7 +670,7 @@ async def send_merchant_verification_email(
             print(f"[RESEND ERROR] {e}")
             return EmailResult(success=False, error=str(e))
     
-    print(f"[DEMO EMAIL] Merchant verification to: {to_email}")
+    print(f"[DEMO EMAIL] Welcome email to: {to_email}")
     print(f"[DEMO EMAIL] Subject: {subject}")
     print(f"[DEMO EMAIL] URL: {verification_url}")
     return EmailResult(success=True, message_id="demo-merchant-verification")
@@ -729,6 +747,7 @@ async def send_merchant_status_email(
     —BuyAnything Team
     """
     
+    to_email, subject = _maybe_intercept(to_email, subject)
     if RESEND_API_KEY and resend is not None:
         try:
             params: resend.Emails.SendParams = {
@@ -744,7 +763,7 @@ async def send_merchant_status_email(
             print(f"[RESEND ERROR] {e}")
             return EmailResult(success=False, error=str(e))
     
-    print(f"[DEMO EMAIL] Status update ({status_type}) to: {to_email}")
+    print(f"[DEMO EMAIL] Merchant status to: {to_email}")
     print(f"[DEMO EMAIL] Subject: {subject}")
     return EmailResult(success=True, message_id=f"demo-status-{status_type}")
 
