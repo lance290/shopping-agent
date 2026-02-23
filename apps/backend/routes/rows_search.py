@@ -367,27 +367,36 @@ async def search_row_listings_stream(
             
             # Build SSE event
             event_data = {
+                "row_id": row_id,
                 "provider": provider_name,
                 "results": [r.model_dump() for r in results],
                 "status": status.model_dump(),
+                # Frontend Chat.tsx expects provider_statuses on search_results frames
+                "provider_statuses": [s.model_dump() for s in all_statuses],
                 "providers_remaining": providers_remaining,
                 "more_incoming": providers_remaining > 0,
                 "total_results_so_far": len(all_results),
             }
-            
-            yield f"data: {json.dumps(event_data)}\n\n"
+
+            yield (
+                "event: search_results\n"
+                f"data: {json.dumps(event_data)}\n\n"
+            )
         
         user_message = determine_search_user_message(all_results, all_statuses)
 
-        # Final event with complete status
+        # Final event for frontend compatibility
         final_event = {
-            "event": "complete",
+            "row_id": row_id,
             "total_results": len(all_results),
             "provider_statuses": [s.model_dump() for s in all_statuses],
             "more_incoming": False,
             "user_message": user_message,
         }
-        yield f"data: {json.dumps(final_event)}\n\n"
+        yield (
+            "event: done\n"
+            f"data: {json.dumps(final_event)}\n\n"
+        )
 
     return StreamingResponse(
         generate_sse(),

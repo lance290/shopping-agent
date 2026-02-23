@@ -136,6 +136,14 @@ describe('Search Price Filter Integration', () => {
 });
 
 describe('Search API Request Building', () => {
+  beforeEach(() => {
+    useShoppingStore.getState().setSelectedProviders({
+      amazon: true,
+      serpapi: true,
+      vendor_directory: true,
+    });
+  });
+
   test('search request includes row_id', async () => {
     const fetchSpy = vi.fn(async () => 
       new Response(JSON.stringify({ results: [], providerStatuses: [] }), { status: 200 })
@@ -156,6 +164,7 @@ describe('Search API Request Building', () => {
     expect(init?.method).toBe('POST');
     const body = JSON.parse(String(init?.body || '{}'));
     expect(body.rowId).toBe(123);
+    expect(body.providers).toEqual(['amazon', 'serpapi', 'vendor_directory']);
   });
 
   test('search request can specify providers', async () => {
@@ -175,6 +184,6 @@ describe('Search API Request Building', () => {
     const init = calls[0][1] as RequestInit | undefined;
     expect(init?.method).toBe('POST');
     const body = JSON.parse(String(init?.body || '{}'));
-    expect(body.providers).toEqual(['rainforest']);
+    expect(body.providers).toEqual(['amazon']);
   });
 });
