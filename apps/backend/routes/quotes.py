@@ -13,7 +13,7 @@ from models import (
 )
 from database import get_session
 from dependencies import get_current_session
-from services.email import send_handoff_buyer_email, send_handoff_seller_email
+from services.email import send_handoff_buyer_email, send_handoff_seller_email, send_admin_vendor_alert
 from utils.json_utils import safe_json_loads
 
 router = APIRouter(prefix="/quotes", tags=["quotes"])
@@ -78,6 +78,24 @@ async def get_quote_form(token: str, session=Depends(get_session)):
     if not row:
         raise HTTPException(status_code=404, detail="Request not found")
     
+    # Record click on the outreach event
+    oe_result = await session.execute(
+        select(OutreachEvent).where(OutreachEvent.quote_token == token)
+    )
+    oe = oe_result.scalar_one_or_none()
+    if oe and not oe.clicked_at:
+        oe.clicked_at = datetime.utcnow()
+        await session.commit()
+
+        await send_admin_vendor_alert(
+            event_type="clicked",
+            vendor_name=quote.seller_name,
+            vendor_email=quote.seller_email,
+            vendor_company=quote.seller_company,
+            row_title=row.title,
+            row_id=row.id,
+        )
+
     # Parse choice factors if available
     choice_factors = safe_json_loads(row.choice_factors, [])
     
@@ -186,6 +204,21 @@ async def submit_quote(
         event.quote_submitted_at = datetime.utcnow()
     
     await session.commit()
+
+    # Look up row title for admin alert context
+    row_result = await session.execute(select(Row).where(Row.id == quote.row_id))
+    row_for_alert = row_result.scalar_one_or_none()
+
+    await send_admin_vendor_alert(
+        event_type="quote_submitted",
+        vendor_name=quote.seller_name,
+        vendor_email=quote.seller_email,
+        vendor_company=quote.seller_company,
+        row_title=row_for_alert.title if row_for_alert else None,
+        row_id=quote.row_id,
+        quote_price=submission.price,
+        quote_description=submission.description,
+    )
     
     return QuoteResponse(
         quote_id=quote.id,

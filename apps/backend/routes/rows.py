@@ -16,6 +16,7 @@ from dependencies import get_current_session, resolve_user_id, require_auth, GUE
 from routes.rows_search import router as rows_search_router
 from sourcing.safety import SafetyService
 from utils.json_utils import safe_json_loads
+from services.email import send_admin_vendor_alert
 
 router = APIRouter(tags=["rows"])
 router.include_router(rows_search_router)
@@ -316,9 +317,11 @@ async def update_row(
         bids_result = await session.exec(select(Bid).where(Bid.row_id == row_id))
         bids = bids_result.all()
         found = False
+        selected_bid = None
         for row_bid in bids:
             if row_bid.id == selected_bid_id:
                 found = True
+                selected_bid = row_bid
             row_bid.is_selected = row_bid.id == selected_bid_id
             session.add(row_bid)
 
@@ -326,6 +329,28 @@ async def update_row(
             raise HTTPException(status_code=404, detail="Option not found")
 
         row.status = "closed"
+
+        # Admin alert: a deal was selected
+        vendor_name = None
+        vendor_email = None
+        vendor_company = None
+        if selected_bid and selected_bid.vendor_id:
+            from models import Vendor
+            v_result = await session.exec(select(Vendor).where(Vendor.id == selected_bid.vendor_id))
+            vendor = v_result.first()
+            if vendor:
+                vendor_name = vendor.contact_name or vendor.name
+                vendor_email = vendor.email
+                vendor_company = vendor.name
+        await send_admin_vendor_alert(
+            event_type="deal_selected",
+            vendor_name=vendor_name or (selected_bid.item_title if selected_bid else None),
+            vendor_email=vendor_email,
+            vendor_company=vendor_company,
+            row_title=row.title,
+            row_id=row_id,
+            quote_price=selected_bid.price if selected_bid else None,
+        )
 
     if reset_bids:
         from sqlalchemy import update as sql_update

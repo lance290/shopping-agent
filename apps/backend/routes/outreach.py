@@ -16,6 +16,7 @@ from models import (
 from database import get_session
 from dependencies import get_current_session
 from utils.json_utils import safe_json_loads
+from services.email import send_admin_vendor_alert
 from services.vendors import (
     search_checklist, get_checklist_summary, get_email_template,
 )
@@ -515,6 +516,22 @@ async def track_email_open(token: str, session=Depends(get_session)):
     if event and not event.opened_at:
         event.opened_at = datetime.utcnow()
         await session.commit()
+
+        # Look up the row title for context
+        row_title = None
+        row_result = await session.execute(select(Row).where(Row.id == event.row_id))
+        row = row_result.scalar_one_or_none()
+        if row:
+            row_title = row.title
+
+        await send_admin_vendor_alert(
+            event_type="opened",
+            vendor_name=event.vendor_name,
+            vendor_email=event.vendor_email,
+            vendor_company=event.vendor_company,
+            row_title=row_title,
+            row_id=event.row_id,
+        )
     
     # Return 1x1 transparent gif
     from fastapi.responses import Response

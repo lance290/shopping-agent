@@ -26,6 +26,7 @@ if RESEND_API_KEY and resend is not None:
 
 FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@buyanything.ai")
 FROM_NAME = os.getenv("FROM_NAME", "BuyAnything")
+ADMIN_EMAIL = os.getenv("ADMIN_NOTIFY_EMAIL", "")
 
 # Base URL for magic links
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:3003")
@@ -746,3 +747,90 @@ async def send_merchant_status_email(
     print(f"[DEMO EMAIL] Status update ({status_type}) to: {to_email}")
     print(f"[DEMO EMAIL] Subject: {subject}")
     return EmailResult(success=True, message_id=f"demo-status-{status_type}")
+
+
+async def send_admin_vendor_alert(
+    event_type: str,
+    vendor_name: Optional[str] = None,
+    vendor_email: Optional[str] = None,
+    vendor_company: Optional[str] = None,
+    row_title: Optional[str] = None,
+    row_id: Optional[int] = None,
+    quote_price: Optional[float] = None,
+    quote_description: Optional[str] = None,
+) -> EmailResult:
+    """
+    Send an email alert to the admin when a vendor engages with outreach.
+    event_type: "opened", "clicked", "quote_submitted"
+    """
+    if not ADMIN_EMAIL:
+        print(f"[ADMIN ALERT] No ADMIN_NOTIFY_EMAIL set — skipping {event_type} alert")
+        return EmailResult(success=False, error="No admin email configured")
+
+    vendor_display = vendor_company or vendor_name or vendor_email or "Unknown vendor"
+
+    subjects = {
+        "opened": f"📬 {vendor_display} opened your outreach email",
+        "clicked": f"🔗 {vendor_display} clicked the quote link",
+        "quote_submitted": f"💰 {vendor_display} submitted a quote!",
+        "deal_selected": f"🤝 Deal selected: {vendor_display}",
+    }
+    subject = subjects.get(event_type, f"Vendor activity: {event_type}")
+
+    emoji = {"opened": "📬", "clicked": "🔗", "quote_submitted": "💰", "deal_selected": "🤝"}.get(event_type, "📋")
+    action = {
+        "opened": "opened your outreach email",
+        "clicked": "clicked the quote link",
+        "quote_submitted": "submitted a quote",
+        "deal_selected": "was selected by a buyer — deal in progress!",
+    }.get(event_type, event_type)
+
+    quote_html = ""
+    if event_type == "quote_submitted" and quote_price is not None:
+        quote_html = f"""
+        <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 16px; margin: 16px 0;">
+            <strong>Quote: ${quote_price:,.2f}</strong><br/>
+            {quote_description or "No description provided"}
+        </div>
+        """
+    elif event_type == "deal_selected" and quote_price is not None:
+        quote_html = f"""
+        <div style="background: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; padding: 16px; margin: 16px 0;">
+            <strong>Deal value: ${quote_price:,.2f}</strong>
+        </div>
+        """
+
+    row_link = f"{APP_BASE_URL}" if not row_id else f"{APP_BASE_URL}"
+
+    html = f"""
+    <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 500px; margin: 0 auto;">
+        <div style="font-size: 32px; margin-bottom: 8px;">{emoji}</div>
+        <h2 style="margin: 0 0 4px 0; color: #111;">{vendor_display}</h2>
+        <p style="margin: 0 0 16px 0; color: #666;">{action}</p>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+            <tr><td style="padding: 6px 0; color: #888; width: 100px;">Request</td><td style="padding: 6px 0;"><strong>{row_title or "Unknown"}</strong></td></tr>
+            <tr><td style="padding: 6px 0; color: #888;">Vendor</td><td style="padding: 6px 0;">{vendor_display}</td></tr>
+            <tr><td style="padding: 6px 0; color: #888;">Email</td><td style="padding: 6px 0;">{vendor_email or "N/A"}</td></tr>
+        </table>
+        {quote_html}
+        <p style="font-size: 12px; color: #999;">BuyAnything Vendor Activity Alert</p>
+    </div>
+    """
+
+    if RESEND_API_KEY and resend is not None:
+        try:
+            params: resend.Emails.SendParams = {
+                "from": f"{FROM_NAME} <{FROM_EMAIL}>",
+                "to": [ADMIN_EMAIL],
+                "subject": subject,
+                "html": html,
+            }
+            response = resend.Emails.send(params)
+            print(f"[ADMIN ALERT] Sent {event_type} alert for {vendor_display}")
+            return EmailResult(success=True, message_id=response.get("id"))
+        except Exception as e:
+            print(f"[ADMIN ALERT ERROR] {e}")
+            return EmailResult(success=False, error=str(e))
+
+    print(f"[ADMIN ALERT] {event_type}: {vendor_display} — {row_title}")
+    return EmailResult(success=True, message_id=f"demo-admin-{event_type}")
