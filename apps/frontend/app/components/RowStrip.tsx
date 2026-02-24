@@ -270,7 +270,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     // Optimistic: mark this offer selected, unselect others — targeted mutation
     updateRowOffer(row.id, () => true, { is_selected: false });
     updateRowOffer(row.id, (o: Offer) => o.bid_id === offer.bid_id, { is_selected: true });
-    updateRow(row.id, { status: 'closed' });
+    updateRow(row.id, { status: 'selected' });
 
     const success = await selectOfferForRow(row.id, offer.bid_id);
     if (!success) {
@@ -463,6 +463,8 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
           <h3 className="text-base font-semibold text-onyx">{row.title}</h3>
           {(() => {
             const statusLabels: Record<string, string> = {
+              selected: 'Deal in Progress',
+              completed: 'Deal Completed',
               closed: 'Selected',
               new: 'New',
               sourcing: 'Searching',
@@ -472,7 +474,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
             return (
               <span className={cn(
                 "text-[10px] uppercase tracking-wider font-semibold",
-                row.status === 'closed' ? "text-status-success" : "text-onyx-muted"
+                row.status === 'selected' || row.status === 'completed' || row.status === 'closed' ? "text-status-success" : "text-onyx-muted"
               )}>
                 {label}
               </span>

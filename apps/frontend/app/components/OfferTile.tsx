@@ -57,11 +57,12 @@ export default function OfferTile({
       variant="hover"
       data-testid="offer-tile"
       className={cn(
-        "min-w-[255px] max-w-[255px] h-[450px] flex flex-col relative group",
+        "min-w-[255px] max-w-[255px] h-[450px] flex flex-col relative group transition-all duration-300",
         "shadow-[0_2px_6px_rgba(0,0,0,0.16)]",
         isSelected
           ? "border-status-success ring-2 ring-status-success/30 shadow-[0_10px_24px_rgba(28,148,64,0.25)]"
-          : "border-warm-grey/70"
+          : "border-warm-grey/70",
+        row.status === 'selected' && !isSelected ? "opacity-40 grayscale-[0.5]" : ""
       )}
     >
       <a
@@ -263,7 +264,7 @@ export default function OfferTile({
             </div>
             
             <div className="grid gap-2">
-              {canSelect && !isSelected && (
+              {canSelect && !isSelected && row.status !== 'selected' && (
                 <Button
                   size="sm"
                   variant="primary"
@@ -281,6 +282,7 @@ export default function OfferTile({
                 <Button
                   size="sm"
                   variant="secondary"
+                  disabled={row.status === 'selected'}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -299,6 +301,7 @@ export default function OfferTile({
               {isVendorDirectory && !isSelected && (
                 <Button
                   size="sm"
+                  disabled={row.status === 'selected'}
                   variant="secondary"
                   onClick={(e) => {
                     e.preventDefault();

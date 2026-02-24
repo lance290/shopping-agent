@@ -288,21 +288,37 @@ async def select_quote(
     quote.status = "accepted"
     
     # Create deal handoff
+    from models import generate_magic_link_token, Bid
+    
+    vendor_id = None
+    if quote.bid_id:
+        b_result = await session.execute(select(Bid).where(Bid.id == quote.bid_id))
+        bid = b_result.scalar_one_or_none()
+        if bid:
+            vendor_id = bid.vendor_id
+            bid.closing_status = "selected"
+            session.add(bid)
+
     handoff = DealHandoff(
         row_id=quote.row_id,
         quote_id=quote.id,
+        bid_id=quote.bid_id,
+        vendor_id=vendor_id,
         buyer_user_id=buyer.id if buyer else 1,
         buyer_email=buyer_email,
         buyer_name=buyer_name,
         buyer_phone=buyer_phone,
+        vendor_email=quote.seller_email,
+        vendor_name=quote.seller_name,
         deal_value=quote.price,
         currency=quote.currency,
         status="introduced",
+        acceptance_token=generate_magic_link_token(),
     )
     session.add(handoff)
     
     # Update row status
-    row.status = "closed"
+    row.status = "selected"
     
     await session.commit()
     await session.refresh(handoff)

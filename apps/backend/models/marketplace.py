@@ -107,7 +107,9 @@ class DealHandoff(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     row_id: int = Field(foreign_key="row.id", index=True)
-    quote_id: int = Field(foreign_key="seller_quote.id", index=True)
+    quote_id: Optional[int] = Field(default=None, foreign_key="seller_quote.id", index=True)
+    bid_id: Optional[int] = Field(default=None, foreign_key="bid.id", index=True)
+    vendor_id: Optional[int] = Field(default=None, foreign_key="vendor.id", index=True)
 
     # Buyer info (for email)
     buyer_user_id: int = Field(foreign_key="user.id")
@@ -115,9 +117,20 @@ class DealHandoff(SQLModel, table=True):
     buyer_name: Optional[str] = None
     buyer_phone: Optional[str] = None
 
+    # Vendor info
+    vendor_email: Optional[str] = None
+    vendor_name: Optional[str] = None
+
     # Deal value (for tracking)
     deal_value: Optional[float] = None
     currency: str = "USD"
+
+    # Acceptance flow (Phase 3)
+    acceptance_token: Optional[str] = Field(default=None, index=True)
+    buyer_accepted_at: Optional[datetime] = None
+    buyer_accepted_ip: Optional[str] = None
+    vendor_accepted_at: Optional[datetime] = None
+    vendor_accepted_ip: Optional[str] = None
 
     # Email tracking
     buyer_email_sent_at: Optional[datetime] = None
@@ -126,7 +139,7 @@ class DealHandoff(SQLModel, table=True):
     seller_email_opened_at: Optional[datetime] = None
 
     # Status
-    status: str = "introduced"  # introduced, closed, cancelled
+    status: str = "introduced"  # introduced, pending_acceptance, accepted, completed, disputed, cancelled
     closed_at: Optional[datetime] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)

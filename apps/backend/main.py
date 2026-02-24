@@ -294,7 +294,22 @@ async def startup_event():
             await conn.execute(text("""
                 ALTER TABLE "user" ADD COLUMN IF NOT EXISTS company TEXT;
             """))
-            print("Migration check: row + user columns ensured")
+            # DealHandoff Phase 1+3 columns
+            for col, dtype in [
+                ("bid_id", "INTEGER"),
+                ("vendor_id", "INTEGER"),
+                ("vendor_email", "VARCHAR"),
+                ("vendor_name", "VARCHAR"),
+                ("acceptance_token", "VARCHAR"),
+                ("buyer_accepted_at", "TIMESTAMP"),
+                ("buyer_accepted_ip", "VARCHAR"),
+                ("vendor_accepted_at", "TIMESTAMP"),
+                ("vendor_accepted_ip", "VARCHAR"),
+            ]:
+                await conn.execute(text(f"""
+                    ALTER TABLE deal_handoff ADD COLUMN IF NOT EXISTS {col} {dtype};
+                """))
+            print("Migration check: row + user + deal_handoff columns ensured")
     except Exception as e:
         print(f"Migration check skipped (table may not exist yet, Alembic will create it): {e}")
 

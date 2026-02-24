@@ -506,6 +506,95 @@ async def send_handoff_seller_email(
     return EmailResult(success=True, message_id="demo-seller-handoff")
 
 
+async def send_vendor_selected_email(
+    vendor_email: str,
+    vendor_name: Optional[str],
+    buyer_name: Optional[str],
+    buyer_email: str,
+    buyer_phone: Optional[str],
+    request_summary: str,
+    deal_value: Optional[float] = None,
+    acceptance_token: Optional[str] = None,
+) -> EmailResult:
+    """
+    Send notification email to vendor when a buyer selects their bid/quote.
+    (Phase 1 Deal Pipeline)
+    """
+    subject = f"🎉 You've been selected! {request_summary}"
+    
+    phone_html = f"<li><strong>Phone:</strong> {buyer_phone}</li>" if buyer_phone else ""
+    value_html = f"<p><strong>Deal Value:</strong> ${deal_value:,.2f}</p>" if deal_value else ""
+    
+    # Placeholder for Phase 3 acceptance link
+    acceptance_url = f"{APP_BASE_URL}/deal/accept/{acceptance_token}" if acceptance_token else "#"
+    
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>🎉 Congratulations!</h2>
+        
+        <p>Hi {vendor_name or 'there'},</p>
+        
+        <p><strong>{buyer_name or 'A buyer'}</strong> on BuyAnything has selected you for:</p>
+        
+        <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #22c55e;">
+            <h3 style="margin-top: 0;">📋 Deal Summary</h3>
+            <p><strong>Request:</strong> {request_summary}</p>
+            {value_html}
+        </div>
+        
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">📞 Buyer Contact</h3>
+            <ul style="list-style: none; padding: 0;">
+                <li><strong>Name:</strong> {buyer_name or 'Not provided'}</li>
+                <li><strong>Email:</strong> <a href="mailto:{buyer_email}">{buyer_email}</a></li>
+                {phone_html}
+            </ul>
+        </div>
+        
+        <h3>Next Steps</h3>
+        <p>Reach out to the buyer within 24 hours to confirm the details and finalize the transaction.</p>
+        
+        <p style="text-align: center; margin: 30px 0;">
+            <a href="{acceptance_url}" 
+               style="background: #2563eb; color: white; padding: 12px 24px; 
+                      text-decoration: none; border-radius: 6px; font-weight: bold;">
+                View Deal Details
+            </a>
+        </p>
+        
+        <p>Congrats on winning this opportunity!</p>
+        
+        <p>—BuyAnything Team</p>
+    </body>
+    </html>
+    """
+    
+    vendor_email, subject = _maybe_intercept(vendor_email, subject)
+    if RESEND_API_KEY and resend is not None:
+        try:
+            params: resend.Emails.SendParams = {
+                "from": f"{FROM_NAME} <{FROM_EMAIL}>",
+                "to": [vendor_email],
+                "subject": subject,
+                "html": html_content,
+            }
+            
+            response = resend.Emails.send(params)
+            
+            return EmailResult(
+                success=True,
+                message_id=response.get("id"),
+            )
+        except Exception as e:
+            print(f"[RESEND ERROR] {e}")
+            return EmailResult(success=False, error=str(e))
+    
+    print(f"[DEMO EMAIL] Vendor selected notification to: {vendor_email}")
+    print(f"[DEMO EMAIL] Subject: {subject}")
+    return EmailResult(success=True, message_id="demo-vendor-selected")
+
+
 async def send_triage_notification_email(
     report_id: int,
     classification: str,

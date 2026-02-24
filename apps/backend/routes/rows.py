@@ -328,20 +328,79 @@ async def update_row(
         if not found:
             raise HTTPException(status_code=404, detail="Option not found")
 
-        row.status = "closed"
+        row.status = "selected"
 
-        # Admin alert: a deal was selected
         vendor_name = None
         vendor_email = None
         vendor_company = None
-        if selected_bid and selected_bid.vendor_id:
-            from models import Vendor
-            v_result = await session.exec(select(Vendor).where(Vendor.id == selected_bid.vendor_id))
-            vendor = v_result.first()
-            if vendor:
-                vendor_name = vendor.contact_name or vendor.name
-                vendor_email = vendor.email
-                vendor_company = vendor.name
+        
+        # Phase 1 Deal Handoff logic
+        if selected_bid:
+            selected_bid.closing_status = "selected"
+            session.add(selected_bid)
+            
+            if selected_bid.vendor_id:
+                from models import Vendor, DealHandoff, SellerQuote, User
+                
+                v_result = await session.exec(select(Vendor).where(Vendor.id == selected_bid.vendor_id))
+                vendor = v_result.first()
+                if vendor:
+                    vendor_name = vendor.contact_name or vendor.name
+                    vendor_email = vendor.email
+                    vendor_company = vendor.name
+                    
+                    # Look up buyer
+                    b_result = await session.exec(select(User).where(User.id == row.user_id))
+                    buyer = b_result.first()
+                    buyer_email = buyer.email if buyer else "demo@buyanything.ai"
+                    
+                    # Did this come from a quote?
+                    quote_id = None
+                    if selected_bid.source == "vendor_quote":
+                        q_result = await session.exec(select(SellerQuote).where(SellerQuote.bid_id == selected_bid.id))
+                        quote = q_result.first()
+                        if quote:
+                            quote_id = quote.id
+                            quote.status = "accepted"
+                            session.add(quote)
+
+                    # Create DealHandoff
+                    from models import generate_magic_link_token
+                    handoff = DealHandoff(
+                        row_id=row.id,
+                        bid_id=selected_bid.id,
+                        quote_id=quote_id,
+                        vendor_id=vendor.id,
+                        buyer_user_id=row.user_id,
+                        buyer_email=buyer_email,
+                        buyer_name=buyer.name if buyer else None,
+                        buyer_phone=buyer.phone if buyer else None,
+                        vendor_email=vendor_email,
+                        vendor_name=vendor_name,
+                        deal_value=selected_bid.price,
+                        currency=selected_bid.currency or "USD",
+                        status="introduced",
+                        acceptance_token=generate_magic_link_token(),
+                    )
+                    session.add(handoff)
+                    
+                    # Notify vendor
+                    if vendor_email:
+                        from services.email import send_vendor_selected_email
+                        v_result = await send_vendor_selected_email(
+                            vendor_email=vendor_email,
+                            vendor_name=vendor_name,
+                            buyer_name=buyer.name if buyer else None,
+                            buyer_email=buyer_email,
+                            buyer_phone=buyer.phone if buyer else None,
+                            request_summary=row.title,
+                            deal_value=selected_bid.price,
+                            acceptance_token=handoff.acceptance_token,
+                        )
+                        if v_result.success:
+                            handoff.seller_email_sent_at = datetime.utcnow()
+
+        # Admin alert: a deal was selected
         await send_admin_vendor_alert(
             event_type="deal_selected",
             vendor_name=vendor_name or (selected_bid.item_title if selected_bid else None),
