@@ -140,12 +140,26 @@ class VendorDirectoryProvider(SourcingProvider):
             if not url and r["email"]:
                 url = f"mailto:{r['email']}"
 
+            # Extract a meaningful domain — skip aggregator/platform URLs
+            raw_domain = ""
+            if r["website"]:
+                raw_domain = r["website"].replace("https://", "").replace("http://", "").split("/")[0]
+            aggregator_domains = {
+                "google.com", "www.google.com", "maps.google.com",
+                "yelp.com", "www.yelp.com",
+                "facebook.com", "www.facebook.com",
+                "linkedin.com", "www.linkedin.com",
+                "instagram.com", "www.instagram.com",
+                "twitter.com", "www.twitter.com", "x.com",
+                "youtube.com", "www.youtube.com",
+            }
+            merchant_domain = raw_domain if raw_domain and raw_domain.lower() not in aggregator_domains else ""
+
             favicon = ""
             if r["image_url"]:
                 favicon = r["image_url"]
-            elif r["website"]:
-                domain = r["website"].replace("https://", "").replace("http://", "").split("/")[0]
-                favicon = f"https://www.google.com/s2/favicons?domain={domain}&sz=128"
+            elif merchant_domain:
+                favicon = f"https://www.google.com/s2/favicons?domain={merchant_domain}&sz=128"
 
             results.append(SearchResult(
                 title=r["name"],
@@ -153,7 +167,7 @@ class VendorDirectoryProvider(SourcingProvider):
                 currency="USD",
                 merchant=r["name"],
                 url=url,
-                merchant_domain=r["website"].replace("https://", "").replace("http://", "").split("/")[0] if r["website"] else "",
+                merchant_domain=merchant_domain,
                 image_url=favicon,
                 source="vendor_directory",
                 match_score=1.0 - float(r["distance"]),
