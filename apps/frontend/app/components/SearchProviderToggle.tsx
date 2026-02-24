@@ -2,11 +2,10 @@
 
 import { useShoppingStore } from '../store';
 import { cn } from '../../utils/cn';
-import { ShoppingBag, Globe, Store, Briefcase, Check, X } from 'lucide-react';
+import { ShoppingBag, Store, Briefcase, Check, X } from 'lucide-react';
 
 const PROVIDERS = [
   { id: 'amazon', label: 'Amazon', icon: ShoppingBag, color: 'text-orange-600' },
-  { id: 'serpapi', label: 'Google', icon: Globe, color: 'text-blue-600' },
   { id: 'ebay', label: 'eBay', icon: Store, color: 'text-red-600' },
   { id: 'vendor_directory', label: 'Bespoke', icon: Briefcase, color: 'text-purple-600' },
 ] as const;
