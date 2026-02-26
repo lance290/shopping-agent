@@ -143,4 +143,4 @@ async def ebay_account_deletion_webhook(request: Request):
         except Exception as e:
             print(f"[WEBHOOK] Error processing eBay notification: {e}")
             # eBay requires a 200 OK even if we fail to process, to stop retries if it's our fault
-            return {"status": "error", "message": str(e)}
+            return {"status": "error"}

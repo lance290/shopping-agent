@@ -283,7 +283,7 @@ def _affiliate_multiplier(source: str) -> float:
     - Everything else: neutral.
     """
     OUR_VENDORS = {"vendor_directory"}
-    AFFILIATES = {"rainforest", "amazon", "ebay_browse", "ebay"}
+    AFFILIATES = {"rainforest", "amazon", "ebay_browse"}
     DEPRIORITIZED = {"serpapi", "searchapi", "google_cse", "google_shopping"}
 
     if source in OUR_VENDORS:

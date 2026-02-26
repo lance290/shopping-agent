@@ -221,11 +221,12 @@ class EbayBrowseProvider(SourcingProvider):
         }
 
         try:
-            async with httpx.AsyncClient(timeout=2.5) as client:
+            async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.post(self.auth_url, data=data, headers=headers)
                 resp.raise_for_status()
                 payload = resp.json()
-        except Exception:
+        except Exception as e:
+            print(f"[EbayBrowseProvider] OAuth token request failed: {e}")
             return None
 
         token = payload.get("access_token")
@@ -265,11 +266,12 @@ class EbayBrowseProvider(SourcingProvider):
             headers["X-EBAY-C-ENDUSERCTX"] = enduserctx
 
         try:
-            async with httpx.AsyncClient(timeout=2.5) as client:
+            async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(self.base_url, params=params, headers=headers)
                 resp.raise_for_status()
                 data = resp.json()
-        except Exception:
+        except Exception as e:
+            print(f"[EbayBrowseProvider] Search request failed: {e}")
             return []
 
         results: List[SearchResult] = []
