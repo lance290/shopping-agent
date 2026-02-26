@@ -469,17 +469,15 @@ export default function ProcurementBoard() {
               </a>
             </div>
 
-            {/* Trending Searches — buyable content for affiliate reviewers */}
+            {/* Trending Searches */}
             <div>
               <h3 className="text-sm font-semibold text-onyx mb-3 uppercase tracking-wider">Trending Searches</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                  { q: 'Roblox gift cards', emoji: '🎮', desc: 'Digital codes from $10–$200' },
-                  { q: 'running shoes', emoji: '👟', desc: 'Nike, Asics, Brooks & more' },
-                  { q: 'wireless earbuds', emoji: '🎧', desc: 'AirPods, Sony, Samsung' },
-                  { q: 'standing desk', emoji: '🖥️', desc: 'Electric sit-stand desks' },
-                  { q: 'coffee maker', emoji: '☕', desc: 'Drip, espresso, pour-over' },
-                  { q: 'luggage set', emoji: '🧳', desc: 'Carry-on & checked bags' },
+                  { q: 'Robot lawn mowers', emoji: '🤖', desc: 'Autonomous yard care' },
+                  { q: 'Standing desks under $600', emoji: '🖥️', desc: 'Electric sit-stand' },
+                  { q: 'Air purifiers', emoji: '💨', desc: 'For wildfire smoke' },
+                  { q: 'Espresso machines', emoji: '☕', desc: 'Under $500 setups' },
                 ].map((item) => (
                   <button
                     key={item.q}
@@ -487,8 +485,8 @@ export default function ProcurementBoard() {
                     className="group bg-warm-light border border-warm-grey/50 rounded-lg p-3 hover:border-agent-blurple/40 transition-colors text-left"
                   >
                     <div className="text-2xl mb-1">{item.emoji}</div>
-                    <div className="text-sm font-medium text-onyx group-hover:text-agent-blurple transition-colors">{item.q}</div>
-                    <div className="text-[11px] text-onyx-muted mt-0.5">{item.desc}</div>
+                    <div className="text-sm font-medium text-onyx group-hover:text-agent-blurple transition-colors line-clamp-1">{item.q}</div>
+                    <div className="text-[11px] text-onyx-muted mt-0.5 line-clamp-1">{item.desc}</div>
                   </button>
                 ))}
               </div>
@@ -513,25 +511,38 @@ export default function ProcurementBoard() {
               </div>
             </div>
 
-            {/* Guide previews — editorial content for affiliate approval */}
+            {/* Buying Guides -> Sourcing Guides for EA/Luxury */}
             <div>
-              <h3 className="text-sm font-semibold text-onyx mb-3 uppercase tracking-wider">Buying Guides</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {[
-                  { title: 'How BuyAnything Works', slug: 'how-buyanything-works', desc: 'Your complete guide to finding anything — from gift cards to private jets.' },
-                  { title: 'Gift Vault: Tech Lovers', slug: 'gift-vault-tech-lovers', desc: 'Curated tech gifts for every budget, from $25 stocking stuffers to premium gear.' },
-                  { title: 'Best Luggage for Travel', slug: 'best-luggage-for-travel', desc: 'Top-rated luggage reviewed and compared — carry-ons, checked bags, and sets.' },
-                  { title: 'Home Office Setup Guide', slug: 'home-office-setup-guide', desc: 'Everything you need for a productive workspace, from desks to monitors.' },
-                ].map((guide) => (
-                  <a
-                    key={guide.slug}
-                    href={`/guides/${guide.slug}`}
-                    className="group bg-warm-light border border-warm-grey/50 rounded-lg p-4 hover:border-agent-blurple/40 transition-colors"
-                  >
-                    <h4 className="text-sm font-medium text-onyx group-hover:text-agent-blurple transition-colors">{guide.title}</h4>
-                    <p className="text-[11px] text-onyx-muted mt-1 line-clamp-2">{guide.desc}</p>
-                  </a>
-                ))}
+              <h3 className="text-sm font-semibold text-onyx mb-3 uppercase tracking-wider">Sourcing Guides</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Link href="/guides/private-aviation" className="group bg-warm-light border border-warm-grey/50 rounded-lg p-4 hover:border-agent-blurple/40 transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-medium text-onyx group-hover:text-agent-blurple transition-colors">Private aviation: charter vs. fractional</h4>
+                    <span className="text-[10px] font-semibold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-full">SERVICE</span>
+                  </div>
+                  <p className="text-xs text-onyx-muted leading-relaxed">A practical breakdown of cost structures, availability trade-offs, and when each model makes sense.</p>
+                </Link>
+                <Link href="/guides/bespoke-menswear" className="group bg-warm-light border border-warm-grey/50 rounded-lg p-4 hover:border-agent-blurple/40 transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-medium text-onyx group-hover:text-agent-blurple transition-colors">Sourcing bespoke menswear</h4>
+                    <span className="text-[10px] font-semibold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full">LUXURY</span>
+                  </div>
+                  <p className="text-xs text-onyx-muted leading-relaxed">From Savile Row to Neapolitan houses — lead times, fitting travel, and managing it remotely.</p>
+                </Link>
+                <Link href="/guides/art-acquisition" className="group bg-warm-light border border-warm-grey/50 rounded-lg p-4 hover:border-agent-blurple/40 transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-medium text-onyx group-hover:text-agent-blurple transition-colors">Art acquisition for new collectors</h4>
+                    <span className="text-[10px] font-semibold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full">LUXURY</span>
+                  </div>
+                  <p className="text-xs text-onyx-muted leading-relaxed">Primary vs secondary market, gallery relationships, and what to ask before a six-figure commitment.</p>
+                </Link>
+                <Link href="/guides/executive-relocation" className="group bg-warm-light border border-warm-grey/50 rounded-lg p-4 hover:border-agent-blurple/40 transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-medium text-onyx group-hover:text-agent-blurple transition-colors">Executive relocation vetting</h4>
+                    <span className="text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">EA GUIDE</span>
+                  </div>
+                  <p className="text-xs text-onyx-muted leading-relaxed">Evaluating moving firms, secure storage, and managing white-glove household goods transport.</p>
+                </Link>
               </div>
             </div>
 
