@@ -1,7 +1,7 @@
-# Review Scope - eBay API Integration & Webhook
+# Review Scope - eBay Integration & Webhook
 
 ## Files to Review
 - apps/backend/routes/webhooks.py (modified)
 - apps/backend/sourcing/repository.py (modified)
 
-## Review Started: $(date)
+## Review Started: 2026-02-25
