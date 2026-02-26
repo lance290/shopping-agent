@@ -99,3 +99,48 @@ async def railway_webhook(
     print(f"[WEBHOOK] Received Railway event: {payload.get('type')}")
     
     return {"status": "received"}
+
+
+@router.api_route("/api/webhooks/ebay/account-deletion", methods=["GET", "POST"])
+async def ebay_account_deletion_webhook(request: Request):
+    """
+    Handle eBay Marketplace Account Deletion/Closure Notifications.
+    See: https://developer.ebay.com/marketplace-account-deletion
+    """
+    if request.method == "GET":
+        # Handle the verification challenge from eBay
+        challenge_code = request.query_params.get("challenge_code")
+        if not challenge_code:
+            raise HTTPException(status_code=400, detail="Missing challenge_code")
+            
+        verification_token = os.getenv("EBAY_VERIFICATION_TOKEN", "buy-anything-ebay-token-1234567890")
+        
+        # Determine the endpoint URL that eBay sent the request to
+        # In production this will be the Railway URL, locally it might be different.
+        # We try to construct it from the request headers to be exact.
+        forwarded_proto = request.headers.get("x-forwarded-proto", "https")
+        host = request.headers.get("host", request.url.hostname)
+        endpoint = f"{forwarded_proto}://{host}/api/webhooks/ebay/account-deletion"
+        
+        # Override with exact ENV var if provided (safest for eBay validation)
+        exact_endpoint = os.getenv("EBAY_DELETION_ENDPOINT", endpoint)
+        
+        m = hashlib.sha256()
+        m.update(challenge_code.encode('utf-8'))
+        m.update(verification_token.encode('utf-8'))
+        m.update(exact_endpoint.encode('utf-8'))
+        
+        return {"challengeResponse": m.hexdigest()}
+        
+    elif request.method == "POST":
+        # Handle actual account deletion notification
+        try:
+            payload = await request.json()
+            print(f"[WEBHOOK] Received eBay account deletion notification: {payload}")
+            # We don't store eBay user data persistently linked to eBay accounts yet,
+            # so we just acknowledge receipt with 200 OK.
+            return {"status": "received"}
+        except Exception as e:
+            print(f"[WEBHOOK] Error processing eBay notification: {e}")
+            # eBay requires a 200 OK even if we fail to process, to stop retries if it's our fault
+            return {"status": "error", "message": str(e)}

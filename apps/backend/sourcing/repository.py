@@ -1162,11 +1162,16 @@ class SourcingRepository:
         #     self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
 
         # eBay Browse API (official)
-        # ebay_client_id = os.getenv("EBAY_CLIENT_ID")
-        # ebay_client_secret = os.getenv("EBAY_CLIENT_SECRET")
-        # ebay_marketplace_id = os.getenv("EBAY_MARKETPLACE_ID", "EBAY-US")
-        # if ebay_client_id and ebay_client_secret:
-        #     self.providers["ebay"] = EbayBrowseProvider(...)
+        ebay_client_id = os.getenv("EBAY_CLIENT_ID")
+        ebay_client_secret = os.getenv("EBAY_CLIENT_SECRET")
+        ebay_marketplace_id = os.getenv("EBAY_MARKETPLACE_ID", "EBAY-US")
+        if ebay_client_id and ebay_client_secret:
+            self.providers["ebay"] = EbayBrowseProvider(
+                client_id=ebay_client_id,
+                client_secret=ebay_client_secret,
+                marketplace_id=ebay_marketplace_id
+            )
+            print(f"[SourcingRepository] eBay Browse API provider initialized")
         
         # Ticketmaster Discovery API — event tickets
         ticketmaster_key = os.getenv("TICKETMASTER_API_KEY")
