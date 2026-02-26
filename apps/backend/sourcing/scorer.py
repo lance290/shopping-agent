@@ -274,19 +274,22 @@ def _diversity_bonus(
 
 def _affiliate_multiplier(source: str) -> float:
     """
-    Boost sources we have affiliate programs for; penalize those we don't.
+    Ranking priority: Our vendors > Affiliate partners > Neutral > Google Shopping.
 
-    - rainforest (Amazon): boosted — we have Amazon Associates configured.
-    - vendor_directory: neutral — our own vendors, always show.
-    - Google Shopping (serpapi, searchapi, google_cse, google_shopping): penalized
-      until we have affiliate coverage for those merchants.
-    - ebay_browse: neutral for now — eBay Partner Network not yet configured.
+    - vendor_directory: highest — our vendors, our revenue, our moat.
+    - rainforest/amazon/ebay: boosted — affiliate revenue partners.
+    - Google Shopping (serpapi, searchapi, google_cse, google_shopping): deprioritized
+      — no affiliate revenue, but still shown (we're "buy anything").
+    - Everything else: neutral.
     """
-    BOOSTED = {"rainforest", "amazon"}
-    PENALIZED = {"serpapi", "searchapi", "google_cse", "google_shopping"}
+    OUR_VENDORS = {"vendor_directory"}
+    AFFILIATES = {"rainforest", "amazon", "ebay_browse", "ebay"}
+    DEPRIORITIZED = {"serpapi", "searchapi", "google_cse", "google_shopping"}
 
-    if source in BOOSTED:
-        return 1.25
-    if source in PENALIZED:
-        return 0.60
+    if source in OUR_VENDORS:
+        return 1.40
+    if source in AFFILIATES:
+        return 1.20
+    if source in DEPRIORITIZED:
+        return 0.70
     return 1.0
