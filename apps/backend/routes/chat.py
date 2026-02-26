@@ -18,8 +18,9 @@ from pydantic import BaseModel
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from database import get_session
+from database import get_session, engine
 from dependencies import get_current_session
+from sqlalchemy.orm import sessionmaker as sa_sessionmaker
 from models import Row, RequestSpec, Project, Bid
 from utils.json_utils import safe_json_loads
 from services.llm import (
@@ -28,6 +29,12 @@ from services.llm import (
     generate_choice_factors,
     make_unified_decision,
 )
+
+
+def _short_session():
+    """Create a short-lived async session (not tied to request lifecycle)."""
+    factory = sa_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    return factory()
 
 router = APIRouter(tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -277,6 +284,21 @@ async def _save_choice_factors(session: AsyncSession, row: Row, factors: list) -
     return row
 
 
+async def _save_factors_scoped(row_id: int, factors: list) -> Optional[Row]:
+    """Save choice factors using a short-lived session (doesn't hold a pool connection)."""
+    async with _short_session() as s:
+        result = await s.exec(select(Row).where(Row.id == row_id))
+        row = result.first()
+        if not row:
+            return None
+        row.choice_factors = json.dumps(factors)
+        row.updated_at = datetime.utcnow()
+        s.add(row)
+        await s.commit()
+        await s.refresh(row)
+        return row
+
+
 async def _stream_search(
     row_id: int,
     query: str,
@@ -325,22 +347,28 @@ async def chat_endpoint(
     body: ChatRequest,
     request: Request,
     authorization: Optional[str] = Header(None),
-    session: AsyncSession = Depends(get_session),
 ):
     """
     Unified chat endpoint — SSE stream.
     Replaces BFF's POST /api/chat entirely.
+
+    NOTE: This endpoint does NOT use Depends(get_session) because SSE streams
+    hold the response open for 10+ seconds. Holding a DB connection that long
+    exhausts the pool. Instead, we create short-lived sessions for each DB
+    operation block and release them immediately.
     """
     from dependencies import resolve_user_id, get_current_session
     from routes.rate_limit import check_rate_limit
 
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        client_ip = request.client.host if request.client else "unknown"
-        if not check_rate_limit(f"chat_anon:{client_ip}", "chat_anon"):
-            raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again in a minute.")
+    # --- Auth & rate-limit (short-lived session, released before SSE) ---
+    async with _short_session() as session:
+        auth_session = await get_current_session(authorization, session)
+        if not auth_session:
+            client_ip = request.client.host if request.client else "unknown"
+            if not check_rate_limit(f"chat_anon:{client_ip}", "chat_anon"):
+                raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again in a minute.")
 
-    user_id = await resolve_user_id(authorization, session)
+        user_id = await resolve_user_id(authorization, session)
 
     async def generate_events() -> AsyncGenerator[str, None]:
         try:
@@ -379,31 +407,30 @@ async def chat_endpoint(
                 if m.get("role") in ("user", "assistant")
             ]
 
-            # Fetch active row if present
+            # Fetch active row + project (short-lived session, released before LLM call)
             active_row_data = None
-            if active_row_id:
-                result = await session.exec(
-                    select(Row).where(Row.id == active_row_id, Row.user_id == user_id)
-                )
-                active_row = result.first()
-                if active_row:
-                    choice_answers = {}
-                    if active_row.choice_answers:
-                        choice_answers = safe_json_loads(active_row.choice_answers, {})
-                    active_row_data = {
-                        "id": active_row_id,
-                        "title": active_row.title or "",
-                        "constraints": choice_answers,
-                        "is_service": active_row.is_service or False,
-                        "service_category": active_row.service_category,
-                    }
-
-            # Fetch project if present
             active_project_data = None
-            if project_id:
-                proj = await session.get(Project, project_id)
-                if proj:
-                    active_project_data = {"id": project_id, "title": proj.title or ""}
+            async with _short_session() as s:
+                if active_row_id:
+                    result = await s.exec(
+                        select(Row).where(Row.id == active_row_id, Row.user_id == user_id)
+                    )
+                    active_row = result.first()
+                    if active_row:
+                        choice_answers = {}
+                        if active_row.choice_answers:
+                            choice_answers = safe_json_loads(active_row.choice_answers, {})
+                        active_row_data = {
+                            "id": active_row_id,
+                            "title": active_row.title or "",
+                            "constraints": choice_answers,
+                            "is_service": active_row.is_service or False,
+                            "service_category": active_row.service_category,
+                        }
+                if project_id:
+                    proj = await s.get(Project, project_id)
+                    if proj:
+                        active_project_data = {"id": project_id, "title": proj.title or ""}
 
             # === SINGLE LLM DECISION ===
             ctx = ChatContext(
@@ -479,14 +506,15 @@ async def chat_endpoint(
                 tier = decision.desire_tier
 
                 yield sse_event("action_started", {"type": "create_row", "title": title})
-                row = await _create_row(
-                    session, user_id, title, project_id,
-                    is_service, service_category, constraints, search_query,
-                    desire_tier=tier,
-                    exclude_keywords=exclude_keywords,
-                    exclude_merchants=exclude_merchants,
-                    selected_providers=providers_json,
-                )
+                async with _short_session() as s:
+                    row = await _create_row(
+                        s, user_id, title, project_id,
+                        is_service, service_category, constraints, search_query,
+                        desire_tier=tier,
+                        exclude_keywords=exclude_keywords,
+                        exclude_merchants=exclude_merchants,
+                        selected_providers=providers_json,
+                    )
                 yield sse_event(event_name, {"row": row_to_dict(row)})
                 yield sse_event("desire_tier_classified", {
                     "row_id": row.id,
@@ -500,7 +528,7 @@ async def chat_endpoint(
                     title, constraints, is_service, service_category,
                 )
                 if factors:
-                    row = await _save_choice_factors(session, row, factors)
+                    row = await _save_factors_scoped(row.id, factors) or row
                 yield sse_event("factors_updated", {"row": row_to_dict(row)})
 
                 # Search — all providers run, tier used for re-ranking only
@@ -535,14 +563,15 @@ async def chat_endpoint(
                     # Promote to create_row — we have everything we need.
                     logger.info("update_row with no active row — promoting to create_row")
                     yield sse_event("action_started", {"type": "create_row", "title": title})
-                    row = await _create_row(
-                        session, user_id, title, project_id,
-                        is_service, service_category, constraints, search_query,
-                        desire_tier=tier,
-                        exclude_keywords=exclude_keywords,
-                        exclude_merchants=exclude_merchants,
-                        selected_providers=providers_json,
-                    )
+                    async with _short_session() as s:
+                        row = await _create_row(
+                            s, user_id, title, project_id,
+                            is_service, service_category, constraints, search_query,
+                            desire_tier=tier,
+                            exclude_keywords=exclude_keywords,
+                            exclude_merchants=exclude_merchants,
+                            selected_providers=providers_json,
+                        )
                     yield sse_event("row_created", {"row": row_to_dict(row)})
                     yield sse_event("desire_tier_classified", {
                         "row_id": row.id,
@@ -555,7 +584,7 @@ async def chat_endpoint(
                         title, constraints, is_service, service_category,
                     )
                     if factors:
-                        row = await _save_choice_factors(session, row, factors)
+                        row = await _save_factors_scoped(row.id, factors) or row
                     yield sse_event("factors_updated", {"row": row_to_dict(row)})
 
                     yield sse_event("action_started", {"type": "search", "row_id": row.id, "query": search_query})
@@ -569,41 +598,42 @@ async def chat_endpoint(
                     yield sse_event("done", {})
                     return
 
-                result = await session.exec(
-                    select(Row).where(Row.id == active_row_id, Row.user_id == user_id)
-                )
-                row = result.first()
-                if not row:
-                    yield sse_event("error", {"message": "Row not found"})
-                    yield sse_event("done", {})
-                    return
+                async with _short_session() as s:
+                    result = await s.exec(
+                        select(Row).where(Row.id == active_row_id, Row.user_id == user_id)
+                    )
+                    row = result.first()
+                    if not row:
+                        yield sse_event("error", {"message": "Row not found"})
+                        yield sse_event("done", {})
+                        return
 
-                title_changed = (row.title or "").strip().lower() != title.strip().lower()
-                existing_constraints = {}
-                if row.choice_answers:
-                    existing_constraints = safe_json_loads(row.choice_answers, {})
+                    title_changed = (row.title or "").strip().lower() != title.strip().lower()
+                    existing_constraints = {}
+                    if row.choice_answers:
+                        existing_constraints = safe_json_loads(row.choice_answers, {})
 
-                next_constraints = dict(constraints) if title_changed else {**existing_constraints, **constraints}
+                    next_constraints = dict(constraints) if title_changed else {**existing_constraints, **constraints}
 
-                # Update desire_tier on the row
-                row.desire_tier = tier
-                row.structured_constraints = json.dumps(next_constraints) if next_constraints else row.structured_constraints
+                    # Update desire_tier on the row
+                    row.desire_tier = tier
+                    row.structured_constraints = json.dumps(next_constraints) if next_constraints else row.structured_constraints
 
-                yield sse_event("action_started", {"type": "update_row", "row_id": active_row_id})
-                row = await _update_row(
-                    session, row,
-                    title=title if title_changed else None,
-                    constraints=next_constraints if constraints else None,
-                    reset_bids=bool(search_query),
-                )
-                # Refresh search_intent so scorer has current relevance data
-                row_service_cat_for_intent = service_category or (active_row_data or {}).get("service_category")
-                row.search_intent = _build_search_intent_json(
-                    row.title, search_query or row.title, next_constraints, row_service_cat_for_intent,
-                    exclude_keywords=exclude_keywords, exclude_merchants=exclude_merchants,
-                )
-                session.add(row)
-                await session.commit()
+                    yield sse_event("action_started", {"type": "update_row", "row_id": active_row_id})
+                    row = await _update_row(
+                        s, row,
+                        title=title if title_changed else None,
+                        constraints=next_constraints if constraints else None,
+                        reset_bids=bool(search_query),
+                    )
+                    # Refresh search_intent so scorer has current relevance data
+                    row_service_cat_for_intent = service_category or (active_row_data or {}).get("service_category")
+                    row.search_intent = _build_search_intent_json(
+                        row.title, search_query or row.title, next_constraints, row_service_cat_for_intent,
+                        exclude_keywords=exclude_keywords, exclude_merchants=exclude_merchants,
+                    )
+                    s.add(row)
+                    await s.commit()
                 yield sse_event("row_updated", {"row": row_to_dict(row)})
 
                 # Regenerate factors if needed
@@ -614,7 +644,7 @@ async def chat_endpoint(
                         title, next_constraints, row_is_service, row_service_cat,
                     )
                     if factors:
-                        row = await _save_choice_factors(session, row, factors)
+                        row = await _save_factors_scoped(row.id, factors) or row
                     yield sse_event("factors_updated", {"row": row_to_dict(row)})
 
                 # Search — all providers run, tier used for re-ranking only
@@ -647,14 +677,15 @@ async def chat_endpoint(
                     # No row exists — create one first, then search
                     logger.info("search with no active row — creating row first")
                     yield sse_event("action_started", {"type": "create_row", "title": title})
-                    row = await _create_row(
-                        session, user_id, title, project_id,
-                        is_service, service_category, constraints, search_query,
-                        desire_tier=decision.desire_tier,
-                        selected_providers=providers_json,
-                        exclude_keywords=exclude_keywords,
-                        exclude_merchants=exclude_merchants,
-                    )
+                    async with _short_session() as s:
+                        row = await _create_row(
+                            s, user_id, title, project_id,
+                            is_service, service_category, constraints, search_query,
+                            desire_tier=decision.desire_tier,
+                            selected_providers=providers_json,
+                            exclude_keywords=exclude_keywords,
+                            exclude_merchants=exclude_merchants,
+                        )
                     yield sse_event("row_created", {"row": row_to_dict(row)})
                     active_row_id = row.id
 
@@ -662,7 +693,7 @@ async def chat_endpoint(
                         title, constraints, is_service, service_category,
                     )
                     if factors:
-                        row = await _save_choice_factors(session, row, factors)
+                        row = await _save_factors_scoped(row.id, factors) or row
                     yield sse_event("factors_updated", {"row": row_to_dict(row)})
 
                 yield sse_event("action_started", {"type": "search", "row_id": active_row_id, "query": search_query})
