@@ -1176,7 +1176,7 @@ class SourcingRepository:
         ebay_client_secret = os.getenv("EBAY_CLIENT_SECRET")
         ebay_marketplace_id = os.getenv("EBAY_MARKETPLACE_ID", "EBAY-US")
         if ebay_client_id and ebay_client_secret:
-            self.providers["ebay"] = EbayBrowseProvider(
+            self.providers["ebay_browse"] = EbayBrowseProvider(
                 client_id=ebay_client_id,
                 client_secret=ebay_client_secret,
                 marketplace_id=ebay_marketplace_id
