@@ -101,7 +101,6 @@ from sourcing.normalizers.ebay import normalize_ebay_results
 NORMALIZER_REGISTRY: Dict[str, Callable[[List[SearchResult]], List[NormalizedResult]]] = {
     "rainforest": normalize_rainforest_results,
     "google_cse": normalize_google_cse_results,
-    "ebay_browse": normalize_ebay_results,
 }
 
 __all__ = [
