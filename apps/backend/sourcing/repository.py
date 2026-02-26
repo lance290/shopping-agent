@@ -196,6 +196,8 @@ class EbayBrowseProvider(SourcingProvider):
         self.client_id = client_id
         self.client_secret = client_secret
         self.marketplace_id = marketplace_id
+        self.campaign_id = os.getenv("EBAY_CAMPAIGN_ID")
+        self.custom_id = os.getenv("EBAY_CUSTOM_ID")
         self.auth_url = "https://api.ebay.com/identity/v1/oauth2/token"
         self.base_url = "https://api.ebay.com/buy/browse/v1/item_summary/search"
         self._token: Optional[str] = None
@@ -254,6 +256,13 @@ class EbayBrowseProvider(SourcingProvider):
             "Authorization": f"Bearer {token}",
             "X-EBAY-C-MARKETPLACE-ID": self.marketplace_id,
         }
+        
+        # If we have an EPN Campaign ID, request official affiliate links from eBay
+        if self.campaign_id:
+            enduserctx = f"affiliateCampaignId={self.campaign_id}"
+            if self.custom_id:
+                enduserctx += f",affiliateReferenceId={self.custom_id}"
+            headers["X-EBAY-C-ENDUSERCTX"] = enduserctx
 
         try:
             async with httpx.AsyncClient(timeout=2.5) as client:
@@ -274,7 +283,8 @@ class EbayBrowseProvider(SourcingProvider):
                 price = 0.0
             currency = price_obj.get("currency") or "USD"
 
-            url = normalize_url(item.get("itemWebUrl") or "")
+            # Prefer official affiliate link if eBay provided it, fallback to standard web url
+            url = normalize_url(item.get("itemAffiliateWebUrl") or item.get("itemWebUrl") or "")
 
             seller = item.get("seller") or {}
             merchant = seller.get("username") or "eBay"
