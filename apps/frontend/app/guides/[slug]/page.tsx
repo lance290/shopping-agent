@@ -167,8 +167,9 @@ Never buy an exotic without a PPI from an independent specialist (not the sellin
   }
 };
 
-export default function GuidePage({ params }: { params: { slug: string } }) {
-  const guide = GUIDES[params.slug as keyof typeof GUIDES];
+export default async function GuidePage({ params }: { params: Promise<{ slug: string }> }) {
+  const resolvedParams = await params;
+  const guide = GUIDES[resolvedParams.slug as keyof typeof GUIDES];
 
   if (!guide) {
     notFound();
@@ -184,16 +185,16 @@ export default function GuidePage({ params }: { params: { slug: string } }) {
         const altMatch = block.match(/!\[(.*?)\]/);
         const urlMatch = block.match(/\((.*?)\)/);
         if (altMatch && urlMatch) {
-          return \`<figure class="my-10"><img src="\${urlMatch[1]}" alt="\${altMatch[1]}" class="w-full rounded-2xl border border-white/10" /><figcaption class="text-center text-xs text-onyx-muted mt-3">\${altMatch[1]}</figcaption></figure>\`;
+          return `<figure class="my-10"><img src="${urlMatch[1]}" alt="${altMatch[1]}" class="w-full rounded-2xl border border-white/10" /><figcaption class="text-center text-xs text-onyx-muted mt-3">${altMatch[1]}</figcaption></figure>`;
         }
       }
-      if (block.startsWith('### ')) return \`<h3 class="text-xl font-semibold text-white mt-12 mb-4">\${block.replace('### ', '')}</h3>\`;
-      if (block.startsWith('## ')) return \`<h2 class="text-2xl font-bold text-white mt-14 mb-6 border-b border-white/10 pb-4">\${block.replace('## ', '')}</h2>\`;
+      if (block.startsWith('### ')) return `<h3 class="text-xl font-semibold text-white mt-12 mb-4">${block.replace('### ', '')}</h3>`;
+      if (block.startsWith('## ')) return `<h2 class="text-2xl font-bold text-white mt-14 mb-6 border-b border-white/10 pb-4">${block.replace('## ', '')}</h2>`;
       if (block.startsWith('- ')) {
-        const items = block.split('\n').map(item => \`<li class="ml-6 list-disc text-onyx/80 py-1">\${item.replace('- ', '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')}</li>\`).join('');
-        return \`<ul class="mb-6 space-y-1">\${items}</ul>\`;
+        const items = block.split('\n').map(item => `<li class="ml-6 list-disc text-onyx/80 py-1">${item.replace('- ', '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')}</li>`).join('');
+        return `<ul class="mb-6 space-y-1">${items}</ul>`;
       }
-      return \`<p class="text-onyx/80 leading-relaxed mb-6 text-lg">\${block.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')}</p>\`;
+      return `<p class="text-onyx/80 leading-relaxed mb-6 text-lg">${block.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')}</p>`;
     })
     .join('');
 
