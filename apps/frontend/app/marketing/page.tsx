@@ -18,31 +18,37 @@ const EA_GUIDES = [
     title: 'Private aviation: charter vs. fractional vs. jet card',
     desc: 'A practical breakdown of cost structures, availability trade-offs, and when each model makes sense for high-frequency travelers.',
     tag: 'Service',
+    slug: 'private-aviation'
   },
   {
     title: 'Sourcing bespoke menswear in 2025',
     desc: 'From Savile Row to Neapolitan houses — lead times, fitting travel requirements, and how to manage the process remotely.',
     tag: 'Luxury',
+    slug: 'bespoke-menswear',
   },
   {
     title: 'Art acquisition for new collectors',
     desc: 'Primary vs. secondary market, gallery relationships, authentication basics, and what to ask before committing to a six-figure piece.',
     tag: 'Luxury',
+    slug: 'art-acquisition',
   },
   {
     title: 'Home automation for estate properties',
     desc: 'Evaluating Crestron, Control4, and Savant across multi-structure properties — integrators, ongoing support costs, and resale impact.',
     tag: 'Service',
+    slug: 'private-aviation'
   },
   {
     title: 'Executive relocation: vendor vetting checklist',
     desc: 'How to evaluate moving firms, secure storage, and manage white-glove household goods transport across international moves.',
     tag: 'EA Guide',
+    slug: 'executive-relocation',
   },
   {
     title: 'Luxury vehicle acquisition: new vs. pre-owned exotics',
     desc: 'Dealer relationships, CPO programs, independent inspection protocols, and where auctions fit into a serious buying strategy.',
     tag: 'Luxury',
+    slug: 'luxury-vehicles',
   },
 ];
 
@@ -145,8 +151,9 @@ export default function MarketingPage() {
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {EA_GUIDES.map((guide) => (
-              <div
-                key={guide.title}
+              <Link
+                key={guide.slug}
+                href={`/guides/${guide.slug}`}
                 className="group flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-6 transition hover:border-white/20 hover:bg-white/[0.07]"
               >
                 <span
@@ -158,7 +165,7 @@ export default function MarketingPage() {
                   {guide.title}
                 </h3>
                 <p className="text-xs text-onyx/55 leading-relaxed">{guide.desc}</p>
-              </div>
+              </Link>
             ))}
           </div>
         </section>
