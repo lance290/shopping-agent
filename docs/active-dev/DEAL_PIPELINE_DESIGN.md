@@ -30,8 +30,8 @@
 ### 2.4 The Deal Card & Stripe Escrow
 - **Deal Card UI:** A structured UI component in the buyer's Workspace showing the item, agreed price, and terms.
 - **Escrow:** The buyer pays via Stripe. Funds are held in a connected account or platform escrow.
-- **Take Rate:** Platform subtracts the concierge/platform fee (e.g., 1%) and holds the rest.
-- **Payout:** Funds are released to the vendor only when fulfillment milestones are met.
+- **Fee Model (Buyer Markup):** The vendor is never charged a fee. If the vendor quotes $14,000, the Deal Card presented to the buyer shows $14,140 (incorporating a 1% platform/concierge fee). The vendor gets exactly what they asked for.
+- **Payout:** Funds are released to the vendor via Stripe Connect only when fulfillment milestones are met.
 
 ## 3. Database Schema Updates (SQLModel)
 
@@ -61,6 +61,7 @@ The immutable ledger of communication.
 1. **Initiation (`NEGOTIATING`):** Buyer clicks "Request Quote". Backend creates a `Deal` record, generates `proxy_email_alias`, and sends the initial outbound email to the Vendor via Resend.
 2. **Conversation Loop:** Vendor replies. Resend webhook fires. Backend saves `Message`, LLM analyzes it, and relays it to Buyer. Buyer replies -> relayed to Vendor.
 3. **Agreement (`TERMS_AGREED`):** LLM detects agreement (or Vendor clicks a "Submit Final Quote" button in their email). Deal status updates. Buyer receives the Deal Card.
+   - *Onboarding Hook:* Vendor receives an automated email: *"The buyer has approved your quote. Please click here to connect your bank account via Stripe so we can route your payout once the service is delivered."* By connecting, they accept the platform Terms of Service.
 4. **Funding (`FUNDED`):** Buyer clicks "Pay Now" on the Deal Card. Stripe captures funds. Vendor is notified: *"Funds secured. Please proceed with fulfillment."*
 5. **Release (`COMPLETED`):** Buyer clicks "Confirm Delivery/Service" on their dashboard. Backend triggers Stripe Connect transfer to Vendor, minus our fee.
 
