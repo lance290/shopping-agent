@@ -1,7 +1,8 @@
-"""Webhook routes - GitHub and Railway webhooks."""
+"""Webhook routes - GitHub, Railway, and Resend inbound webhooks."""
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import os
 import hmac
 import hashlib
@@ -10,6 +11,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import BugReport
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["webhooks"])
 
@@ -144,3 +147,185 @@ async def ebay_account_deletion_webhook(request: Request):
             print(f"[WEBHOOK] Error processing eBay notification: {e}")
             # eBay requires a 200 OK even if we fail to process, to stop retries if it's our fault
             return {"status": "error"}
+
+
+# ── Resend Inbound Webhook (Deal Pipeline Proxy Email) ──────────────────────
+
+RESEND_WEBHOOK_SECRET = os.getenv("RESEND_WEBHOOK_SECRET", "")
+
+
+class ResendInboundAttachment(BaseModel):
+    filename: Optional[str] = None
+    content_type: Optional[str] = None
+    content: Optional[str] = None  # base64 encoded
+
+
+class ResendInboundPayload(BaseModel):
+    """Resend inbound email webhook payload."""
+    from_: Optional[str] = None
+    to: Optional[List[str]] = None
+    subject: Optional[str] = None
+    text: Optional[str] = None
+    html: Optional[str] = None
+    attachments: Optional[List[Dict[str, Any]]] = None
+    message_id: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
+        # Resend sends "from" which is a Python reserved word
+        fields = {"from_": {"alias": "from"}}
+
+
+@router.post("/api/webhooks/resend/inbound")
+async def resend_inbound_webhook(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Handle Resend inbound email webhooks for the deal pipeline proxy.
+
+    When someone replies to a proxy alias (e.g. netjets-deal-42@messages.buy-anything.com),
+    Resend POSTs the parsed email here. We:
+    1. Resolve the deal from the alias
+    2. Identify the sender (buyer or vendor)
+    3. Record the message in the immutable ledger
+    4. Relay the email to the other party
+    """
+    from services.deal_pipeline import (
+        resolve_deal_from_alias,
+        identify_sender,
+        record_message,
+        relay_email,
+        classify_message,
+        transition_deal_status,
+    )
+
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    from_email = payload.get("from", "")
+    to_list = payload.get("to", [])
+    subject = payload.get("subject", "(no subject)")
+    text_body = payload.get("text", "")
+    html_body = payload.get("html")
+    resend_msg_id = payload.get("message_id")
+    attachments_raw = payload.get("attachments", [])
+
+    # Extract the sender's actual email from "Name <email>" format
+    import re
+    email_match = re.search(r'<([^>]+)>', from_email)
+    sender_email = email_match.group(1) if email_match else from_email
+
+    # Extract alias from the To: address(es)
+    alias = None
+    for to_addr in to_list:
+        addr_match = re.search(r'<([^>]+)>', to_addr)
+        addr = addr_match.group(1) if addr_match else to_addr
+        local_part = addr.split("@")[0] if "@" in addr else addr
+        if local_part:
+            alias = local_part
+            break
+
+    if not alias:
+        logger.warning(f"[ResendWebhook] No alias found in To: {to_list}")
+        return {"status": "ignored", "reason": "no_alias"}
+
+    # Resolve the deal
+    deal = await resolve_deal_from_alias(session, alias)
+    if not deal:
+        logger.warning(f"[ResendWebhook] No deal found for alias: {alias}")
+        return {"status": "ignored", "reason": "unknown_alias"}
+
+    # Identify sender
+    sender_type = await identify_sender(deal, sender_email, session)
+    if not sender_type:
+        logger.warning(
+            f"[ResendWebhook] Unrecognized sender {sender_email} for deal {deal.id}"
+        )
+        return {"status": "ignored", "reason": "unknown_sender"}
+
+    # Process attachments (store metadata only for now)
+    attachment_meta = []
+    for att in attachments_raw:
+        attachment_meta.append({
+            "filename": att.get("filename", "unknown"),
+            "content_type": att.get("content_type", "application/octet-stream"),
+        })
+
+    # Record in the immutable ledger
+    msg = await record_message(
+        session=session,
+        deal_id=deal.id,
+        sender_type=sender_type,
+        content_text=text_body or "(no text content)",
+        sender_email=sender_email,
+        subject=subject,
+        content_html=html_body,
+        attachments=attachment_meta if attachment_meta else None,
+        resend_message_id=resend_msg_id,
+    )
+
+    # AI classification (non-blocking — don't fail the webhook if LLM is down)
+    ai_result = {"classification": "general", "confidence": 0.0, "extracted_price": None}
+    try:
+        ai_result = await classify_message(
+            content_text=text_body or "",
+            deal_context=f"Deal #{deal.id}, status={deal.status}",
+        )
+        # Update the message with AI analysis
+        msg.ai_classification = ai_result.get("classification")
+        msg.ai_confidence = ai_result.get("confidence")
+        session.add(msg)
+        await session.commit()
+    except Exception as e:
+        logger.warning(f"[ResendWebhook] AI classification error (non-fatal): {e}")
+
+    # Auto-transition: if AI detects terms_agreed with high confidence
+    # and the deal is still in negotiating status
+    deal_transitioned = False
+    if (
+        ai_result.get("classification") == "terms_agreed"
+        and ai_result.get("confidence", 0) >= 0.75
+        and deal.status == "negotiating"
+    ):
+        try:
+            await transition_deal_status(
+                session=session,
+                deal=deal,
+                new_status="terms_agreed",
+                vendor_quoted_price=ai_result.get("extracted_price"),
+                agreed_terms_summary=ai_result.get("summary"),
+            )
+            deal_transitioned = True
+            logger.info(f"[ResendWebhook] Auto-transitioned deal {deal.id} to terms_agreed")
+        except Exception as e:
+            logger.warning(f"[ResendWebhook] Auto-transition failed: {e}")
+
+    # Relay to the other party
+    relay_result = await relay_email(
+        deal=deal,
+        sender_type=sender_type,
+        original_text=text_body or "",
+        original_html=html_body,
+        subject=subject,
+        session=session,
+    )
+
+    logger.info(
+        f"[ResendWebhook] deal={deal.id} sender={sender_type} "
+        f"msg_id={msg.id} relay_ok={relay_result.success} "
+        f"ai={ai_result.get('classification')}"
+    )
+
+    return {
+        "status": "processed",
+        "deal_id": deal.id,
+        "message_id": msg.id,
+        "sender_type": sender_type,
+        "relayed": relay_result.success,
+        "ai_classification": ai_result.get("classification"),
+        "ai_confidence": ai_result.get("confidence"),
+        "deal_transitioned": deal_transitioned,
+    }

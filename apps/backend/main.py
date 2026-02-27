@@ -48,6 +48,7 @@ from routes.search_enriched import router as search_enriched_router
 from routes.outreach_campaigns import router as outreach_campaigns_router
 from routes.public_search import router as public_search_router
 from routes.public_vendors import router as public_vendors_router
+from routes.deals import router as deals_router
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
@@ -157,6 +158,7 @@ app.include_router(search_enriched_router)
 app.include_router(outreach_campaigns_router)
 app.include_router(public_search_router)
 app.include_router(public_vendors_router)
+app.include_router(deals_router)
 
 # Lazy init sourcing repository
 _sourcing_repo = None
@@ -309,7 +311,87 @@ async def startup_event():
                 await conn.execute(text(f"""
                     ALTER TABLE deal_handoff ADD COLUMN IF NOT EXISTS {col} {dtype};
                 """))
-            print("Migration check: row + user + deal_handoff columns ensured")
+            # Vendor description and pg_trgm indices
+            await conn.execute(text("""
+                ALTER TABLE bid ADD COLUMN IF NOT EXISTS provenance TEXT;
+            """))
+            # Vendor SEO / Programmatic SEO columns
+            await conn.execute(text("""
+                ALTER TABLE vendor ADD COLUMN IF NOT EXISTS slug VARCHAR;
+            """))
+            await conn.execute(text("""
+                ALTER TABLE vendor ADD COLUMN IF NOT EXISTS seo_content JSONB;
+            """))
+            await conn.execute(text("""
+                ALTER TABLE vendor ADD COLUMN IF NOT EXISTS schema_markup JSONB;
+            """))
+            await conn.execute(text("""
+                CREATE UNIQUE INDEX IF NOT EXISTS vendor_slug_idx ON vendor (slug);
+            """))
+            # pg_trgm for fuzzy text search
+            await conn.execute(text("""
+                CREATE EXTENSION IF NOT EXISTS pg_trgm;
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS vendor_name_trgm_idx ON vendor USING gin (name gin_trgm_ops);
+            """))
+            # Deal Pipeline tables (proxy messaging + escrow)
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS deal (
+                    id SERIAL PRIMARY KEY,
+                    row_id INTEGER NOT NULL REFERENCES row(id),
+                    bid_id INTEGER REFERENCES bid(id),
+                    vendor_id INTEGER REFERENCES vendor(id),
+                    buyer_user_id INTEGER NOT NULL REFERENCES "user"(id),
+                    status VARCHAR NOT NULL DEFAULT 'negotiating',
+                    proxy_email_alias VARCHAR UNIQUE NOT NULL,
+                    vendor_quoted_price FLOAT,
+                    platform_fee_pct FLOAT NOT NULL DEFAULT 0.01,
+                    platform_fee_amount FLOAT,
+                    buyer_total FLOAT,
+                    currency VARCHAR NOT NULL DEFAULT 'USD',
+                    stripe_payment_intent_id VARCHAR,
+                    stripe_transfer_id VARCHAR,
+                    stripe_connect_account_id VARCHAR,
+                    agreed_terms_summary TEXT,
+                    fulfillment_notes TEXT,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMP,
+                    terms_agreed_at TIMESTAMP,
+                    funded_at TIMESTAMP,
+                    completed_at TIMESTAMP,
+                    canceled_at TIMESTAMP
+                );
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS deal_row_id_idx ON deal (row_id);
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS deal_status_idx ON deal (status);
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS deal_proxy_alias_idx ON deal (proxy_email_alias);
+            """))
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS deal_message (
+                    id SERIAL PRIMARY KEY,
+                    deal_id INTEGER NOT NULL REFERENCES deal(id),
+                    sender_type VARCHAR NOT NULL,
+                    sender_email VARCHAR,
+                    subject VARCHAR,
+                    content_text TEXT NOT NULL,
+                    content_html TEXT,
+                    attachments JSONB,
+                    resend_message_id VARCHAR,
+                    ai_classification VARCHAR,
+                    ai_confidence FLOAT,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                );
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS deal_message_deal_id_idx ON deal_message (deal_id);
+            """))
+            print("Migration check: row + user + deal_handoff + vendor SEO + deal pipeline tables ensured")
     except Exception as e:
         print(f"Migration check skipped (table may not exist yet, Alembic will create it): {e}")
 

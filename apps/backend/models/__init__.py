@@ -69,6 +69,12 @@ from models.outreach import (
     OutreachQuote,
 )
 
+# Deal pipeline models
+from models.deals import (
+    Deal,
+    DealMessage,
+)
+
 # Admin models
 from models.admin import (
     BugReport,
@@ -118,6 +124,9 @@ __all__ = [
     "OutreachCampaign",
     "OutreachMessage",
     "OutreachQuote",
+    # Deal pipeline
+    "Deal",
+    "DealMessage",
     # Admin
     "BugReport",
     "Notification",
