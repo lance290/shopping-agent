@@ -64,6 +64,12 @@ The immutable ledger of communication.
 4. **Funding (`FUNDED`):** Buyer clicks "Pay Now" on the Deal Card. Stripe captures funds. Vendor is notified: *"Funds secured. Please proceed with fulfillment."*
 5. **Release (`COMPLETED`):** Buyer clicks "Confirm Delivery/Service" on their dashboard. Backend triggers Stripe Connect transfer to Vendor, minus our fee.
 
+### 4.1 The Viral Vendor Acquisition Loop
+Because we sit in the middle of the proxy email flow, every transaction is a customer acquisition touchpoint for the vendor.
+When the vendor receives the `COMPLETED` payout notification, we inject the viral prompt:
+> *"You just got paid $14,000 through BuyAnything. What do YOU need to buy for your business? Jet parts? Catering? Marketing services? Just reply to this email with your request."*
+If the vendor replies, we automatically provision them a buyer account, parse their request, and begin sourcing options for them, turning the seller into a buyer and continuing the B2B marketplace flywheel.
+
 ## 5. Technical Risks & Requirements
 - **Deliverability:** The subdomain `messages.buy-anything.com` MUST have strictly configured SPF, DKIM, and DMARC records to prevent vendor/buyer emails from hitting spam.
 - **Thread Stripping:** Parsing email replies is notoriously messy. We must rely on battle-tested libraries (like Python's `email_reply_parser`) and have a fallback for edge cases.
