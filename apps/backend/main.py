@@ -391,6 +391,15 @@ async def startup_event():
             await conn.execute(text("""
                 CREATE INDEX IF NOT EXISTS deal_message_deal_id_idx ON deal_message (deal_id);
             """))
+            # Seed test vendor for deal pipeline smoke test (idempotent)
+            await conn.execute(text("""
+                INSERT INTO vendor (name, email, domain, website, category, description, specialties, status, is_verified, tier_affinity, created_at)
+                SELECT 'Peak Aviation Solutions', 'lance@xcor-cto.com', 'flypeak.com', 'https://flypeak.com',
+                       'Private Aviation', 'Private jet charter and aviation solutions provider',
+                       'jet charter, private aviation, on-demand flights, aircraft management',
+                       'unverified', false, 'ultra_high_end', NOW()
+                WHERE NOT EXISTS (SELECT 1 FROM vendor WHERE domain = 'flypeak.com')
+            """))
             print("Migration check: row + user + deal_handoff + vendor SEO + deal pipeline tables ensured")
     except Exception as e:
         print(f"Migration check skipped (table may not exist yet, Alembic will create it): {e}")
