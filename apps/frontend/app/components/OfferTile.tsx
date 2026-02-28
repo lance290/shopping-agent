@@ -145,15 +145,43 @@ export default function OfferTile({
         </div>
         
         {/* Content */}
-        <div className="p-3 flex flex-col flex-1 bg-warm-light border-t border-warm-grey/70">
+        <div className="p-3 flex flex-col flex-1 bg-warm-light border-t border-warm-grey/70 relative">
           <div className="text-xs font-medium text-onyx-muted mb-1 truncate flex items-center gap-1.5">
             <span className="w-1 h-1 rounded-full bg-onyx-muted/60"></span>
             {offer.merchant_domain || offer.merchant}
           </div>
           
-          <div className="text-sm font-bold text-onyx line-clamp-3 mb-2 min-h-[48px] leading-snug group-hover:text-onyx-muted transition-colors" title={offer.title}>
+          <div className="text-sm font-bold text-onyx line-clamp-3 mb-2 min-h-[48px] leading-snug transition-colors" title={offer.title}>
             {offer.title}
           </div>
+
+          {/* Hover Details Overlay */}
+          {(offer.description || (offer.matched_features && offer.matched_features.length > 0)) && (
+            <div className="absolute inset-0 bg-warm-light z-20 p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none overflow-y-auto scrollbar-hide border-t border-warm-grey/70">
+              <div className="text-xs font-medium text-onyx-muted mb-2 truncate flex items-center gap-1.5">
+                <span className="w-1 h-1 rounded-full bg-onyx-muted/60"></span>
+                {offer.merchant_domain || offer.merchant}
+              </div>
+              <div className="text-sm font-bold text-onyx mb-3 leading-snug">
+                {offer.title}
+              </div>
+              {offer.description && (
+                <div className="text-xs text-onyx-muted leading-relaxed mb-3">
+                  {offer.description}
+                </div>
+              )}
+              {offer.matched_features && offer.matched_features.length > 0 && (
+                <ul className="space-y-1.5 mb-2">
+                  {offer.matched_features.map((feature, i) => (
+                    <li key={i} className="text-[11px] text-onyx-muted/90 flex items-start gap-1.5 leading-snug">
+                      <span className="text-agent-blurple mt-0.5">•</span>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {offer.comment_preview && (
             <div className="text-[10px] text-onyx-muted/90 bg-white/60 border border-warm-grey/60 rounded-md px-2 py-1 mb-2 line-clamp-2">

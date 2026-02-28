@@ -50,6 +50,12 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
   const [expandedItem, setExpandedItem] = useState<number | null>(null);
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
   const [activeTab, setActiveTab] = useState<Record<number, TabType>>({});
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [hasJoined, setHasJoined] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [copiedInvite, setCopiedInvite] = useState(false);
 
   useEffect(() => {
     async function fetchList() {
@@ -64,8 +70,31 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
         setLoading(false);
       }
     }
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/pop/my-list');
+        setIsLoggedIn(res.ok);
+      } catch {
+        setIsLoggedIn(false);
+      }
+    }
     fetchList();
+    checkAuth();
   }, [id]);
+
+  const handleJoinList = async () => {
+    setIsJoining(true);
+    setJoinError(null);
+    try {
+      const res = await fetch(`/api/pop/join-list/${id}`, { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to join list');
+      setHasJoined(true);
+    } catch (e: unknown) {
+      setJoinError(e instanceof Error ? e.message : 'Failed to join list');
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
   const toggleChecked = (itemId: number) => {
     setCheckedItems((prev) => {
@@ -114,12 +143,21 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
             <Image src="/pop-avatar.png" alt="Pop" width={32} height={32} className="rounded-full" />
             <span className="text-lg font-bold text-green-700">Pop</span>
           </Link>
-          <Link
-            href="/chat"
-            className="text-sm bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 transition-colors"
-          >
-            + Add Items
-          </Link>
+          {isLoggedIn ? (
+            <Link
+              href={`/pop-site/chat?list=${id}`}
+              className="text-sm bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 transition-colors"
+            >
+              + Add Items
+            </Link>
+          ) : (
+            <Link
+              href={`/login?brand=pop&redirect=/pop-site/list/${id}`}
+              className="text-sm bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 transition-colors"
+            >
+              Sign In to Add
+            </Link>
+          )}
         </div>
       </nav>
 
@@ -377,24 +415,65 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
           </ul>
         )}
 
+        {/* Join List CTA for logged-in non-members */}
+        {isLoggedIn && !hasJoined && (
+          <div className="mt-4 bg-green-50 border border-green-200 rounded-2xl px-4 py-4 text-center">
+            <p className="text-sm text-green-800 font-medium mb-3">
+              Want to add items to this list together?
+            </p>
+            {joinError && (
+              <p className="text-xs text-red-500 mb-2">{joinError}</p>
+            )}
+            <button
+              onClick={handleJoinList}
+              disabled={isJoining}
+              className="inline-flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-green-700 transition-colors disabled:opacity-50"
+            >
+              {isJoining ? 'Joining...' : '🤝 Join this list'}
+            </button>
+          </div>
+        )}
+        {isLoggedIn && hasJoined && (
+          <div className="mt-4 bg-green-100 border border-green-300 rounded-2xl px-4 py-3 text-center">
+            <p className="text-sm text-green-800 font-semibold">✓ You joined this list!</p>
+            <Link
+              href={`/pop-site/chat?list=${id}`}
+              className="inline-block mt-2 text-sm text-green-700 underline hover:text-green-900"
+            >
+              Add items now →
+            </Link>
+          </div>
+        )}
         {/* Share List CTA */}
         {totalItems > 0 && (
           <div className="mt-6 text-center">
             <button
-              onClick={() => {
-                if (navigator.share) {
-                  navigator.share({
-                    title: list.title,
-                    text: `Check out my grocery list on Pop!`,
-                    url: window.location.href,
-                  });
-                } else {
-                  navigator.clipboard.writeText(window.location.href);
+              disabled={isSharing}
+              onClick={async () => {
+                setIsSharing(true);
+                try {
+                  let shareUrl = window.location.href;
+                  if (isLoggedIn) {
+                    const res = await fetch(`/api/pop/invite/${id}`, { method: 'POST' });
+                    if (res.ok) {
+                      const data = await res.json();
+                      shareUrl = data.invite_url || shareUrl;
+                    }
+                  }
+                  if (navigator.share) {
+                    await navigator.share({ title: list.title, text: `Join my grocery list on Pop!`, url: shareUrl });
+                  } else {
+                    await navigator.clipboard.writeText(shareUrl);
+                    setCopiedInvite(true);
+                    setTimeout(() => setCopiedInvite(false), 2500);
+                  }
+                } finally {
+                  setIsSharing(false);
                 }
               }}
-              className="inline-flex items-center gap-2 text-sm text-green-700 bg-green-50 hover:bg-green-100 font-medium px-5 py-2.5 rounded-full transition-colors"
+              className="inline-flex items-center gap-2 text-sm text-green-700 bg-green-50 hover:bg-green-100 font-medium px-5 py-2.5 rounded-full transition-colors disabled:opacity-50"
             >
-              📤 Share List with Family
+              {copiedInvite ? '✓ Invite link copied!' : isSharing ? 'Creating link...' : '📤 Share List with Family'}
             </button>
           </div>
         )}

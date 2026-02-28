@@ -46,6 +46,12 @@ class User(SQLModel, table=True):
     # Anti-Fraud & Reputation (PRD 10)
     trust_level: str = "standard"  # "new", "standard", "trusted"
 
+    # Pop wallet (V2)
+    wallet_balance_cents: int = Field(default=0)
+
+    # Referral code — auto-generated, used to build invite/referral links
+    ref_code: Optional[str] = Field(default=None, index=True)
+
 
 class AuthLoginCode(SQLModel, table=True):
     """Stores verification codes for email login. Only one active code per email."""

@@ -8,6 +8,7 @@ Never exposes email or phone — only public business information.
 import hashlib
 import logging
 import os
+import re
 import time
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
@@ -42,11 +43,13 @@ def _check_rate_limit(ip: str) -> bool:
 
 def _vendor_to_public(v: Vendor) -> Dict[str, Any]:
     """Convert vendor to public-safe dict — NEVER expose email or phone."""
-    slug = (v.name or "").lower().strip()
-    for ch in [" ", "'", '"', "&", "/", "\\", ".", ","]:
-        slug = slug.replace(ch, "-")
-    slug = "-".join(part for part in slug.split("-") if part)
-    slug = f"{slug}-{v.id}" if slug else f"vendor-{v.id}"
+    slug = v.slug
+    if not slug:
+        slug = (v.name or "").lower().strip()
+        for ch in [" ", "'", '"', "&", "/", "\\", ".", ","]:
+            slug = slug.replace(ch, "-")
+        slug = "-".join(part for part in slug.split("-") if part)
+        slug = f"{slug}-{v.id}" if slug else f"vendor-{v.id}"
 
     return {
         "id": v.id,
@@ -207,3 +210,39 @@ async def get_vendor_detail(
         raise HTTPException(status_code=404, detail="Vendor not found")
 
     return _vendor_to_public(vendor)
+
+
+@router.get("/api/public/vendors/slug/{vendor_slug}")
+async def get_vendor_detail_by_slug(
+    vendor_slug: str,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_rate_limit(client_ip):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    vendor: Optional[Vendor] = None
+
+    # Prefer canonical slug column
+    stmt = select(Vendor).where(Vendor.slug == vendor_slug)
+    result = await session.exec(stmt)
+    vendor = result.first()
+
+    # Fallback: handle name-id slugs like "wimco-6135"
+    if not vendor:
+        m = re.search(r"-(\d+)$", vendor_slug)
+        if m:
+            try:
+                vendor_id = int(m.group(1))
+                vendor = await session.get(Vendor, vendor_id)
+            except Exception:
+                vendor = None
+
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    out = _vendor_to_public(vendor)
+    out["seo_content"] = vendor.seo_content
+    out["schema_markup"] = vendor.schema_markup
+    return out

@@ -106,7 +106,7 @@ def upgrade() -> None:
                    CASE WHEN vp.service_areas IS NOT NULL THEN vp.service_areas::jsonb ELSE NULL END,
                    vp.specialties,
                    vp.description, vp.tagline, vp.image_url,
-                   vp.profile_text, vp.embedding, vp.embedding_model, vp.embedded_at,
+                   vp.profile_text, CAST(vp.embedding AS text)::jsonb, vp.embedding_model, vp.embedded_at,
                    vp.created_at, vp.updated_at, 'vendor_profile'
             FROM vendor_profile vp
             WHERE NOT EXISTS (

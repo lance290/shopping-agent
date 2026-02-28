@@ -74,6 +74,7 @@ async def session_fixture():
     async with test_engine.begin() as conn:
         await conn.execute(sqlalchemy.text("DROP SCHEMA public CASCADE"))
         await conn.execute(sqlalchemy.text("CREATE SCHEMA public"))
+        await conn.execute(sqlalchemy.text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(SQLModel.metadata.create_all)
 
     async_session = sessionmaker(

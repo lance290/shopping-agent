@@ -1,0 +1,47 @@
+;;
+;; Domain:     buy-anything.com.
+;; Exported:   2026-02-27 16:36:11
+;;
+;; This file is intended for use for informational and archival
+;; purposes ONLY and MUST be edited before use on a production
+;; DNS server.  In particular, you must:
+;;   -- update the SOA record with the correct authoritative name server
+;;   -- update the SOA record with the contact e-mail address information
+;;   -- update the NS record(s) with the authoritative name servers for this domain.
+;;
+;; For further information, please consult the BIND documentation
+;; located on the following website:
+;;
+;; http://www.isc.org/
+;;
+;; And RFC 1035:
+;;
+;; http://www.ietf.org/rfc/rfc1035.txt
+;;
+;; Please note that we do NOT offer technical support for any use
+;; of this zone data, the BIND name server, or any other third-party
+;; DNS software.
+;;
+;; Use at your own risk.
+;; SOA Record
+buy-anything.com	3600	IN	SOA	coen.ns.cloudflare.com. dns.cloudflare.com. 2052387677 10000 2400 604800 3600
+
+;; NS Records
+buy-anything.com.	86400	IN	NS	coen.ns.cloudflare.com.
+buy-anything.com.	86400	IN	NS	delilah.ns.cloudflare.com.
+
+;; CNAME Records
+66yqyznsti4y.buy-anything.com.	60	IN	CNAME	gv-wgg3pclbq3gfys.dv.googlehosted.com. ; cf_tags=cf-proxied:false
+buy-anything.com.	1	IN	CNAME	u3qhf7b5.up.railway.app. ; cf_tags=cf-proxied:false
+www.buy-anything.com.	1	IN	CNAME	buy-anything.com. ; cf_tags=cf-proxied:false
+
+;; MX Records
+buy-anything.com.	60	IN	MX	1 smtp.google.com.
+send.buy-anything.com.	60	IN	MX	10 feedback-smtp.us-east-1.amazonses.com.
+
+;; TXT Records
+buy-anything.com.	60	IN	TXT	"google-site-verification=yQUGHhnGNIdxQ4DY7PZqK9oGkBQVsq6g1njlg1Z8O3w"
+google._domainkey.buy-anything.com.	60	IN	TXT	"v=DKIM1;k=rsa;p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA10qfapxfjtiM8u3mUxQZoOo9hhctp2gObnHpbQo/E6ePc7SHhLq6MkqsXMoUMKQ6YqifdOi0qBkw/ZaIHOU1F+di0Nta2e+TRZsz0nbRqZ1BEJ7LXyttm172nrNhcnuZqegxWYINYxeGmpkM8V2kghUYgNppI5paivsrPG8FWGZIJueQPEvJOH2TpznJ8ROLkwT" "d5zuqQ4q+Oo/UWNa449Xx7GA0j1cvk97aCKqISn/0259Hu07+9904MHdmUcwHI/GcPZAeybBJsh2jfUm+j7ld/K2n3+gpNN4+gd7YayvHEVktEsUurbD0K53KYRYGx4Tchf6v16a/9rYOTXVq5QIDAQAB"
+_railway-verify.buy-anything.com.	1	IN	TXT	"railway-verify=3db3af6134c1e89385fa03aa630a647ba2c6b0b0e6c7093375d3f55d1ca1a565"
+resend._domainkey.buy-anything.com.	1	IN	TXT	"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDDO7ERRO8UfWnr53G/zYNZHtycEzJdHB/cQ+3jzMsri3/XpAPuDVyrZWP1ZXXjhBPgLI4ggS5AFN8iSRE73OjMMpcf3N4fbFNNxt7xV8Qkd2HmJ9zDeREwkO/V9kuS0DtXmNnMoesD7zQkzwE8ul9h7OxroYI6X/HDTnG/dfFghQIDAQAB"
+send.buy-anything.com.	1	IN	TXT	"v=spf1 include:amazonses.com ~all"

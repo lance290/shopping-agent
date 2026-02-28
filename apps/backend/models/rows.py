@@ -2,6 +2,7 @@
 
 from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
+import uuid
 from sqlmodel import Field, SQLModel, Relationship
 
 if TYPE_CHECKING:
@@ -83,6 +84,17 @@ class ProjectMember(SQLModel, table=True):
     channel: str = "email"  # "email", "sms", "whatsapp" — how this member talks to Bob
     invited_by: Optional[int] = Field(default=None, foreign_key="user.id")
     joined_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ProjectInvite(SQLModel, table=True):
+    """Opaque invite token for sharing a Pop shopping list."""
+    __tablename__ = "project_invite"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    project_id: int = Field(foreign_key="project.id", index=True)
+    invited_by: int = Field(foreign_key="user.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: Optional[datetime] = Field(default=None)
 
 
 class Row(RowBase, table=True):

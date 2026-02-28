@@ -20,6 +20,7 @@ export interface Offer {
   is_liked?: boolean;
   liked_at?: string; // ISO timestamp when liked
   comment_preview?: string;
+  matched_features?: string[];
   // Vendor/service provider fields
   description?: string;
   is_service_provider?: boolean;
@@ -60,6 +61,8 @@ export interface Bid {
   seller?: {
     name: string;
     domain: string | null;
+    description?: string;
+    tagline?: string;
   };
 }
 
@@ -103,6 +106,13 @@ export function mapBidToOffer(bid: Bid): Offer {
     ? bid.item_url.replace('mailto:', '')
     : undefined;
   const parsedName = bid.item_title.match(/Contact: (.*)\)/)?.[1];
+  
+  let parsedProvenance: any = {};
+  if (typeof (bid as any).provenance === 'string' && (bid as any).provenance) {
+    try {
+      parsedProvenance = JSON.parse((bid as any).provenance);
+    } catch { }
+  }
 
   return {
     // Extract contact name if stored in title, and clean up the displayed title
@@ -127,6 +137,8 @@ export function mapBidToOffer(bid: Bid): Offer {
     vendor_company: bid.seller?.name, // Use seller name as company for service providers
     vendor_name: bid.contact_name || parsedName, // Prefer explicit contact name
     vendor_email: contactEmail || itemEmail, // Prefer explicit email
+    description: bid.seller?.description || bid.seller?.tagline || undefined,
+    matched_features: parsedProvenance?.matched_features || (bid as any).matched_features || [],
   };
 }
 

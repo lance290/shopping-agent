@@ -1,9 +1,16 @@
-'use client';
-
-import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { Store, ExternalLink, MapPin, Tag, Loader2, ArrowLeft } from 'lucide-react';
+import { notFound } from 'next/navigation';
+import { Store, ExternalLink, MapPin, Tag, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import type { Metadata } from 'next';
+
+interface VendorSeoContent {
+  summary?: string;
+  services_list?: string[];
+  features_matrix?: Array<{ feature?: string; details?: string }>;
+  pricing_model?: string;
+  pros?: string[];
+  cons?: string[];
+}
 
 interface VendorDetail {
   id: number;
@@ -13,71 +20,78 @@ interface VendorDetail {
   description?: string | null;
   category?: string | null;
   specialties?: string | null;
-  service_areas?: string | null;
+  service_areas?: unknown;
   website?: string | null;
   image_url?: string | null;
   is_verified: boolean;
   tier_affinity?: string | null;
+  seo_content?: VendorSeoContent | null;
+  schema_markup?: Record<string, unknown> | null;
 }
 
-export default function VendorDetailPage() {
-  const params = useParams();
-  const vendorId = params?.slug as string;
-  const [vendor, setVendor] = useState<VendorDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+async function fetchVendor(slug: string): Promise<VendorDetail | null> {
+  const backendBase = (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+  const res = await fetch(`${backendBase}/api/public/vendors/slug/${encodeURIComponent(slug)}`, {
+    cache: 'no-store',
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) return null;
+  return (await res.json()) as VendorDetail;
+}
 
-  useEffect(() => {
-    const loadVendor = async () => {
-      try {
-        const res = await fetch(`/api/proxy/public-vendors/${vendorId}`);
-        if (!res.ok) {
-          throw new Error(res.status === 404 ? 'Vendor not found' : 'Failed to load vendor');
-        }
-        const data = await res.json();
-        setVendor(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load vendor');
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (vendorId) loadVendor();
-  }, [vendorId]);
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-20">
-        <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
-      </div>
-    );
+export async function generateMetadata(
+  { params }: { params: Promise<{ slug: string }> }
+): Promise<Metadata> {
+  const resolvedParams = await params;
+  const vendor = await fetchVendor(resolvedParams.slug);
+  if (!vendor) {
+    return { title: 'Vendor Not Found' };
   }
+  const summary = vendor?.seo_content?.summary || vendor?.description || vendor?.tagline || '';
+  return {
+    title: `${vendor.name} | Vendor Directory`,
+    description: typeof summary === 'string' ? summary.slice(0, 155) : undefined,
+  };
+}
 
-  if (error || !vendor) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Vendor Not Found</h1>
-        <p className="text-gray-500 mb-6">{error || 'This vendor does not exist.'}</p>
-        <Link href="/vendors" className="text-blue-600 hover:underline">Browse all vendors</Link>
-      </div>
-    );
-  }
-
-  const parseJson = (val: string | null | undefined): string[] => {
-    if (!val) return [];
+function normalizeToStringArray(val: unknown): string[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.map((v) => String(v)).filter(Boolean);
+  if (typeof val === 'string') {
     try {
       const parsed = JSON.parse(val);
-      return Array.isArray(parsed) ? parsed : [String(parsed)];
+      if (Array.isArray(parsed)) return parsed.map((v) => String(v)).filter(Boolean);
     } catch {
       return val.split(',').map((s) => s.trim()).filter(Boolean);
     }
-  };
+    return val.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  if (typeof val === 'object') {
+    return [JSON.stringify(val)];
+  }
+  return [String(val)];
+}
 
-  const specialties = parseJson(vendor.specialties);
-  const serviceAreas = parseJson(vendor.service_areas);
+export default async function VendorDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const resolvedParams = await params;
+  const vendor = await fetchVendor(resolvedParams.slug);
+  if (!vendor) {
+    notFound();
+  }
+
+  const specialties = normalizeToStringArray(vendor.specialties);
+  const serviceAreas = normalizeToStringArray(vendor.service_areas);
+  const seo: VendorSeoContent = vendor.seo_content || {};
+  const schemaMarkup = vendor.schema_markup || null;
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      {schemaMarkup && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaMarkup) }}
+        />
+      )}
       <Link href="/vendors" className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline mb-6">
         <ArrowLeft size={14} /> Back to directory
       </Link>
@@ -100,10 +114,46 @@ export default function VendorDetailPage() {
         </div>
 
         <div className="p-6 space-y-6">
+          {typeof seo.summary === 'string' && seo.summary && (
+            <div>
+              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Summary</h2>
+              <p className="text-gray-700 leading-relaxed whitespace-pre-line">{seo.summary}</p>
+            </div>
+          )}
+
           {vendor.description && (
             <div>
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">About</h2>
               <p className="text-gray-700 leading-relaxed whitespace-pre-line">{vendor.description}</p>
+            </div>
+          )}
+
+          {Array.isArray(seo.services_list) && seo.services_list.length > 0 && (
+            <div>
+              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Services</h2>
+              <ul className="space-y-2">
+                {seo.services_list.map((s: unknown, i: number) => (
+                  <li key={i} className="text-gray-700">{String(s)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {Array.isArray(seo.features_matrix) && seo.features_matrix.length > 0 && (
+            <div>
+              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Features</h2>
+              <div className="space-y-3">
+                {seo.features_matrix.map((f, i: number) => (
+                  <div key={i} className="rounded-lg border border-gray-100 p-3">
+                    <div className="font-medium text-gray-900 text-sm">
+                      {String(f?.feature || '')}
+                    </div>
+                    {f?.details && (
+                      <div className="text-gray-700 text-sm mt-1">{String(f.details)}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -144,31 +194,6 @@ export default function VendorDetailPage() {
                 <ExternalLink size={16} /> Visit Website
               </a>
             )}
-            <button
-              onClick={() => {
-                // Fire quote intent
-                fetch('/api/proxy/quote-intent', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    query: vendor.name,
-                    vendor_slug: vendor.slug,
-                    vendor_name: vendor.name,
-                  }),
-                }).catch(() => {});
-
-                // Open mailto
-                const subject = `Quote request — ${vendor.name}`;
-                const body = `Hi ${vendor.name},\n\nI found you on BuyAnything and would like to request a quote.\n\nCould you provide more information about your services?\n\nThank you`;
-                const params = new URLSearchParams({ subject, body });
-                if (vendor.website) {
-                  window.open(vendor.website, '_blank', 'noopener');
-                }
-              }}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-            >
-              Request Quote
-            </button>
           </div>
         </div>
       </div>

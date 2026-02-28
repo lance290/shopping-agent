@@ -1,0 +1,54 @@
+Tim Connors:
+	Pop plus me (615-679-6015) and Wendy (650-302-6665) will be great.  I can test today
+	Landing page where I put in cell and confirm code
+
+Lance Massey:
+	And I won’t be able to get SMS going until there’s an official company. Twilio are a real pain about messaging…
+
+Tim Connors:
+	Then Pop iMessages me
+	I can share Wendy cell and Pop creates a group text me, him, Wendy
+	She or I text in what we need from grocery store, pop converts it to a list and shares the link
+	Pop looks up swaps, etc from groflo so it has our list and swap/coupon/savings ideas under each
+
+Lance Massey:
+	Oh - that was one of the questions. Is the GroFlo mcp server available and mature?
+
+Tim Connors:
+	Use wattdata to look up every brand manager other than P&G etc for each item/category on my list and email them “I have a shopper buying A1 Sauce, do you want to offer them a coupon to try your Heinz 57 Sauce instead? (Link)
+	At P&G etc
+	So one shopper triggers brands to load groflo coupons/bogos/etc
+	And brands can copy link and share with their full lists as if they cause them to join Pop, they get first sponsored slot on the list each week
+	popsavings.com is avail for $1300 if you want me to grab it
+	Create an avatar for Pop that looks like your friendly dad from the 60s
+
+Lance Massey:
+	Ooo - tough one…. If it’s integrated into buy-anything then we don’t need it. But if it’s standalone, that’s a nice domain
+	My dad looked like a crazed hillbilly in the 60’s…
+
+Tim Connors:
+	I grabbed it
+	I like it a lot
+	Go daddy login hasn’t;t changed
+	We’ll blow Andy away when he wakes up and it is live
+	And it already iterated the my 20-40 bugcollection inputs so it sings
+
+
+    /Users/logictester/Library/Messages/Attachments/b9/09/F3F4B6A1-834B-4DAA-AB84-430B16942BFC/IMG_1886.png
+
+
+    Several Model Context Protocol (MCP) servers are designed to look up, search, and manage grocery items, allowing AI assistants (like Claude) to interface directly with supermarket catalogs and nutritional databases. 
+Here are the primary MCP servers for grocery lookup and management:
+
+1. Retailer-Specific Search & Shopping
+These servers allow AI to search for products, check prices, and manage carts at specific supermarkets: 
+    •    Kroger-MCP (Pantry Agent): A comprehensive server for searching Kroger product catalogs by name, brand, or description. It provides detailed information, including real-time price, stock availability, and nutritional info, as well as store locator functionality.
+    •    HEB Grocery MCP: An open-source server (texas-grocery-mcp) designed for HEB, allowing users to search products, check real-time prices, and add items to a cart via conversation.
+    •    Rami Levy MCP: A server that enables searching for products in the Rami Levy online catalog, returning item names, prices, images, and IDs.
+    •    Rohlik Group MCP: Supports searching for products across various European platforms, including Rohlik.cz, Knuspr.de, and others.
+    •    Groceries MCP (o-b-one): A general-purpose server designed to connect AI with various supermarket suppliers, providing search capabilities and cart management. 
+
+----> https://playbooks.com/ <---- TAKE ADVANTAGE OF THIS!!!
+
+
+The Kroger one is prob all we need, but grab what you can

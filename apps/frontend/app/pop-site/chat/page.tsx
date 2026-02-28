@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
 const LS_ITEMS_KEY = 'pop_guest_list_items';
+const LS_GUEST_PROJECT_KEY = 'pop_guest_project_id';
 
 interface Message {
   id: string;
@@ -18,7 +20,9 @@ interface ListItem {
   status: string;
 }
 
-export default function PopChatPage() {
+function PopChatInner() {
+  const searchParams = useSearchParams();
+  const sharedListId = searchParams.get('list');
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -55,6 +59,22 @@ export default function PopChatPage() {
   useEffect(() => {
     async function loadInitialList() {
       try {
+        // If a shared list ID is provided, load that list directly
+        if (sharedListId) {
+          const sharedRes = await fetch(`/api/pop/list/${sharedListId}`);
+          if (sharedRes.ok) {
+            const data = await sharedRes.json();
+            setIsLoggedIn(true);
+            setProjectId(data.project_id);
+            const items = data.items?.map((i: { id: number; title: string; status: string }) => ({
+              id: i.id,
+              title: i.title,
+              status: i.status,
+            })) ?? [];
+            if (items.length > 0) setListItems(items);
+            return;
+          }
+        }
         const res = await fetch('/api/pop/my-list');
         if (res.ok) {
           const data = await res.json();
@@ -78,19 +98,22 @@ export default function PopChatPage() {
           const saved: ListItem[] = JSON.parse(raw);
           if (saved.length > 0) setListItems(saved);
         }
+        const savedProjectId = localStorage.getItem(LS_GUEST_PROJECT_KEY);
+        if (savedProjectId) setProjectId(Number(savedProjectId));
       } catch {
         // ignore
       }
     }
     loadInitialList();
-  }, []);
+  }, [sharedListId]);
 
-  // Persist guest items to localStorage whenever they change
+  // Persist guest items + project_id to localStorage whenever they change
   useEffect(() => {
-    if (!isLoggedIn && listItems.length > 0) {
-      localStorage.setItem(LS_ITEMS_KEY, JSON.stringify(listItems));
+    if (!isLoggedIn) {
+      if (listItems.length > 0) localStorage.setItem(LS_ITEMS_KEY, JSON.stringify(listItems));
+      if (projectId) localStorage.setItem(LS_GUEST_PROJECT_KEY, String(projectId));
     }
-  }, [listItems, isLoggedIn]);
+  }, [listItems, isLoggedIn, projectId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,11 +125,15 @@ export default function PopChatPage() {
     setInput('');
     setIsLoading(true);
 
+    const guestProjectId = !isLoggedIn
+      ? projectId ?? (localStorage.getItem(LS_GUEST_PROJECT_KEY) ? Number(localStorage.getItem(LS_GUEST_PROJECT_KEY)) : null)
+      : null;
+
     try {
       const res = await fetch('/api/pop/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, ...(guestProjectId ? { guest_project_id: guestProjectId } : {}) }),
       });
       const data = await res.json();
 
@@ -327,5 +354,13 @@ export default function PopChatPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function PopChatPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" /></div>}>
+      <PopChatInner />
+    </Suspense>
   );
 }

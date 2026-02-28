@@ -10,6 +10,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const brand = searchParams.get('brand');
+  const redirectTo = searchParams.get('redirect');
   
   const [mounted, setMounted] = useState(false);
   const [phone, setPhone] = useState(searchParams.get('phone') || '');
@@ -61,7 +62,8 @@ function LoginForm() {
         }
       }
 
-      router.push(isPop ? '/?brand=pop' : '/');
+      const destination = redirectTo && redirectTo.startsWith('/') ? redirectTo : (isPop ? '/?brand=pop' : '/');
+      router.push(destination);
       router.refresh();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Invalid code';

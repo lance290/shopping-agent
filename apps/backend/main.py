@@ -402,7 +402,32 @@ async def startup_event():
                        'unverified', false, 'ultra_high_end', NOW()
                 WHERE NOT EXISTS (SELECT 1 FROM vendor WHERE domain = 'flypeak.com')
             """))
-            print("Migration check: row + user + deal_handoff + vendor SEO + deal pipeline tables ensured")
+            # Pop family sharing tables
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS project_member (
+                    id SERIAL PRIMARY KEY,
+                    project_id INTEGER NOT NULL REFERENCES project(id),
+                    user_id INTEGER NOT NULL REFERENCES "user"(id),
+                    role VARCHAR NOT NULL DEFAULT 'member',
+                    channel VARCHAR NOT NULL DEFAULT 'email',
+                    invited_by INTEGER REFERENCES "user"(id),
+                    joined_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    UNIQUE (project_id, user_id)
+                );
+            """))
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS project_invite (
+                    id VARCHAR PRIMARY KEY,
+                    project_id INTEGER NOT NULL REFERENCES project(id),
+                    invited_by INTEGER NOT NULL REFERENCES "user"(id),
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    expires_at TIMESTAMP
+                );
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS project_invite_project_id_idx ON project_invite (project_id);
+            """))
+            print("Migration check: row + user + deal_handoff + vendor SEO + deal pipeline + pop sharing tables ensured")
     except Exception as e:
         print(f"Migration check skipped (table may not exist yet, Alembic will create it): {e}")
 

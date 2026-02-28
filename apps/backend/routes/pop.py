@@ -6,16 +6,22 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 import json
+import re
 import os
 import hmac
 import hashlib
 import logging
+import uuid
+import base64
+from datetime import timedelta
 
 from database import get_session
-from models.rows import Row, Project, ProjectMember
+from models.rows import Row, Project, ProjectMember, ProjectInvite
 from models.bids import Bid
 from models.auth import User
-from services.llm import make_unified_decision, make_pop_decision, ChatContext, generate_choice_factors
+from models.pop import WalletTransaction, Receipt, Referral, _gen_ref_code
+from services.llm import make_unified_decision, make_pop_decision, ChatContext, generate_choice_factors, call_gemini
+from dependencies import get_current_session
 from services.email import EmailResult, RESEND_API_KEY, FROM_EMAIL, FROM_NAME, _maybe_intercept
 from routes.chat import _create_row, _update_row, _save_factors_scoped, _stream_search
 
@@ -40,7 +46,6 @@ async def _get_pop_user(request: Request, session: AsyncSession) -> Optional[Use
     auth_header = request.headers.get("Authorization", "")
     if not auth_header:
         return None
-    from dependencies import get_current_session
     auth_session = await get_current_session(auth_header, session)
     if not auth_session:
         return None
@@ -55,7 +60,7 @@ TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
 
 
 @router.get("/health")
-async def bob_health():
+async def pop_health():
     """Health check for Pop/Bob service."""
     return {"status": "ok", "service": "pop"}
 
@@ -65,7 +70,7 @@ async def bob_health():
 # ---------------------------------------------------------------------------
 
 
-async def send_bob_reply(
+async def send_pop_reply(
     to_email: str,
     subject: str,
     body_text: str,
@@ -98,23 +103,23 @@ async def send_bob_reply(
             response = resend.Emails.send(params)
             return EmailResult(success=True, message_id=response.get("id"))
         except Exception as e:
-            logger.error(f"[Bob RESEND ERROR] {e}")
+            logger.error(f"[Pop RESEND ERROR] {e}")
             return EmailResult(success=False, error=str(e))
 
-    logger.info(f"[Bob DEMO EMAIL] To: {to_email} | Subject: {subject}")
-    return EmailResult(success=True, message_id="demo-bob-reply")
+    logger.info(f"[Pop DEMO EMAIL] To: {to_email} | Subject: {subject}")
+    return EmailResult(success=True, message_id="demo-pop-reply")
 
 
-def send_bob_sms(to_phone: str, body_text: str) -> bool:
+def send_pop_sms(to_phone: str, body_text: str) -> bool:
     """
     Send an outbound SMS from Bob via Twilio.
     Returns True on success.
     """
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN or not TWILIO_PHONE_NUMBER:
-        logger.info(f"[Bob DEMO SMS] To: {to_phone} | Body: {body_text[:120]}")
+        logger.info(f"[Pop DEMO SMS] To: {to_phone} | Body: {body_text[:120]}")
         return True
     if TwilioClient is None:
-        logger.warning("[Bob] twilio package not installed — cannot send SMS")
+        logger.warning("[Pop] twilio package not installed — cannot send SMS")
         return False
     try:
         client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
@@ -123,14 +128,14 @@ def send_bob_sms(to_phone: str, body_text: str) -> bool:
             from_=TWILIO_PHONE_NUMBER,
             to=to_phone,
         )
-        logger.info(f"[Bob] SMS sent to {to_phone} (sid={msg.sid})")
+        logger.info(f"[Pop] SMS sent to {to_phone} (sid={msg.sid})")
         return True
     except Exception as e:
-        logger.error(f"[Bob SMS ERROR] {e}")
+        logger.error(f"[Pop SMS ERROR] {e}")
         return False
 
 
-async def send_bob_onboarding_email(email: str) -> EmailResult:
+async def send_pop_onboarding_email(email: str) -> EmailResult:
     """
     Send onboarding / welcome email to a new user who emailed Bob.
     """
@@ -145,10 +150,10 @@ async def send_bob_onboarding_email(email: str) -> EmailResult:
         "and I'll find the best deals for you!\n\n"
         "— Pop"
     )
-    return await send_bob_reply(email, subject, body_text)
+    return await send_pop_reply(email, subject, body_text)
 
 
-def send_bob_onboarding_sms(phone: str) -> bool:
+def send_pop_onboarding_sms(phone: str) -> bool:
     """
     Send onboarding SMS to an unknown phone number.
     """
@@ -158,7 +163,7 @@ def send_bob_onboarding_sms(phone: str) -> bool:
         f"and add your phone number to your profile. "
         f"Then text me your shopping list!"
     )
-    return send_bob_sms(phone, body)
+    return send_pop_sms(phone, body)
 
 
 # ---------------------------------------------------------------------------
@@ -232,7 +237,7 @@ async def _ensure_project_member(
     await session.refresh(member)
     return member
 
-async def process_bob_message(
+async def process_pop_message(
     user_email: str,
     message_text: str,
     session: AsyncSession,
@@ -240,7 +245,7 @@ async def process_bob_message(
     sender_phone: Optional[str] = None,
 ):
     """
-    Core logic for Bob:
+    Core logic for Pop:
     1. Identify user (or trigger onboarding)
     2. Identify or create their active Family List (Project)
     3. Load conversation history from Row.chat_history
@@ -256,14 +261,14 @@ async def process_bob_message(
         user = result.scalar_one_or_none()
 
         if not user:
-            logger.info(f"[Bob] Unknown user {user_email}. Sending onboarding.")
+            logger.info(f"[Pop] Unknown user {user_email}. Sending onboarding.")
             if channel == "sms" and sender_phone:
-                send_bob_onboarding_sms(sender_phone)
+                send_pop_onboarding_sms(sender_phone)
             else:
-                await send_bob_onboarding_email(user_email)
+                await send_pop_onboarding_email(user_email)
             return
 
-        # 2. Find active "Bob" project (Family List)
+        # 2. Find active Pop project (Family List)
         proj_stmt = (
             select(Project)
             .where(Project.user_id == user.id)
@@ -378,20 +383,50 @@ async def process_bob_message(
         reply_subject = f"Re: {title}" if title else "Your shopping list update"
 
         if channel == "sms" and sender_phone:
-            ok = send_bob_sms(sender_phone, reply_message)
+            ok = send_pop_sms(sender_phone, reply_message)
             if ok:
-                logger.info(f"[Bob] SMS reply sent to {sender_phone}")
+                logger.info(f"[Pop] SMS reply sent to {sender_phone}")
             else:
-                logger.warning(f"[Bob] SMS reply failed for {sender_phone}")
+                logger.warning(f"[Pop] SMS reply failed for {sender_phone}")
         else:
-            email_result = await send_bob_reply(user_email, reply_subject, reply_message)
+            email_result = await send_pop_reply(user_email, reply_subject, reply_message)
             if email_result.success:
-                logger.info(f"[Bob] Email reply sent to {user_email} (id={email_result.message_id})")
+                logger.info(f"[Pop] Email reply sent to {user_email} (id={email_result.message_id})")
             else:
-                logger.warning(f"[Bob] Email reply failed for {user_email}: {email_result.error}")
+                logger.warning(f"[Pop] Email reply failed for {user_email}: {email_result.error}")
 
     except Exception as e:
-        logger.error(f"[Bob] Failed to process message: {e}", exc_info=True)
+        logger.error(f"[Pop] Failed to process message: {e}", exc_info=True)
+
+
+async def _classify_swaps_llm(row_title: str, bids: list) -> set:
+    """
+    Ask Gemini to classify which bids are swap alternatives for a list item.
+    Returns a set of bid IDs classified as swaps.
+    Bids not in the returned set are direct matches.
+    """
+    try:
+        lines = "\n".join(
+            f'{i + 1}. [id={b.id}] "{b.item_title}"'
+            for i, b in enumerate(bids)
+        )
+        prompt = (
+            f'A shopper wants: "{row_title}"\n\n'
+            f"The following products were found:\n{lines}\n\n"
+            f"For each product, decide: is it a DIRECT match (same product, possibly different brand/size) "
+            f"or a SWAP (a meaningfully different product that could substitute)?\n\n"
+            f'Return ONLY a JSON array of objects: [{{"id": <bid_id>, "is_swap": true|false}}, ...]\n'
+            f"No explanation, no markdown, just the JSON array."
+        )
+        raw = await call_gemini(prompt, timeout=15.0)
+        match = re.search(r"\[.*\]", raw, re.DOTALL)
+        if not match:
+            return set()
+        classifications = json.loads(match.group())
+        return {item["id"] for item in classifications if item.get("is_swap")}
+    except Exception as e:
+        logger.warning(f"[Pop] LLM swap classification failed: {e}")
+        return set()
 
 
 @router.get("/list/{project_id}")
@@ -433,9 +468,18 @@ async def get_pop_list(
         swaps = []
         lowest_price = None
 
-        for b in bids:
-            if b.price is None:
-                continue
+        priced_bids = [b for b in bids if b.price is not None]
+
+        # LLM swap classification: classify any unclassified bids in one Gemini call
+        unclassified = [b for b in priced_bids if b.is_swap is None]
+        if unclassified and row.title:
+            swap_ids = await _classify_swaps_llm(row.title, unclassified)
+            for b in unclassified:
+                b.is_swap = b.id in swap_ids
+                session.add(b)
+            await session.commit()
+
+        for b in priced_bids:
             deal = {
                 "id": b.id,
                 "title": b.item_title,
@@ -447,18 +491,7 @@ async def get_pop_list(
             deals.append(deal)
             if lowest_price is None or b.price < lowest_price:
                 lowest_price = b.price
-
-        # Swaps: bids from different brands / alternative products
-        # Heuristic: if a bid title doesn't overlap much with the row title,
-        # it's likely a swap suggestion (e.g., "Heinz 57" for "A1 Sauce")
-        row_words = set(row.title.lower().split()) if row.title else set()
-        for b in bids:
-            if b.price is None:
-                continue
-            bid_words = set((b.item_title or "").lower().split())
-            overlap = len(row_words & bid_words)
-            # If fewer than half the words overlap, it's a potential swap
-            if row_words and overlap < len(row_words) * 0.5:
+            if b.is_swap:
                 swaps.append({
                     "id": b.id,
                     "title": b.item_title,
@@ -526,6 +559,95 @@ async def get_my_pop_list(
     return {"project_id": project.id, "title": project.title, "items": items}
 
 
+@router.post("/list/{project_id}/invite")
+async def create_pop_invite(
+    project_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Create an opaque invite token for sharing a Pop list.
+    Returns a shareable invite URL.
+    """
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    token = str(uuid.uuid4())
+    invite = ProjectInvite(
+        id=token,
+        project_id=project_id,
+        invited_by=user.id,
+        expires_at=datetime.utcnow() + timedelta(days=30),
+    )
+    session.add(invite)
+    await session.commit()
+
+    invite_url = f"{POP_DOMAIN}/pop-site/invite/{token}"
+    return {"token": token, "invite_url": invite_url, "expires_days": 30}
+
+
+@router.get("/invite/{token}")
+async def resolve_pop_invite(
+    token: str,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Public endpoint: resolve an invite token to project info (title, item count).
+    Does NOT require authentication — used to preview the list before login.
+    """
+    invite = await session.get(ProjectInvite, token)
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invite not found or expired")
+    if invite.expires_at and invite.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=410, detail="Invite link has expired")
+
+    project = await session.get(Project, invite.project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    rows_stmt = (
+        select(Row)
+        .where(Row.project_id == project.id)
+        .where(Row.status.in_(["sourcing", "active", "pending"]))
+    )
+    rows_result = await session.execute(rows_stmt)
+    items = rows_result.scalars().all()
+
+    return {
+        "project_id": project.id,
+        "title": project.title,
+        "item_count": len(items),
+        "token": token,
+    }
+
+
+@router.post("/join-list/{project_id}")
+async def join_pop_list(
+    project_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Add the authenticated user as a member of the given shared Pop list.
+    Used when a family member accepts a shared list invite.
+    """
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    await _ensure_project_member(session, project.id, user.id, channel="web", role="member")
+    return {"joined": True, "project_id": project.id, "title": project.title}
+
+
 class PatchItemRequest(BaseModel):
     title: str
 
@@ -575,6 +697,72 @@ async def delete_pop_item(
     return {"deleted": True}
 
 
+@router.post("/offer/{bid_id}/claim")
+async def claim_pop_offer(
+    bid_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Claim a swap offer (mark bid as selected for this household).
+    Only the row owner can claim. One active claim per row.
+    """
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    bid = await session.get(Bid, bid_id)
+    if not bid:
+        raise HTTPException(status_code=404, detail="Offer not found")
+
+    row = await session.get(Row, bid.row_id)
+    if not row or row.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Offer not found")
+
+    if row.status == "canceled":
+        raise HTTPException(status_code=409, detail="Cannot claim offer on a canceled item")
+
+    # Clear any prior selection on this row (one active claim per item)
+    prior_stmt = select(Bid).where(Bid.row_id == bid.row_id, Bid.is_selected == True)
+    prior_result = await session.execute(prior_stmt)
+    for prior in prior_result.scalars().all():
+        prior.is_selected = False
+        prior.liked_at = None
+        session.add(prior)
+
+    bid.is_selected = True
+    bid.liked_at = datetime.utcnow()
+    session.add(bid)
+    await session.commit()
+    return {"claimed": True, "bid_id": bid_id, "title": bid.item_title, "price": bid.price}
+
+
+@router.delete("/offer/{bid_id}/claim")
+async def unclaim_pop_offer(
+    bid_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Cancel (unclaim) a previously claimed swap offer."""
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    bid = await session.get(Bid, bid_id)
+    if not bid:
+        raise HTTPException(status_code=404, detail="Offer not found")
+
+    row = await session.get(Row, bid.row_id)
+    if not row or row.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Offer not found")
+
+    bid.is_selected = False
+    bid.liked_at = None
+    session.add(bid)
+    await session.commit()
+    return {"claimed": False, "bid_id": bid_id}
+
+
 @router.get("/wallet")
 async def get_pop_wallet(
     request: Request,
@@ -583,23 +771,31 @@ async def get_pop_wallet(
     """
     Fetch the user's Pop wallet balance and transaction history.
     """
-    auth_header = request.headers.get("Authorization", "")
-    user = None
-
-    if auth_header:
-        from dependencies import get_current_session
-        auth_session = await get_current_session(auth_header, session)
-        if auth_session:
-            user = await session.get(User, auth_session.user_id)
-
+    user = await _get_pop_user(request, session)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    # For MVP, wallet is tracked on the User model or via a simple query
-    # Return placeholder structure — will be backed by real transactions table later
+    txn_stmt = (
+        select(WalletTransaction)
+        .where(WalletTransaction.user_id == user.id)
+        .order_by(WalletTransaction.created_at.desc())
+        .limit(50)
+    )
+    txn_result = await session.execute(txn_stmt)
+    transactions = txn_result.scalars().all()
+
     return {
-        "balance_cents": 0,
-        "transactions": [],
+        "balance_cents": user.wallet_balance_cents,
+        "transactions": [
+            {
+                "id": t.id,
+                "amount_cents": t.amount_cents,
+                "description": t.description,
+                "source": t.source,
+                "created_at": t.created_at.isoformat(),
+            }
+            for t in transactions
+        ],
     }
 
 
@@ -623,15 +819,7 @@ async def scan_receipt(
     then matches them against the user's Pop list to verify swap purchases
     and calculate wallet credits.
     """
-    auth_header = request.headers.get("Authorization", "")
-    user = None
-
-    if auth_header:
-        from dependencies import get_current_session
-        auth_session = await get_current_session(auth_header, session)
-        if auth_session:
-            user = await session.get(User, auth_session.user_id)
-
+    user = await _get_pop_user(request, session)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -648,6 +836,22 @@ async def scan_receipt(
         project = proj_result.scalar_one_or_none()
         if project:
             project_id = project.id
+
+    # Dedup: reject if this exact receipt image was already submitted
+    image_hash = hashlib.sha256(body.image_base64.encode()).hexdigest()
+    dup_stmt = (
+        select(Receipt)
+        .where(Receipt.user_id == user.id)
+        .where(Receipt.image_hash == image_hash)
+    )
+    dup_result = await session.execute(dup_stmt)
+    if dup_result.scalar_one_or_none():
+        return {
+            "status": "duplicate",
+            "message": "Looks like you already submitted this receipt! Credits were applied the first time.",
+            "items": [],
+            "credits_earned_cents": 0,
+        }
 
     # Use Gemini to extract receipt items
     receipt_items = await _extract_receipt_items(body.image_base64)
@@ -707,6 +911,34 @@ async def scan_receipt(
             for item in receipt_items
         ]
 
+    # Persist receipt record (for dedup and audit)
+    receipt_record = Receipt(
+        user_id=user.id,
+        project_id=project_id,
+        image_hash=image_hash,
+        status="processed",
+        credits_earned_cents=credits_cents,
+        items_matched=sum(1 for m in matched if m.get("matched_list_item_id")),
+        raw_items_json=json.dumps(receipt_items),
+    )
+    session.add(receipt_record)
+    await session.flush()  # get receipt_record.id
+
+    # Post credits to wallet if any earned
+    if credits_cents > 0:
+        user.wallet_balance_cents = (user.wallet_balance_cents or 0) + credits_cents
+        session.add(user)
+        txn = WalletTransaction(
+            user_id=user.id,
+            amount_cents=credits_cents,
+            description=f"Receipt scan — {len(receipt_items)} item(s) matched",
+            source="receipt_scan",
+            receipt_id=receipt_record.id,
+        )
+        session.add(txn)
+
+    await session.commit()
+
     return {
         "status": "scanned",
         "message": f"Found {len(receipt_items)} items on your receipt!" + (
@@ -715,6 +947,7 @@ async def scan_receipt(
         "items": matched,
         "credits_earned_cents": credits_cents,
         "total_items": len(receipt_items),
+        "new_balance_cents": user.wallet_balance_cents,
     }
 
 
@@ -724,8 +957,6 @@ async def _extract_receipt_items(image_base64: str) -> List[dict]:
     Returns list of {"name": str, "price": float|None, "is_swap": bool}.
     """
     try:
-        from services.llm import call_gemini
-
         prompt = """Analyze this grocery receipt image. Extract each line item with its name and price.
 
 Return ONLY a JSON array of objects, each with:
@@ -762,10 +993,14 @@ Return ONLY the JSON array, no other text."""
         return []
 
 
+GUEST_EMAIL = "guest@buy-anything.com"
+
+
 class PopChatRequest(BaseModel):
     message: str
     email: Optional[str] = None
     channel: str = "web"
+    guest_project_id: Optional[int] = None  # Guest lists get a real DB project ID
 
 
 @router.post("/chat")
@@ -780,14 +1015,7 @@ async def pop_web_chat(
     Reuses the same NLU + sourcing pipeline as the webhook flow.
     """
     # Resolve user from auth token or provided email
-    auth_header = request.headers.get("Authorization", "")
-    user = None
-
-    if auth_header:
-        from dependencies import get_current_session
-        auth_session = await get_current_session(auth_header, session)
-        if auth_session:
-            user = await session.get(User, auth_session.user_id)
+    user = await _get_pop_user(request, session)
 
     if not user and body.email:
         stmt = select(User).where(User.email == body.email)
@@ -795,25 +1023,48 @@ async def pop_web_chat(
         user = result.scalar_one_or_none()
 
     if not user:
-        # Guest mode — still process but with limited functionality
-        return {"reply": "Hey! I'm Pop, your grocery savings assistant. Sign up at popsavings.com to start building your family shopping list and saving money!", "list_items": [], "project_id": None}
+        # Guest mode — persist to DB under the guest user so the list has a real ID
+        guest_stmt = select(User).where(User.email == GUEST_EMAIL)
+        guest_result = await session.execute(guest_stmt)
+        guest_user = guest_result.scalar_one_or_none()
+        if guest_user:
+            user = guest_user
+        else:
+            return {"reply": "Hey! I'm Pop, your grocery savings assistant. Sign up at popsavings.com to save your list!", "list_items": [], "project_id": None}
+
+    is_guest = (user.email == GUEST_EMAIL)
 
     try:
-        # Find or create the user's Pop project
-        proj_stmt = (
-            select(Project)
-            .where(Project.user_id == user.id)
-            .where(Project.title == "Family Shopping List")
-            .where(Project.status == "active")
-        )
-        proj_result = await session.execute(proj_stmt)
-        project = proj_result.scalar_one_or_none()
+        project = None
 
-        if not project:
-            project = Project(title="Family Shopping List", user_id=user.id)
-            session.add(project)
-            await session.commit()
-            await session.refresh(project)
+        if is_guest:
+            # Guest sessions each get their own project — resume via guest_project_id
+            if body.guest_project_id:
+                project = await session.get(Project, body.guest_project_id)
+                # Safety: only use it if it actually belongs to the guest user
+                if project and project.user_id != user.id:
+                    project = None
+            if not project:
+                project = Project(title="My Shopping List", user_id=user.id)
+                session.add(project)
+                await session.commit()
+                await session.refresh(project)
+        else:
+            # Authenticated users — find or create their personal "Family Shopping List"
+            proj_stmt = (
+                select(Project)
+                .where(Project.user_id == user.id)
+                .where(Project.title == "Family Shopping List")
+                .where(Project.status == "active")
+            )
+            proj_result = await session.execute(proj_stmt)
+            project = proj_result.scalar_one_or_none()
+
+            if not project:
+                project = Project(title="Family Shopping List", user_id=user.id)
+                session.add(project)
+                await session.commit()
+                await session.refresh(project)
 
         await _ensure_project_member(session, project.id, user.id, channel="web")
 
@@ -938,7 +1189,7 @@ async def pop_web_chat(
 def _verify_resend_signature(payload: bytes, signature: str) -> bool:
     """Verify Resend webhook signature using HMAC-SHA256."""
     if not RESEND_WEBHOOK_SECRET:
-        logger.warning("[Bob] RESEND_WEBHOOK_SECRET not set — skipping verification")
+        logger.warning("[Pop] RESEND_WEBHOOK_SECRET not set — skipping verification")
         return True
     expected = hmac.new(
         RESEND_WEBHOOK_SECRET.encode(), payload, hashlib.sha256
@@ -977,7 +1228,7 @@ async def resend_inbound(
     if not sender or not body:
         raise HTTPException(status_code=400, detail="Missing sender or body")
 
-    logger.info(f"[Bob] Resend inbound from {sender}: {subject}")
+    logger.info(f"[Pop] Resend inbound from {sender}: {subject}")
 
     background_tasks.add_task(process_pop_message, sender, body, session, "email", None)
 
@@ -986,7 +1237,7 @@ async def resend_inbound(
 def _verify_twilio_signature(request: Request, form_data: dict) -> bool:
     """Verify Twilio request signature."""
     if not TWILIO_AUTH_TOKEN or TwilioValidator is None:
-        logger.warning("[Bob] Twilio auth token or SDK not available — skipping verification")
+        logger.warning("[Pop] Twilio auth token or SDK not available — skipping verification")
         return True
     validator = TwilioValidator(TWILIO_AUTH_TOKEN)
     signature = request.headers.get("X-Twilio-Signature", "")
@@ -1017,7 +1268,7 @@ async def twilio_inbound(
     if not sender_phone or not body:
         raise HTTPException(status_code=400, detail="Missing From or Body")
 
-    logger.info(f"[Bob] Twilio SMS from {sender_phone}: {body[:80]}")
+    logger.info(f"[Pop] Twilio SMS from {sender_phone}: {body[:80]}")
 
     # Look up user by phone number
     statement = select(User).where(User.phone_number == sender_phone)
@@ -1037,3 +1288,100 @@ async def twilio_inbound(
         content='<?xml version="1.0" encoding="UTF-8"?><Response/>',
         media_type="application/xml",
     )
+
+
+# ---------------------------------------------------------------------------
+# Referral system
+# ---------------------------------------------------------------------------
+
+POP_DOMAIN = os.getenv("POP_DOMAIN", "https://popsavings.com")
+
+
+@router.get("/referral")
+async def get_pop_referral(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Return the authenticated user's referral code and shareable link.
+    Auto-generates a ref_code on first call if one doesn't exist yet.
+    """
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if not user.ref_code:
+        user.ref_code = _gen_ref_code()
+        session.add(user)
+        await session.commit()
+
+    referral_link = f"{POP_DOMAIN}/?ref={user.ref_code}"
+
+    # Count attributed signups
+    ref_stmt = select(Referral).where(Referral.referrer_user_id == user.id)
+    ref_result = await session.execute(ref_stmt)
+    referrals = ref_result.scalars().all()
+
+    return {
+        "ref_code": user.ref_code,
+        "referral_link": referral_link,
+        "total_referrals": len(referrals),
+        "activated_referrals": sum(1 for r in referrals if r.status == "activated"),
+    }
+
+
+@router.post("/referral/signup")
+async def record_referral_signup(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Record that a newly-signed-up user came through a referral link.
+    Called during onboarding when ?ref=CODE is present.
+    Body: { "ref_code": "ABCD1234" }
+    """
+    new_user = await _get_pop_user(request, session)
+    if not new_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    body = await request.json()
+    ref_code = (body.get("ref_code") or "").strip().upper()
+    if not ref_code:
+        raise HTTPException(status_code=400, detail="ref_code required")
+
+    # Find referrer
+    referrer_stmt = select(User).where(User.ref_code == ref_code)
+    referrer_result = await session.execute(referrer_stmt)
+    referrer = referrer_result.scalar_one_or_none()
+
+    if not referrer or referrer.id == new_user.id:
+        raise HTTPException(status_code=404, detail="Invalid referral code")
+
+    # Idempotent — ignore duplicate signup attributions
+    existing_stmt = select(Referral).where(Referral.referred_user_id == new_user.id)
+    existing_result = await session.execute(existing_stmt)
+    if existing_result.scalar_one_or_none():
+        return {"status": "already_attributed"}
+
+    referral = Referral(
+        referrer_user_id=referrer.id,
+        referred_user_id=new_user.id,
+        ref_code=ref_code,
+        status="activated",
+        activated_at=datetime.utcnow(),
+    )
+    session.add(referral)
+
+    # Referral bonus for referrer: $1.00
+    referrer.wallet_balance_cents = (referrer.wallet_balance_cents or 0) + 100
+    session.add(referrer)
+    txn = WalletTransaction(
+        user_id=referrer.id,
+        amount_cents=100,
+        description=f"Referral bonus — friend joined via your link",
+        source="referral_bonus",
+    )
+    session.add(txn)
+    await session.commit()
+
+    return {"status": "attributed", "referrer_id": referrer.id}

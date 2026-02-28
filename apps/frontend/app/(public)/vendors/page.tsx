@@ -124,7 +124,7 @@ export default function VendorsPage() {
             {vendors.map((vendor, idx) => (
               <a
                 key={vendor.slug || vendor.id || idx}
-                href={vendor.id ? `/vendors/${vendor.id}` : '#'}
+                href={vendor.slug ? `/vendors/${vendor.slug}` : '#'}
                 className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col"
               >
                 <div className="flex items-center gap-2 mb-2">

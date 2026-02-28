@@ -174,6 +174,7 @@ class VendorDirectoryProvider(SourcingProvider):
                 rating=None,
                 reviews_count=None,
                 shipping_info=f"Category: {r['category'] or 'General'}" if r["category"] else None,
+                description=r["tagline"] or r["description"] or None,
             ))
 
         logger.info(f"[VendorProvider] Found {len(results)} vendors within distance {DISTANCE_THRESHOLD} (checked {len(rows)} total)")

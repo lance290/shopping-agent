@@ -27,6 +27,8 @@ class SellerRead(BaseModel):
     id: int
     name: str
     domain: Optional[str] = None
+    description: Optional[str] = None
+    tagline: Optional[str] = None
 
 
 class BidRead(BaseModel):
@@ -46,6 +48,7 @@ class BidRead(BaseModel):
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
     seller: Optional[SellerRead] = None
+    provenance: Optional[str] = None
 
 
 class RowReadWithBids(RowBase):
@@ -221,8 +224,7 @@ async def read_rows(
         .options(
             selectinload(Row.bids).options(
                 joinedload(Bid.seller),
-                defer(Bid.source_payload),
-                defer(Bid.provenance)
+                defer(Bid.source_payload)
             )
         )
         .order_by(Row.updated_at.desc())
@@ -248,8 +250,7 @@ async def read_row(
         .options(
             selectinload(Row.bids).options(
                 joinedload(Bid.seller),
-                defer(Bid.source_payload),
-                defer(Bid.provenance)
+                defer(Bid.source_payload)
             )
         )
     )

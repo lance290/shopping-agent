@@ -35,6 +35,12 @@ class Vendor(SQLModel, table=True):
     embedding: Optional[Any] = Field(default=None, sa_column=Column(Vector(1536), nullable=True))
     embedding_model: Optional[str] = None
     embedded_at: Optional[datetime] = None
+    
+    # Programmatic SEO
+    slug: Optional[str] = Field(default=None, index=True)
+    seo_content: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    schema_markup: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    
     # Contact
     contact_name: Optional[str] = None
     # Status & trust
@@ -110,6 +116,9 @@ class Bid(SQLModel, table=True):
     # Like status — stored directly on the bid for reliable persistence
     is_liked: bool = False
     liked_at: Optional[datetime] = None
+
+    # Swap flag — classified by LLM (None=unclassified, True=swap, False=direct match)
+    is_swap: Optional[bool] = Field(default=None, nullable=True)
 
     # Soft delete — superseded bids are hidden from results but never deleted
     is_superseded: bool = False

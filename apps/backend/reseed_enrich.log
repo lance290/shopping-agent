@@ -3707,3 +3707,4 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2026-02-17 02:30:38,930 WARNING LLM extract failed for Webster Bank: Expecting value: line 1 column 1 (char 0)
 2026-02-17 02:30:39,180 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
 2026-02-17 02:30:39,470 INFO    [876/2162] Illinois Tool Works (ITW) — https://www.itw.com
+2026-02-26 15:32:07,240 INFO    [SEED] Parsed 194 vendors from vendor-research.md

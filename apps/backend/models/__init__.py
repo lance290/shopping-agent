@@ -32,6 +32,7 @@ from models.rows import (
     ProjectCreate,
     Project,
     ProjectMember,
+    ProjectInvite,
     Row,
     RequestSpec,
 )
@@ -76,6 +77,14 @@ from models.deals import (
     DealMessage,
 )
 
+# Pop V2 models
+from models.pop import (
+    WalletTransaction,
+    Receipt,
+    Referral,
+    _gen_ref_code,
+)
+
 # Admin models
 from models.admin import (
     BugReport,
@@ -102,6 +111,7 @@ __all__ = [
     "ProjectCreate",
     "Project",
     "ProjectMember",
+    "ProjectInvite",
     "Row",
     "RequestSpec",
     # Bids
@@ -129,6 +139,11 @@ __all__ = [
     # Deal pipeline
     "Deal",
     "DealMessage",
+    # Pop V2
+    "WalletTransaction",
+    "Receipt",
+    "Referral",
+    "_gen_ref_code",
     # Admin
     "BugReport",
     "Notification",

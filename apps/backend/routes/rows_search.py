@@ -133,6 +133,8 @@ def _normalized_to_search_result(res) -> SearchResult:
         shipping_info=res.shipping_info,
         source=res.source,
         match_score=match_score,
+        description=getattr(res, "description", None),
+        matched_features=res.provenance.get("matched_features", []) if res.provenance else [],
     )
 
 

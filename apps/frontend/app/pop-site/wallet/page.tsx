@@ -80,6 +80,13 @@ export default function PopWalletPage() {
 
       const data = await res.json();
       setScanResult(data);
+      if (data.credits_earned_cents > 0 && data.new_balance_cents != null) {
+        setWallet((prev) =>
+          prev
+            ? { ...prev, balance_cents: data.new_balance_cents }
+            : { balance_cents: data.new_balance_cents, transactions: [] }
+        );
+      }
     } catch {
       setScanResult({
         status: 'error',

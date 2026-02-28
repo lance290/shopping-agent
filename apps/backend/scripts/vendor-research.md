@@ -275,3 +275,56 @@
 | Jettly | https://jettly.com/ |  | Uber for private jets; membership |
 | Victor | https://www.flyvictor.com/ |  | On-demand jet charter marketplace |
 | VistaJet | https://www.vistajet.com/ |  | Global business aviation; silver fleet |
+
+## Luxury Villas & Vacation Rentals (Global / High-End)
+
+| Company | Website | Contact | Notes |
+|---|---|---|---|
+| Inspirato | https://www.inspirato.com/ | info@inspirato.com | Luxury destination club & vacation rentals |
+| Onefinestay | https://www.onefinestay.com/ | advisors@onefinestay.com | High-end homes and villas in cities and resort destinations |
+| Exclusive Resorts | https://www.exclusiveresorts.com/ | info@exclusiveresorts.com | Members-only club for luxury villa vacations |
+| The Plum Guide | https://www.plumguide.com/ |  | Vetted luxury vacation rentals in top destinations |
+| Villaway | https://www.villaway.com/ | reservations@villaway.com | Luxury villa rentals across the globe |
+| ThirdHome | https://www.thirdhome.com/ |  | Luxury property exchange and rentals |
+| Le Collectionist | https://www.lecollectionist.com/ |  | High-end villa rentals in Europe and worldwide |
+| Oliver's Travels | https://www.oliverstravels.com/ |  | Luxury villas and chateaux |
+| Villas of Distinction | https://www.villasofdistinction.com/ |  | Global luxury villa rentals and full-service concierge |
+| Abercrombie & Kent Villas | https://www.abercrombiekent.com/villas |  | High-end luxury villas in Europe and worldwide |
+| Nocturne Luxury Villas | https://www.nocturneluxuryvillas.com/ |  | Curated luxury villa rentals |
+| Luxury Retreats | https://www.luxuryretreats.com/ |  | (Now part of Airbnb Luxe, but historical presence for high-end properties) |
+| Eden Rock Villa Rental | https://www.edenrockvillarental.com/ | info@edenrockvillarental.com | Ultra-luxury St Barths villas |
+
+## High-End Cosmetics & Skincare (Global)
+
+| Company | Website | Contact | Notes |
+|---|---|---|---|
+| La Mer | https://www.cremedelamer.com/ |  | Ultra-luxury skincare |
+| La Prairie | https://www.cremedelaprairie.com/ |  | Swiss luxury skincare |
+| Sisley Paris | https://www.sisley-paris.com/ |  | High-end French cosmetics and skincare |
+| Clé de Peau Beauté | https://www.cledepeau-beaute.com/ |  | Luxury Japanese skincare and makeup |
+| Augustinus Bader | https://augustinusbader.com/ |  | Premium science-backed skincare |
+| Valmont | https://www.lamaisonvalmont.com/ |  | Swiss cellular cosmetics |
+| Chantecaille | https://www.chantecaille.com/ |  | Luxury skincare and cosmetics with botanical ingredients |
+| 111SKIN | https://111skin.com/ |  | High-end skincare developed by a plastic surgeon |
+| Biologique Recherche | https://www.biologique-recherche.com/ |  | Cult-favorite luxury skincare (Lotion P50) |
+| Tata Harper | https://chantecaille.com/ |  | Luxury botanical skincare and makeup |
+| Guerlain | https://www.guerlain.com/ |  | Classic luxury French perfume, skincare, makeup |
+| Natura Bissé | https://www.naturabisse.com/ |  | Luxury Spanish skincare |
+| Dr. Barbara Sturm | https://www.drsturm.com/ |  | Molecular cosmetics and high-end skincare |
+
+## Elite Plastic Surgeons (US)
+
+| Company | Website | Contact | Notes |
+|---|---|---|---|
+| Dr. Paul Nassif | https://www.drsturm.com/ |  | Beverly Hills facial plastic surgeon |
+| Dr. Jason Diamond | https://www.jasonbmdiamond.com/ |  | Beverly Hills facial plastic surgeon |
+| Dr. Raj Kanodia | https://www.drkanodia.com/ |  | Beverly Hills rhinoplasty and facial rejuvenation |
+| Dr. Lara Devgan | https://www.drsturm.com/ |  | NYC plastic surgeon |
+| Dr. Andrew Jacono | https://drjacono.com/ |  | Top NYC facial plastic surgeon |
+| Dr. Simon Ourian | https://www.epione.com/ |  | Beverly Hills cosmetic dermatology and surgery |
+| Dr. Julius Few | https://www.facialplasticsurgery.com/ |  | NYC and LA top facial plastic surgeon |
+| Dr. Gabriel Chiu | https://www.epione.com/ |  | Beverly Hills plastic surgeon |
+| Dr. Garth Fisher | https://www.garthfisher.com/ |  | Beverly Hills plastic surgeon |
+| Dr. Kevin Tehrani | https://www.aristocratplasticsurgery.com/ |  | Top NY plastic surgeon |
+| Dr. Chia Chi Kao | https://www.chiakao.com/ |  | Santa Monica plastic surgeon |
+| Dr. Stephen Greenberg | https://www.greenbergcosmeticsurgery.com/ |  | Top NY/Long Island plastic surgeon |
