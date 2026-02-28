@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle2, Link2, LogIn, Pencil, ShoppingBag } from 'lucide-react';
+import { CheckCircle2, Link2, LogIn, LogOut, Pencil, ShoppingBag, User } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
-import { getMe } from '../../utils/auth';
+import { getMe, logout } from '../../utils/auth';
+import type { AuthMeResponse } from '../../utils/auth';
 
 interface RowData {
   id: number;
@@ -23,7 +24,7 @@ export default function ListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [me, setMe] = useState<AuthMeResponse | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [savingTitle, setSavingTitle] = useState(false);
@@ -37,26 +38,25 @@ export default function ListPage() {
   }, []);
 
   useEffect(() => {
-    async function fetchRow() {
+    async function loadData() {
       try {
-        const res = await fetch(`/api/rows?id=${id}`);
-        if (!res.ok) {
+        const [rowRes, meRes] = await Promise.all([
+          fetch(`/api/rows?id=${id}`),
+          getMe(),
+        ]);
+        if (!rowRes.ok) {
           throw new Error('List not found');
         }
-        const data: RowData = await res.json();
+        const data: RowData = await rowRes.json();
         setRow(data);
+        setMe(meRes);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load list');
       } finally {
         setLoading(false);
       }
     }
-    async function checkAuth() {
-      const me = await getMe();
-      setIsAuthenticated(!!me?.authenticated);
-    }
-    fetchRow();
-    checkAuth();
+    loadData();
   }, [id]);
 
   const handleStartEditTitle = () => {
@@ -114,6 +114,14 @@ export default function ListPage() {
     setCopied(true);
     if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
     copyTimeoutRef.current = setTimeout(() => setCopied(false), 2400);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await logout();
+    } finally {
+      window.location.href = '/login';
+    }
   };
 
   if (loading) {
@@ -218,14 +226,30 @@ export default function ListPage() {
           <p className="text-sm text-gray-600 mb-4">
             BuyAnything helps you find the best prices across the internet.
           </p>
-          {isAuthenticated ? (
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
-              <ShoppingBag size={16} />
-              Open My Board
-            </Link>
+          {me?.authenticated ? (
+            <div data-testid="account-section">
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-600 mb-4">
+                <User size={16} className="text-gray-400" />
+                <span data-testid="account-identifier">{me.email || me.phone_number}</span>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link
+                  href="/"
+                  className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                >
+                  <ShoppingBag size={16} />
+                  Open My Board
+                </Link>
+                <button
+                  data-testid="sign-out-btn"
+                  onClick={handleSignOut}
+                  className="inline-flex items-center justify-center gap-2 border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                >
+                  <LogOut size={16} />
+                  Sign Out
+                </button>
+              </div>
+            </div>
           ) : (
             <Link
               href="/login"

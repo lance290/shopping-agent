@@ -18,6 +18,7 @@ vi.mock('next/link', () => ({
 // Mock auth utils
 vi.mock('../../utils/auth', () => ({
   getMe: vi.fn(),
+  logout: vi.fn(),
 }));
 
 const mockRow = {
@@ -50,19 +51,79 @@ describe('ListPage — Login button', () => {
     });
 
     expect(screen.getByTestId('login-btn')).toHaveAttribute('href', '/login');
-    expect(screen.queryByText('Open My Board')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('account-section')).not.toBeInTheDocument();
   });
 
-  it('shows Open My Board button when user is authenticated', async () => {
-    vi.mocked(authUtils.getMe).mockResolvedValue({ authenticated: true, user_id: 1 });
+  it('shows account section with Open My Board and Sign Out when user is authenticated', async () => {
+    vi.mocked(authUtils.getMe).mockResolvedValue({ authenticated: true, user_id: 1, phone_number: '+15551234567' });
 
     render(<ListPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('Open My Board')).toBeInTheDocument();
+      expect(screen.getByTestId('account-section')).toBeInTheDocument();
     });
 
+    expect(screen.getByText('Open My Board')).toBeInTheDocument();
+    expect(screen.getByTestId('sign-out-btn')).toBeInTheDocument();
     expect(screen.queryByTestId('login-btn')).not.toBeInTheDocument();
+  });
+
+  it('displays the user phone or email in the account section', async () => {
+    vi.mocked(authUtils.getMe).mockResolvedValue({ authenticated: true, user_id: 1, phone_number: '+15559876543' });
+
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('account-identifier')).toHaveTextContent('+15559876543');
+    });
+  });
+
+  it('does not show Sign In button while loading (prevents race condition)', async () => {
+    // Simulate slow auth check
+    let resolveMe!: (v: authUtils.AuthMeResponse) => void;
+    const mePromise = new Promise<authUtils.AuthMeResponse>((res) => { resolveMe = res; });
+    vi.mocked(authUtils.getMe).mockReturnValue(mePromise);
+
+    render(<ListPage />);
+
+    // While loading, neither Sign In nor account section should appear
+    expect(screen.queryByTestId('login-btn')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('account-section')).not.toBeInTheDocument();
+
+    // Resolve auth — now the account section should appear
+    resolveMe({ authenticated: true, user_id: 1 });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('account-section')).toBeInTheDocument();
+    });
+  });
+
+  it('calls logout and redirects to /login when Sign Out is clicked', async () => {
+    vi.mocked(authUtils.getMe).mockResolvedValue({ authenticated: true, user_id: 1 });
+    vi.mocked(authUtils.logout).mockResolvedValue(undefined);
+
+    // Mock window.location
+    const originalLocation = window.location;
+    Object.defineProperty(window, 'location', {
+      value: { href: '' },
+      writable: true,
+      configurable: true,
+    });
+
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sign-out-btn')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('sign-out-btn'));
+
+    await waitFor(() => {
+      expect(authUtils.logout).toHaveBeenCalled();
+      expect(window.location.href).toBe('/login');
+    });
+
+    Object.defineProperty(window, 'location', { value: originalLocation, configurable: true });
   });
 });
 
