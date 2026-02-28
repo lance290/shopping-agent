@@ -146,7 +146,7 @@ export default function Home() {
   // Mobile layout: tabbed chat/board with bottom nav
   if (isMobile) {
     return (
-      <main className="flex flex-col h-screen w-full bg-transparent text-onyx overflow-hidden font-sans selection:bg-agent-blurple/15 selection:text-agent-blurple">
+      <main className="flex flex-col h-[100dvh] w-full bg-transparent text-onyx overflow-hidden font-sans selection:bg-agent-blurple/15 selection:text-agent-blurple">
         <div className="flex-1 min-h-0 overflow-hidden">
           {mobilePane === 'chat' ? <Chat /> : <ProcurementBoard />}
         </div>

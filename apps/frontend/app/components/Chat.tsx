@@ -47,6 +47,11 @@ export default function Chat() {
   }, []);
 
   useEffect(() => {
+    // Auto-focus the input on mount so the keyboard appears on mobile
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
     // Handle "New Request" - clear the chat when activeRowId becomes null
     if (store.activeRowId === null) {
       setMessages([]);
