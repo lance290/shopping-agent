@@ -7,12 +7,22 @@ import { CheckCircle2, Link2, LogIn, Pencil, ShoppingBag } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { getMe } from '../../utils/auth';
 
+interface BidItem {
+  id: number;
+  item_title: string;
+  price: number | null;
+  currency: string;
+  image_url: string | null;
+  item_url: string | null;
+}
+
 interface RowData {
   id: number;
   title: string;
   status: string;
   budget_max: number | null;
   currency: string;
+  bids?: BidItem[];
 }
 
 export default function ListPage() {
@@ -27,6 +37,8 @@ export default function ListPage() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [savingTitle, setSavingTitle] = useState(false);
+  const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
+  const [isDoneShopping, setIsDoneShopping] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -116,6 +128,23 @@ export default function ListPage() {
     copyTimeoutRef.current = setTimeout(() => setCopied(false), 2400);
   };
 
+  const handleToggleItem = (bidId: number) => {
+    setCheckedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(bidId)) {
+        next.delete(bidId);
+      } else {
+        next.add(bidId);
+      }
+      return next;
+    });
+  };
+
+  const handleDoneShopping = () => {
+    // Mark session as done — items remain visible so the shopper can review what they got.
+    setIsDoneShopping(true);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -142,6 +171,8 @@ export default function ListPage() {
       </div>
     );
   }
+
+  const bids = row.bids ?? [];
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -206,11 +237,68 @@ export default function ListPage() {
             </div>
           )}
 
-          <div className="border-t border-gray-100 pt-4">
-            <p className="text-sm text-gray-500">
-              Share this list with family and friends so they can view and shop together.
-            </p>
-          </div>
+          {/* Shopping items checklist */}
+          {bids.length > 0 && (
+            <div className="border-t border-gray-100 pt-4">
+              {isDoneShopping && (
+                <div
+                  data-testid="done-shopping-banner"
+                  className="flex items-center gap-2 mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm font-medium"
+                >
+                  <CheckCircle2 size={16} className="shrink-0" />
+                  Happy shopping! Here&apos;s everything on the list.
+                </div>
+              )}
+              <ul data-testid="items-list" className="space-y-2 mb-4">
+                {bids.map((bid) => {
+                  const isChecked = checkedItems.has(bid.id);
+                  return (
+                    <li key={bid.id}>
+                      <label
+                        data-testid={`item-${bid.id}`}
+                        className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          data-testid={`item-checkbox-${bid.id}`}
+                          checked={isChecked}
+                          onChange={() => handleToggleItem(bid.id)}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className={`flex-1 text-sm font-medium ${isChecked ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                          {bid.item_title}
+                        </span>
+                        {bid.price != null && (
+                          <span className="text-sm text-gray-500 shrink-0">
+                            ${Number(bid.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        )}
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+              {!isDoneShopping && (
+                <Button
+                  data-testid="done-shopping-btn"
+                  variant="primary"
+                  size="md"
+                  onClick={handleDoneShopping}
+                  className="w-full"
+                >
+                  Done Shopping
+                </Button>
+              )}
+            </div>
+          )}
+
+          {bids.length === 0 && (
+            <div className="border-t border-gray-100 pt-4">
+              <p className="text-sm text-gray-500">
+                Share this list with family and friends so they can view and shop together.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow-lg p-6 text-center">
