@@ -193,8 +193,8 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     if (sortMode === 'original') return list;
 
     const byPrice = [...list].sort((a, b) => {
-      const ap = Number.isFinite(a.price) ? a.price : Number.POSITIVE_INFINITY;
-      const bp = Number.isFinite(b.price) ? b.price : Number.POSITIVE_INFINITY;
+      const ap = Number.isFinite(a.price) ? (a.price as number) : Number.POSITIVE_INFINITY;
+      const bp = Number.isFinite(b.price) ? (b.price as number) : Number.POSITIVE_INFINITY;
       return ap - bp;
     });
     return sortMode === 'price_desc' ? byPrice.reverse() : byPrice;
@@ -362,38 +362,13 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   };
 
   const handleCopySearchLink = async () => {
+    if (typeof window === 'undefined') return;
+    const shareUrl = `${window.location.origin}/list/${row.id}`;
     try {
-      if (typeof window === 'undefined') return;
-
-      // Try creating a backend share link for the row
-      const res = await fetch('/api/shares', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('session_token') || ''}`,
-        },
-        body: JSON.stringify({ resource_type: 'row', resource_id: row.id }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const shareUrl = `${window.location.origin}/share/${data.token}`;
-        await navigator.clipboard.writeText(shareUrl);
-        onToast?.('Share link copied!', 'success');
-        return;
-      }
-
-      // Fallback: copy search query URL
-      const url = new URL(window.location.origin);
-      url.searchParams.set('q', row.title);
-      if (navigator?.clipboard) {
-        await navigator.clipboard.writeText(url.toString());
-        onToast?.('Search link copied to clipboard.', 'success');
-        return;
-      }
-
-      onToast?.('Could not copy link.', 'error');
+      await navigator.clipboard.writeText(shareUrl);
+      onToast?.('Link copied! Share it with family.', 'success');
     } catch (err) {
-      console.error('[RowStrip] Failed to copy search link:', err);
+      console.error('[RowStrip] Failed to copy link:', err);
       onToast?.('Failed to copy link.', 'error');
     }
   };
@@ -451,7 +426,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
               handleCopySearchLink();
             }}
             className="h-8 w-8 p-0 rounded-lg border border-warm-grey/60 text-onyx-muted hover:text-onyx"
-            title="Copy search link"
+            title="Share with Family (copy link)"
           >
             <Link2 size={14} />
           </Button>
