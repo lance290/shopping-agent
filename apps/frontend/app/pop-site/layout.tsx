@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { BrandProvider } from '../utils/brand';
+import ReportBugModal from '../components/ReportBugModal';
+import PopBugReporterTrigger from './components/PopBugReporterTrigger';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,5 +19,11 @@ export const metadata: Metadata = {
 };
 
 export default function PopLayout({ children }: { children: React.ReactNode }) {
-  return <BrandProvider brand="pop">{children}</BrandProvider>;
+  return (
+    <BrandProvider brand="pop">
+      {children}
+      <ReportBugModal />
+      <PopBugReporterTrigger />
+    </BrandProvider>
+  );
 }
