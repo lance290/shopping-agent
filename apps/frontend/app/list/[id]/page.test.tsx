@@ -147,6 +147,68 @@ describe('ListPage — Share with Family', () => {
     });
   });
 
+  it('shows "Copy failed" feedback when clipboard write fails with a non-AbortError and execCommand also fails', async () => {
+    clipboardWriteText.mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError'));
+    // execCommand is absent in jsdom — success stays false → "Copy failed" is shown
+    Object.defineProperty(document, 'execCommand', {
+      value: vi.fn().mockReturnValue(false),
+      writable: true,
+      configurable: true,
+    });
+
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('share-with-family-btn')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('share-with-family-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Copy failed')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Copied!')).not.toBeInTheDocument();
+  });
+
+  it('shows "Copied!" when clipboard fails but execCommand succeeds', async () => {
+    clipboardWriteText.mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError'));
+    Object.defineProperty(document, 'execCommand', {
+      value: vi.fn().mockReturnValue(true),
+      writable: true,
+      configurable: true,
+    });
+
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('share-with-family-btn')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('share-with-family-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Copied!')).toBeInTheDocument();
+    });
+  });
+
+  it('does nothing (no Copied!, no Copy failed) when clipboard throws AbortError', async () => {
+    clipboardWriteText.mockRejectedValue(new DOMException('Share canceled', 'AbortError'));
+
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('share-with-family-btn')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('share-with-family-btn'));
+
+    // Neither success nor failure feedback should appear — AbortError is silenced
+    await new Promise((r) => setTimeout(r, 100));
+    expect(screen.queryByText('Copied!')).not.toBeInTheDocument();
+    expect(screen.queryByText('Copy failed')).not.toBeInTheDocument();
+  });
+
   it('shows an error state when the list is not found', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
