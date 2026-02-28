@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+
+const LS_ITEMS_KEY = 'pop_guest_list_items';
 
 interface Message {
   id: string;
@@ -29,8 +31,12 @@ export default function PopChatPage() {
   const [listItems, setListItems] = useState<ListItem[]>([]);
   const [projectId, setProjectId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -40,16 +46,54 @@ export default function PopChatPage() {
     inputRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    if (editingId !== null) editInputRef.current?.focus();
+  }, [editingId]);
+
+  // On mount: try to load list from DB (logged-in) or localStorage (guest)
+  useEffect(() => {
+    async function loadInitialList() {
+      try {
+        const res = await fetch('/api/pop/my-list');
+        if (res.ok) {
+          const data = await res.json();
+          setIsLoggedIn(true);
+          if (data.project_id) {
+            setProjectId(data.project_id);
+            if (data.items?.length > 0) setListItems(data.items);
+          }
+          return;
+        }
+      } catch {
+        // not logged in — fall through to localStorage
+      }
+      // Guest: restore from localStorage
+      try {
+        const raw = localStorage.getItem(LS_ITEMS_KEY);
+        if (raw) {
+          const saved: ListItem[] = JSON.parse(raw);
+          if (saved.length > 0) setListItems(saved);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    loadInitialList();
+  }, []);
+
+  // Persist guest items to localStorage whenever they change
+  useEffect(() => {
+    if (!isLoggedIn && listItems.length > 0) {
+      localStorage.setItem(LS_ITEMS_KEY, JSON.stringify(listItems));
+    }
+  }, [listItems, isLoggedIn]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
     if (!text || isLoading) return;
 
-    const userMsg: Message = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: text,
-    };
+    const userMsg: Message = { id: `user-${Date.now()}`, role: 'user', content: text };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
@@ -62,33 +106,60 @@ export default function PopChatPage() {
       });
       const data = await res.json();
 
-      const assistantMsg: Message = {
-        id: `asst-${Date.now()}`,
-        role: 'assistant',
-        content: data.reply || 'Got it!',
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
+      setMessages((prev) => [
+        ...prev,
+        { id: `asst-${Date.now()}`, role: 'assistant', content: data.reply || 'Got it!' },
+      ]);
 
-      if (data.list_items?.length > 0) {
-        setListItems(data.list_items);
-      }
-      if (data.project_id) {
-        setProjectId(data.project_id);
-      }
+      if (data.list_items?.length > 0) setListItems(data.list_items);
+      if (data.project_id) setProjectId(data.project_id);
     } catch {
       setMessages((prev) => [
         ...prev,
-        {
-          id: `err-${Date.now()}`,
-          role: 'assistant',
-          content: 'Oops, something went wrong. Try again!',
-        },
+        { id: `err-${Date.now()}`, role: 'assistant', content: 'Oops, something went wrong. Try again!' },
       ]);
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();
     }
   };
+
+  const handleDeleteItem = useCallback(async (item: ListItem) => {
+    if (isLoggedIn) {
+      await fetch(`/api/pop/item/${item.id}`, { method: 'DELETE' });
+    }
+    setListItems((prev) => {
+      const next = prev.filter((i) => i.id !== item.id);
+      if (!isLoggedIn) localStorage.setItem(LS_ITEMS_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, [isLoggedIn]);
+
+  const startEdit = (item: ListItem) => {
+    setEditingId(item.id);
+    setEditValue(item.title);
+  };
+
+  const commitEdit = useCallback(async (item: ListItem) => {
+    const newTitle = editValue.trim();
+    if (!newTitle || newTitle === item.title) {
+      setEditingId(null);
+      return;
+    }
+    if (isLoggedIn) {
+      await fetch(`/api/pop/item/${item.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle }),
+      });
+    }
+    setListItems((prev) => {
+      const next = prev.map((i) => (i.id === item.id ? { ...i, title: newTitle } : i));
+      if (!isLoggedIn) localStorage.setItem(LS_ITEMS_KEY, JSON.stringify(next));
+      return next;
+    });
+    setEditingId(null);
+  }, [editValue, isLoggedIn]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -112,7 +183,7 @@ export default function PopChatPage() {
               href="/login"
               className="text-sm text-gray-500 hover:text-green-700 transition-colors"
             >
-              Sign In
+              {isLoggedIn ? 'My Account' : 'Sign In'}
             </Link>
           </div>
         </div>
@@ -121,7 +192,6 @@ export default function PopChatPage() {
       <div className="flex-1 flex flex-col lg:flex-row max-w-6xl mx-auto w-full">
         {/* Chat Panel */}
         <div className="flex-1 flex flex-col min-h-0">
-          {/* Messages */}
           <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
             {messages.map((msg) => (
               <div
@@ -133,9 +203,7 @@ export default function PopChatPage() {
                 )}
                 <div
                   className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                    msg.role === 'user'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-100 text-gray-900'
+                    msg.role === 'user' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-900'
                   }`}
                 >
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
@@ -157,7 +225,6 @@ export default function PopChatPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
           <div className="border-t border-gray-100 bg-white p-4">
             <form onSubmit={handleSubmit} className="flex gap-3 max-w-2xl mx-auto">
               <input
@@ -183,7 +250,7 @@ export default function PopChatPage() {
           </div>
         </div>
 
-        {/* List Sidebar (visible when items exist) */}
+        {/* List Sidebar */}
         {listItems.length > 0 && (
           <div className="lg:w-80 border-t lg:border-t-0 lg:border-l border-gray-100 bg-gray-50/50 p-4 overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
@@ -203,27 +270,49 @@ export default function PopChatPage() {
               {listItems.map((item) => (
                 <li
                   key={item.id}
-                  className="flex items-center gap-3 bg-white rounded-xl px-3 py-2.5 shadow-sm"
+                  className="group flex items-center gap-2 bg-white rounded-xl px-3 py-2.5 shadow-sm"
                 >
-                  <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                      item.status === 'bought'
-                        ? 'bg-green-500 border-green-500'
-                        : 'border-gray-300'
-                    }`}
+                  <div className="w-5 h-5 rounded-full border-2 border-gray-300 flex-shrink-0" />
+
+                  {editingId === item.id ? (
+                    <input
+                      ref={editInputRef}
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={() => commitEdit(item)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') commitEdit(item);
+                        if (e.key === 'Escape') setEditingId(null);
+                      }}
+                      className="flex-1 text-sm text-gray-900 border-b border-green-400 outline-none bg-transparent"
+                    />
+                  ) : (
+                    <span
+                      className="flex-1 text-sm text-gray-900 cursor-pointer hover:text-green-700 truncate"
+                      onClick={() => startEdit(item)}
+                      title="Click to rename"
+                    >
+                      {item.title}
+                    </span>
+                  )}
+
+                  <button
+                    onClick={() => handleDeleteItem(item)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-300 hover:text-red-400 flex-shrink-0"
+                    title="Remove item"
                   >
-                    {item.status === 'bought' && (
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                  <span className={`text-sm ${item.status === 'bought' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                    {item.title}
-                  </span>
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </li>
               ))}
             </ul>
+            {!isLoggedIn && (
+              <p className="mt-3 text-xs text-gray-400 text-center">
+                <Link href="/login" className="text-green-600 hover:underline">Sign in</Link> to save your list permanently
+              </p>
+            )}
           </div>
         )}
       </div>

@@ -13,6 +13,7 @@ import logging
 
 from database import get_session
 from models.rows import Row, Project, ProjectMember
+from models.bids import Bid
 from models.auth import User
 from services.llm import make_unified_decision, make_pop_decision, ChatContext, generate_choice_factors
 from services.email import EmailResult, RESEND_API_KEY, FROM_EMAIL, FROM_NAME, _maybe_intercept
@@ -391,8 +392,6 @@ async def get_pop_list(
     Fetch the family shopping list for the Pop list view.
     Returns project info + rows with their bids.
     """
-    from models.rows import Bid
-
     project = await session.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="List not found")
@@ -474,6 +473,111 @@ async def get_pop_list(
         "title": project.title,
         "items": items,
     }
+
+
+@router.get("/my-list")
+async def get_my_pop_list(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Return the current user's active Family Shopping List project + items.
+    Used on page load to restore list state without knowing the project_id upfront.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    user = None
+    if auth_header:
+        from dependencies import get_current_session
+        auth_session = await get_current_session(auth_header, session)
+        if auth_session:
+            user = await session.get(User, auth_session.user_id)
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    proj_stmt = (
+        select(Project)
+        .where(Project.user_id == user.id)
+        .where(Project.title == "Family Shopping List")
+        .where(Project.status == "active")
+    )
+    proj_result = await session.execute(proj_stmt)
+    project = proj_result.scalar_one_or_none()
+
+    if not project:
+        return {"project_id": None, "title": "Family Shopping List", "items": []}
+
+    rows_stmt = (
+        select(Row)
+        .where(Row.project_id == project.id)
+        .where(Row.status.in_(["sourcing", "active", "pending"]))
+        .order_by(Row.created_at.asc())
+        .limit(50)
+    )
+    rows_result = await session.execute(rows_stmt)
+    rows = rows_result.scalars().all()
+
+    items = [{"id": r.id, "title": r.title, "status": r.status} for r in rows]
+    return {"project_id": project.id, "title": project.title, "items": items}
+
+
+class PatchItemRequest(BaseModel):
+    title: str
+
+
+@router.patch("/item/{row_id}")
+async def patch_pop_item(
+    row_id: int,
+    body: PatchItemRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Rename a list item."""
+    auth_header = request.headers.get("Authorization", "")
+    user = None
+    if auth_header:
+        from dependencies import get_current_session
+        auth_session = await get_current_session(auth_header, session)
+        if auth_session:
+            user = await session.get(User, auth_session.user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    row = await session.get(Row, row_id)
+    if not row or row.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    row.title = body.title.strip()
+    row.updated_at = datetime.utcnow()
+    session.add(row)
+    await session.commit()
+    return {"id": row.id, "title": row.title, "status": row.status}
+
+
+@router.delete("/item/{row_id}")
+async def delete_pop_item(
+    row_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Remove a list item."""
+    auth_header = request.headers.get("Authorization", "")
+    user = None
+    if auth_header:
+        from dependencies import get_current_session
+        auth_session = await get_current_session(auth_header, session)
+        if auth_session:
+            user = await session.get(User, auth_session.user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    row = await session.get(Row, row_id)
+    if not row or row.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    await session.delete(row)
+    await session.commit()
+    return {"deleted": True}
 
 
 @router.get("/wallet")

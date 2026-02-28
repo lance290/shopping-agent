@@ -55,13 +55,25 @@ async def session_fixture():
         poolclass=NullPool,
     )
 
+    # Check pgvector availability in its own autocommit connection.
+    # If unavailable, skip DB-dependent tests rather than failing with a schema error.
+    autocommit_engine = create_async_engine(
+        test_url, echo=False, future=True, poolclass=NullPool,
+        execution_options={"isolation_level": "AUTOCOMMIT"},
+    )
+    async with autocommit_engine.connect() as conn:
+        try:
+            await conn.execute(sqlalchemy.text("CREATE EXTENSION IF NOT EXISTS vector"))
+        except Exception:
+            await autocommit_engine.dispose()
+            pytest.skip("pgvector not installed locally — skipping DB tests")
+    await autocommit_engine.dispose()
+
     # Re-init DB on the test engine to ensure schema
     # Use raw DROP/CREATE SCHEMA to handle FK dependencies cleanly
     async with test_engine.begin() as conn:
         await conn.execute(sqlalchemy.text("DROP SCHEMA public CASCADE"))
         await conn.execute(sqlalchemy.text("CREATE SCHEMA public"))
-        # Enable pgvector extension (required for Vendor.embedding column)
-        await conn.execute(sqlalchemy.text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(SQLModel.metadata.create_all)
 
     async_session = sessionmaker(
