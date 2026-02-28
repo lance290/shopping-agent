@@ -37,6 +37,7 @@ export default function PopChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
+  const isCommittingRef = useRef(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -64,8 +65,11 @@ export default function PopChatPage() {
           }
           return;
         }
+        // Only fall through to localStorage when explicitly not authenticated.
+        // Any other error (500, 503) should not silently drop to guest mode.
+        if (res.status !== 401) return;
       } catch {
-        // not logged in — fall through to localStorage
+        // Network error — stay in guest mode
       }
       // Guest: restore from localStorage
       try {
@@ -141,24 +145,30 @@ export default function PopChatPage() {
   };
 
   const commitEdit = useCallback(async (item: ListItem) => {
+    if (isCommittingRef.current) return;
     const newTitle = editValue.trim();
     if (!newTitle || newTitle === item.title) {
       setEditingId(null);
       return;
     }
-    if (isLoggedIn) {
-      await fetch(`/api/pop/item/${item.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTitle }),
-      });
-    }
-    setListItems((prev) => {
-      const next = prev.map((i) => (i.id === item.id ? { ...i, title: newTitle } : i));
-      if (!isLoggedIn) localStorage.setItem(LS_ITEMS_KEY, JSON.stringify(next));
-      return next;
-    });
+    isCommittingRef.current = true;
     setEditingId(null);
+    try {
+      if (isLoggedIn) {
+        await fetch(`/api/pop/item/${item.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: newTitle }),
+        });
+      }
+      setListItems((prev) => {
+        const next = prev.map((i) => (i.id === item.id ? { ...i, title: newTitle } : i));
+        if (!isLoggedIn) localStorage.setItem(LS_ITEMS_KEY, JSON.stringify(next));
+        return next;
+      });
+    } finally {
+      isCommittingRef.current = false;
+    }
   }, [editValue, isLoggedIn]);
 
   return (

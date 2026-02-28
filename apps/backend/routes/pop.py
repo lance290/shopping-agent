@@ -34,6 +34,18 @@ except ModuleNotFoundError:  # pragma: no cover
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/pop", tags=["pop-chatbot"])
 
+
+async def _get_pop_user(request: Request, session: AsyncSession) -> Optional[User]:
+    """Resolve the current user from a Bearer token, or return None."""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header:
+        return None
+    from dependencies import get_current_session
+    auth_session = await get_current_session(auth_header, session)
+    if not auth_session:
+        return None
+    return await session.get(User, auth_session.user_id)
+
 POP_FROM_EMAIL = os.getenv("POP_FROM_EMAIL", "pop@popsavings.com")
 POP_DOMAIN = os.getenv("POP_DOMAIN", "https://popsavings.com")
 RESEND_WEBHOOK_SECRET = os.getenv("RESEND_WEBHOOK_SECRET", "")
@@ -484,14 +496,7 @@ async def get_my_pop_list(
     Return the current user's active Family Shopping List project + items.
     Used on page load to restore list state without knowing the project_id upfront.
     """
-    auth_header = request.headers.get("Authorization", "")
-    user = None
-    if auth_header:
-        from dependencies import get_current_session
-        auth_session = await get_current_session(auth_header, session)
-        if auth_session:
-            user = await session.get(User, auth_session.user_id)
-
+    user = await _get_pop_user(request, session)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -533,13 +538,7 @@ async def patch_pop_item(
     session: AsyncSession = Depends(get_session),
 ):
     """Rename a list item."""
-    auth_header = request.headers.get("Authorization", "")
-    user = None
-    if auth_header:
-        from dependencies import get_current_session
-        auth_session = await get_current_session(auth_header, session)
-        if auth_session:
-            user = await session.get(User, auth_session.user_id)
+    user = await _get_pop_user(request, session)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -560,14 +559,8 @@ async def delete_pop_item(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ):
-    """Remove a list item."""
-    auth_header = request.headers.get("Authorization", "")
-    user = None
-    if auth_header:
-        from dependencies import get_current_session
-        auth_session = await get_current_session(auth_header, session)
-        if auth_session:
-            user = await session.get(User, auth_session.user_id)
+    """Remove a list item (soft-delete to avoid FK constraint on bids)."""
+    user = await _get_pop_user(request, session)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -575,7 +568,9 @@ async def delete_pop_item(
     if not row or row.user_id != user.id:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    await session.delete(row)
+    row.status = "canceled"
+    row.updated_at = datetime.utcnow()
+    session.add(row)
     await session.commit()
     return {"deleted": True}
 
