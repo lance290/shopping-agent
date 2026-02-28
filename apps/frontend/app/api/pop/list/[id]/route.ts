@@ -11,7 +11,7 @@ export async function GET(
   const headers: Record<string, string> = {};
   if (auth) headers['Authorization'] = auth;
 
-  const response = await fetch(`${BACKEND_URL}/bob/list/${id}`, { headers });
+  const response = await fetch(`${BACKEND_URL}/pop/list/${id}`, { headers });
 
   if (!response.ok) {
     return NextResponse.json(

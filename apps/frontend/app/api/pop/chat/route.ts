@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     };
     if (auth) headers['Authorization'] = auth;
 
-    const url = `${BACKEND_URL}/bob/chat`;
+    const url = `${BACKEND_URL}/pop/chat`;
     console.log(`[pop/chat] POST ${url}`);
 
     const response = await fetch(url, {

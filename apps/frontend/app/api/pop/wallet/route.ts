@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const headers: Record<string, string> = { Authorization: auth };
 
   try {
-    const response = await fetch(`${BACKEND_URL}/bob/wallet`, { headers });
+    const response = await fetch(`${BACKEND_URL}/pop/wallet`, { headers });
     if (!response.ok) {
       return NextResponse.json({ balance_cents: 0, transactions: [] });
     }

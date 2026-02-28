@@ -49,7 +49,7 @@ from routes.outreach_campaigns import router as outreach_campaigns_router
 from routes.public_search import router as public_search_router
 from routes.public_vendors import router as public_vendors_router
 from routes.deals import router as deals_router
-from routes.bob import router as bob_router
+from routes.pop import router as pop_router
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
@@ -160,7 +160,7 @@ app.include_router(outreach_campaigns_router)
 app.include_router(public_search_router)
 app.include_router(public_vendors_router)
 app.include_router(deals_router)
-app.include_router(bob_router)
+app.include_router(pop_router)
 
 # Lazy init sourcing repository
 _sourcing_repo = None

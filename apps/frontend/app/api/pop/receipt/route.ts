@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
 
   try {
-    const response = await fetch(`${BACKEND_URL}/bob/receipt/scan`, {
+    const response = await fetch(`${BACKEND_URL}/pop/receipt/scan`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
