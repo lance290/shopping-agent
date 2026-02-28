@@ -212,6 +212,9 @@ async def resend_inbound_webhook(
     logger.info(f"[ResendWebhook] Event type: {event_type}, keys: {list(payload.keys())}")
     if "data" in payload:
         logger.info(f"[ResendWebhook] data keys: {list(data.keys())}")
+        # Log full data for debugging (truncate long values)
+        debug_data = {k: (str(v)[:200] if isinstance(v, str) else v) for k, v in data.items()}
+        logger.info(f"[ResendWebhook] data contents: {debug_data}")
 
     from_email = data.get("from", "")
     email_id = data.get("email_id")  # needed to fetch body via API
@@ -235,16 +238,17 @@ async def resend_inbound_webhook(
     resend_msg_id = data.get("message_id") or email_id
     attachments_raw = data.get("attachments", [])
     
-    # Resend webhooks do NOT include the email body — fetch it via the API
-    text_body = ""
-    html_body = None
-    if email_id:
+    # Try to get body from webhook payload first (some Resend plans include it)
+    text_body = data.get("text", "") or ""
+    html_body = data.get("html")
+    
+    # If no body in webhook, try fetching via Resend received emails API
+    if not text_body and not html_body and email_id:
         try:
             import httpx
             resend_api_key = os.environ.get("RESEND_API_KEY", "")
             if resend_api_key:
                 async with httpx.AsyncClient() as client:
-                    # Resend received emails API: /emails/received/{id}
                     resp = await client.get(
                         f"https://api.resend.com/emails/received/{email_id}",
                         headers={"Authorization": f"Bearer {resend_api_key}"},
@@ -252,15 +256,15 @@ async def resend_inbound_webhook(
                     )
                     if resp.status_code == 200:
                         email_data = resp.json()
-                        text_body = email_data.get("text", "")
+                        text_body = email_data.get("text", "") or ""
                         html_body = email_data.get("html")
                         logger.info(f"[ResendWebhook] Fetched email body for {email_id}, text_len={len(text_body or '')}")
                     else:
-                        logger.warning(f"[ResendWebhook] Failed to fetch email {email_id}: {resp.status_code}")
-            else:
-                logger.warning("[ResendWebhook] RESEND_API_KEY not set, cannot fetch email body")
+                        logger.warning(f"[ResendWebhook] Received emails API returned {resp.status_code} for {email_id} — body not available")
         except Exception as e:
             logger.error(f"[ResendWebhook] Error fetching email body: {e}")
+    
+    logger.info(f"[ResendWebhook] Body status: text_len={len(text_body)}, html={'yes' if html_body else 'no'}")
 
     # Extract the sender's actual email from "Name <email>" format
     import re
