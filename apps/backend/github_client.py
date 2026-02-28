@@ -4,16 +4,21 @@ import asyncio
 import logging
 from typing import Optional, List, Dict, Any
 
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GITHUB_REPO = os.getenv("GITHUB_REPO")  # format: "owner/repo"
-
 logger = logging.getLogger("github_client")
 
 class GitHubClient:
     def __init__(self, token: Optional[str] = None, repo: Optional[str] = None):
-        self.token = token or GITHUB_TOKEN
-        self.repo = repo or GITHUB_REPO
+        self._token_override = token
+        self._repo_override = repo
         self.base_url = "https://api.github.com"
+
+    @property
+    def token(self) -> Optional[str]:
+        return self._token_override or os.getenv("GITHUB_TOKEN")
+
+    @property
+    def repo(self) -> Optional[str]:
+        return self._repo_override or os.getenv("GITHUB_REPO")
 
     def _get_headers(self) -> Dict[str, str]:
         return {
