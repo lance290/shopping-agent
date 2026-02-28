@@ -20,6 +20,19 @@ body {
     color: currentColor;
     opacity: 0.45;
   }
+
+  /* Fix: iOS WebKit autofill overrides input text with its own color,
+     making typed text appear inactive/grayed-out (bug #122).
+     -webkit-text-fill-color: currentColor preserves our explicit color value,
+     and the long background-color transition prevents the autofill highlight
+     from flashing in before our styles take effect. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-text-fill-color: currentColor;
+    transition: background-color 5000s ease-in-out 0s;
+  }
 }
 
 @layer components {
