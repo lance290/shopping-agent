@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle2, Link2, Pencil, ShoppingBag } from 'lucide-react';
+import { CheckCircle2, Link2, LogIn, Pencil, ShoppingBag } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { getMe } from '../../utils/auth';
 
 interface RowData {
   id: number;
@@ -22,6 +23,7 @@ export default function ListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [savingTitle, setSavingTitle] = useState(false);
@@ -49,7 +51,12 @@ export default function ListPage() {
         setLoading(false);
       }
     }
+    async function checkAuth() {
+      const me = await getMe();
+      setIsAuthenticated(!!me?.authenticated);
+    }
     fetchRow();
+    checkAuth();
   }, [id]);
 
   const handleStartEditTitle = () => {
@@ -211,13 +218,24 @@ export default function ListPage() {
           <p className="text-sm text-gray-600 mb-4">
             BuyAnything helps you find the best prices across the internet.
           </p>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-          >
-            <ShoppingBag size={16} />
-            Open My Board
-          </Link>
+          {isAuthenticated ? (
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            >
+              <ShoppingBag size={16} />
+              Open My Board
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              data-testid="login-btn"
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            >
+              <LogIn size={16} />
+              Sign In
+            </Link>
+          )}
         </div>
       </div>
     </div>
