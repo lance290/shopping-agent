@@ -239,6 +239,14 @@ class UnifiedDecision(BaseModel):
         return self.desire_tier in ("service", "bespoke", "high_value", "advisory")
 
 
+class PopItem(BaseModel):
+    intent: UserIntent
+    action: Dict[str, Any]
+
+class PopDecision(BaseModel):
+    message: str
+    items: List[PopItem]
+
 class ChatContext(BaseModel):
     user_message: str
     conversation_history: List[Dict[str, str]]
@@ -410,10 +418,11 @@ Return ONLY valid JSON:
 # POP NLU DECISION (Grocery / Family context)
 # =============================================================================
 
-async def make_pop_decision(ctx: ChatContext) -> UnifiedDecision:
+async def make_pop_decision(ctx: ChatContext) -> PopDecision:
     """
     Dedicated LLM call for Pop (popsavings.com).
     Uses the "Friendly 60s Dad" persona and focuses on grocery lists, swaps, and family savings.
+    Can extract multiple independent grocery items from a single message.
     """
     active_row_json = json.dumps({
         "id": ctx.active_row["id"],
@@ -443,51 +452,64 @@ INPUTS:
 {recent_text}
 
 YOUR JOB: 
-1. UNDERSTAND what the user wants to add to their grocery list or do.
-2. Decide what action to take (usually creating or updating a list item).
-3. Return JSON with BOTH intent and action, including your Dad-persona message to the user.
+1. UNDERSTAND all the items the user wants to add to their grocery list or do. If they list multiple things (e.g. "milk, eggs, and bread"), extract each one as a SEPARATE item.
+2. Decide what action to take for EACH item (usually creating a new list item).
+3. Return JSON with a single Dad-persona message, and an array of items.
 
 === INTENT ===
 {{
-  "intent": {{
-    "what": "The grocery or household item they want - e.g., 'milk', 'A1 Sauce', 'paper towels', 'eggs'",
-    "category": "request",
-    "service_type": null,
-    "search_query": "Clean product search query for finding deals. e.g. 'A1 steak sauce 10oz'",
-    "constraints": {{ "brand": "...", "size": "...", "flavor": "..." }},
-    "exclude_keywords": [],
-    "exclude_merchants": [],
-    "desire_tier": "commodity",
-    "desire_confidence": 0.9
-  }}
+  "what": "The specific grocery or household item - e.g., 'milk', 'A1 Sauce'",
+  "category": "request",
+  "service_type": null,
+  "search_query": "Clean product search query. e.g. 'A1 steak sauce'",
+  "constraints": {{ "brand": "...", "size": "...", "flavor": "..." }},
+  "exclude_keywords": [],
+  "exclude_merchants": [],
+  "desire_tier": "commodity",
+  "desire_confidence": 0.9
 }}
 
 Note: For Pop, most items are "commodity" or "considered" (groceries, household goods).
 
 === ACTION TYPES ===
 1. "create_row" - Add a new item to the grocery list
-2. "update_row" - Refine an existing item (e.g. "make that 2 gallons of milk")
-3. "ask_clarification" - Need essential info (e.g. "What kind of milk, sport? Whole or skim?")
+2. "update_row" - Refine the active item
+3. "ask_clarification" - Need essential info
 4. "context_switch" - User changed topics entirely
-5. "search" - Refresh deals for current item
+5. "search" - Refresh deals
 
 Return ONLY valid JSON:
 {{
-  "message": "Your friendly 60s dad response to the user. Keep it brief, helpful, and in character. (REQUIRED)",
-  "intent": {{ "what": "...", "category": "...", "service_type": null, "search_query": "...", "constraints": {{...}}, "exclude_keywords": [], "exclude_merchants": [], "desire_tier": "commodity", "desire_confidence": 0.9 }},
-  "action": {{ "type": "..." }}
+  "message": "Your friendly 60s dad response to the user acknowledging all the items. Keep it brief, helpful, and in character. (REQUIRED)",
+  "items": [
+    {{
+      "intent": {{ "what": "First item...", "category": "...", "service_type": null, "search_query": "...", "constraints": {{...}}, "exclude_keywords": [], "exclude_merchants": [], "desire_tier": "commodity", "desire_confidence": 0.9 }},
+      "action": {{ "type": "create_row" }}
+    }},
+    {{
+      "intent": {{ "what": "Second item...", "category": "...", "service_type": null, "search_query": "...", "constraints": {{...}}, "exclude_keywords": [], "exclude_merchants": [], "desire_tier": "commodity", "desire_confidence": 0.9 }},
+      "action": {{ "type": "create_row" }}
+    }}
+  ]
 }}"""
 
     try:
         text = await call_gemini(prompt, timeout=30.0)
         parsed = _extract_json(text)
-        return UnifiedDecision(**parsed)
+        # Ensure we have items array
+        if "items" not in parsed and "intent" in parsed:
+            # Fallback if LLM returns old schema
+            parsed["items"] = [{"intent": parsed["intent"], "action": parsed["action"]}]
+            
+        return PopDecision(**parsed)
     except Exception as e:
         logger.error(f"Failed to parse Pop LLM decision: {e}")
-        return UnifiedDecision(
+        return PopDecision(
             message="You betcha, I'll get that on the list for you!",
-            intent={"what": ctx.user_message, "category": "request", "search_query": ctx.user_message, "constraints": {}, "desire_tier": "commodity", "desire_confidence": 0.5, "exclude_keywords": [], "exclude_merchants": []},
-            action={"type": "create_row" if not ctx.active_row else "update_row"}
+            items=[{
+                "intent": {"what": ctx.user_message, "category": "request", "search_query": ctx.user_message, "constraints": {}, "desire_tier": "commodity", "desire_confidence": 0.5, "exclude_keywords": [], "exclude_merchants": []},
+                "action": {"type": "create_row" if not ctx.active_row else "update_row"}
+            }]
         )
 
 
