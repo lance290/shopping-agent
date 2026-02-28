@@ -137,6 +137,7 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         "/health",
         "/webhooks/",
         "/api/bugs",  # Allow bug reports from unauthenticated users
+        "/bob/",      # Pop API endpoints (chat, receipt scanning) handle their own auth
     ]
 
     async def dispatch(self, request: Request, call_next):
