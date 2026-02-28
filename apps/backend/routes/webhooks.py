@@ -206,7 +206,23 @@ async def resend_inbound_webhook(
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
     from_email = payload.get("from", "")
-    to_list = payload.get("to", [])
+    
+    # Resend payload might have 'to' as string or list, or might use 'rcpt_to' depending on CC/BCC
+    raw_to = payload.get("to")
+    if not raw_to:
+        raw_to = payload.get("rcpt_to", [])
+        
+    if isinstance(raw_to, str):
+        to_list = [raw_to]
+    elif isinstance(raw_to, list):
+        to_list = raw_to
+    else:
+        to_list = []
+        
+    # Debug missing to_list
+    if not to_list:
+        logger.warning(f"[ResendWebhook] 'to' is empty. Full payload: {json.dumps(payload)}")
+        
     subject = payload.get("subject", "(no subject)")
     text_body = payload.get("text", "")
     html_body = payload.get("html")
