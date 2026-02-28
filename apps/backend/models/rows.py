@@ -72,6 +72,18 @@ class Project(ProjectBase, table=True):
 
     rows: List["Row"] = Relationship(back_populates="project")
 
+class ProjectMember(SQLModel, table=True):
+    """Maps multiple users to a shared Project (family shopping list)."""
+    __tablename__ = "project_member"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    project_id: int = Field(foreign_key="project.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    role: str = "member"  # "owner", "member"
+    channel: str = "email"  # "email", "sms", "whatsapp" — how this member talks to Bob
+    invited_by: Optional[int] = Field(default=None, foreign_key="user.id")
+    joined_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 class Row(RowBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

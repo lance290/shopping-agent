@@ -31,6 +31,7 @@ from models.rows import (
     ProjectBase,
     ProjectCreate,
     Project,
+    ProjectMember,
     Row,
     RequestSpec,
 )
@@ -100,6 +101,7 @@ __all__ = [
     "ProjectBase",
     "ProjectCreate",
     "Project",
+    "ProjectMember",
     "Row",
     "RequestSpec",
     # Bids

@@ -12,7 +12,7 @@ import hashlib
 import logging
 
 from database import get_session
-from models.rows import Row, Project
+from models.rows import Row, Project, ProjectMember
 from models.auth import User
 from services.llm import make_unified_decision, make_pop_decision, ChatContext, generate_choice_factors
 from services.email import EmailResult, RESEND_API_KEY, FROM_EMAIL, FROM_NAME, _maybe_intercept
@@ -45,23 +45,6 @@ TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
 async def bob_health():
     """Health check for Pop/Bob service."""
     return {"status": "ok", "service": "pop"}
-
-
-# ---------------------------------------------------------------------------
-# Model: ProjectMember — multi-member household / family group sharing
-# ---------------------------------------------------------------------------
-
-class ProjectMember(SQLModel, table=True):
-    """Maps multiple users to a shared Project (family shopping list)."""
-    __tablename__ = "project_member"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", index=True)
-    user_id: int = Field(foreign_key="user.id", index=True)
-    role: str = "member"  # "owner", "member"
-    channel: str = "email"  # "email", "sms", "whatsapp" — how this member talks to Bob
-    invited_by: Optional[int] = Field(default=None, foreign_key="user.id")
-    joined_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 # ---------------------------------------------------------------------------
