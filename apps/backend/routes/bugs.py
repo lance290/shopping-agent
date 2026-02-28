@@ -105,11 +105,17 @@ async def classify_report(
 
 async def create_github_issue_task(bug_id: int):
     """Background task to create GitHub issue for a bug report."""
+    print(f"[BUG] Background task started for report {bug_id}")
+    print(f"[BUG] GitHub config: GITHUB_TOKEN={'set' if github_client.token else 'MISSING'}, GITHUB_REPO={github_client.repo or 'MISSING'}")
 
     async for session in get_session():
         try:
             bug = await session.get(BugReport, bug_id)
-            if not bug or bug.github_issue_url:
+            if not bug:
+                print(f"[BUG] Report {bug_id} not found in DB — aborting")
+                return
+            if bug.github_issue_url:
+                print(f"[BUG] Report {bug_id} already has GitHub issue — skipping")
                 return
 
             # Skip test data to prevent test bug reports from creating issues
@@ -199,6 +205,7 @@ async def create_github_issue_task(bug_id: int):
                 print(f"[BUG] Report {bug_id} classified as feature request")
                 return
 
+            print(f"[BUG] Creating GitHub issue for report {bug_id}...")
             issue = await github_client.create_issue(
                 title=f"[Bug] {bug.notes[:50]}...",
                 body=body,
@@ -211,7 +218,12 @@ async def create_github_issue_task(bug_id: int):
                 session.add(bug)
                 await session.commit()
                 print(f"[BUG] Linked report {bug_id} to issue {bug.github_issue_url}")
-            
+            else:
+                print(f"[BUG] GitHub issue creation returned None for report {bug_id} — check GITHUB_TOKEN and GITHUB_REPO env vars")
+                bug.status = "github_failed"
+                session.add(bug)
+                await session.commit()
+
         except Exception as e:
             print(f"[BUG] Failed to create GitHub issue for report {bug_id}: {e}")
             traceback.print_exc()
@@ -228,7 +240,7 @@ async def create_bug_report(
     diagnostics: Optional[str] = Form(None),
     attachments: List[UploadFile] = File(None),
     authorization: Optional[str] = Header(None),
-    background_tasks: BackgroundTasks = None,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     session: AsyncSession = Depends(get_session)
 ):
     """Submit a bug report with optional file attachments."""
@@ -269,8 +281,8 @@ async def create_bug_report(
     await session.commit()
     await session.refresh(bug)
     
-    if background_tasks is not None:
-        background_tasks.add_task(create_github_issue_task, bug.id)
+    print(f"[BUG] Report {bug.id} saved. Queuing GitHub issue creation...")
+    background_tasks.add_task(create_github_issue_task, bug.id)
     
     return BugReportRead(
         id=bug.id,
