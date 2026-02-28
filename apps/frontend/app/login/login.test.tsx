@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import LoginPage from './page';
@@ -73,5 +75,77 @@ describe('LoginPage - OTP text color visibility (bug #112)', () => {
 
     const codeInput = await screen.findByLabelText(/verification code/i);
     expect(codeInput.className).toContain('placeholder:text-gray-400');
+  });
+});
+
+describe('LoginPage - inputs not disabled/inactive (bug #122)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('phone input is enabled and interactive when not loading', async () => {
+    render(<LoginPage />);
+
+    const phoneInput = await screen.findByLabelText(/phone number/i);
+    // Must not be disabled — a disabled input renders with grayed-out text
+    // that looks "inactive" even when the user has typed into it
+    expect(phoneInput).not.toBeDisabled();
+    expect(phoneInput.className).not.toMatch(/opacity-\d/);
+  });
+
+  it('phone input text remains dark after user types', async () => {
+    render(<LoginPage />);
+
+    const phoneInput = await screen.findByLabelText(/phone number/i);
+    fireEvent.change(phoneInput, { target: { value: '+15555555555' } });
+
+    // After typing, the input must still carry text-gray-900 so typed characters
+    // appear dark (not the light body color rgb(232,234,237)) — see bug #122
+    expect(phoneInput.className).toContain('text-gray-900');
+    expect(phoneInput.className).not.toMatch(/opacity-\d/);
+  });
+
+  it('OTP code input is enabled and interactive when not loading', async () => {
+    render(<LoginPage />);
+
+    const phoneInput = await screen.findByLabelText(/phone number/i);
+    fireEvent.change(phoneInput, { target: { value: '+15555555555' } });
+
+    await act(async () => {
+      fireEvent.submit(phoneInput.closest('form')!);
+    });
+
+    const codeInput = await screen.findByLabelText(/verification code/i);
+    expect(codeInput).not.toBeDisabled();
+    expect(codeInput.className).not.toMatch(/opacity-\d/);
+  });
+
+  it('OTP code input text remains dark after user types digits', async () => {
+    render(<LoginPage />);
+
+    const phoneInput = await screen.findByLabelText(/phone number/i);
+    fireEvent.change(phoneInput, { target: { value: '+15555555555' } });
+
+    await act(async () => {
+      fireEvent.submit(phoneInput.closest('form')!);
+    });
+
+    const codeInput = await screen.findByLabelText(/verification code/i);
+    fireEvent.change(codeInput, { target: { value: '123456' } });
+
+    // Typing digits must not change text styling to something that looks inactive
+    expect(codeInput.className).toContain('text-gray-900');
+    expect(codeInput.className).not.toMatch(/opacity-\d/);
+  });
+
+  it('globals.css includes -webkit-autofill override to prevent iOS from graying typed text', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'app/globals.css'),
+      'utf-8'
+    );
+    // The fix for bug #122: iOS WebKit autofill overrides the input text color
+    // via -webkit-text-fill-color, making typed text appear inactive/grayed-out.
+    expect(css).toContain('input:-webkit-autofill');
+    expect(css).toContain('-webkit-text-fill-color: currentColor');
   });
 });
