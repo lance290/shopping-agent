@@ -277,21 +277,17 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   requestDeleteRow: (rowId, undoWindowMs = 7000) => {
     const existingPending = get().pendingRowDelete;
     if (existingPending) {
+      // Previous pending delete was already sent to the API immediately; just clean up its timer and state.
       clearTimeout(existingPending.timeoutId);
-      fetch(`/api/rows?id=${existingPending.row.id}`, { method: 'DELETE' }).catch(() => {});
       set((s) => {
         const id = existingPending.row.id;
-        const nextRows = s.rows.filter(r => r.id !== id);
         const { [id]: _, ...restResults } = s.rowResults;
         const { [id]: __, ...restStatuses } = s.rowProviderStatuses;
         const { [id]: ___, ...restErrors } = s.rowSearchErrors;
-        const nextActive = s.activeRowId === id ? null : s.activeRowId;
         return {
-          rows: nextRows,
           rowResults: restResults,
           rowProviderStatuses: restStatuses,
           rowSearchErrors: restErrors,
-          activeRowId: nextActive,
           pendingRowDelete: null,
         };
       });
@@ -304,29 +300,27 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     const row = state.rows[rowIndex];
     const results = state.rowResults[rowId] || [];
 
-    const timeoutId = setTimeout(async () => {
-      const pending = get().pendingRowDelete;
-      if (!pending || pending.row.id !== rowId) return;
+    // Immediately remove from local state so a refresh won't show it again.
+    set((s) => {
+      const nextRows = s.rows.filter(r => r.id !== rowId);
+      const nextActive = s.activeRowId === rowId ? null : s.activeRowId;
+      return { rows: nextRows, activeRowId: nextActive };
+    });
 
-      try {
-        const res = await fetch(`/api/rows?id=${rowId}`, { method: 'DELETE' });
-        if (!res.ok) return;
-      } catch {
-        return;
-      }
+    // Immediately archive in the backend — don't wait for the undo window.
+    fetch(`/api/rows?id=${rowId}`, { method: 'DELETE' }).catch(() => {});
 
+    // Timer just expires the undo UI after the window closes.
+    const timeoutId = setTimeout(() => {
       set((s) => {
-        const nextRows = s.rows.filter(r => r.id !== rowId);
+        if (!s.pendingRowDelete || s.pendingRowDelete.row.id !== rowId) return s;
         const { [rowId]: _, ...restResults } = s.rowResults;
         const { [rowId]: __, ...restStatuses } = s.rowProviderStatuses;
         const { [rowId]: ___, ...restErrors } = s.rowSearchErrors;
-        const nextActive = s.activeRowId === rowId ? null : s.activeRowId;
         return {
-          rows: nextRows,
           rowResults: restResults,
           rowProviderStatuses: restStatuses,
           rowSearchErrors: restErrors,
-          activeRowId: nextActive,
           pendingRowDelete: null,
         };
       });
@@ -348,7 +342,24 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     if (!pending) return;
     clearTimeout(pending.timeoutId);
 
-    set({ pendingRowDelete: null });
+    // Restore the row in local state.
+    set((state) => {
+      const newRows = [...state.rows];
+      const clampedIndex = Math.min(pending.rowIndex, newRows.length);
+      newRows.splice(clampedIndex, 0, pending.row);
+      return {
+        rows: newRows,
+        rowResults: { ...state.rowResults, [pending.row.id]: pending.results },
+        pendingRowDelete: null,
+      };
+    });
+
+    // Restore the row in the backend by unarchiving it.
+    fetch(`/api/rows?id=${pending.row.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: pending.row.status }),
+    }).catch(() => {});
   },
   
   setRows: (rows) => set((state) => {
