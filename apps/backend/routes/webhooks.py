@@ -209,12 +209,13 @@ async def resend_inbound_webhook(
     event_type = payload.get("type", "")
     data = payload.get("data", payload)  # fall back to top-level if no wrapper
     
-    logger.info(f"[ResendWebhook] Event type: {event_type}, keys: {list(payload.keys())}")
+    logger.warning(f"[ResendWebhook] Event type: {event_type}, payload keys: {list(payload.keys())}")
     if "data" in payload:
-        logger.info(f"[ResendWebhook] data keys: {list(data.keys())}")
-        # Log full data for debugging (truncate long values)
-        debug_data = {k: (str(v)[:200] if isinstance(v, str) else v) for k, v in data.items()}
-        logger.info(f"[ResendWebhook] data contents: {debug_data}")
+        logger.warning(f"[ResendWebhook] data keys: {list(data.keys())}")
+        # Log each field individually to avoid Railway truncation
+        for k, v in data.items():
+            val_str = str(v)[:300] if isinstance(v, str) else str(v)[:300]
+            logger.warning(f"[ResendWebhook] data['{k}'] = {val_str}")
 
     from_email = data.get("from", "")
     email_id = data.get("email_id")  # needed to fetch body via API
@@ -264,7 +265,7 @@ async def resend_inbound_webhook(
         except Exception as e:
             logger.error(f"[ResendWebhook] Error fetching email body: {e}")
     
-    logger.info(f"[ResendWebhook] Body status: text_len={len(text_body)}, html={'yes' if html_body else 'no'}")
+    logger.warning(f"[ResendWebhook] Body status: text_len={len(text_body)}, html={'yes' if html_body else 'no'}")
 
     # Extract the sender's actual email from "Name <email>" format
     import re
