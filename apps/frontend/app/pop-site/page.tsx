@@ -35,7 +35,7 @@ const HOW_IT_WORKS = [
 ];
 
 export default function PopHomePage() {
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
 
   return (
     <div className="min-h-screen bg-white">
@@ -162,26 +162,25 @@ export default function PopHomePage() {
         </div>
       </section>
 
-      {/* Email Signup */}
+      {/* Phone Signup */}
       <section className="py-16 bg-green-50">
         <div className="max-w-xl mx-auto px-4 text-center">
           <h3 className="text-2xl font-bold text-gray-900 mb-3">Get Pop on your phone</h3>
           <p className="text-gray-600 mb-6">
-            Enter your email and we&apos;ll send you a link to start texting Pop.
+            Enter your phone number to sign up and start building your family list.
           </p>
           <form
             className="flex gap-3"
             onSubmit={(e) => {
               e.preventDefault();
-              // TODO: wire up to backend signup/onboarding
-              window.location.href = `/login?email=${encodeURIComponent(email)}&brand=pop`;
+              window.location.href = `/login?phone=${encodeURIComponent(phone)}&brand=pop`;
             }}
           >
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+1 (555) 000-0000"
               className="flex-1 px-5 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
               required
             />
