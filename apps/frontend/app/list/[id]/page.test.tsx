@@ -114,3 +114,110 @@ describe('ListPage — Share with Family', () => {
     });
   });
 });
+
+describe('ListPage — Inline title editing', () => {
+  beforeEach(() => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockRow),
+    }) as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('renders the title as a clickable button', async () => {
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('title-edit-btn')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Nike Running Shoes')).toBeInTheDocument();
+  });
+
+  it('switches to an input when the title is clicked', async () => {
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('title-edit-btn')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('title-edit-btn'));
+
+    expect(screen.getByTestId('title-edit-input')).toBeInTheDocument();
+    expect((screen.getByTestId('title-edit-input') as HTMLInputElement).value).toBe('Nike Running Shoes');
+  });
+
+  it('saves updated title on Enter key and calls PATCH', async () => {
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(mockRow) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ ...mockRow, title: 'Updated Title' }) }) as unknown as typeof fetch;
+
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('title-edit-btn')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('title-edit-btn'));
+    const input = screen.getByTestId('title-edit-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Updated Title' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/rows?id=5',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ title: 'Updated Title' }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Updated Title')).toBeInTheDocument();
+    });
+  });
+
+  it('cancels edit on Escape key without saving', async () => {
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('title-edit-btn')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('title-edit-btn'));
+    const input = screen.getByTestId('title-edit-input');
+    fireEvent.change(input, { target: { value: 'Changed Title' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('title-edit-input')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Nike Running Shoes')).toBeInTheDocument();
+    // fetch should only have been called once (the initial load), not for PATCH
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call PATCH when title is unchanged', async () => {
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('title-edit-btn')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('title-edit-btn'));
+    const input = screen.getByTestId('title-edit-input');
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('title-edit-input')).not.toBeInTheDocument();
+    });
+
+    // Only initial fetch, no PATCH
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+});
