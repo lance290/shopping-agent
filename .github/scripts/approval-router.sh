@@ -219,8 +219,8 @@ case "$ACTION" in
     
     update_labels "agent:approved" "agent:needs-human"
     
-    echo "🚀 Enabling Auto-Merge..."
-    gh pr merge "$PR_URL" --auto --squash || echo "⚠️  Auto-merge could not be enabled (check repo settings)"
+    echo "🚀 Merging PR..."
+    gh pr merge "$PR_URL" --squash --delete-branch || echo "⚠️  Merge failed (check PR status)"
     ;;
 esac
 
