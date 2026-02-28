@@ -9,6 +9,16 @@ export const metadata: Metadata = {
   title: 'Pop — Save Money on Groceries with AI',
   description:
     'Pop is your AI family shopping assistant. Build shared grocery lists, discover savings, and earn money back on every trip.',
+  manifest: '/pop-manifest.json',
+  themeColor: '#16a34a',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Pop Savings',
+  },
+  icons: {
+    apple: '/pop-apple-icon.png',
+  },
   openGraph: {
     title: 'Pop — Save Money on Groceries with AI',
     description:
