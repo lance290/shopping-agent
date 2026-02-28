@@ -28,6 +28,14 @@ const mockRow = {
   currency: 'USD',
 };
 
+const mockRowWithBids = {
+  ...mockRow,
+  bids: [
+    { id: 1, item_title: 'Nike Air Max', price: 129.99, currency: 'USD', image_url: null, item_url: 'http://example.com/1' },
+    { id: 2, item_title: 'Nike React Infinity', price: 159.99, currency: 'USD', image_url: null, item_url: 'http://example.com/2' },
+  ],
+};
+
 describe('ListPage — Login button', () => {
   beforeEach(() => {
     global.fetch = vi.fn().mockResolvedValue({
@@ -267,5 +275,141 @@ describe('ListPage — Inline title editing', () => {
 
     // Only initial fetch, no PATCH
     expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ListPage — Shopping items and Done Shopping (bug #131)', () => {
+  beforeEach(() => {
+    vi.mocked(authUtils.getMe).mockResolvedValue({ authenticated: true, user_id: 1 });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('renders items from the list when bids are present', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockRowWithBids),
+    }) as unknown as typeof fetch;
+
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('items-list')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Nike Air Max')).toBeInTheDocument();
+    expect(screen.getByText('Nike React Infinity')).toBeInTheDocument();
+  });
+
+  it('renders a Done Shopping button when items are present', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockRowWithBids),
+    }) as unknown as typeof fetch;
+
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('done-shopping-btn')).toBeInTheDocument();
+    });
+  });
+
+  it('does not render Done Shopping button when there are no items', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockRow),
+    }) as unknown as typeof fetch;
+
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Nike Running Shoes')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('done-shopping-btn')).not.toBeInTheDocument();
+  });
+
+  it('keeps items visible after clicking Done Shopping (bug #131)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockRowWithBids),
+    }) as unknown as typeof fetch;
+
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('done-shopping-btn')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('done-shopping-btn'));
+
+    // Items must still be visible after clicking Done Shopping
+    expect(screen.getByTestId('items-list')).toBeInTheDocument();
+    expect(screen.getByText('Nike Air Max')).toBeInTheDocument();
+    expect(screen.getByText('Nike React Infinity')).toBeInTheDocument();
+  });
+
+  it('shows a success banner after clicking Done Shopping', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockRowWithBids),
+    }) as unknown as typeof fetch;
+
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('done-shopping-btn')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('done-shopping-btn'));
+
+    expect(screen.getByTestId('done-shopping-banner')).toBeInTheDocument();
+    // Done Shopping button should be hidden after click
+    expect(screen.queryByTestId('done-shopping-btn')).not.toBeInTheDocument();
+  });
+
+  it('allows checking off individual items', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockRowWithBids),
+    }) as unknown as typeof fetch;
+
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('item-checkbox-1')).toBeInTheDocument();
+    });
+
+    const checkbox = screen.getByTestId('item-checkbox-1') as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+
+    fireEvent.click(checkbox);
+    expect(checkbox.checked).toBe(true);
+
+    // Unchecking should work too
+    fireEvent.click(checkbox);
+    expect(checkbox.checked).toBe(false);
+  });
+
+  it('does not make any API calls when Done Shopping is clicked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockRowWithBids),
+    }) as unknown as typeof fetch;
+    global.fetch = fetchMock;
+
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('done-shopping-btn')).toBeInTheDocument();
+    });
+
+    const callCountBeforeClick = (fetchMock as ReturnType<typeof vi.fn>).mock.calls.length;
+    fireEvent.click(screen.getByTestId('done-shopping-btn'));
+
+    // No additional fetch calls should have been made
+    expect((fetchMock as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callCountBeforeClick);
   });
 });
