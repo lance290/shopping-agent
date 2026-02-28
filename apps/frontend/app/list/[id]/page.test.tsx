@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import ListPage from './page';
+import * as authUtils from '../../utils/auth';
 
 // Mock next/navigation
 vi.mock('next/navigation', () => ({
@@ -10,8 +11,13 @@ vi.mock('next/navigation', () => ({
 
 // Mock next/link
 vi.mock('next/link', () => ({
-  default: ({ children, href }: { children: React.ReactNode; href: string }) =>
-    React.createElement('a', { href }, children),
+  default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [key: string]: unknown }) =>
+    React.createElement('a', { href, ...props }, children),
+}));
+
+// Mock auth utils
+vi.mock('../../utils/auth', () => ({
+  getMe: vi.fn(),
 }));
 
 const mockRow = {
@@ -21,6 +27,44 @@ const mockRow = {
   budget_max: 200,
   currency: 'USD',
 };
+
+describe('ListPage — Login button', () => {
+  beforeEach(() => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockRow),
+    }) as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('shows Sign In button linking to /login when user is not authenticated', async () => {
+    vi.mocked(authUtils.getMe).mockResolvedValue({ authenticated: false });
+
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('login-btn')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('login-btn')).toHaveAttribute('href', '/login');
+    expect(screen.queryByText('Open My Board')).not.toBeInTheDocument();
+  });
+
+  it('shows Open My Board button when user is authenticated', async () => {
+    vi.mocked(authUtils.getMe).mockResolvedValue({ authenticated: true, user_id: 1 });
+
+    render(<ListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Open My Board')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('login-btn')).not.toBeInTheDocument();
+  });
+});
 
 describe('ListPage — Share with Family', () => {
   let clipboardWriteText: ReturnType<typeof vi.fn>;
@@ -32,6 +76,8 @@ describe('ListPage — Share with Family', () => {
       writable: true,
       configurable: true,
     });
+
+    vi.mocked(authUtils.getMe).mockResolvedValue({ authenticated: true, user_id: 1 });
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -117,6 +163,8 @@ describe('ListPage — Share with Family', () => {
 
 describe('ListPage — Inline title editing', () => {
   beforeEach(() => {
+    vi.mocked(authUtils.getMe).mockResolvedValue({ authenticated: true, user_id: 1 });
+
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockRow),
