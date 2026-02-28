@@ -149,3 +149,32 @@ describe('LoginPage - inputs not disabled/inactive (bug #122)', () => {
     expect(css).toContain('-webkit-text-fill-color: currentColor');
   });
 });
+
+describe('LoginPage - OTP text color on Chrome desktop (bug #126)', () => {
+  it('globals.css applies -webkit-text-fill-color to all inputs to prevent Chrome from lightening typed text', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'app/globals.css'),
+      'utf-8'
+    );
+    // Bug #126: Chrome on Mac can override input text rendering via -webkit-text-fill-color,
+    // making typed OTP digits appear lighter than the text-gray-900 color class specifies.
+    // The fix adds a base rule for all inputs so Chrome always uses our explicit color value.
+    expect(css).toMatch(/input\s*\{[^}]*-webkit-text-fill-color:\s*currentColor/);
+  });
+
+  it('OTP code input has dark text color class that currentColor will resolve to', async () => {
+    render(<LoginPage />);
+
+    const phoneInput = await screen.findByLabelText(/phone number/i);
+    fireEvent.change(phoneInput, { target: { value: '+15555555555' } });
+
+    await act(async () => {
+      fireEvent.submit(phoneInput.closest('form')!);
+    });
+
+    const codeInput = await screen.findByLabelText(/verification code/i);
+    // text-gray-900 resolves to #111827 — the -webkit-text-fill-color: currentColor
+    // rule in globals.css ensures Chrome renders typed text using this dark color
+    expect(codeInput.className).toContain('text-gray-900');
+  });
+});
