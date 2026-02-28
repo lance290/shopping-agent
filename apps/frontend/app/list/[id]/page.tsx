@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle2, Link2, ShoppingBag } from 'lucide-react';
+import { CheckCircle2, Link2, Pencil, ShoppingBag } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 
 interface RowData {
@@ -22,6 +22,10 @@ export default function ListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [savingTitle, setSavingTitle] = useState(false);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -47,6 +51,41 @@ export default function ListPage() {
     }
     fetchRow();
   }, [id]);
+
+  const handleStartEditTitle = () => {
+    if (!row) return;
+    setEditTitle(row.title);
+    setIsEditingTitle(true);
+    setTimeout(() => titleInputRef.current?.select(), 0);
+  };
+
+  const handleSaveTitle = async () => {
+    if (!row) return;
+    const trimmed = editTitle.trim();
+    if (!trimmed || trimmed === row.title) {
+      setIsEditingTitle(false);
+      return;
+    }
+    setSavingTitle(true);
+    try {
+      const res = await fetch(`/api/rows?id=${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: trimmed }),
+      });
+      if (res.ok) {
+        setRow({ ...row, title: trimmed });
+      }
+    } finally {
+      setSavingTitle(false);
+      setIsEditingTitle(false);
+    }
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') handleSaveTitle();
+    if (e.key === 'Escape') setIsEditingTitle(false);
+  };
 
   const handleShareWithFamily = async () => {
     const url = window.location.href;
@@ -106,7 +145,29 @@ export default function ListPage() {
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
                 Shopping List
               </p>
-              <h1 className="text-2xl font-bold text-gray-900">{row.title}</h1>
+              {isEditingTitle ? (
+                <input
+                  ref={titleInputRef}
+                  data-testid="title-edit-input"
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  onBlur={handleSaveTitle}
+                  onKeyDown={handleTitleKeyDown}
+                  disabled={savingTitle}
+                  className="text-2xl font-bold text-gray-900 border-b-2 border-blue-500 outline-none bg-transparent w-full"
+                  autoFocus
+                />
+              ) : (
+                <button
+                  data-testid="title-edit-btn"
+                  onClick={handleStartEditTitle}
+                  className="group flex items-center gap-2 text-left"
+                >
+                  <h1 className="text-2xl font-bold text-gray-900">{row.title}</h1>
+                  <Pencil size={16} className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                </button>
+              )}
               {row.status && row.status !== 'new' && (
                 <p className="text-sm text-gray-500 mt-1 capitalize">{row.status}</p>
               )}
