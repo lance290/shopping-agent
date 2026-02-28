@@ -16,7 +16,7 @@ interface OfferTileProps {
   onSelect?: (offer: Offer) => void | Promise<void>;
   onToggleLike?: (offer: Offer) => void;
   onComment?: (offer: Offer) => void;
-  onShare?: (offer: Offer) => void;
+  onShare?: (offer: Offer) => void | Promise<void>;
 }
 
 export default function OfferTile({
@@ -232,7 +232,7 @@ export default function OfferTile({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  onShare?.(offer);
+                  (onShare?.(offer) as Promise<void> | undefined)?.catch(() => {});
                 }}
                 className="h-7 w-7 rounded-full border border-warm-grey/70 flex items-center justify-center bg-white text-onyx-muted hover:text-onyx transition-colors"
                 title="Share"

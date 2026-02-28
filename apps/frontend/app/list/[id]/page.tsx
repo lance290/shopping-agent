@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle2, Link2, LogIn, Pencil, ShoppingBag } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Link2, LogIn, Pencil, ShoppingBag } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { getMe } from '../../utils/auth';
 
@@ -23,6 +23,7 @@ export default function ListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
@@ -96,24 +97,40 @@ export default function ListPage() {
 
   const handleShareWithFamily = async () => {
     const url = window.location.href;
+    let success = false;
+
     try {
       await navigator.clipboard.writeText(url);
-    } catch {
-      // Clipboard API unavailable — use execCommand fallback
-      const textarea = document.createElement('textarea');
-      textarea.value = url;
-      textarea.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
-      document.body.appendChild(textarea);
-      textarea.select();
-      try {
-        document.execCommand('copy');
-      } finally {
-        document.body.removeChild(textarea);
+      success = true;
+    } catch (err) {
+      // AbortError: user dismissed the clipboard permission prompt — do not fall through
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+
+      // Clipboard API unavailable — try execCommand fallback
+      if (typeof document.execCommand === 'function') {
+        const textarea = document.createElement('textarea');
+        textarea.value = url;
+        textarea.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          success = document.execCommand('copy');
+        } finally {
+          document.body.removeChild(textarea);
+        }
       }
     }
-    setCopied(true);
-    if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-    copyTimeoutRef.current = setTimeout(() => setCopied(false), 2400);
+
+    if (success) {
+      setCopied(true);
+      setCopyFailed(false);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 2400);
+    } else {
+      setCopyFailed(true);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopyFailed(false), 2400);
+    }
   };
 
   if (loading) {
@@ -191,10 +208,15 @@ export default function ListPage() {
                   <CheckCircle2 size={16} className="text-green-600" />
                   <span className="text-green-600">Copied!</span>
                 </>
+              ) : copyFailed ? (
+                <>
+                  <AlertCircle size={16} className="text-red-500" />
+                  <span className="text-red-500">Copy failed</span>
+                </>
               ) : (
                 <>
                   <Link2 size={16} />
-                  Share with Family
+                  Copy Link
                 </>
               )}
             </Button>

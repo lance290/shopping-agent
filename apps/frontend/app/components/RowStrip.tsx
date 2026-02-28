@@ -354,7 +354,9 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         onToast?.('Link copied.', 'success');
         return;
       }
-    } catch {
+    } catch (err) {
+      // AbortError: user dismissed the clipboard permission prompt — ignore silently
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       onToast?.('Could not copy share link.', 'error');
       return;
     }
@@ -368,6 +370,8 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       await navigator.clipboard.writeText(shareUrl);
       onToast?.('Link copied! Share it with family.', 'success');
     } catch (err) {
+      // AbortError: user dismissed the clipboard permission prompt — ignore silently
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       console.error('[RowStrip] Failed to copy link:', err);
       onToast?.('Failed to copy link.', 'error');
     }
