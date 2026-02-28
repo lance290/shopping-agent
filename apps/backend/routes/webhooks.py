@@ -251,7 +251,7 @@ async def resend_inbound_webhook(
             if resend_api_key:
                 async with httpx.AsyncClient() as client:
                     resp = await client.get(
-                        f"https://api.resend.com/emails/received/{email_id}",
+                        f"https://api.resend.com/emails/receiving/{email_id}",
                         headers={"Authorization": f"Bearer {resend_api_key}"},
                         timeout=10.0,
                     )
