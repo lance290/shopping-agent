@@ -39,7 +39,7 @@ async def check():
     except:
         return 0
 print(asyncio.run(check()))
-\"" 2>/dev/null || echo "0")
+\"" 2>/dev/null | tail -n 1 || echo "0")
 
 echo "[STARTUP] Alembic version rows: $ALEMBIC_ROWS"
 
