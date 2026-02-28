@@ -428,8 +428,14 @@ async def get_pop_list(
         bids_result = await session.execute(bids_stmt)
         bids = bids_result.scalars().all()
 
-        deals = [
-            {
+        deals = []
+        swaps = []
+        lowest_price = None
+
+        for b in bids:
+            if b.price is None:
+                continue
+            deal = {
                 "id": b.id,
                 "title": b.item_title,
                 "price": b.price,
@@ -437,9 +443,30 @@ async def get_pop_list(
                 "url": b.canonical_url,
                 "image_url": b.image_url,
             }
-            for b in bids
-            if b.price is not None
-        ]
+            deals.append(deal)
+            if lowest_price is None or b.price < lowest_price:
+                lowest_price = b.price
+
+        # Swaps: bids from different brands / alternative products
+        # Heuristic: if a bid title doesn't overlap much with the row title,
+        # it's likely a swap suggestion (e.g., "Heinz 57" for "A1 Sauce")
+        row_words = set(row.title.lower().split()) if row.title else set()
+        for b in bids:
+            if b.price is None:
+                continue
+            bid_words = set((b.item_title or "").lower().split())
+            overlap = len(row_words & bid_words)
+            # If fewer than half the words overlap, it's a potential swap
+            if row_words and overlap < len(row_words) * 0.5:
+                swaps.append({
+                    "id": b.id,
+                    "title": b.item_title,
+                    "price": b.price,
+                    "source": b.source,
+                    "url": b.canonical_url,
+                    "image_url": b.image_url,
+                    "savings_vs_first": round(deals[0]["price"] - b.price, 2) if deals and b.price < deals[0]["price"] else None,
+                })
 
         items.append({
             "id": row.id,
@@ -447,6 +474,9 @@ async def get_pop_list(
             "status": row.status,
             "created_at": row.created_at.isoformat() if row.created_at else None,
             "deals": deals,
+            "swaps": swaps[:3],
+            "lowest_price": lowest_price,
+            "deal_count": len(deals),
         })
 
     return {

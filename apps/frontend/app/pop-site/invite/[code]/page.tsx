@@ -2,6 +2,7 @@
 
 import { use } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function PopInvitePage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
@@ -9,7 +10,7 @@ export default function PopInvitePage({ params }: { params: Promise<{ code: stri
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex flex-col items-center justify-center px-4">
       <div className="max-w-md w-full text-center">
-        <span className="text-6xl block mb-6">🍿</span>
+        <Image src="/pop-avatar.png" alt="Pop" width={80} height={80} className="rounded-full mx-auto mb-6 shadow-lg border-4 border-white" />
         <h1 className="text-3xl font-bold text-gray-900 mb-3">
           You&apos;re invited to a family list!
         </h1>

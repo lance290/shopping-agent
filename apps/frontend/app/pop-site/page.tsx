@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const HERO_FEATURES = [
   {
@@ -42,7 +43,7 @@ export default function PopHomePage() {
       <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <span className="text-2xl">🍿</span>
+            <Image src="/pop-avatar.png" alt="Pop" width={36} height={36} className="rounded-full" />
             <span className="text-xl font-bold text-green-700">Pop</span>
           </Link>
           <div className="flex items-center gap-4">
@@ -63,6 +64,9 @@ export default function PopHomePage() {
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-green-50 via-white to-emerald-50" />
         <div className="relative max-w-6xl mx-auto px-4 pt-20 pb-28 text-center">
+          <div className="mb-6">
+            <Image src="/pop-avatar.png" alt="Pop" width={80} height={80} className="rounded-full mx-auto shadow-lg border-4 border-white" />
+          </div>
           <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 text-sm font-medium px-4 py-1.5 rounded-full mb-6">
             <span>🎉</span> Save $10–20/week on groceries
           </div>
@@ -195,7 +199,7 @@ export default function PopHomePage() {
       <footer className="py-10 bg-white border-t border-gray-100">
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
           <div className="flex items-center gap-2">
-            <span>🍿</span>
+            <Image src="/pop-avatar.png" alt="Pop" width={24} height={24} className="rounded-full" />
             <span className="font-semibold text-gray-700">Pop</span>
             <span>by BuyAnything</span>
           </div>

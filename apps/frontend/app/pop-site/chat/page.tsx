@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface Message {
   id: string;
@@ -91,7 +92,7 @@ export default function PopChatPage() {
       <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <span className="text-xl">🍿</span>
+            <Image src="/pop-avatar.png" alt="Pop" width={32} height={32} className="rounded-full" />
             <span className="text-lg font-bold text-green-700">Pop</span>
           </Link>
           <div className="flex items-center gap-3">
@@ -118,8 +119,11 @@ export default function PopChatPage() {
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
+                {msg.role === 'assistant' && (
+                  <Image src="/pop-avatar.png" alt="Pop" width={28} height={28} className="rounded-full flex-shrink-0 mb-1" />
+                )}
                 <div
                   className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                     msg.role === 'user'
@@ -127,17 +131,14 @@ export default function PopChatPage() {
                       : 'bg-gray-100 text-gray-900'
                   }`}
                 >
-                  {msg.role === 'assistant' && (
-                    <span className="text-xs font-medium text-green-700 block mb-1">Pop</span>
-                  )}
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                 </div>
               </div>
             ))}
             {isLoading && (
-              <div className="flex justify-start">
+              <div className="flex items-end gap-2 justify-start">
+                <Image src="/pop-avatar.png" alt="Pop" width={28} height={28} className="rounded-full flex-shrink-0 mb-1" />
                 <div className="bg-gray-100 rounded-2xl px-4 py-3">
-                  <span className="text-xs font-medium text-green-700 block mb-1">Pop</span>
                   <div className="flex gap-1">
                     <span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                     <span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
