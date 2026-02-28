@@ -51,6 +51,7 @@ _PROVIDER_FILTER_ALIASES: Dict[str, str] = {
     "google": "serpapi",
     "google_shopping": "serpapi",
     "ebay": "ebay_browse",
+    "grocery": "kroger",
 }
 
 
@@ -73,6 +74,8 @@ class SearchResult(BaseModel):
     is_selected: bool = False
     is_liked: bool = False
     liked_at: Optional[str] = None
+    description: Optional[str] = None
+    matched_features: List[str] = []
 
 
 class SearchResultWithStatus(BaseModel):
@@ -1190,6 +1193,19 @@ class SourcingRepository:
         if ticketmaster_key:
             self.providers["ticketmaster"] = TicketmasterProvider(ticketmaster_key)
             print(f"[SourcingRepository] Ticketmaster provider initialized")
+
+        # Kroger Product API — grocery search with real-time pricing
+        kroger_client_id = os.getenv("KROGER_CLIENT_ID")
+        kroger_client_secret = os.getenv("KROGER_CLIENT_SECRET")
+        if kroger_client_id and kroger_client_secret:
+            from sourcing.kroger_provider import KrogerProvider
+            self.providers["kroger"] = KrogerProvider(
+                client_id=kroger_client_id,
+                client_secret=kroger_client_secret,
+                location_id=os.getenv("KROGER_LOCATION_ID"),
+                zip_code=os.getenv("KROGER_ZIP_CODE"),
+            )
+            print("[SourcingRepository] Kroger provider initialized")
 
         # Vendor Directory — pgvector semantic search (always runs)
         from sourcing.vendor_provider import VendorDirectoryProvider

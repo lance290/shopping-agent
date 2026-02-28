@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -17,9 +17,28 @@ interface WalletData {
   transactions: Transaction[];
 }
 
+interface ReceiptItem {
+  receipt_item: string;
+  receipt_price: number | null;
+  matched_list_item_id: number | null;
+  matched_list_item_title?: string;
+  is_swap: boolean;
+}
+
+interface ScanResult {
+  status: string;
+  message: string;
+  items: ReceiptItem[];
+  credits_earned_cents: number;
+  total_items?: number;
+}
+
 export default function PopWalletPage() {
   const [wallet, setWallet] = useState<WalletData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function fetchWallet() {
@@ -37,6 +56,42 @@ export default function PopWalletPage() {
     }
     fetchWallet();
   }, []);
+
+  async function handleReceiptUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setScanning(true);
+    setScanResult(null);
+
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const res = await fetch('/api/pop/receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_base64: base64 }),
+      });
+
+      const data = await res.json();
+      setScanResult(data);
+    } catch {
+      setScanResult({
+        status: 'error',
+        message: 'Something went wrong scanning your receipt. Try again!',
+        items: [],
+        credits_earned_cents: 0,
+      });
+    } finally {
+      setScanning(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
 
   const balance = wallet ? (wallet.balance_cents / 100).toFixed(2) : '0.00';
 
@@ -83,6 +138,92 @@ export default function PopWalletPage() {
               Earn More
             </Link>
           </div>
+        </div>
+
+        {/* Scan Receipt */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Snap your receipt</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Photo your grocery receipt after shopping. Pop reads it and credits your wallet!
+          </p>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleReceiptUpload}
+            className="hidden"
+            id="receipt-upload"
+          />
+
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={scanning}
+            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium text-sm transition-colors ${
+              scanning
+                ? 'bg-gray-100 text-gray-400 cursor-wait'
+                : 'bg-green-600 text-white hover:bg-green-700 active:bg-green-800'
+            }`}
+          >
+            {scanning ? (
+              <>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Reading receipt...
+              </>
+            ) : (
+              <>
+                <span className="text-lg">📸</span>
+                Scan Receipt
+              </>
+            )}
+          </button>
+
+          {scanResult && (
+            <div className="mt-4">
+              <div className={`rounded-xl p-4 ${
+                scanResult.credits_earned_cents > 0
+                  ? 'bg-green-50 border border-green-200'
+                  : scanResult.status === 'error'
+                    ? 'bg-red-50 border border-red-200'
+                    : 'bg-gray-50 border border-gray-200'
+              }`}>
+                <p className={`text-sm font-medium ${
+                  scanResult.credits_earned_cents > 0
+                    ? 'text-green-800'
+                    : scanResult.status === 'error'
+                      ? 'text-red-800'
+                      : 'text-gray-800'
+                }`}>
+                  {scanResult.message}
+                </p>
+              </div>
+
+              {scanResult.items.length > 0 && (
+                <ul className="mt-3 space-y-2">
+                  {scanResult.items.map((item, i) => (
+                    <li key={i} className="flex items-center gap-2 text-sm">
+                      <span className={item.matched_list_item_id ? 'text-green-500' : 'text-gray-300'}>
+                        {item.matched_list_item_id ? '✓' : '·'}
+                      </span>
+                      <span className="flex-1 text-gray-700 truncate">{item.receipt_item}</span>
+                      {item.receipt_price != null && (
+                        <span className="text-gray-400 text-xs">${item.receipt_price.toFixed(2)}</span>
+                      )}
+                      {item.matched_list_item_id && (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                          {item.is_swap ? '+$0.50' : '+$0.25'}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         {/* How to Earn */}

@@ -41,6 +41,12 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
 
 
+@router.get("/health")
+async def bob_health():
+    """Health check for Pop/Bob service."""
+    return {"status": "ok", "service": "pop"}
+
+
 # ---------------------------------------------------------------------------
 # Model: ProjectMember — multi-member household / family group sharing
 # ---------------------------------------------------------------------------
@@ -512,6 +518,165 @@ async def get_pop_wallet(
         "balance_cents": 0,
         "transactions": [],
     }
+
+
+# ---------------------------------------------------------------------------
+# Receipt scanning — "Shop & earn" (step 4 of How Pop Works)
+# ---------------------------------------------------------------------------
+
+class ReceiptScanRequest(BaseModel):
+    image_base64: str
+    project_id: Optional[int] = None
+
+
+@router.post("/receipt/scan")
+async def scan_receipt(
+    request: Request,
+    body: ReceiptScanRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Scan a grocery receipt image. Uses Gemini vision to extract line items,
+    then matches them against the user's Pop list to verify swap purchases
+    and calculate wallet credits.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    user = None
+
+    if auth_header:
+        from dependencies import get_current_session
+        auth_session = await get_current_session(auth_header, session)
+        if auth_session:
+            user = await session.get(User, auth_session.user_id)
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Find the user's active project
+    project_id = body.project_id
+    if not project_id:
+        proj_stmt = (
+            select(Project)
+            .where(Project.user_id == user.id)
+            .where(Project.title == "Family Shopping List")
+            .where(Project.status == "active")
+        )
+        proj_result = await session.execute(proj_stmt)
+        project = proj_result.scalar_one_or_none()
+        if project:
+            project_id = project.id
+
+    # Use Gemini to extract receipt items
+    receipt_items = await _extract_receipt_items(body.image_base64)
+
+    if not receipt_items:
+        return {
+            "status": "no_items",
+            "message": "Couldn't read any items from this receipt. Try taking a clearer photo!",
+            "items": [],
+            "credits_earned_cents": 0,
+        }
+
+    # Match receipt items against list items (if we have a project)
+    matched = []
+    credits_cents = 0
+    if project_id:
+        rows_stmt = (
+            select(Row)
+            .where(Row.project_id == project_id)
+            .where(Row.status.in_(["sourcing", "active", "pending"]))
+        )
+        rows_result = await session.execute(rows_stmt)
+        list_rows = rows_result.scalars().all()
+
+        list_titles = {r.id: (r.title or "").lower() for r in list_rows}
+
+        for receipt_item in receipt_items:
+            receipt_lower = receipt_item.get("name", "").lower()
+            best_match_id = None
+            best_overlap = 0
+
+            for row_id, row_title in list_titles.items():
+                row_words = set(row_title.split())
+                receipt_words = set(receipt_lower.split())
+                overlap = len(row_words & receipt_words)
+                if overlap > best_overlap:
+                    best_overlap = overlap
+                    best_match_id = row_id
+
+            matched.append({
+                "receipt_item": receipt_item.get("name", ""),
+                "receipt_price": receipt_item.get("price"),
+                "matched_list_item_id": best_match_id if best_overlap > 0 else None,
+                "matched_list_item_title": list_titles.get(best_match_id, "") if best_match_id else None,
+                "is_swap": receipt_item.get("is_swap", False),
+            })
+
+            # MVP credit: $0.25 per matched item, $0.50 for a swap
+            if best_match_id:
+                if receipt_item.get("is_swap", False):
+                    credits_cents += 50
+                else:
+                    credits_cents += 25
+    else:
+        matched = [
+            {"receipt_item": item.get("name", ""), "receipt_price": item.get("price"), "matched_list_item_id": None}
+            for item in receipt_items
+        ]
+
+    return {
+        "status": "scanned",
+        "message": f"Found {len(receipt_items)} items on your receipt!" + (
+            f" You earned ${credits_cents / 100:.2f} in Pop credits!" if credits_cents > 0 else ""
+        ),
+        "items": matched,
+        "credits_earned_cents": credits_cents,
+        "total_items": len(receipt_items),
+    }
+
+
+async def _extract_receipt_items(image_base64: str) -> List[dict]:
+    """
+    Use Gemini vision to extract line items from a receipt image.
+    Returns list of {"name": str, "price": float|None, "is_swap": bool}.
+    """
+    try:
+        from services.llm import call_gemini
+
+        prompt = """Analyze this grocery receipt image. Extract each line item with its name and price.
+
+Return ONLY a JSON array of objects, each with:
+- "name": the product name (string)
+- "price": the price in dollars (number or null if unclear)
+- "is_swap": false (we'll determine swaps separately)
+
+Example:
+[
+  {"name": "Great Value Whole Milk 1 Gal", "price": 3.28, "is_swap": false},
+  {"name": "Kroger Large Eggs 12ct", "price": 2.99, "is_swap": false}
+]
+
+Return ONLY the JSON array, no other text."""
+
+        # Call Gemini with the image
+        result = await call_gemini(
+            prompt,
+            timeout=30.0,
+            image_base64=image_base64,
+        )
+
+        # Parse the JSON response
+        import re as _re
+        # Extract JSON array from response
+        match = _re.search(r'\[.*\]', result, _re.DOTALL)
+        if match:
+            items = json.loads(match.group())
+            if isinstance(items, list):
+                return items
+        return []
+    except Exception as e:
+        logger.error(f"[Pop Receipt] Failed to extract items: {e}")
+        return []
 
 
 class PopChatRequest(BaseModel):

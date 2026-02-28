@@ -8,6 +8,7 @@ from sourcing.adapters.base import ProviderQueryAdapter
 from sourcing.adapters.google_cse import GoogleCSEQueryAdapter
 from sourcing.adapters.rainforest import RainforestQueryAdapter
 from sourcing.adapters.ebay import EbayBrowseQueryAdapter
+from sourcing.adapters.kroger import KrogerQueryAdapter
 from sourcing.models import ProviderQueryMap, SearchIntent
 
 
@@ -15,6 +16,7 @@ ADAPTERS: Dict[str, ProviderQueryAdapter] = {
     "rainforest": RainforestQueryAdapter(),
     "google_cse": GoogleCSEQueryAdapter(),
     "ebay_browse": EbayBrowseQueryAdapter(),
+    "kroger": KrogerQueryAdapter(),
 }
 
 

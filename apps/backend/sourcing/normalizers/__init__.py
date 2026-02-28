@@ -97,10 +97,12 @@ def normalize_results_for_provider(
 from sourcing.normalizers.google_cse import normalize_google_cse_results
 from sourcing.normalizers.rainforest import normalize_rainforest_results
 from sourcing.normalizers.ebay import normalize_ebay_results
+from sourcing.normalizers.kroger import normalize_kroger_results
 
 NORMALIZER_REGISTRY: Dict[str, Callable[[List[SearchResult]], List[NormalizedResult]]] = {
     "rainforest": normalize_rainforest_results,
     "google_cse": normalize_google_cse_results,
+    "kroger": normalize_kroger_results,
 }
 
 __all__ = [
@@ -109,4 +111,5 @@ __all__ = [
     "normalize_rainforest_results",
     "normalize_google_cse_results",
     "normalize_ebay_results",
+    "normalize_kroger_results",
 ]

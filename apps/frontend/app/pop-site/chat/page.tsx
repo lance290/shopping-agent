@@ -27,6 +27,7 @@ export default function PopChatPage() {
     },
   ]);
   const [listItems, setListItems] = useState<ListItem[]>([]);
+  const [projectId, setProjectId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -71,6 +72,9 @@ export default function PopChatPage() {
       if (data.list_items?.length > 0) {
         setListItems(data.list_items);
       }
+      if (data.project_id) {
+        setProjectId(data.project_id);
+      }
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -97,9 +101,12 @@ export default function PopChatPage() {
           </Link>
           <div className="flex items-center gap-3">
             {listItems.length > 0 && (
-              <span className="text-xs bg-green-100 text-green-800 px-2.5 py-1 rounded-full font-medium">
-                {listItems.length} item{listItems.length !== 1 ? 's' : ''} on list
-              </span>
+              <Link
+                href={projectId ? `/list/${projectId}` : '#'}
+                className="text-xs bg-green-100 text-green-800 px-2.5 py-1 rounded-full font-medium hover:bg-green-200 transition-colors"
+              >
+                {listItems.length} item{listItems.length !== 1 ? 's' : ''} on list →
+              </Link>
             )}
             <Link
               href="/login"
@@ -179,9 +186,19 @@ export default function PopChatPage() {
         {/* List Sidebar (visible when items exist) */}
         {listItems.length > 0 && (
           <div className="lg:w-80 border-t lg:border-t-0 lg:border-l border-gray-100 bg-gray-50/50 p-4 overflow-y-auto">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <span>🛒</span> Your List
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <span>🛒</span> Your List
+              </h3>
+              {projectId && (
+                <Link
+                  href={`/list/${projectId}`}
+                  className="text-xs text-green-600 hover:text-green-700 font-medium"
+                >
+                  View Full List →
+                </Link>
+              )}
+            </div>
             <ul className="space-y-2">
               {listItems.map((item) => (
                 <li

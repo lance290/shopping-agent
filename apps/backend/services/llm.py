@@ -92,8 +92,13 @@ async def _call_openrouter(prompt: str, timeout: float = 30.0) -> str:
     return choices[0].get("message", {}).get("content", "")
 
 
-async def call_gemini(prompt: str, timeout: float = 30.0) -> str:
-    """Call LLM: try Gemini direct first, fall back to OpenRouter."""
+async def call_gemini(prompt: str, timeout: float = 30.0, image_base64: str | None = None) -> str:
+    """Call LLM: try Gemini direct first, fall back to OpenRouter.
+    If image_base64 is provided, uses Gemini vision (multimodal)."""
+    # If image provided, use vision-capable Gemini directly
+    if image_base64:
+        return await _call_gemini_vision(prompt, image_base64, timeout)
+
     # Try Gemini direct
     if _get_gemini_api_key():
         try:
@@ -106,6 +111,55 @@ async def call_gemini(prompt: str, timeout: float = 30.0) -> str:
         return await _call_openrouter(prompt, timeout)
 
     raise ValueError("No LLM API key configured (GEMINI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or OPENROUTER_API_KEY)")
+
+
+async def _call_gemini_vision(prompt: str, image_base64: str, timeout: float = 30.0) -> str:
+    """Call Gemini with a multimodal (text + image) request for vision tasks."""
+    api_key = _get_gemini_api_key()
+    if not api_key:
+        raise ValueError("No Gemini API key for vision request")
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+
+    # Strip data URL prefix if present
+    if "," in image_base64 and image_base64.startswith("data:"):
+        image_base64 = image_base64.split(",", 1)[1]
+
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": prompt},
+                {
+                    "inline_data": {
+                        "mime_type": "image/jpeg",
+                        "data": image_base64,
+                    }
+                },
+            ]
+        }],
+        "generationConfig": {
+            "temperature": 0.1,
+            "maxOutputTokens": 4096,
+        },
+    }
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            url,
+            params={"key": api_key},
+            json=payload,
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    candidates = data.get("candidates", [])
+    if not candidates:
+        raise ValueError("Gemini vision returned no candidates")
+    parts = candidates[0].get("content", {}).get("parts", [])
+    if not parts:
+        raise ValueError("Gemini vision returned no content parts")
+    return parts[0].get("text", "")
 
 
 def _extract_json(text: str) -> dict:
