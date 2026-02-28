@@ -347,13 +347,93 @@ Return ONLY valid JSON:
         # Fallback: create a basic row from the user message
         return UnifiedDecision(
             message="I'll help you find that. Let me set up a search for you.",
-            intent=UserIntent(
-                what=ctx.user_message,
-                category="product",
-                search_query=ctx.user_message,
-                constraints={},
-            ),
-            action={"type": "create_row"},
+            intent={"what": ctx.user_message, "category": "request", "search_query": ctx.user_message, "constraints": {}, "desire_tier": "commodity", "desire_confidence": 0.5, "exclude_keywords": [], "exclude_merchants": []},
+            action={"type": "create_row" if not ctx.active_row else "update_row"}
+        )
+
+
+# =============================================================================
+# POP NLU DECISION (Grocery / Family context)
+# =============================================================================
+
+async def make_pop_decision(ctx: ChatContext) -> UnifiedDecision:
+    """
+    Dedicated LLM call for Pop (popsavings.com).
+    Uses the "Friendly 60s Dad" persona and focuses on grocery lists, swaps, and family savings.
+    """
+    active_row_json = json.dumps({
+        "id": ctx.active_row["id"],
+        "title": ctx.active_row.get("title", ""),
+    }) if ctx.active_row else "none"
+
+    active_project_json = json.dumps({
+        "id": ctx.active_project["id"],
+        "title": ctx.active_project.get("title", ""),
+    }) if ctx.active_project else "none"
+
+    pending_json = json.dumps(ctx.pending_clarification) if ctx.pending_clarification else "none"
+
+    recent = ctx.conversation_history[-6:] if ctx.conversation_history else []
+    recent_text = "\n".join(f"  {m['role']}: {m['content']}" for m in recent)
+
+    prompt = f"""You are Pop, a friendly dad from the 1960s who is now an AI grocery savings assistant.
+You help families build their grocery lists, find deals, and suggest money-saving product swaps.
+You are warm, cheerful, use mild 60s dad-isms ("sport", "kiddo", "you betcha", "gee whiz"), and love saving a buck.
+
+INPUTS:
+- User message: "{ctx.user_message}"
+- Active list item (row): {active_row_json}
+- Active family list (project): {active_project_json}
+- Pending clarification: {pending_json}
+- Recent conversation:
+{recent_text}
+
+YOUR JOB: 
+1. UNDERSTAND what the user wants to add to their grocery list or do.
+2. Decide what action to take (usually creating or updating a list item).
+3. Return JSON with BOTH intent and action, including your Dad-persona message to the user.
+
+=== INTENT ===
+{{
+  "intent": {{
+    "what": "The grocery or household item they want - e.g., 'milk', 'A1 Sauce', 'paper towels', 'eggs'",
+    "category": "request",
+    "service_type": null,
+    "search_query": "Clean product search query for finding deals. e.g. 'A1 steak sauce 10oz'",
+    "constraints": {{ "brand": "...", "size": "...", "flavor": "..." }},
+    "exclude_keywords": [],
+    "exclude_merchants": [],
+    "desire_tier": "commodity",
+    "desire_confidence": 0.9
+  }}
+}}
+
+Note: For Pop, most items are "commodity" or "considered" (groceries, household goods).
+
+=== ACTION TYPES ===
+1. "create_row" - Add a new item to the grocery list
+2. "update_row" - Refine an existing item (e.g. "make that 2 gallons of milk")
+3. "ask_clarification" - Need essential info (e.g. "What kind of milk, sport? Whole or skim?")
+4. "context_switch" - User changed topics entirely
+5. "search" - Refresh deals for current item
+
+Return ONLY valid JSON:
+{{
+  "message": "Your friendly 60s dad response to the user. Keep it brief, helpful, and in character. (REQUIRED)",
+  "intent": {{ "what": "...", "category": "...", "service_type": null, "search_query": "...", "constraints": {{...}}, "exclude_keywords": [], "exclude_merchants": [], "desire_tier": "commodity", "desire_confidence": 0.9 }},
+  "action": {{ "type": "..." }}
+}}"""
+
+    try:
+        text = await call_gemini(prompt, timeout=30.0)
+        parsed = _extract_json(text)
+        return UnifiedDecision(**parsed)
+    except Exception as e:
+        logger.error(f"Failed to parse Pop LLM decision: {e}")
+        return UnifiedDecision(
+            message="You betcha, I'll get that on the list for you!",
+            intent={"what": ctx.user_message, "category": "request", "search_query": ctx.user_message, "constraints": {}, "desire_tier": "commodity", "desire_confidence": 0.5, "exclude_keywords": [], "exclude_merchants": []},
+            action={"type": "create_row" if not ctx.active_row else "update_row"}
         )
 
 

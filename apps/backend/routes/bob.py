@@ -14,7 +14,7 @@ import logging
 from database import get_session
 from models.rows import Row, Project
 from models.auth import User
-from services.llm import make_unified_decision, ChatContext, generate_choice_factors
+from services.llm import make_unified_decision, make_pop_decision, ChatContext, generate_choice_factors
 from services.email import EmailResult, RESEND_API_KEY, FROM_EMAIL, FROM_NAME, _maybe_intercept
 from routes.chat import _create_row, _update_row, _save_factors_scoped, _stream_search
 
@@ -312,8 +312,8 @@ async def process_bob_message(
         )
 
         # 4. NLU Decision
-        decision = await make_unified_decision(ctx)
-        logger.info(f"[Bob] Decision: {decision.action.get('type')} - {decision.intent.what}")
+        decision = await make_pop_decision(ctx)
+        logger.info(f"[Pop] Decision: {decision.action.get('type')} - {decision.intent.what}")
 
         action_type = decision.action.get("type", "")
         intent = decision.intent
@@ -601,7 +601,7 @@ async def pop_web_chat(
         )
 
         # NLU Decision
-        decision = await make_unified_decision(ctx)
+        decision = await make_pop_decision(ctx)
         logger.info(f"[Pop Web] Decision: {decision.action.get('type')} - {decision.intent.what}")
 
         action_type = decision.action.get("type", "")
