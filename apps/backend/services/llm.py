@@ -358,6 +358,10 @@ Return ONLY valid JSON:
         )
 
 
+# Alias for Pop routes (same decision engine, just a different name)
+make_pop_decision = make_unified_decision
+
+
 # =============================================================================
 # CHOICE FACTOR GENERATION
 # =============================================================================
@@ -484,6 +488,35 @@ def _heuristic_provider_query(display_query: str) -> str:
     q = re.sub(r"[()]", " ", q)
     q = " ".join(q.split()).strip()
     return q
+
+
+async def generate_outreach_email(
+    row_title: str,
+    vendor_company: str,
+    sender_name: str,
+    **kwargs,
+) -> Dict[str, str]:
+    """
+    Generate a personalized outreach email to a vendor using LLM.
+    Returns {"subject": ..., "body": ...}.
+    """
+    prompt = f"""Write a brief, professional outreach email from {sender_name} to {vendor_company}
+about a customer looking for: {row_title}.
+
+Return JSON ONLY: {{"subject": "...", "body": "..."}}"""
+
+    try:
+        text = await call_gemini(prompt, timeout=15.0)
+        parsed = _extract_json(text)
+        return {
+            "subject": parsed.get("subject", f"Inquiry about {row_title}"),
+            "body": parsed.get("body", f"Hi {vendor_company}, we have a customer interested in {row_title}."),
+        }
+    except Exception:
+        return {
+            "subject": f"Inquiry about {row_title}",
+            "body": f"Hi {vendor_company},\n\nWe have a customer interested in {row_title}. Would you be able to provide a quote?\n\nBest,\n{sender_name}",
+        }
 
 
 async def triage_provider_query(

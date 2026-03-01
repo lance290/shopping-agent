@@ -10,7 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from models.rows import Row, Project
 from models.auth import User
 from services.llm import make_pop_decision, ChatContext, generate_choice_factors
-from routes.chat import _create_row, _update_row, _save_factors_scoped, _stream_search
+from routes.chat import _create_row, _update_row, _save_choice_factors, _stream_search
 from routes.pop_helpers import (
     POP_DOMAIN,
     _ensure_project_member,
@@ -145,7 +145,7 @@ async def process_pop_message(
 
                 factors = await generate_choice_factors(title, constraints, is_service, service_category)
                 if factors:
-                    await _save_factors_scoped(row.id, factors)
+                    await _save_choice_factors(session, row, factors)
 
             elif action_type == "update_row" and active_row:
                 row = await _update_row(

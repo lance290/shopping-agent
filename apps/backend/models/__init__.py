@@ -85,6 +85,12 @@ from models.pop import (
     _gen_ref_code,
 )
 
+# Coupon/swap models
+from models.coupons import (
+    PopSwap,
+    PopSwapClaim,
+)
+
 # Admin models
 from models.admin import (
     BugReport,
@@ -144,6 +150,9 @@ __all__ = [
     "Receipt",
     "Referral",
     "_gen_ref_code",
+    # Coupons
+    "PopSwap",
+    "PopSwapClaim",
     # Admin
     "BugReport",
     "Notification",

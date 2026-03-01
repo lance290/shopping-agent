@@ -428,7 +428,57 @@ async def startup_event():
             await conn.execute(text("""
                 CREATE INDEX IF NOT EXISTS project_invite_project_id_idx ON project_invite (project_id);
             """))
-            print("Migration check: row + user + deal_handoff + vendor SEO + deal pipeline + pop sharing tables ensured")
+            # Pop swap/coupon tables (CouponProvider scaffolding)
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS pop_swap (
+                    id SERIAL PRIMARY KEY,
+                    category VARCHAR NOT NULL,
+                    target_product VARCHAR,
+                    swap_product_name VARCHAR NOT NULL,
+                    swap_product_image VARCHAR,
+                    swap_product_url VARCHAR,
+                    offer_type VARCHAR NOT NULL DEFAULT 'coupon',
+                    savings_cents INTEGER NOT NULL DEFAULT 0,
+                    discount_percent FLOAT,
+                    offer_description VARCHAR,
+                    terms VARCHAR,
+                    brand_name VARCHAR,
+                    brand_user_id INTEGER REFERENCES "user"(id),
+                    brand_contact_email VARCHAR,
+                    provider VARCHAR NOT NULL DEFAULT 'manual',
+                    provider_offer_id VARCHAR,
+                    provider_payout_cents INTEGER,
+                    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                    expires_at TIMESTAMP,
+                    max_redemptions INTEGER,
+                    current_redemptions INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMP
+                );
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS pop_swap_category_idx ON pop_swap (category);
+            """))
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS pop_swap_claim (
+                    id SERIAL PRIMARY KEY,
+                    swap_id INTEGER NOT NULL REFERENCES pop_swap(id),
+                    user_id INTEGER NOT NULL REFERENCES "user"(id),
+                    row_id INTEGER REFERENCES row(id),
+                    status VARCHAR NOT NULL DEFAULT 'claimed',
+                    claimed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    verified_at TIMESTAMP,
+                    paid_at TIMESTAMP,
+                    receipt_id VARCHAR REFERENCES receipt(id)
+                );
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS pop_swap_claim_swap_id_idx ON pop_swap_claim (swap_id);
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS pop_swap_claim_user_id_idx ON pop_swap_claim (user_id);
+            """))
+            print("Migration check: row + user + deal_handoff + vendor SEO + deal pipeline + pop sharing + pop swap tables ensured")
     except Exception as e:
         print(f"Migration check skipped (table may not exist yet, Alembic will create it): {e}")
 

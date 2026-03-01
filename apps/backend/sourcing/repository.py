@@ -13,6 +13,7 @@ from utils.security import redact_secrets_from_text
 from sourcing.executors import run_provider_with_status
 from sourcing.models import NormalizedResult, ProviderStatusSnapshot
 from sourcing.metrics import log_provider_result
+from sourcing.kroger_provider import KrogerProvider
 
 
 def extract_merchant_domain(url: str) -> str:
@@ -932,6 +933,19 @@ class SourcingRepository:
         scaleserp_key = os.getenv("SCALESERP_API_KEY")
         if scaleserp_key and scaleserp_key != "demo":
             self.providers["google_shopping"] = ScaleSerpProvider(scaleserp_key)
+            
+        # Kroger Product API - for grocery/household items
+        kroger_client_id = os.getenv("KROGER_CLIENT_ID")
+        kroger_client_secret = os.getenv("KROGER_CLIENT_SECRET")
+        kroger_location_id = os.getenv("KROGER_LOCATION_ID")
+        kroger_zip_code = os.getenv("KROGER_ZIP_CODE")
+        if kroger_client_id and kroger_client_secret:
+            self.providers["kroger"] = KrogerProvider(
+                client_id=kroger_client_id,
+                client_secret=kroger_client_secret,
+                location_id=kroger_location_id,
+                zip_code=kroger_zip_code,
+            )
         
         # Other providers DISABLED - using only Rainforest for now
         # ValueSerp - cheap alternative
