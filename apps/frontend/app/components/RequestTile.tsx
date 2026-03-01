@@ -64,7 +64,7 @@ export default function RequestTile({ row, onClick }: RequestTileProps) {
   }, [didAutoRegenerate, row.id, updateRow, factors]);
 
   useEffect(() => {
-    const serverAnswers = parseChoiceAnswers(row);
+    const serverAnswers = parseChoiceAnswers(row) || {};
     setLocalAnswers(prev => {
       const merged = { ...prev };
       Object.entries(serverAnswers).forEach(([k, v]) => {

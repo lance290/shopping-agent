@@ -42,7 +42,7 @@ export default function ChoiceFactorPanel() {
 
     if (row.id !== prevRowIdRef.current) return;
 
-    const serverAnswers = parseChoiceAnswers(row);
+    const serverAnswers = parseChoiceAnswers(row) || {};
     setLocalAnswers(prev => {
       const merged = { ...prev };
       Object.entries(serverAnswers).forEach(([k, v]) => {
