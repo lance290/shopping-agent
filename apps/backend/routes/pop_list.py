@@ -84,7 +84,7 @@ async def get_pop_list(
     rows_stmt = (
         select(Row)
         .where(Row.project_id == project_id)
-        .where(Row.status.in_(["sourcing", "active", "pending"]))
+        .where(Row.status.in_(["sourcing", "bids_arriving", "open", "active", "pending"]))
         .order_by(Row.created_at.desc())
         .limit(50)
     )
@@ -205,7 +205,7 @@ async def get_my_pop_list(
     rows_stmt = (
         select(Row)
         .where(Row.project_id == project.id)
-        .where(Row.status.in_(["sourcing", "active", "pending"]))
+        .where(Row.status.in_(["sourcing", "bids_arriving", "open", "active", "pending"]))
         .order_by(Row.created_at.asc())
         .limit(50)
     )
@@ -274,7 +274,7 @@ async def resolve_pop_invite(
     rows_stmt = (
         select(Row)
         .where(Row.project_id == project.id)
-        .where(Row.status.in_(["sourcing", "active", "pending"]))
+        .where(Row.status.in_(["sourcing", "bids_arriving", "open", "active", "pending"]))
     )
     rows_result = await session.execute(rows_stmt)
     items = rows_result.scalars().all()

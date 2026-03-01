@@ -92,7 +92,7 @@ async def process_pop_message(
         active_row_stmt = (
             select(Row)
             .where(Row.project_id == project.id)
-            .where(Row.status == "sourcing")
+            .where(Row.status.in_(["sourcing", "bids_arriving", "open", "active", "pending"]))
             .order_by(Row.updated_at.desc())
             .limit(1)
         )

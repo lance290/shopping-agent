@@ -1,6 +1,6 @@
 # PRD Traceability Matrix
 
-Updated: 2026-02-28
+Updated: 2026-03-01
 Build Scope Source: `docs/PRD/`
 Output Folder: `docs/PRD/bob-shopping-agent/`
 Parent Sources:
@@ -17,7 +17,8 @@ Parent Sources:
 | `prd-receipt-redemption-and-wallet.md` | P1 | v1.1 | 4 | Done | `prd-swap-discovery-and-claiming.md` | Converts claims into verified value; phased after core claim adoption stabilizes. |
 | `prd-brand-portal-and-demand-response.md` | P1 | v1.1 | 5 | Deferred | `prd-swap-discovery-and-claiming.md` | Expands supply-side offer inventory after demand signal quality is proven. |
 | `prd-referrals-growth-economics.md` | P1 | v2.0 | 6 | Done | `prd-receipt-redemption-and-wallet.md`, `prd-brand-portal-and-demand-response.md` | Growth optimization follows once core economics are trusted and measurable. |
-| `prd-whatsapp-and-scale-operations.md` | P2 | Future | 7 | Deferred | `prd-onboarding-and-intake.md`, `prd-shared-list-collaboration.md`, `prd-referrals-growth-economics.md` | Channel expansion is deferred until baseline quality and economics are stable. |
+| `prd-comparison-pricing.md` | P1 | v1.1 | 8 | New | `prd-shared-list-collaboration.md`, `prd-swap-discovery-and-claiming.md` | Cross-retailer unit pricing ($/oz, $/ct, $/sheet) gives users verifiable savings context — Costco-style comparison. |
+| `prd-whatsapp-and-scale-operations.md` | P2 | Future | 9 | Deferred | `prd-onboarding-and-intake.md`, `prd-shared-list-collaboration.md`, `prd-referrals-growth-economics.md` | Channel expansion is deferred until baseline quality and economics are stable. |
 
 ## Execution Order
 1. `docs/PRD/bob-shopping-agent/prd-onboarding-and-intake.md`
@@ -26,4 +27,5 @@ Parent Sources:
 4. `docs/PRD/bob-shopping-agent/prd-receipt-redemption-and-wallet.md`
 5. `docs/PRD/bob-shopping-agent/prd-brand-portal-and-demand-response.md`
 6. `docs/PRD/bob-shopping-agent/prd-referrals-growth-economics.md`
-7. `docs/PRD/bob-shopping-agent/prd-whatsapp-and-scale-operations.md`
+8. `docs/PRD/bob-shopping-agent/prd-comparison-pricing.md`
+9. `docs/PRD/bob-shopping-agent/prd-whatsapp-and-scale-operations.md`

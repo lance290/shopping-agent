@@ -178,9 +178,10 @@ async def pop_web_chat(
                 )
                 created_rows.append((row, item_query))
             # Search for deals on each created row
+            auth_header = request.headers.get("Authorization")
             for row, q in created_rows:
                 try:
-                    async for _batch in _stream_search(row.id, q, authorization=None):
+                    async for _batch in _stream_search(row.id, q, authorization=auth_header):
                         pass
                 except Exception as e:
                     logger.warning(f"[Pop Web] Search failed for row {row.id}: {e}")
@@ -201,8 +202,9 @@ async def pop_web_chat(
 
             # Trigger sourcing (non-streaming for web response)
             if search_query:
+                auth_header = request.headers.get("Authorization")
                 try:
-                    async for _batch in _stream_search(target_row.id, search_query, authorization=None):
+                    async for _batch in _stream_search(target_row.id, search_query, authorization=auth_header):
                         pass
                 except Exception as e:
                     logger.warning(f"[Pop Web] Search failed for row {target_row.id}: {e}")
@@ -217,8 +219,9 @@ async def pop_web_chat(
             target_row = row
 
             if search_query:
+                auth_header = request.headers.get("Authorization")
                 try:
-                    async for _batch in _stream_search(target_row.id, search_query, authorization=None):
+                    async for _batch in _stream_search(target_row.id, search_query, authorization=auth_header):
                         pass
                 except Exception as e:
                     logger.warning(f"[Pop Web] Search failed for row {target_row.id}: {e}")
@@ -240,7 +243,7 @@ async def pop_web_chat(
         list_stmt = (
             select(Row)
             .where(Row.project_id == project.id)
-            .where(Row.status.in_(["sourcing", "active", "pending"]))
+            .where(Row.status.in_(["sourcing", "bids_arriving", "open", "active", "pending"]))
             .order_by(Row.created_at.desc())
             .limit(20)
         )

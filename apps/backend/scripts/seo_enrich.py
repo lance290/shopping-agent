@@ -38,6 +38,7 @@ from models import Vendor
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
 
 logging.basicConfig(
     level=logging.INFO,
@@ -181,18 +182,34 @@ async def llm_extract_seo(name: str, text: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+def _fallback_slug(name: str, vendor_id: int) -> str:
+    base = (name or "vendor").lower().strip()
+    base = re.sub(r"[^a-z0-9\s-]", "", base)
+    base = re.sub(r"[\s_-]+", "-", base).strip("-")
+    return f"{base or 'vendor'}-{vendor_id}"
+
+
 # --- Main pipeline ---
 
 async def enrich_seo_vendors(limit: Optional[int], dry_run: bool):
     async_session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session_factory() as session:
-        # We target vendors that don't have seo_content yet
-        stmt = select(Vendor).where(Vendor.website.isnot(None), Vendor.seo_content.is_(None))
+        # Query SEO fields via SQL because these columns may exist in DB before ORM model is updated.
+        query = """
+            SELECT id, name, website
+            FROM vendor
+            WHERE website IS NOT NULL
+              AND COALESCE(TRIM(website), '') <> ''
+              AND seo_content IS NULL
+            ORDER BY id
+        """
         if limit:
-            stmt = stmt.limit(limit)
-        result = await session.exec(stmt)
-        vendors = result.all()
+            query += " LIMIT :limit"
+            result = await session.execute(text(query), {"limit": limit})
+        else:
+            result = await session.execute(text(query))
+        vendors = result.mappings().all()
 
     logger.info(f"Enriching {len(vendors)} vendors for SEO (dry_run={dry_run})")
 
@@ -201,15 +218,18 @@ async def enrich_seo_vendors(limit: Optional[int], dry_run: bool):
 
     for i, vendor in enumerate(vendors, 1):
         try:
-            logger.info(f"[{i}/{len(vendors)}] {vendor.name} — {vendor.website}")
+            vendor_id = int(vendor["id"])
+            vendor_name = vendor["name"]
+            vendor_website = vendor["website"]
+            logger.info(f"[{i}/{len(vendors)}] {vendor_name} — {vendor_website}")
 
-            text = await scrape_vendor_site(vendor.website)
-            if not text or len(text) < 100:
-                logger.info(f"  Scrape returned insufficient text ({len(text) if text else 0} chars)")
+            scraped_text = await scrape_vendor_site(vendor_website)
+            if not scraped_text or len(scraped_text) < 100:
+                logger.info(f"  Scrape returned insufficient text ({len(scraped_text) if scraped_text else 0} chars)")
                 errors += 1
                 continue
 
-            extracted = await llm_extract_seo(vendor.name, text)
+            extracted = await llm_extract_seo(vendor_name, scraped_text)
             
             if not extracted:
                 logger.info(f"  Failed to extract JSON from LLM")
@@ -222,19 +242,47 @@ async def enrich_seo_vendors(limit: Optional[int], dry_run: bool):
                 continue
 
             async with async_session_factory() as session:
-                db_vendor = (await session.exec(select(Vendor).where(Vendor.id == vendor.id))).one()
-                
-                db_vendor.slug = extracted.get("slug")
-                db_vendor.seo_content = extracted.get("seo_content")
-                db_vendor.schema_markup = extracted.get("schema_markup")
-                db_vendor.updated_at = datetime.utcnow()
+                slug = extracted.get("slug") or _fallback_slug(vendor_name, vendor_id)
+                seo_content = extracted.get("seo_content") or {}
+                schema_markup = extracted.get("schema_markup") or {
+                    "@context": "https://schema.org",
+                    "@type": "LocalBusiness",
+                    "name": vendor_name,
+                    "description": seo_content.get("summary", ""),
+                }
 
-                session.add(db_vendor)
+                # Ensure slug uniqueness if generated slug is already taken by another vendor.
+                existing = await session.execute(
+                    text("SELECT id FROM vendor WHERE slug = :slug AND id != :id LIMIT 1"),
+                    {"slug": slug, "id": vendor_id},
+                )
+                if existing.first():
+                    slug = _fallback_slug(vendor_name, vendor_id)
+
+                await session.execute(
+                    text(
+                        """
+                        UPDATE vendor
+                        SET slug = :slug,
+                            seo_content = CAST(:seo_content AS jsonb),
+                            schema_markup = CAST(:schema_markup AS jsonb),
+                            updated_at = :updated_at
+                        WHERE id = :id
+                        """
+                    ),
+                    {
+                        "id": vendor_id,
+                        "slug": slug,
+                        "seo_content": json.dumps(seo_content),
+                        "schema_markup": json.dumps(schema_markup),
+                        "updated_at": datetime.utcnow(),
+                    },
+                )
                 await session.commit()
                 enriched += 1
 
         except Exception as e:
-            logger.error(f"  Error processing {vendor.name}: {e}")
+            logger.error(f"  Error processing {vendor.get('name')}: {e}")
             errors += 1
 
     logger.info(f"DONE. enriched={enriched} errors={errors}")
