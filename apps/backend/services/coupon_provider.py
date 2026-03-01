@@ -171,14 +171,33 @@ class ManualProvider(CouponProvider):
             )
         )
 
-        # Filter by category (case-insensitive substring match)
-        stmt = stmt.where(PopSwap.category.ilike(f"%{category}%"))
-
         result = await session.exec(stmt)
         swaps = result.all()
 
+        matched_swaps = []
+        search_terms = category.lower().split()
+        if product_name:
+            search_terms.extend(product_name.lower().split())
+
+        for s in swaps:
+            s_cat = s.category.lower() if s.category else ""
+            s_target = s.target_product.lower() if s.target_product else ""
+            
+            # Simple substring matching: does the swap category appear in the search query, or vice-versa?
+            if s_cat in category.lower() or category.lower() in s_cat:
+                matched_swaps.append(s)
+            elif s_target and (s_target in category.lower() or category.lower() in s_target):
+                matched_swaps.append(s)
+            elif product_name and (s_cat in product_name.lower() or s_target and s_target in product_name.lower()):
+                matched_swaps.append(s)
+            elif any(term in s_cat or term in s_target for term in search_terms if len(term) > 3):
+                matched_swaps.append(s)
+
+        # Deduplicate
+        matched_swaps = list({s.id: s for s in matched_swaps}.values())
+
         return sorted(
-            [_swap_to_offer(s) for s in swaps],
+            [_swap_to_offer(s) for s in matched_swaps],
             key=lambda o: o.savings_cents,
             reverse=True,
         )

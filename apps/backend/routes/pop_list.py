@@ -18,6 +18,7 @@ from models.bids import Bid
 from services.llm import call_gemini
 from routes.pop_helpers import POP_DOMAIN, _get_pop_user, _ensure_project_member, _build_item_with_deals
 from models.rows import ProjectMember
+from services.coupon_provider import get_coupon_provider
 
 logger = logging.getLogger(__name__)
 list_router = APIRouter()
@@ -90,6 +91,7 @@ async def get_pop_list(
     rows_result = await session.execute(rows_stmt)
     rows = rows_result.scalars().all()
 
+    provider = get_coupon_provider()
     items = []
     for row in rows:
         bids_stmt = (
@@ -138,6 +140,24 @@ async def get_pop_list(
                     "image_url": b.image_url,
                     "savings_vs_first": round(deals[0]["price"] - b.price, 2) if deals and b.price < deals[0]["price"] else None,
                 })
+
+        # Fetch provider swaps (brand coupons/rebates)
+        provider_swaps = await provider.search_swaps(category=row.title, product_name=row.title, session=session)
+        for s in provider_swaps:
+            base_price = deals[0]["price"] if deals else None
+            swap_price = base_price - (s.savings_cents / 100) if base_price else None
+            if swap_price is not None and swap_price < 0:
+                swap_price = 0.0
+            
+            swaps.append({
+                "id": s.swap_id + 1000000 if s.swap_id else 0,
+                "title": f"{s.swap_product_name} ({s.offer_description})" if s.offer_description else s.swap_product_name,
+                "price": swap_price,
+                "source": f"{s.provider.capitalize()} Offer",
+                "url": s.swap_product_url,
+                "image_url": s.swap_product_image,
+                "savings_vs_first": s.savings_cents / 100,
+            })
 
         items.append({
             "id": row.id,
