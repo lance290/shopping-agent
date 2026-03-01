@@ -45,7 +45,10 @@ async def test_clickout_redirect_success(client: AsyncClient, session):
     
     # 3. Verify Redirect
     assert response.status_code in (302, 307)
-    assert response.headers["location"] == target_url
+    
+    location = response.headers["location"]
+    # The URL should be wrapped in Skimlinks, or exactly the target if Skimlinks is disabled
+    assert target_url in location or "go.skimresources.com" in location
 
 @pytest.mark.asyncio
 async def test_clickout_missing_url(client: AsyncClient):

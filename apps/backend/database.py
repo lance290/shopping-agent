@@ -114,11 +114,17 @@ if ENABLE_QUERY_LOGGING:
 async def init_db():
     import models  # noqa: F401 — populate SQLModel.metadata with all table definitions
     from sqlalchemy import text
-    async with engine.begin() as conn:
-        try:
+    
+    # Try to create pgvector extension safely (ignore errors if it needs higher privileges
+    # or is handled externally by fix_schema.py)
+    try:
+        async with engine.begin() as conn:
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        except Exception as e:
-            print(f"WARNING: Could not create pgvector extension: {e}")
+    except Exception as e:
+        print(f"WARNING: Could not create pgvector extension: {e}")
+
+    # Now run create_all
+    async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
 
 async def get_session() -> AsyncSession:
