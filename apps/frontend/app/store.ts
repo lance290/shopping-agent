@@ -273,7 +273,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   streamingRowIds: {},
   isSearching: false,
   cardClickQuery: null,
-  selectedProviders: { amazon: true, serpapi: true, vendor_directory: true },
+  selectedProviders: { amazon: true, ebay: true, serpapi: true, vendor_directory: true },
   isSidebarOpen: false, // Default closed
 
   pendingRowDelete: null,

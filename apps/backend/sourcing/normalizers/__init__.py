@@ -101,6 +101,8 @@ from sourcing.normalizers.kroger import normalize_kroger_results
 
 NORMALIZER_REGISTRY: Dict[str, Callable[[List[SearchResult]], List[NormalizedResult]]] = {
     "rainforest": normalize_rainforest_results,
+    "amazon": normalize_rainforest_results,
+    "ebay": normalize_ebay_results,
     "google_cse": normalize_google_cse_results,
     "kroger": normalize_kroger_results,
 }

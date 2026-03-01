@@ -19,8 +19,8 @@ async def _empty_async_gen():
     yield  # makes it an async generator
 
 
-def _mock_pop_decision(message: str = "Got it! Added to your list."):
-    """Build a minimal mock of make_pop_decision's return value."""
+def _mock_pop_decision(message: str = "Got it! Added to your list.", action_type: str = "chat"):
+    """Build a minimal mock of make_pop_decision's return value (UnifiedDecision)."""
     mock_intent = MagicMock()
     mock_intent.what = "eggs"
     mock_intent.category = "product"
@@ -31,12 +31,9 @@ def _mock_pop_decision(message: str = "Got it! Added to your list."):
     mock_intent.constraints = {}
     mock_intent.desire_tier = None
 
-    mock_item = MagicMock()
-    mock_item.action = {"type": "chat"}
-    mock_item.intent = mock_intent
-
     mock_decision = MagicMock()
-    mock_decision.items = [mock_item]
+    mock_decision.intent = mock_intent
+    mock_decision.action = {"type": action_type}
     mock_decision.message = message
     return mock_decision
 
@@ -229,12 +226,9 @@ async def test_chat_create_row_action_persists_to_db(
     mock_intent.constraints = {}
     mock_intent.desire_tier = None
 
-    mock_item = MagicMock()
-    mock_item.action = {"type": "create_row"}
-    mock_item.intent = mock_intent
-
     mock_decision = MagicMock()
-    mock_decision.items = [mock_item]
+    mock_decision.intent = mock_intent
+    mock_decision.action = {"type": "create_row"}
     mock_decision.message = "Added avocados!"
 
     with patch("routes.pop_chat.make_pop_decision", new_callable=AsyncMock, return_value=mock_decision):

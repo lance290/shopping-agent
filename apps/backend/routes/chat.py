@@ -19,7 +19,10 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from dependencies import get_current_session
-from models import Row, RequestSpec, Project
+from models.rows import Row, Project
+from models.bids import Bid
+from models.auth import User
+from models import RequestSpec
 from utils.json_utils import safe_json_loads
 from services.llm import (
     ChatContext,
@@ -400,36 +403,25 @@ async def chat_endpoint(
                     row = await _save_choice_factors(session, row, factors)
                 yield sse_event("factors_updated", {"row": row_to_dict(row)})
 
-                # Search — routed by desire tier
-                # Vendor directory search runs for ALL tiers (handled inside search pipeline)
-                # Web search (Amazon/eBay/Google) only runs for commodity/considered tiers
-                if tier != "advisory":
-                    yield sse_event("action_started", {"type": "search", "row_id": row.id, "query": search_query})
-                    async for batch in _stream_search(row.id, search_query, authorization):
-                        if batch.get("event") == "complete":
-                            if batch.get("user_message"):
-                                yield sse_event("search_results", {
-                                    "row_id": row.id,
-                                    "results": [],
-                                    "more_incoming": False,
-                                    "user_message": batch["user_message"],
-                                })
-                        else:
+                # Search — tier filtering happens inside the search pipeline
+                yield sse_event("action_started", {"type": "search", "row_id": row.id, "query": search_query})
+                async for batch in _stream_search(row.id, search_query, authorization):
+                    if batch.get("event") == "complete":
+                        if batch.get("user_message"):
                             yield sse_event("search_results", {
                                 "row_id": row.id,
-                                "results": batch.get("results", []),
-                                "provider_statuses": [batch.get("status")] if batch.get("status") else [],
-                                "more_incoming": batch.get("more_incoming", False),
-                                "provider": batch.get("provider"),
+                                "results": [],
+                                "more_incoming": False,
+                                "user_message": batch["user_message"],
                             })
-                else:
-                    # Advisory tier — no search, flag for human review
-                    yield sse_event("search_results", {
-                        "row_id": row.id,
-                        "results": [],
-                        "more_incoming": False,
-                        "user_message": "This request needs specialized advisory services. I'll help connect you with the right professionals.",
-                    })
+                    else:
+                        yield sse_event("search_results", {
+                            "row_id": row.id,
+                            "results": batch.get("results", []),
+                            "provider_statuses": [batch.get("status")] if batch.get("status") else [],
+                            "more_incoming": batch.get("more_incoming", False),
+                            "provider": batch.get("provider"),
+                        })
 
                 yield sse_event("done", {})
                 return
@@ -463,14 +455,13 @@ async def chat_endpoint(
                         row = await _save_choice_factors(session, row, factors)
                     yield sse_event("factors_updated", {"row": row_to_dict(row)})
 
-                    if tier != "advisory":
-                        yield sse_event("action_started", {"type": "search", "row_id": row.id, "query": search_query})
-                        async for batch in _stream_search(row.id, search_query, authorization):
-                            if batch.get("event") == "complete":
-                                if batch.get("user_message"):
-                                    yield sse_event("search_results", {"row_id": row.id, "results": [], "more_incoming": False, "user_message": batch["user_message"]})
-                            else:
-                                yield sse_event("search_results", {"row_id": row.id, "results": batch.get("results", []), "provider_statuses": [batch.get("status")] if batch.get("status") else [], "more_incoming": batch.get("more_incoming", False), "provider": batch.get("provider")})
+                    yield sse_event("action_started", {"type": "search", "row_id": row.id, "query": search_query})
+                    async for batch in _stream_search(row.id, search_query, authorization):
+                        if batch.get("event") == "complete":
+                            if batch.get("user_message"):
+                                yield sse_event("search_results", {"row_id": row.id, "results": [], "more_incoming": False, "user_message": batch["user_message"]})
+                        else:
+                            yield sse_event("search_results", {"row_id": row.id, "results": batch.get("results", []), "provider_statuses": [batch.get("status")] if batch.get("status") else [], "more_incoming": batch.get("more_incoming", False), "provider": batch.get("provider")})
 
                     yield sse_event("done", {})
                     return
@@ -522,8 +513,8 @@ async def chat_endpoint(
                         row = await _save_choice_factors(session, row, factors)
                     yield sse_event("factors_updated", {"row": row_to_dict(row)})
 
-                # Search — routed by desire tier
-                if search_query and tier != "advisory":
+                # Search — tier filtering happens inside the search pipeline
+                if search_query:
                     yield sse_event("action_started", {"type": "search", "row_id": active_row_id, "query": search_query})
                     async for batch in _stream_search(active_row_id, search_query, authorization):
                         if batch.get("event") == "complete":

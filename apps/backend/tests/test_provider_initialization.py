@@ -155,6 +155,131 @@ class TestProviderInitialization:
                     os.environ["SOURCING_PROVIDER_TIMEOUT_SECONDS"] = env_timeout
 
 
+class TestEbayProviderInitialization:
+    """eBay Browse API provider initialization from env vars."""
+
+    def test_ebay_initialized_when_credentials_set(self):
+        """EbayBrowseProvider should be registered as 'ebay' when both CLIENT_ID and CLIENT_SECRET are set."""
+        with patch.dict(os.environ, {
+            "EBAY_CLIENT_ID": "test_client_id",
+            "EBAY_CLIENT_SECRET": "test_client_secret",
+            "EBAY_MARKETPLACE_ID": "EBAY-US",
+            "RAINFOREST_API_KEY": "",
+        }, clear=False):
+            from sourcing.repository import SourcingRepository, EbayBrowseProvider
+            repo = SourcingRepository()
+
+            assert "ebay" in repo.providers
+            assert isinstance(repo.providers["ebay"], EbayBrowseProvider)
+
+    def test_ebay_not_initialized_when_client_id_missing(self):
+        """eBay provider should not be registered when EBAY_CLIENT_ID is empty."""
+        with patch.dict(os.environ, {
+            "EBAY_CLIENT_ID": "",
+            "EBAY_CLIENT_SECRET": "test_secret",
+            "RAINFOREST_API_KEY": "",
+        }, clear=False):
+            from sourcing.repository import SourcingRepository
+            repo = SourcingRepository()
+
+            assert "ebay" not in repo.providers
+
+    def test_ebay_not_initialized_when_client_secret_missing(self):
+        """eBay provider should not be registered when EBAY_CLIENT_SECRET is empty."""
+        with patch.dict(os.environ, {
+            "EBAY_CLIENT_ID": "test_id",
+            "EBAY_CLIENT_SECRET": "",
+            "RAINFOREST_API_KEY": "",
+        }, clear=False):
+            from sourcing.repository import SourcingRepository
+            repo = SourcingRepository()
+
+            assert "ebay" not in repo.providers
+
+    def test_ebay_marketplace_defaults_to_us(self):
+        """eBay marketplace ID should default to EBAY-US."""
+        with patch.dict(os.environ, {
+            "EBAY_CLIENT_ID": "test_id",
+            "EBAY_CLIENT_SECRET": "test_secret",
+            "RAINFOREST_API_KEY": "",
+        }, clear=False):
+            os.environ.pop("EBAY_MARKETPLACE_ID", None)
+            from sourcing.repository import SourcingRepository
+            repo = SourcingRepository()
+
+            assert "ebay" in repo.providers
+            assert repo.providers["ebay"].marketplace_id == "EBAY-US"
+
+
+class TestKrogerProviderInitialization:
+    """Kroger Product API provider initialization from env vars."""
+
+    def test_kroger_initialized_when_credentials_set(self):
+        """KrogerProvider should be registered when KROGER_CLIENT_ID and KROGER_CLIENT_SECRET are set."""
+        with patch.dict(os.environ, {
+            "KROGER_CLIENT_ID": "test_kroger_id",
+            "KROGER_CLIENT_SECRET": "test_kroger_secret",
+            "RAINFOREST_API_KEY": "",
+        }, clear=False):
+            from sourcing.repository import SourcingRepository
+            repo = SourcingRepository()
+
+            assert "kroger" in repo.providers
+
+    def test_kroger_not_initialized_when_client_id_missing(self):
+        """Kroger provider should not be registered when KROGER_CLIENT_ID is empty."""
+        with patch.dict(os.environ, {
+            "KROGER_CLIENT_ID": "",
+            "KROGER_CLIENT_SECRET": "test_secret",
+            "RAINFOREST_API_KEY": "",
+        }, clear=False):
+            from sourcing.repository import SourcingRepository
+            repo = SourcingRepository()
+
+            assert "kroger" not in repo.providers
+
+
+class TestTicketmasterProviderInitialization:
+    """Ticketmaster Discovery API provider initialization from env vars."""
+
+    def test_ticketmaster_initialized_when_key_set(self):
+        """TicketmasterProvider should be registered when TICKETMASTER_API_KEY is set."""
+        with patch.dict(os.environ, {
+            "TICKETMASTER_API_KEY": "test_tm_key",
+            "RAINFOREST_API_KEY": "",
+        }, clear=False):
+            from sourcing.repository import SourcingRepository
+            repo = SourcingRepository()
+
+            assert "ticketmaster" in repo.providers
+
+    def test_ticketmaster_not_initialized_when_key_missing(self):
+        """Ticketmaster provider should not be registered when TICKETMASTER_API_KEY is empty."""
+        with patch.dict(os.environ, {
+            "TICKETMASTER_API_KEY": "",
+            "RAINFOREST_API_KEY": "",
+        }, clear=False):
+            from sourcing.repository import SourcingRepository
+            repo = SourcingRepository()
+
+            assert "ticketmaster" not in repo.providers
+
+
+class TestVendorDirectoryProviderInitialization:
+    """Vendor Directory (pgvector) provider initialization from env vars."""
+
+    def test_vendor_directory_initialized_when_database_url_set(self):
+        """VendorDirectoryProvider should always be registered when DATABASE_URL is set."""
+        with patch.dict(os.environ, {
+            "DATABASE_URL": "postgresql+asyncpg://localhost:5432/test",
+            "RAINFOREST_API_KEY": "",
+        }, clear=False):
+            from sourcing.repository import SourcingRepository
+            repo = SourcingRepository()
+
+            assert "vendor_directory" in repo.providers
+
+
 class TestProviderPriority:
     """Test that providers are initialized in expected priority order."""
 

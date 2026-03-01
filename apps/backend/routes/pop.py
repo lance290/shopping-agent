@@ -10,8 +10,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from database import get_session
 from models.auth import User
 from routes.pop_helpers import RESEND_WEBHOOK_SECRET, TWILIO_AUTH_TOKEN
-from routes.pop_notify import send_pop_onboarding_sms
-from routes.pop_processor import process_pop_message
+from routes import pop_notify
+from routes import pop_processor
 from routes.pop_list import list_router
 from routes.pop_wallet import wallet_router
 from routes.pop_chat import chat_router
@@ -83,7 +83,7 @@ async def resend_inbound(
 
     logger.info(f"[Pop] Resend inbound from {sender}: {subject}")
 
-    background_tasks.add_task(process_pop_message, sender, body, session, "email", None)
+    background_tasks.add_task(pop_processor.process_pop_message, sender, body, session, "email", None)
 
     return {"status": "accepted"}
 
@@ -130,11 +130,11 @@ async def twilio_inbound(
 
     if user and user.email:
         background_tasks.add_task(
-            process_pop_message, user.email, body, session, "sms", sender_phone,
+            pop_processor.process_pop_message, user.email, body, session, "sms", sender_phone,
         )
     else:
         logger.info(f"[Pop] Unknown phone {sender_phone}. Sending onboarding SMS.")
-        send_pop_onboarding_sms(sender_phone)
+        pop_notify.send_pop_onboarding_sms(sender_phone)
 
     # Return empty TwiML so Twilio doesn't retry
     return PlainTextResponse(

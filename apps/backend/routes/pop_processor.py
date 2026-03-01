@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from typing import Optional
 
 from sqlmodel import select
@@ -58,6 +59,16 @@ async def process_pop_message(
                 await send_pop_onboarding_email(user_email)
             return
 
+        # 1b. Extract zip_code from message if user hasn't set one yet
+        if not user.zip_code:
+            zip_match = re.search(r'\b(\d{5})(?:-\d{4})?\b', message_text)
+            if zip_match:
+                user.zip_code = zip_match.group(1)
+                session.add(user)
+                await session.commit()
+                await session.refresh(user)
+                logger.info(f"[Pop] Saved zip_code {user.zip_code} for user {user.id}")
+
         # 2. Find active Pop project (Family List)
         proj_stmt = (
             select(Project)
@@ -110,56 +121,55 @@ async def process_pop_message(
 
         # 4. NLU Decision
         decision = await make_pop_decision(ctx)
-        logger.info(f"[Pop] Decision: {len(decision.items)} items extracted.")
+        logger.info(f"[Pop] Decision: action={decision.action}, intent={decision.intent.what}")
 
         target_row = None
         title = ""
 
-        for item in decision.items:
-            action_type = item.action.get("type", "")
-            intent = item.intent
+        action_type = decision.action.get("type", "")
+        intent = decision.intent
 
-            is_service = intent.category == "service"
-            service_category = intent.service_type
-            title = intent.what[0].upper() + intent.what[1:] if intent.what else intent.what
-            search_query = intent.search_query
-            exclude_keywords = intent.exclude_keywords or []
-            exclude_merchants = intent.exclude_merchants or []
-            _META_KEYS = {
-                "what", "is_service", "service_category", "search_query", "title",
-                "category", "desire_tier", "desire_confidence",
-                "exclude_keywords", "exclude_merchants",
-            }
-            constraints = {k: v for k, v in (intent.constraints or {}).items() if k not in _META_KEYS}
+        is_service = intent.category == "service"
+        service_category = intent.service_type
+        title = intent.what[0].upper() + intent.what[1:] if intent.what else intent.what
+        search_query = intent.search_query
+        exclude_keywords = intent.exclude_keywords or []
+        exclude_merchants = intent.exclude_merchants or []
+        _META_KEYS = {
+            "what", "is_service", "service_category", "search_query", "title",
+            "category", "desire_tier", "desire_confidence",
+            "exclude_keywords", "exclude_merchants",
+        }
+        constraints = {k: v for k, v in (intent.constraints or {}).items() if k not in _META_KEYS}
 
-            # 5. Create or Update Row based on intent
-            if action_type in ("create_row", "context_switch") or (action_type == "search" and not active_row):
-                row = await _create_row(
-                    session, user.id, title, project.id,
-                    is_service, service_category, constraints, search_query,
-                    desire_tier=intent.desire_tier,
-                    exclude_keywords=exclude_keywords,
-                    exclude_merchants=exclude_merchants,
-                )
-                target_row = row
+        # 5. Create or Update Row based on intent
+        if action_type in ("create_row", "context_switch") or (action_type == "search" and not active_row):
+            row = await _create_row(
+                session, user.id, title, project.id,
+                is_service, service_category, constraints, search_query,
+                desire_tier=intent.desire_tier,
+                exclude_keywords=exclude_keywords,
+                exclude_merchants=exclude_merchants,
+            )
+            target_row = row
 
-                factors = await generate_choice_factors(title, constraints, is_service, service_category)
-                if factors:
-                    await _save_choice_factors(session, row, factors)
+            factors = await generate_choice_factors(title, constraints, is_service, service_category)
+            if factors:
+                await _save_choice_factors(session, row, factors)
 
-            elif action_type == "update_row" and active_row:
-                row = await _update_row(
-                    session, active_row,
-                    title=title if active_row.title != title else None,
-                    constraints=constraints if constraints else None,
-                    reset_bids=bool(search_query),
-                )
-                target_row = row
+        elif action_type == "update_row" and active_row:
+            row = await _update_row(
+                session, active_row,
+                title=title if active_row.title != title else None,
+                constraints=constraints if constraints else None,
+                reset_bids=bool(search_query),
+            )
+            target_row = row
 
-            # Trigger sourcing
-            if search_query and target_row:
-                async for _batch in _stream_search(target_row.id, search_query, authorization=None):
-                    pass
+        # Trigger sourcing
+        if search_query and target_row:
+            async for _batch in _stream_search(target_row.id, search_query, authorization=None):
+                pass
 
         # If no row was created/updated, use active_row for history persistence
         if target_row is None:

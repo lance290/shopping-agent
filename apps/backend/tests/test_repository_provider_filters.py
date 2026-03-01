@@ -29,7 +29,7 @@ def _make_repo_with_providers(provider_ids):
 def test_provider_filter_aliases_are_normalized():
     repo = _make_repo_with_providers(["amazon", "serpapi", "vendor_directory"])
     allow = repo._normalize_provider_filter(["rainforest", "google", "ebay", "vendor_directory"])
-    assert allow == {"amazon", "serpapi", "ebay_browse", "vendor_directory"}
+    assert allow == {"amazon", "serpapi", "ebay", "vendor_directory"}
 
 
 @pytest.mark.asyncio

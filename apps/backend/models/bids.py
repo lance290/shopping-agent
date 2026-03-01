@@ -110,6 +110,13 @@ class Bid(SQLModel, table=True):
     is_liked: bool = False
     liked_at: Optional[datetime] = None
 
+    # Swap classification (Pop V2) — None=unclassified, True=swap, False=direct match
+    is_swap: Optional[bool] = Field(default=None)
+
+    # Soft-delete for bid reset — superseded bids are hidden, not deleted
+    is_superseded: bool = Field(default=False)
+    superseded_at: Optional[datetime] = None
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     row: "Row" = Relationship(back_populates="bids")

@@ -58,10 +58,12 @@ class KrogerProvider(SourcingProvider):
     ):
         self.client_id = client_id
         self.client_secret = client_secret
-        self.location_id = location_id
-        self.zip_code = zip_code
+        self._default_location_id = location_id
+        self._default_zip_code = zip_code
         self._token: Optional[str] = None
         self._token_expires_at: float = 0.0
+        # Cache: zip_code -> locationId (avoids repeated location lookups)
+        self._zip_to_location: Dict[str, str] = {}
 
     # ------------------------------------------------------------------
     # OAuth2 client-credentials flow
@@ -108,33 +110,39 @@ class KrogerProvider(SourcingProvider):
         return token
 
     # ------------------------------------------------------------------
-    # Location lookup (one-time, cached)
+    # Location lookup (cached per zip code)
     # ------------------------------------------------------------------
 
-    async def _resolve_location_id(self, token: str) -> Optional[str]:
-        """Resolve a Kroger locationId from ZIP code, caching the result."""
-        if self.location_id:
-            return self.location_id
+    async def _resolve_location_id(self, token: str, zip_code: Optional[str] = None) -> Optional[str]:
+        """Resolve a Kroger locationId from ZIP code, with per-zip caching."""
+        if self._default_location_id and not zip_code:
+            return self._default_location_id
 
-        if not self.zip_code:
+        effective_zip = zip_code or self._default_zip_code
+        if not effective_zip:
             return None
+
+        # Return cached location for this zip
+        if effective_zip in self._zip_to_location:
+            return self._zip_to_location[effective_zip]
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(
                     _LOCATIONS_URL,
-                    params={"filter.zipCode.near": self.zip_code, "filter.limit": 1},
+                    params={"filter.zipCode.near": effective_zip, "filter.limit": 1},
                     headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
                 )
                 resp.raise_for_status()
                 data = resp.json()
                 locations = data.get("data", [])
                 if locations:
-                    self.location_id = locations[0].get("locationId")
-                    logger.info(f"[KrogerProvider] Resolved location: {self.location_id}")
-                    return self.location_id
+                    loc_id = locations[0].get("locationId")
+                    self._zip_to_location[effective_zip] = loc_id
+                    logger.info(f"[KrogerProvider] Resolved zip {effective_zip} -> location {loc_id}")
+                    return loc_id
         except Exception as e:
-            logger.warning(f"[KrogerProvider] Location lookup failed: {e}")
+            logger.warning(f"[KrogerProvider] Location lookup failed for {effective_zip}: {e}")
 
         return None
 
@@ -147,7 +155,9 @@ class KrogerProvider(SourcingProvider):
         if not token:
             return []
 
-        location_id = await self._resolve_location_id(token)
+        # Per-user zip_code override (passed from sourcing pipeline)
+        user_zip = kwargs.pop("zip_code", None)
+        location_id = await self._resolve_location_id(token, zip_code=user_zip)
 
         params: Dict[str, Any] = {
             "filter.term": query,

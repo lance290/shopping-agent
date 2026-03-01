@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re as _re
 from datetime import datetime
 from typing import List, Optional, Tuple
 
@@ -10,6 +11,7 @@ from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models import Bid, Row, Seller
+from models.auth import User
 from sourcing.models import NormalizedResult, ProviderStatusSnapshot, SearchIntent
 from sourcing.repository import SourcingRepository
 from sourcing.metrics import get_metrics_collector, log_search_start
@@ -17,11 +19,81 @@ from sourcing.scorer import score_results
 
 logger = logging.getLogger(__name__)
 
+# Key aliases for price constraint extraction — maps normalized key to (role, ...)
+_MIN_KEYS = {"min_price", "price_min", "minimum_price", "minimum_value", "minimum value", "minimum price"}
+_MAX_KEYS = {"max_price", "price_max", "maximum_price", "maximum_value", "maximum value", "maximum price"}
+_RANGE_KEYS = {"price", "budget"}
+
+
+def _parse_numeric(raw) -> Optional[float]:
+    """Extract a float from a value that may contain $, commas, or freeform text."""
+    if raw is None:
+        return None
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    s = str(raw).strip()
+    # Strip $, commas, leading/trailing whitespace
+    nums = _re.findall(r"[\d]+(?:\.[\d]+)?", s.replace(",", ""))
+    if nums:
+        return float(nums[0])
+    return None
+
+
+def _parse_price_value(raw) -> Tuple[Optional[float], Optional[float]]:
+    """Parse a string value that may encode a range, gt, or lt constraint.
+
+    Returns (min_price, max_price).
+    """
+    if raw is None:
+        return None, None
+    if isinstance(raw, (int, float)):
+        return None, None  # plain number — caller already handled by key
+    s = str(raw).strip()
+    # Range: "50-100" or "$50-$100"
+    m = _re.match(r"^\$?([\d,.]+)\s*[-–]\s*\$?([\d,.]+)", s)
+    if m:
+        return float(m.group(1).replace(",", "")), float(m.group(2).replace(",", ""))
+    # Greater-than: ">50" or ">$50" or "≥50"
+    m = _re.match(r"^[>≥]\s*\$?([\d,.]+)", s)
+    if m:
+        return float(m.group(1).replace(",", "")), None
+    # Less-than: "<100" or "<$100" or "≤100"
+    m = _re.match(r"^[<≤]\s*\$?([\d,.]+)", s)
+    if m:
+        return None, float(m.group(1).replace(",", ""))
+    return None, None
+
 
 class SourcingService:
     def __init__(self, session: AsyncSession, sourcing_repo: SourcingRepository):
         self.session = session
         self.repo = sourcing_repo
+
+    @staticmethod
+    def extract_vendor_query(row) -> Optional[str]:
+        """Extract the clean product name from row.search_intent for vendor search.
+
+        Prefers 'product_name', falls back to 'raw_input'.
+        Returns None if no usable intent is found.
+        """
+        if row is None:
+            return None
+        raw = getattr(row, "search_intent", None)
+        if not raw:
+            return None
+        try:
+            payload = json.loads(raw) if isinstance(raw, str) else raw
+        except (json.JSONDecodeError, TypeError):
+            return None
+        if not isinstance(payload, dict):
+            return None
+        product_name = payload.get("product_name")
+        if product_name:
+            return str(product_name)
+        raw_input = payload.get("raw_input")
+        if raw_input:
+            return str(raw_input)
+        return None
 
     def _extract_price_constraints(self, row: Row) -> tuple[Optional[float], Optional[float]]:
         min_price: Optional[float] = None
@@ -42,10 +114,41 @@ class SourcingService:
             try:
                 answers = json.loads(row.choice_answers) if isinstance(row.choice_answers, str) else row.choice_answers
                 if isinstance(answers, dict):
-                    if answers.get("min_price") not in (None, ""):
-                        min_price = float(answers["min_price"])
-                    if answers.get("max_price") not in (None, ""):
-                        max_price = float(answers["max_price"])
+                    # Normalize keys for lookup
+                    norm = {k.lower().strip(): v for k, v in answers.items()}
+                    # Direct min keys
+                    for k in _MIN_KEYS:
+                        if k in norm and norm[k] not in (None, ""):
+                            val = _parse_numeric(norm[k])
+                            if val is not None:
+                                min_price = val
+                                break
+                    # Direct max keys
+                    for k in _MAX_KEYS:
+                        if k in norm and norm[k] not in (None, ""):
+                            val = _parse_numeric(norm[k])
+                            if val is not None:
+                                max_price = val
+                                break
+                    # Range/gt/lt from 'price', 'budget', or min/max key values
+                    if min_price is None and max_price is None:
+                        for k in _RANGE_KEYS:
+                            if k in norm and norm[k] not in (None, ""):
+                                lo, hi = _parse_price_value(norm[k])
+                                if lo is not None:
+                                    min_price = lo
+                                if hi is not None:
+                                    max_price = hi
+                                if lo is not None or hi is not None:
+                                    break
+                    # Also check min keys for embedded gt/lt (e.g. "minimum value": ">$50")
+                    if min_price is None:
+                        for k in _MIN_KEYS | {"minimum price"}:
+                            if k in norm and isinstance(norm[k], str):
+                                lo, _ = _parse_price_value(norm[k])
+                                if lo is not None:
+                                    min_price = lo
+                                    break
             except Exception:
                 pass
 
@@ -99,6 +202,17 @@ class SourcingService:
         # Extract desire_tier for logging/repo context
         desire_tier = row.desire_tier if row else None
 
+        # Resolve user's zip_code for location-aware providers (Kroger, etc.)
+        user_zip: Optional[str] = None
+        if row and row.user_id:
+            try:
+                user_res = await self.session.exec(
+                    select(User.zip_code).where(User.id == row.user_id)
+                )
+                user_zip = user_res.first()
+            except Exception:
+                pass
+
         with metrics.track_search(row_id=row_id, query=query):
             search_response = await self.repo.search_all_with_status(
                 query,
@@ -106,6 +220,7 @@ class SourcingService:
                 min_price=min_price,
                 max_price=max_price,
                 desire_tier=desire_tier,
+                zip_code=user_zip,
             )
 
             normalized_results = search_response.normalized_results

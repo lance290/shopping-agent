@@ -478,7 +478,19 @@ async def startup_event():
             await conn.execute(text("""
                 CREATE INDEX IF NOT EXISTS pop_swap_claim_user_id_idx ON pop_swap_claim (user_id);
             """))
-            print("Migration check: row + user + deal_handoff + vendor SEO + deal pipeline + pop sharing + pop swap tables ensured")
+            # User zip_code for per-user grocery location (Kroger, etc.)
+            await conn.execute(text("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'user' AND column_name = 'zip_code'
+                    ) THEN
+                        ALTER TABLE "user" ADD COLUMN zip_code VARCHAR;
+                    END IF;
+                END $$;
+            """))
+            print("Migration check: row + user + deal_handoff + vendor SEO + deal pipeline + pop sharing + pop swap + user zip_code ensured")
     except Exception as e:
         print(f"Migration check skipped (table may not exist yet, Alembic will create it): {e}")
 

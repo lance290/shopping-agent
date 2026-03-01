@@ -13,7 +13,6 @@ from utils.security import redact_secrets_from_text
 from sourcing.executors import run_provider_with_status
 from sourcing.models import NormalizedResult, ProviderStatusSnapshot
 from sourcing.metrics import log_provider_result
-from sourcing.kroger_provider import KrogerProvider
 
 
 def extract_merchant_domain(url: str) -> str:
@@ -915,24 +914,24 @@ class SourcingRepository:
             f"(is_none={rainforest_key is None}, len={rainforest_key_len})"
         )
         if rainforest_present:
-            self.providers["rainforest"] = RainforestAPIProvider(rainforest_key)
+            self.providers["amazon"] = RainforestAPIProvider(rainforest_key)
 
-        serpapi_key = os.getenv("SERPAPI_API_KEY")
-        if serpapi_key and serpapi_key != "demo":
-            self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
-
-        valueserp_key = os.getenv("VALUESERP_API_KEY")
-        if valueserp_key and valueserp_key != "demo":
-            self.providers["valueserp"] = ValueSerpProvider(valueserp_key)
-
-        searchapi_key = os.getenv("SEARCHAPI_API_KEY")
-        if searchapi_key and searchapi_key != "demo":
-            self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
-        
-        # Scale SERP - Google Shopping (same company as Rainforest)
-        scaleserp_key = os.getenv("SCALESERP_API_KEY")
-        if scaleserp_key and scaleserp_key != "demo":
-            self.providers["google_shopping"] = ScaleSerpProvider(scaleserp_key)
+        # SerpAPI, ValueSerp, SearchAPI, ScaleSerp — DISABLED (Skimlinks conflict / registration issues)
+        # serpapi_key = os.getenv("SERPAPI_API_KEY")
+        # if serpapi_key and serpapi_key != "demo":
+        #     self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
+        #
+        # valueserp_key = os.getenv("VALUESERP_API_KEY")
+        # if valueserp_key and valueserp_key != "demo":
+        #     self.providers["valueserp"] = ValueSerpProvider(valueserp_key)
+        #
+        # searchapi_key = os.getenv("SEARCHAPI_API_KEY")
+        # if searchapi_key and searchapi_key != "demo":
+        #     self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
+        #
+        # scaleserp_key = os.getenv("SCALESERP_API_KEY")
+        # if scaleserp_key and scaleserp_key != "demo":
+        #     self.providers["google_shopping"] = ScaleSerpProvider(scaleserp_key)
             
         # Kroger Product API - for grocery/household items
         kroger_client_id = os.getenv("KROGER_CLIENT_ID")
@@ -940,6 +939,7 @@ class SourcingRepository:
         kroger_location_id = os.getenv("KROGER_LOCATION_ID")
         kroger_zip_code = os.getenv("KROGER_ZIP_CODE")
         if kroger_client_id and kroger_client_secret:
+            from sourcing.kroger_provider import KrogerProvider
             self.providers["kroger"] = KrogerProvider(
                 client_id=kroger_client_id,
                 client_secret=kroger_client_secret,
@@ -953,11 +953,11 @@ class SourcingRepository:
         # if valueserp_key:
         #     self.providers["valueserp"] = ValueSerpProvider(valueserp_key)
         
-        # Google Custom Search - 100 free/day
-        google_key = os.getenv("GOOGLE_CSE_API_KEY")
-        google_cx = os.getenv("GOOGLE_CSE_CX")
-        if google_key and google_cx:
-            self.providers["google_cse"] = GoogleCustomSearchProvider(google_key, google_cx)
+        # Google Custom Search - DISABLED
+        # google_key = os.getenv("GOOGLE_CSE_API_KEY")
+        # google_cx = os.getenv("GOOGLE_CSE_CX")
+        # if google_key and google_cx:
+        #     self.providers["google_cse"] = GoogleCustomSearchProvider(google_key, google_cx)
         
         # SearchAPI (original)
         # searchapi_key = os.getenv("SEARCHAPI_API_KEY")
@@ -965,11 +965,12 @@ class SourcingRepository:
         #     self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
 
         # eBay Browse API (official)
-        # ebay_client_id = os.getenv("EBAY_CLIENT_ID")
-        # ebay_client_secret = os.getenv("EBAY_CLIENT_SECRET")
-        # ebay_marketplace_id = os.getenv("EBAY_MARKETPLACE_ID", "EBAY-US")
-        # if ebay_client_id and ebay_client_secret:
-        #     self.providers["ebay"] = EbayBrowseProvider(...)
+        ebay_client_id = os.getenv("EBAY_CLIENT_ID")
+        ebay_client_secret = os.getenv("EBAY_CLIENT_SECRET")
+        ebay_marketplace_id = os.getenv("EBAY_MARKETPLACE_ID", "EBAY-US")
+        if ebay_client_id and ebay_client_secret:
+            self.providers["ebay"] = EbayBrowseProvider(ebay_client_id, ebay_client_secret, ebay_marketplace_id)
+            print(f"[SourcingRepository] eBay Browse provider initialized")
         
         # Ticketmaster Discovery API — event tickets
         ticketmaster_key = os.getenv("TICKETMASTER_API_KEY")
@@ -993,6 +994,21 @@ class SourcingRepository:
             if len(self.providers) == 0:
                 self.providers["mock"] = MockShoppingProvider()
 
+    # Provider alias map: user-facing name → internal provider key
+    _PROVIDER_ALIASES: Dict[str, str] = {
+        "rainforest": "amazon",
+        "google": "serpapi",
+        "ebay_browse": "ebay",
+    }
+
+    def _normalize_provider_filter(self, provider_names: List[str]) -> set:
+        """Resolve provider aliases to canonical internal names."""
+        resolved = set()
+        for name in provider_names:
+            canonical = self._PROVIDER_ALIASES.get(name, name)
+            resolved.add(canonical)
+        return resolved
+
     async def search_all(self, query: str, **kwargs) -> List[SearchResult]:
         """Search all providers and return results only (backwards compatible)."""
         result = await self.search_all_with_status(query, **kwargs)
@@ -1012,8 +1028,8 @@ class SourcingRepository:
 
         # Only marketplace-specific aggregators that return mass-market products
         MARKETPLACE_ONLY_PROVIDERS = {
-            "rainforest",     # Amazon-specific — doesn't sell jets or $50k earrings
-            "ebay_browse",    # eBay-specific — mostly consumer goods
+            "amazon",         # Amazon-specific — doesn't sell jets or $50k earrings
+            "ebay",           # eBay-specific — mostly consumer goods
             "mock",           # Test provider
         }
 
@@ -1042,9 +1058,12 @@ class SourcingRepository:
 
         providers_filter = kwargs.pop("providers", None)
         desire_tier = kwargs.pop("desire_tier", None)
+        vendor_query = kwargs.pop("vendor_query", None)
         selected_providers: Dict[str, SourcingProvider] = self.providers
         if providers_filter:
-            allow = {str(p).strip() for p in providers_filter if str(p).strip()}
+            allow = self._normalize_provider_filter(
+                [str(p).strip() for p in providers_filter if str(p).strip()]
+            )
             selected_providers = {k: v for k, v in self.providers.items() if k in allow}
             print(f"[SourcingRepository] Provider filter requested: {sorted(list(allow))}")
             print(f"[SourcingRepository] Providers selected: {list(selected_providers.keys())}")
@@ -1065,12 +1084,18 @@ class SourcingRepository:
             name: str, provider: SourcingProvider
         ) -> tuple[str, List[SearchResult], ProviderStatusSnapshot]:
             print(f"[SourcingRepository] Starting search with provider: {name}")
+            # Route vendor_query to vendor_directory, full query to others
+            effective_query = query
+            extra_kwargs = dict(kwargs)
+            if name == "vendor_directory" and vendor_query:
+                effective_query = vendor_query
+                extra_kwargs["context_query"] = query
             results, status = await run_provider_with_status(
                 name,
                 provider,
-                query,
+                effective_query,
                 timeout_seconds=PROVIDER_TIMEOUT_SECONDS,
-                **kwargs,
+                **extra_kwargs,
             )
             if status.status != "ok":
                 error_str = redact_secrets(status.message or "")

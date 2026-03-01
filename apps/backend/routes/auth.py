@@ -294,6 +294,7 @@ class AuthMeResponse(BaseModel):
     user_id: Optional[int] = None
     name: Optional[str] = None
     company: Optional[str] = None
+    zip_code: Optional[str] = None
     profile_complete: bool = False
 
 
@@ -631,6 +632,7 @@ async def auth_me(
     name = None
     company = None
     
+    zip_code = None
     if auth_session.user_id:
          user = await session.get(User, auth_session.user_id)
          if user:
@@ -638,6 +640,7 @@ async def auth_me(
              email = user.email
              name = user.name
              company = user.company
+             zip_code = user.zip_code
 
     return {
         "authenticated": True, 
@@ -646,6 +649,7 @@ async def auth_me(
         "user_id": auth_session.user_id,
         "name": name,
         "company": company,
+        "zip_code": zip_code,
         "profile_complete": bool(name and email),
     }
 
@@ -654,6 +658,7 @@ class ProfileUpdateRequest(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
     company: Optional[str] = None
+    zip_code: Optional[str] = None
 
 
 class ProfileUpdateResponse(BaseModel):
@@ -661,6 +666,7 @@ class ProfileUpdateResponse(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
     company: Optional[str] = None
+    zip_code: Optional[str] = None
     profile_complete: bool = False
 
 
@@ -685,6 +691,8 @@ async def update_profile(
         user.email = body.email.strip().lower()
     if body.company is not None:
         user.company = body.company.strip()
+    if body.zip_code is not None:
+        user.zip_code = body.zip_code.strip()
 
     session.add(user)
     await session.commit()
@@ -695,8 +703,67 @@ async def update_profile(
         name=user.name,
         email=user.email,
         company=user.company,
+        zip_code=user.zip_code,
         profile_complete=bool(user.name and user.email),
     )
+
+
+class LocationRequest(BaseModel):
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    zip_code: Optional[str] = None
+
+
+class LocationResponse(BaseModel):
+    status: str
+    zip_code: Optional[str] = None
+
+
+@router.post("/auth/location", response_model=LocationResponse)
+async def set_user_location(
+    body: LocationRequest,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """Set user location from GPS coordinates (reverse-geocoded) or manual zip code."""
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user = await session.get(User, auth_session.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    zip_code = body.zip_code
+
+    # Reverse-geocode lat/lng → zip code if GPS coordinates provided
+    if not zip_code and body.latitude is not None and body.longitude is not None:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(
+                    "https://api.bigdatacloud.net/data/reverse-geocode-client",
+                    params={"latitude": body.latitude, "longitude": body.longitude, "localityLanguage": "en"},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                zip_code = data.get("postcode") or None
+        except Exception as e:
+            logger.warning(f"[Auth] Reverse geocode failed: {e}")
+
+    if not zip_code:
+        raise HTTPException(status_code=400, detail="Could not determine zip code. Please enter it manually.")
+
+    # Validate zip format (5-digit US zip)
+    zip_code = zip_code.strip()
+    if not re.match(r'^\d{5}$', zip_code):
+        raise HTTPException(status_code=400, detail="Invalid zip code format. Please enter a 5-digit US zip code.")
+
+    user.zip_code = zip_code
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    return LocationResponse(status="ok", zip_code=user.zip_code)
 
 
 @router.post("/auth/logout")

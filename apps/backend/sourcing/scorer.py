@@ -166,6 +166,13 @@ def _relevance_score(
     This is the most important scoring dimension — it determines whether
     a result actually matches what the user asked for.
     """
+    # Vendor results with vector_similarity use embedding distance directly
+    if result.provenance and isinstance(result.provenance, dict):
+        vec_sim = result.provenance.get("vector_similarity")
+        if vec_sim is not None and vec_sim > 0:
+            # Normalize: similarity of 0.40 → 0.0, similarity of 0.65 → 1.0
+            return max(0.0, min(1.0, (float(vec_sim) - 0.40) / 0.25))
+
     if not intent:
         return 0.5
 

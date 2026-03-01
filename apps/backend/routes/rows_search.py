@@ -13,8 +13,26 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
-from models import Row, RequestSpec, Bid, Seller
+from models import Row, RequestSpec, Bid, Seller, User
 from dependencies import get_current_session
+
+GUEST_EMAIL = "guest@buy-anything.com"
+
+
+async def _resolve_user_id(authorization: Optional[str], session: AsyncSession) -> Optional[int]:
+    """Resolve the user_id from auth session, falling back to guest user."""
+    auth_session = await get_current_session(authorization, session)
+    if auth_session:
+        return auth_session.user_id
+    # Fall back to guest user
+    result = await session.exec(select(User).where(User.email == GUEST_EMAIL))
+    guest = result.first()
+    if not guest:
+        guest = User(email=GUEST_EMAIL, is_admin=False)
+        session.add(guest)
+        await session.commit()
+        await session.refresh(guest)
+    return guest.id
 from sourcing import (
     SourcingRepository,
     SearchResult,
@@ -189,16 +207,14 @@ async def search_row_listings(
 ):
     from routes.rate_limit import check_rate_limit
 
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = await _resolve_user_id(authorization, session)
 
-    rate_key = f"search:{auth_session.user_id}"
+    rate_key = f"search:{user_id}"
     if not check_rate_limit(rate_key, "search"):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
     result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        select(Row).where(Row.id == row_id, Row.user_id == user_id)
     )
     row = result.first()
     if not row:
@@ -366,16 +382,14 @@ async def search_row_listings_stream(
     """
     from routes.rate_limit import check_rate_limit
 
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = await _resolve_user_id(authorization, session)
 
-    rate_key = f"search:{auth_session.user_id}"
+    rate_key = f"search:{user_id}"
     if not check_rate_limit(rate_key, "search"):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
     result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        select(Row).where(Row.id == row_id, Row.user_id == user_id)
     )
     row = result.first()
     if not row:

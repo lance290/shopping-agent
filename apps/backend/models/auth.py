@@ -52,6 +52,9 @@ class User(SQLModel, table=True):
     # Referral code — auto-generated, used to build invite/referral links
     ref_code: Optional[str] = Field(default=None, index=True)
 
+    # Per-user location for grocery sourcing (Kroger, etc.)
+    zip_code: Optional[str] = Field(default=None)
+
 
 class AuthLoginCode(SQLModel, table=True):
     """Stores verification codes for email login. Only one active code per email."""

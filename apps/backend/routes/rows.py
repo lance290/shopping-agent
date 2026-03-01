@@ -10,8 +10,10 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload, defer, joinedload
 
 from database import get_session
-from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project
+from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project, User
 from dependencies import get_current_session
+
+GUEST_EMAIL = "guest@buy-anything.com"
 from routes.rows_search import router as rows_search_router
 from sourcing.safety import SafetyService
 from utils.json_utils import safe_json_loads
@@ -194,7 +196,7 @@ async def read_rows(
     
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        return []
 
     result = await session.exec(
         select(Row)
@@ -425,3 +427,47 @@ async def select_row_option(
         "option_id": option_id,
         "row_status": row.status,
     }
+
+
+class ClaimRowsRequest(BaseModel):
+    row_ids: List[int]
+
+
+@router.post("/rows/claim")
+async def claim_rows(
+    body: ClaimRowsRequest,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """Transfer guest-owned rows to the authenticated user."""
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if not body.row_ids:
+        return {"claimed": 0}
+
+    # Find the guest user
+    guest_result = await session.exec(
+        select(User).where(User.email == GUEST_EMAIL)
+    )
+    guest_user = guest_result.first()
+    if not guest_user:
+        return {"claimed": 0}
+
+    # Only claim rows that belong to the guest user
+    rows_result = await session.exec(
+        select(Row).where(
+            Row.id.in_(body.row_ids),
+            Row.user_id == guest_user.id,
+        )
+    )
+    rows_to_claim = rows_result.all()
+
+    for row in rows_to_claim:
+        row.user_id = auth_session.user_id
+        row.updated_at = datetime.utcnow()
+        session.add(row)
+
+    await session.commit()
+    return {"claimed": len(rows_to_claim)}
