@@ -14,7 +14,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3 text-green-800">1. Acceptance of Terms</h2>
             <p>
-              By accessing or using Pop Savings ("Service"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Service.
+              By accessing or using Pop Savings (&ldquo;Service&rdquo;), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Service.
             </p>
           </section>
 

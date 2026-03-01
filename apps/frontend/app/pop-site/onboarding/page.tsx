@@ -18,7 +18,7 @@ export default function OnboardingPage() {
         return;
       }
       if (me.zip_code) {
-        router.replace('/chat');
+        router.replace('/pop-site/chat');
         return;
       }
       setUser(me);
@@ -49,10 +49,10 @@ export default function OnboardingPage() {
 
         <LocationPrompt
           onComplete={() => {
-            router.push('/chat');
+            router.push('/pop-site/chat');
           }}
           onSkip={() => {
-            router.push('/chat');
+            router.push('/pop-site/chat');
           }}
         />
       </div>

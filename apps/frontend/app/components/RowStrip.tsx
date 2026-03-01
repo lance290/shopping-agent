@@ -284,7 +284,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       offer.bid_id || undefined,
     );
 
-    if (toggled) {
+    if (toggled && typeof toggled !== 'string') {
       onToast?.(toggled.is_liked ? 'Liked this offer.' : 'Removed like.', 'success');
     } else {
       // Revert on failure
