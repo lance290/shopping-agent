@@ -223,7 +223,13 @@ async def pop_web_chat(
                 except Exception as e:
                     logger.warning(f"[Pop Web] Search failed for row {target_row.id}: {e}")
 
-        if target_row is None:
+        elif action_type == "delete_row" and active_row:
+            active_row.status = "archived"
+            session.add(active_row)
+            await session.commit()
+            target_row = None  # Clear the active row since it's deleted
+
+        if target_row is None and action_type != "delete_row":
             target_row = active_row
 
         # Persist conversation history
