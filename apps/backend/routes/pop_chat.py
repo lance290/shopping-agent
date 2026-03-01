@@ -170,8 +170,6 @@ async def pop_web_chat(
                 session, user.id, title, project.id,
                 is_service, service_category, constraints, search_query,
                 desire_tier=intent.desire_tier,
-                exclude_keywords=exclude_keywords,
-                exclude_merchants=exclude_merchants,
             )
             target_row = row
 

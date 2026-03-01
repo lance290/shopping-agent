@@ -148,8 +148,6 @@ async def process_pop_message(
                 session, user.id, title, project.id,
                 is_service, service_category, constraints, search_query,
                 desire_tier=intent.desire_tier,
-                exclude_keywords=exclude_keywords,
-                exclude_merchants=exclude_merchants,
             )
             target_row = row
 
