@@ -295,7 +295,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     if (targetRow?.selected_providers) {
       try {
         const parsed = JSON.parse(targetRow.selected_providers);
-        if (parsed && typeof parsed === 'object') {
+        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
           providers = parsed;
         }
       } catch { /* keep current */ }
@@ -448,11 +448,11 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     // IMPORTANT: Merge bids with existing rowResults to preserve search results
     const rowIds = new Set(orderedRows.map((row) => row.id));
     const prunedRowResults = Object.fromEntries(
-      Object.entries(state.rowResults).filter(([id]) => rowIds.has(Number(id)))
+      Object.entries(state.rowResults || {}).filter(([id]) => rowIds.has(Number(id)))
     ) as Record<number, Offer[]>;
     const newRowResults = { ...prunedRowResults };
     const prunedProviderStatuses = Object.fromEntries(
-      Object.entries(state.rowProviderStatuses).filter(([id]) => rowIds.has(Number(id)))
+      Object.entries(state.rowProviderStatuses || {}).filter(([id]) => rowIds.has(Number(id)))
     ) as Record<number, ProviderStatusSnapshot[]>;
     orderedRows.forEach(row => {
       if (row.bids && row.bids.length > 0) {

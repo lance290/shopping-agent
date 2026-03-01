@@ -17,13 +17,14 @@ export default function SearchProviderToggle() {
   const selectedProviders = useShoppingStore((s) => s.selectedProviders);
   const toggleProvider = useShoppingStore((s) => s.toggleProvider);
 
-  const activeCount = Object.values(selectedProviders).filter(Boolean).length;
+  const safeProviders = selectedProviders || {};
+  const activeCount = Object.values(safeProviders).filter(Boolean).length;
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
       <span className="text-[10px] text-gray-400 mr-0.5">Sources:</span>
       {PROVIDERS.map(({ id, label, icon: Icon, color }) => {
-        const isActive = selectedProviders[id] ?? false;
+        const isActive = safeProviders[id] ?? false;
         return (
           <button
             key={id}
