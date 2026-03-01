@@ -148,7 +148,7 @@ export function parseChoiceFactors(row: Row): any[] {
   try {
     const parsed = JSON.parse(row.choice_factors);
     if (Array.isArray(parsed)) return parsed;
-    if (parsed && typeof parsed === 'object') {
+    if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
       return Object.entries(parsed).map(([name, value]) => ({
         name,
         ...(value as Record<string, any>),
@@ -163,7 +163,11 @@ export function parseChoiceFactors(row: Row): any[] {
 export function parseChoiceAnswers(row: Row): Record<string, any> {
   if (!row.choice_answers) return {};
   try {
-    return JSON.parse(row.choice_answers);
+    const parsed = JSON.parse(row.choice_answers);
+    if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed;
+    }
+    return {};
   } catch {
     return {};
   }
