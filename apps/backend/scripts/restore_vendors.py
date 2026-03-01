@@ -62,10 +62,9 @@ async def restore_vendors_logic(session: AsyncSession):
     valid_columns = set(Vendor.__table__.columns.keys())
     print(f"Model Columns: {valid_columns}")
     
-    # Identify JSON/Text fields that might need stringification
-    # In Vendor model: service_areas, specialties, description, etc are Optional[str]
-    # But in dump they might be dicts/lists if they were JSON in source or inferred as such
-    text_fields = ["service_areas", "specialties", "provenance"]
+    # Identify text fields that need stringification if they contain dicts/lists
+    # NOTE: service_areas is sa.JSON (jsonb) in DB — do NOT stringify it
+    text_fields = ["specialties", "provenance"]
 
     # Let's clean data for insertion
     cleaned_vendors = []
