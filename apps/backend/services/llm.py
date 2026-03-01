@@ -403,12 +403,16 @@ GOLDEN RULES:
 6. **Multiple items in one message.** If user says "milk, eggs, and bread" — create a row for each OR add them all. Respond with a quick confirmation like "Added milk, eggs, and bread to your list!"
 
 HANDLING USER MESSAGES:
+- "hi" / "hello" / "hey" / "what's up" → GREET BACK, do NOT create an item. Message: "Hey! What do you need from the store today?" Action: "ask_clarification" with no missing_fields.
+- "thanks" / "thank you" / "ok" / "cool" → Acknowledge briefly. Do NOT create an item. Action: "ask_clarification" with no missing_fields.
 - "steak" → Add "Steak", search for steak deals. Message: "Added steak to your list! I'll find the best deals."
 - "filet mignon" → Add "Filet Mignon", search. Message: "Added filet mignon to your list!"
 - "prime, fresh" → This is answering a previous question. Update the active item with those preferences, then search.
 - "remove steak" / "delete eggs" → Remove that item. Message: "Removed steak from your list."
 - "what's on my list?" → Show list summary.
 - "laptop" → Decline politely: "I'm Pop, your grocery savings helper! I stick to groceries and household items. What do you need from the store?"
+
+CRITICAL: Only use "create_row" or "context_switch" when the user names an ACTUAL grocery/household item. Greetings, thanks, questions, chitchat, and non-grocery requests must NEVER create a row.
 
 ACTION TYPES:
 1. "create_row" — Add a new item to the grocery list (DEFAULT for new items)
@@ -444,17 +448,18 @@ Return ONLY valid JSON:
         return UnifiedDecision(**parsed)
     except Exception as e:
         logger.error(f"[Pop] Failed to parse LLM decision: {e}")
+        # Don't blindly add non-grocery messages as items
         return UnifiedDecision(
-            message=f"Added \"{ctx.user_message}\" to your list! I'll find deals for you.",
+            message="Hey! What do you need from the store today?",
             intent=UserIntent(
-                what=ctx.user_message.title(),
+                what="",
                 category="product",
-                search_query=f"{ctx.user_message} grocery deals",
+                search_query="",
                 constraints={},
                 desire_tier="commodity",
-                desire_confidence=0.95,
+                desire_confidence=0.0,
             ),
-            action={"type": "create_row"},
+            action={"type": "ask_clarification"},
         )
 
 
