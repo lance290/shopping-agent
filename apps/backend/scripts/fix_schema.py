@@ -26,6 +26,7 @@ RUN_USER_PHONE_MERGE = os.environ.get("RUN_USER_PHONE_MERGE", "").lower() in {"1
 # (table, column, pg_type, default_expr_or_None)
 EXPECTED_COLS = [
     ("bid", "liked_at", "TIMESTAMP", None),
+    ("bid", "is_swap", "BOOLEAN", None),
     ("bid", "is_superseded", "BOOLEAN", "false"),
     ("bid", "superseded_at", "TIMESTAMP", None),
     ("bid", "vendor_id", "INTEGER", None),
@@ -56,6 +57,7 @@ EXPECTED_COLS = [
     # merchant table was merged into vendor by s02 migration — skip if absent
     ("project", "status", "VARCHAR", "'active'"),
     ("comment", "status", "VARCHAR", "'active'"),
+    ("user", "zip_code", "VARCHAR", None),
     ("vendor", "tier_affinity", "VARCHAR(20)", None),
     ("vendor", "price_range_min", "FLOAT", None),
     ("vendor", "price_range_max", "FLOAT", None),
