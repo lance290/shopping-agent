@@ -119,7 +119,7 @@ async def create_github_issue_task(bug_id: int):
                 return
 
             # Skip test data to prevent test bug reports from creating issues
-            test_markers = ["[TEST DATA]", "Verification Test Bug", "DO NOT CREATE GITHUB ISSUE"]
+            test_markers = ["[TEST DATA]", "Verification Test Bug", "DO NOT CREATE GITHUB ISSUE", "test bug to verify"]
             if bug.notes and any(marker.lower() in bug.notes.lower() for marker in test_markers):
                 print(f"[BUG] Skipping GitHub issue creation for test bug report {bug_id}")
                 return

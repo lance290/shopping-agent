@@ -8,7 +8,7 @@ import ReportBugModal from './components/ReportBugModal';
 import { cn } from '../utils/cn';
 import { useShoppingStore } from './store';
 import { fetchSingleRowFromDb, runSearchApiWithStatus, createRowInDb, fetchRowsFromDb } from './utils/api';
-import { MessageSquare, LayoutGrid } from 'lucide-react';
+import { MessageSquare, LayoutGrid, Store } from 'lucide-react';
 
 export default function Home() {
   const CHAT_MIN_PX = 360;
@@ -146,7 +146,7 @@ export default function Home() {
   // Mobile layout: tabbed chat/board with bottom nav
   if (isMobile) {
     return (
-      <main className="flex flex-col h-screen w-full bg-[#202124] text-[rgb(232,234,237)] overflow-hidden font-sans selection:bg-agent-blurple/15 selection:text-agent-blurple">
+      <main className="flex flex-col h-[100dvh] w-full bg-transparent text-onyx overflow-hidden font-sans selection:bg-agent-blurple/15 selection:text-agent-blurple">
         <div className="flex-1 min-h-0 overflow-hidden">
           {mobilePane === 'chat' ? <Chat /> : <ProcurementBoard />}
         </div>
@@ -177,6 +177,13 @@ export default function Home() {
             <LayoutGrid size={20} />
             Board
           </button>
+          <a
+            href="/merchants/register"
+            className="flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-semibold text-onyx-muted transition-colors"
+          >
+            <Store size={20} />
+            Sell
+          </a>
         </nav>
 
         <ReportBugModal />
@@ -186,7 +193,7 @@ export default function Home() {
 
   // Desktop layout: split pane
   return (
-    <main className="flex h-screen w-full bg-[#202124] text-[rgb(232,234,237)] overflow-hidden font-sans selection:bg-agent-blurple/15 selection:text-agent-blurple">
+    <main className="flex h-screen w-full bg-transparent text-onyx overflow-hidden font-sans selection:bg-agent-blurple/15 selection:text-agent-blurple">
       {/* Chat Pane (Center Left) */}
       <div 
         style={{ width: `${chatWidthPx}px` }} 

@@ -1,34 +1,66 @@
 """Rows routes - CRUD for procurement rows."""
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 import json
-import sqlalchemy as sa
 
 from sqlmodel import select, delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload, defer, joinedload
 
 from database import get_session
-from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project, User
-from dependencies import get_current_session, resolve_user_id, require_auth, GUEST_EMAIL
+from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project
+from dependencies import get_current_session
 from routes.rows_search import router as rows_search_router
 from sourcing.safety import SafetyService
 from utils.json_utils import safe_json_loads
-from services.email import send_admin_vendor_alert
 
 router = APIRouter(tags=["rows"])
 router.include_router(rows_search_router)
 
+
+def filter_bids_by_price(row: Row) -> List:
+    """Filter row.bids using the unified should_include_result filter."""
+    from sourcing.filters import should_include_result
+
+    if not row.bids:
+        return []
+    
+    min_price = None
+    max_price = None
+    
+    if row.choice_answers:
+        try:
+            answers = json.loads(row.choice_answers) if isinstance(row.choice_answers, str) else row.choice_answers
+            if answers.get("min_price"):
+                min_price = float(answers["min_price"])
+            if answers.get("max_price"):
+                max_price = float(answers["max_price"])
+        except Exception:
+            pass
+
+    filtered = []
+    for bid in row.bids:
+        source = (getattr(bid, "source", "") or "").lower()
+
+        if should_include_result(
+            price=bid.price,
+            source=source,
+            desire_tier=getattr(row, "desire_tier", None),
+            min_price=min_price,
+            max_price=max_price,
+            is_service_provider=getattr(bid, "is_service_provider", False),
+        ):
+            filtered.append(bid)
+
+    return filtered
 
 
 class SellerRead(BaseModel):
     id: int
     name: str
     domain: Optional[str] = None
-    description: Optional[str] = None
-    tagline: Optional[str] = None
 
 
 class BidRead(BaseModel):
@@ -43,12 +75,10 @@ class BidRead(BaseModel):
     is_liked: bool = False
     liked_at: Optional[datetime] = None
     is_service_provider: bool = False
-    combined_score: Optional[float] = None
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
     seller: Optional[SellerRead] = None
-    provenance: Optional[str] = None
 
 
 class RowReadWithBids(RowBase):
@@ -78,7 +108,6 @@ class RowUpdate(BaseModel):
     reset_bids: Optional[bool] = None
     is_service: Optional[bool] = None
     service_category: Optional[str] = None
-    selected_providers: Optional[str] = None
 
 
 def _default_choice_factors_for_row(row: Row) -> str:
@@ -93,13 +122,15 @@ async def create_row(
     session: AsyncSession = Depends(get_session)
 ):
     
-    user_id = await resolve_user_id(authorization, session)
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
     if row.project_id is not None:
         project = await session.get(Project, row.project_id)
         if not project:
             raise HTTPException(status_code=400, detail="Project not found")
-        if project.user_id != user_id:
+        if project.user_id != auth_session.user_id:
             raise HTTPException(status_code=403, detail="Project not owned by user")
 
     request_spec_data = row.request_spec
@@ -109,7 +140,7 @@ async def create_row(
         status=row.status,
         budget_max=row.budget_max,
         currency=row.currency,
-        user_id=user_id,
+        user_id=auth_session.user_id,
         project_id=row.project_id,
         choice_factors=row.choice_factors,
         choice_answers=row.choice_answers,
@@ -154,56 +185,6 @@ async def create_row(
     return db_row
 
 
-class ClaimRowsRequest(BaseModel):
-    row_ids: List[int]
-
-    @field_validator("row_ids")
-    @classmethod
-    def limit_row_ids(cls, v: List[int]) -> List[int]:
-        if len(v) > 100:
-            raise ValueError("Cannot claim more than 100 rows at once")
-        return v
-
-
-@router.post("/rows/claim")
-async def claim_guest_rows(
-    body: ClaimRowsRequest,
-    authorization: Optional[str] = Header(None),
-    session: AsyncSession = Depends(get_session),
-):
-    """
-    Migrate anonymous (guest) rows to the authenticated user.
-
-    Called after login/register so the user keeps their anonymous search
-    results, bids, and selections.
-    """
-    auth_session = await require_auth(authorization, session)
-    user_id = auth_session.user_id
-
-    if not body.row_ids:
-        return {"claimed": 0}
-
-    # Look up the guest user — bail early if it doesn't exist
-    guest_result = await session.exec(select(User).where(User.email == GUEST_EMAIL))
-    guest_user = guest_result.first()
-    if not guest_user:
-        return {"claimed": 0}
-
-    # Only claim rows that belong to the guest user (prevent stealing other users' rows)
-    stmt = (
-        sa.update(Row.__table__)
-        .where(Row.id.in_(body.row_ids))  # type: ignore[attr-defined]
-        .where(Row.user_id == guest_user.id)
-        .values(user_id=user_id)
-    )
-    result = await session.exec(stmt)
-    await session.commit()
-
-    claimed = result.rowcount  # type: ignore[union-attr]
-    print(f"[ROWS] Claimed {claimed} guest rows for user {user_id}")
-    return {"claimed": claimed}
-
-
 @router.get("/rows", response_model=List[RowReadWithBids])
 async def read_rows(
     authorization: Optional[str] = Header(None),
@@ -213,7 +194,7 @@ async def read_rows(
     
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
-        return []  # Anonymous users see empty board (guest rows are shared)
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
     result = await session.exec(
         select(Row)
@@ -224,14 +205,18 @@ async def read_rows(
         .options(
             selectinload(Row.bids).options(
                 joinedload(Bid.seller),
-                defer(Bid.source_payload)
+                defer(Bid.source_payload),
+                defer(Bid.provenance)
             )
         )
         .order_by(Row.updated_at.desc())
     )
     rows = result.all()
+    
+    # Apply price filters from choice_answers to each row's bids
     for row in rows:
-        row.bids = [b for b in row.bids if not b.is_superseded]
+        row.bids = filter_bids_by_price(row)
+    
     return rows
 
 
@@ -242,15 +227,18 @@ async def read_row(
     session: AsyncSession = Depends(get_session)
 ):
     
-    user_id = await resolve_user_id(authorization, session)
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
     result = await session.exec(
         select(Row)
-        .where(Row.id == row_id, Row.user_id == user_id)
+        .where(Row.id == row_id, Row.user_id == auth_session.user_id)
         .options(
             selectinload(Row.bids).options(
                 joinedload(Bid.seller),
-                defer(Bid.source_payload)
+                defer(Bid.source_payload),
+                defer(Bid.provenance)
             )
         )
     )
@@ -258,7 +246,9 @@ async def read_row(
     
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
-    row.bids = [b for b in row.bids if not b.is_superseded]
+    
+    # Apply price filter from choice_answers
+    row.bids = filter_bids_by_price(row)
     
     return row
 
@@ -297,10 +287,14 @@ async def update_row(
     session: AsyncSession = Depends(get_session)
 ):
     
-    user_id = await resolve_user_id(authorization, session)
+    print(f"Received PATCH request for row {row_id} with data: {row_update}")
+    
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
     result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == user_id)
+        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
     )
     row = result.first()
 
@@ -318,108 +312,19 @@ async def update_row(
         bids_result = await session.exec(select(Bid).where(Bid.row_id == row_id))
         bids = bids_result.all()
         found = False
-        selected_bid = None
         for row_bid in bids:
             if row_bid.id == selected_bid_id:
                 found = True
-                selected_bid = row_bid
             row_bid.is_selected = row_bid.id == selected_bid_id
             session.add(row_bid)
 
         if not found:
             raise HTTPException(status_code=404, detail="Option not found")
 
-        row.status = "selected"
-
-        vendor_name = None
-        vendor_email = None
-        vendor_company = None
-        
-        # Phase 1 Deal Handoff logic
-        if selected_bid:
-            selected_bid.closing_status = "selected"
-            session.add(selected_bid)
-            
-            if selected_bid.vendor_id:
-                from models import Vendor, DealHandoff, SellerQuote, User
-                
-                v_result = await session.exec(select(Vendor).where(Vendor.id == selected_bid.vendor_id))
-                vendor = v_result.first()
-                if vendor:
-                    vendor_name = vendor.contact_name or vendor.name
-                    vendor_email = vendor.email
-                    vendor_company = vendor.name
-                    
-                    # Look up buyer
-                    b_result = await session.exec(select(User).where(User.id == row.user_id))
-                    buyer = b_result.first()
-                    buyer_email = buyer.email if buyer else "demo@buyanything.ai"
-                    
-                    # Did this come from a quote?
-                    quote_id = None
-                    if selected_bid.source == "vendor_quote":
-                        q_result = await session.exec(select(SellerQuote).where(SellerQuote.bid_id == selected_bid.id))
-                        quote = q_result.first()
-                        if quote:
-                            quote_id = quote.id
-                            quote.status = "accepted"
-                            session.add(quote)
-
-                    # Create DealHandoff
-                    from models import generate_magic_link_token
-                    handoff = DealHandoff(
-                        row_id=row.id,
-                        bid_id=selected_bid.id,
-                        quote_id=quote_id,
-                        vendor_id=vendor.id,
-                        buyer_user_id=row.user_id,
-                        buyer_email=buyer_email,
-                        buyer_name=buyer.name if buyer else None,
-                        buyer_phone=buyer.phone if buyer else None,
-                        vendor_email=vendor_email,
-                        vendor_name=vendor_name,
-                        deal_value=selected_bid.price,
-                        currency=selected_bid.currency or "USD",
-                        status="introduced",
-                        acceptance_token=generate_magic_link_token(),
-                    )
-                    session.add(handoff)
-                    
-                    # Notify vendor
-                    if vendor_email:
-                        from services.email import send_vendor_selected_email
-                        v_result = await send_vendor_selected_email(
-                            vendor_email=vendor_email,
-                            vendor_name=vendor_name,
-                            buyer_name=buyer.name if buyer else None,
-                            buyer_email=buyer_email,
-                            buyer_phone=buyer.phone if buyer else None,
-                            request_summary=row.title,
-                            deal_value=selected_bid.price,
-                            acceptance_token=handoff.acceptance_token,
-                        )
-                        if v_result.success:
-                            handoff.seller_email_sent_at = datetime.utcnow()
-
-        # Admin alert: a deal was selected
-        await send_admin_vendor_alert(
-            event_type="deal_selected",
-            vendor_name=vendor_name or (selected_bid.item_title if selected_bid else None),
-            vendor_email=vendor_email,
-            vendor_company=vendor_company,
-            row_title=row.title,
-            row_id=row_id,
-            quote_price=selected_bid.price if selected_bid else None,
-        )
+        row.status = "closed"
 
     if reset_bids:
-        from sqlalchemy import update as sql_update
-        await session.exec(
-            sql_update(Bid).where(
-                Bid.row_id == row_id,
-                Bid.is_superseded == False,
-            ).values(is_superseded=True, superseded_at=datetime.utcnow())
-        )
+        await session.exec(delete(Bid).where(Bid.row_id == row_id))
 
     for key, value in row_data.items():
         setattr(row, key, value)

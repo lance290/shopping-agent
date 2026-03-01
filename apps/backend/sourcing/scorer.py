@@ -46,22 +46,21 @@ def score_results(
         rs = _relevance_score(r, intent)
         qs = _quality_score(r)
         db = _diversity_bonus(r.source, source_counts, total)
-        sf = _source_fit_score(r)
-        am = _affiliate_multiplier(r.source)
+        tr = _tier_relevance_score(r.source, desire_tier)
 
-        # Source fit is a soft multiplier — vendor vector similarity drives ranking
+        # Tier fit is a MULTIPLIER, not additive — mismatched sources get a real penalty.
+        # tr=1.0 → full score. tr=0.2 → 44% of base score.
         base = (rs * 0.45) + (ps * 0.20) + (qs * 0.20) + (db * 0.15)
-        combined = base * (0.3 + 0.7 * sf) * am
+        combined = base * (0.3 + 0.7 * tr)
 
         # Enrich provenance with score breakdown
         r.provenance["score"] = {
             "combined": round(combined, 4),
             "relevance": round(rs, 4),
-            "source_fit": round(sf, 4),
+            "tier_fit": round(tr, 4),
             "price": round(ps, 4),
             "quality": round(qs, 4),
             "diversity": round(db, 4),
-            "affiliate_multiplier": round(am, 4),
         }
 
         scored.append((combined, r))
@@ -77,32 +76,43 @@ def score_results(
     return [r for _, r in scored]
 
 
-def _source_fit_score(
-    result: NormalizedResult,
-) -> float:
+def _tier_relevance_score(source: str, desire_tier: Optional[str]) -> float:
     """
-    Score how well the source fits the result, using LLM-derived signals only.
-
-    For vendor_directory results, the vector similarity score already encodes
-    semantic relevance (set by the embedding model). We just pass it through.
-
-    For marketplace results, we return a neutral score — the relevance_score
-    function handles keyword/brand matching for those.
-
-    No hardcoded tier→provider matrices. No keyword heuristics.
+    Score how well the source fits the desire tier.
+    This acts as a soft router/reranker.
     """
-    # Vendor results: use vector similarity as the source-fit signal.
-    # High similarity = the embedding model thinks this vendor is relevant.
-    if result.source == "vendor_directory":
-        vec_sim = result.provenance.get("vector_similarity")
-        if vec_sim is not None:
-            try:
-                return max(0.3, min(1.0, float(vec_sim) * 1.5))
-            except (ValueError, TypeError):
-                pass
+    if not desire_tier:
         return 0.5
 
-    # All other sources: neutral — let relevance_score do the work
+    # Group providers
+    BIG_BOX_PROVIDERS = {
+        "rainforest", "ebay_browse", "google_shopping", 
+        "searchapi", "google_cse", "serpapi", "ticketmaster"
+    }
+    VENDOR_PROVIDERS = {"vendor_directory"}
+
+    # Commodity / Considered -> Prefer Big Box
+    if desire_tier in ("commodity", "considered"):
+        if source in BIG_BOX_PROVIDERS:
+            return 1.0
+        if source in VENDOR_PROVIDERS:
+            return 0.3  # Penalize but don't hide
+        return 0.5
+
+    # Service / Bespoke / High Value -> Prefer Vendor Directory
+    if desire_tier in ("service", "bespoke", "high_value"):
+        if source in VENDOR_PROVIDERS:
+            return 1.0
+        if source in BIG_BOX_PROVIDERS:
+            return 0.2  # Heavy penalty for big box (Amazon doesn't sell private jets)
+        return 0.5
+    
+    # Advisory -> Should be handled by chat, but if searching, prefer vendors
+    if desire_tier == "advisory":
+        if source in VENDOR_PROVIDERS:
+            return 0.8
+        return 0.1
+
     return 0.5
 
 
@@ -155,27 +165,13 @@ def _relevance_score(
 
     This is the most important scoring dimension — it determines whether
     a result actually matches what the user asked for.
-
-    For vendor_directory results, the vector similarity score IS the
-    relevance signal. The embedding model already understands that
-    "Jettly" means private aviation and "Gepetto" means toy store —
-    no keyword matching on vendor names needed.
     """
-    # Vendor directory: use vector similarity directly as relevance
-    # This is the LLM's understanding of semantic relevance.
-    vec_sim = result.provenance.get("vector_similarity")
-    if vec_sim is not None and result.source == "vendor_directory":
-        # vec_sim is 0.45-0.62 for threshold 0.55 (1 - distance)
-        # Scale to 0-1 range: 0.45 → 0.0, 0.62 → 1.0
-        # (tighter matches get dramatically higher scores)
-        scaled = max(0.0, min(1.0, (vec_sim - 0.40) / 0.25))
-        return scaled
-
     if not intent:
         return 0.5
 
     score = 0.0
     title_lower = result.title.lower() if result.title else ""
+    # Also check merchant name and raw_data description for broader matching
     merchant_lower = result.merchant_name.lower() if result.merchant_name else ""
     desc_lower = ""
     if result.raw_data:
@@ -194,28 +190,30 @@ def _relevance_score(
 
     # Keyword match (strongest signal — these are the core "what" words)
     if intent.keywords:
+        # Check against title first (strongest), then full searchable text
         title_matched = sum(1 for kw in intent.keywords if kw.lower() in title_lower)
         full_matched = sum(1 for kw in intent.keywords if kw.lower() in searchable)
         kw_count = len(intent.keywords)
+        # Title matches are worth more than description matches
         title_ratio = title_matched / kw_count if kw_count else 0
         full_ratio = full_matched / kw_count if kw_count else 0
         score += title_ratio * 0.35 + (full_ratio - title_ratio) * 0.10
 
-    # Product name match
+    # Product name match (if set, check if the product name appears in title)
     if intent.product_name:
         name_words = [w for w in intent.product_name.lower().split() if len(w) > 2]
         if name_words:
             name_matched = sum(1 for w in name_words if w in title_lower)
             score += (name_matched / len(name_words)) * 0.15
 
-    # Category match
+    # Category match (looser — check if category words appear)
     if intent.product_category:
         cat_words = intent.product_category.lower().replace("_", " ").split()
         cat_matched = sum(1 for w in cat_words if w in searchable)
         cat_ratio = cat_matched / max(len(cat_words), 1)
         score += cat_ratio * 0.10
 
-    # Base relevance
+    # Base relevance — results came from a targeted search, so some baseline
     score += 0.05
 
     return min(score, 1.0)
@@ -270,26 +268,3 @@ def _diversity_bonus(
         return 0.4
     else:
         return 0.2
-
-
-def _affiliate_multiplier(source: str) -> float:
-    """
-    Ranking priority: Our vendors > Affiliate partners > Neutral > Google Shopping.
-
-    - vendor_directory: highest — our vendors, our revenue, our moat.
-    - rainforest/amazon/ebay: boosted — affiliate revenue partners.
-    - Google Shopping (serpapi, searchapi, google_cse, google_shopping): deprioritized
-      — no affiliate revenue, but still shown (we're "buy anything").
-    - Everything else: neutral.
-    """
-    OUR_VENDORS = {"vendor_directory"}
-    AFFILIATES = {"rainforest", "amazon", "ebay_browse"}
-    DEPRIORITIZED = {"serpapi", "searchapi", "google_cse", "google_shopping"}
-
-    if source in OUR_VENDORS:
-        return 1.40
-    if source in AFFILIATES:
-        return 1.20
-    if source in DEPRIORITIZED:
-        return 0.70
-    return 1.0

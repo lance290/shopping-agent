@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User } from 'lucide-react';
+import { Send, Bot, User, LogOut, Store } from 'lucide-react';
 import { useShoppingStore, mapBidToOffer } from '../store';
 import { fetchRowsFromDb, fetchProjectsFromDb, fetchSingleRowFromDb, saveChatHistory } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
-import { getMe } from '../utils/auth';
-import SearchProviderToggle from './SearchProviderToggle';
+import { logout, getMe } from '../utils/auth';
 
 interface Message {
   id: string;
@@ -45,6 +44,11 @@ export default function Chat() {
         setUserPhone(user.phone_number || null);
       }
     });
+  }, []);
+
+  useEffect(() => {
+    // Auto-focus the input on mount so the keyboard appears on mobile
+    inputRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -135,52 +139,24 @@ export default function Chat() {
     loadData();
   }, []);
   
-  const handleSubmit = async (e: React.FormEvent | null, overrideText?: string) => {
-    if (e) e.preventDefault();
-    const queryText = (overrideText || input).trim();
-    if (!queryText || isLoading) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
     
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: queryText,
+      content: input,
     };
     
     setMessages(prev => [...prev, userMessage]);
+    const queryText = input.trim();
     setInput('');
     setIsLoading(true);
     const intendedProjectId = store.targetProjectId;
     const effectiveActiveRowId = store.activeRowId;
 
     let assistantMessageId: string | null = null;
-    let streamingRowId: number | null = null; // Track which row SSE is streaming for
-    let streamingLockTimer: ReturnType<typeof setTimeout> | null = null;
-    const STREAMING_LOCK_TIMEOUT_MS = 60_000; // Safety net: auto-release lock after 60s
-
-    const acquireStreamingLock = (rowId: number) => {
-      streamingRowId = rowId;
-      store.setStreamingLock(rowId, true);
-      // Start timeout safety net
-      if (streamingLockTimer) clearTimeout(streamingLockTimer);
-      streamingLockTimer = setTimeout(() => {
-        if (streamingRowId === rowId) {
-          console.warn(`[Chat] Streaming lock timeout for row ${rowId} — auto-releasing after ${STREAMING_LOCK_TIMEOUT_MS}ms`);
-          store.setStreamingLock(rowId, false);
-          store.setIsSearching(false);
-          store.setMoreResultsIncoming(rowId, false);
-          streamingRowId = null;
-        }
-      }, STREAMING_LOCK_TIMEOUT_MS);
-    };
-
-    const releaseStreamingLock = () => {
-      if (streamingLockTimer) { clearTimeout(streamingLockTimer); streamingLockTimer = null; }
-      if (streamingRowId) {
-        store.setStreamingLock(streamingRowId, false);
-        streamingRowId = null;
-      }
-    };
-
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -191,9 +167,6 @@ export default function Chat() {
           projectId: intendedProjectId,
           // Include pending clarification context if we're in a multi-turn flow
           pendingClarification: pendingClarification,
-          providers: Object.entries(store.selectedProviders)
-            .filter(([, enabled]) => enabled)
-            .map(([id]) => id),
         }),
       });
       
@@ -242,7 +215,7 @@ export default function Chat() {
               data = dataRaw;
             }
 
-            if (eventName === 'assistant_message' && typeof data?.text === 'string') {
+            if (eventName === 'assistant_message') {
               assistantContent = typeof data?.text === 'string' ? data.text : '';
             } else if (eventName === 'action_started') {
               if (data?.type === 'search') {
@@ -269,8 +242,8 @@ export default function Chat() {
                 if (pendingClarification) {
                   const currentMessages = [...messages, userMessage, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
                   saveChatHistory(row.id, currentMessages);
-                  const rowWithHistory = { ...row, chat_history: JSON.stringify(currentMessages), last_engaged_at: Date.now() };
-                  const mergedRows = [rowWithHistory, ...store.rows.filter((r) => r.id !== row.id)];
+                  const rowWithHistory = { ...row, chat_history: JSON.stringify(currentMessages) };
+                  const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
                   store.setRows(mergedRows);
                 } else {
                   // New request — save outgoing row's chat, then start fresh for the new row
@@ -281,19 +254,12 @@ export default function Chat() {
                   }
                   const freshMessages = [userMessage, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
                   saveChatHistory(row.id, freshMessages);
-                  const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages), last_engaged_at: Date.now() };
-                  const mergedRows = [rowWithHistory, ...store.rows.filter((r) => r.id !== row.id)];
+                  const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages) };
+                  const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
                   store.setRows(mergedRows);
                   setMessages(freshMessages);
                 }
                 
-                // Mark search-in-progress BEFORE setting active row.
-                // This prevents the RowStrip auto-load effect from racing
-                // with the SSE stream (the auto-load would call the non-streaming
-                // search endpoint which wipes SSE results via setRowResults).
-                store.setIsSearching(true);
-                store.setMoreResultsIncoming(row.id, true);
-
                 store.setActiveRowId(row.id);
                 store.setCurrentQuery(row.title);
                 setPendingClarification(null);
@@ -317,11 +283,9 @@ export default function Chat() {
                   { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }
                 ];
                 saveChatHistory(row.id, freshMessages);
-                const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages), last_engaged_at: Date.now() };
-                const mergedRows = [rowWithHistory, ...store.rows.filter((r) => r.id !== row.id)];
+                const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages) };
+                const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
                 store.setRows(mergedRows);
-                store.setIsSearching(true);
-                store.setMoreResultsIncoming(row.id, true);
                 store.setActiveRowId(row.id);
                 store.setCurrentQuery(row.title);
                 setMessages(freshMessages);
@@ -364,10 +328,6 @@ export default function Chat() {
                   });
                 }
               }
-
-              // No re-search needed here — the LLM's own search in the SSE stream
-              // already incorporates updated constraints (min_price, etc.).
-              // A re-search here would be blocked by the streaming lock anyway.
             } else if (eventName === 'search_results') {
               const rowId = data?.row_id;
               const results = Array.isArray(data?.results) ? data.results : [];
@@ -377,10 +337,6 @@ export default function Chat() {
               const userMessage = data?.user_message; // Extract user_message
               
               if (rowId) {
-                // Acquire streaming lock on first batch if not already locked
-                if (!streamingRowId && rowId) {
-                  acquireStreamingLock(rowId);
-                }
                 // Always append during SSE streaming — never replace.
                 // The authoritative DB re-fetch happens on 'done'.
                 store.appendRowResults(rowId, results, providerStatuses, moreIncoming, userMessage);
@@ -438,9 +394,7 @@ export default function Chat() {
               }
             } else if (eventName === 'done') {
               store.setIsSearching(false);
-              const doneRowId = streamingRowId || store.activeRowId;
-              // Release streaming lock BEFORE authoritative re-fetch
-              releaseStreamingLock();
+              const doneRowId = store.activeRowId;
               if (doneRowId) {
                 store.setMoreResultsIncoming(doneRowId, false);
                 // Authoritative re-fetch: DB has all persisted, filtered bids.
@@ -456,8 +410,6 @@ export default function Chat() {
               const msg = typeof data?.message === 'string' ? data.message : 'Something went wrong.';
               assistantContent = msg;
               store.setIsSearching(false);
-              // Release streaming lock on error
-              releaseStreamingLock();
               const errorRowId = data?.row_id ?? store.activeRowId;
               if (errorRowId) {
                 store.setMoreResultsIncoming(errorRowId, false);
@@ -490,9 +442,6 @@ export default function Chat() {
       }
     } catch (error) {
       console.error('Chat error:', error);
-      // Safety net: release streaming lock on any unhandled error
-      releaseStreamingLock();
-      store.setIsSearching(false);
       const fallbackText = 'Sorry, something went wrong. Please try again.';
       if (assistantMessageId) {
         setMessages(prev =>
@@ -511,15 +460,6 @@ export default function Chat() {
       }
     } finally {
       setIsLoading(false);
-      // Aggressive cleanup: ensure no orphaned spinners remain if the stream drops prematurely
-      store.setIsSearching(false);
-      releaseStreamingLock();
-      
-      const finalRowId = store.activeRowId;
-      if (finalRowId) {
-        store.setMoreResultsIncoming(finalRowId, false);
-      }
-
       // Save chat history after stream completes
       setMessages(currentMsgs => {
         saveCurrentChat(currentMsgs);
@@ -527,6 +467,7 @@ export default function Chat() {
       });
       // Belt-and-suspenders: force-refetch active row after stream ends
       // to ensure factors/answers are loaded even if SSE events were missed
+      const finalRowId = store.activeRowId;
       if (finalRowId) {
         console.log('[Chat] Stream ended, force-refetching row', finalRowId);
         fetchSingleRowFromDb(finalRowId).then(freshRow => {
@@ -546,10 +487,26 @@ export default function Chat() {
   useEffect(() => {
     const cardClickQuery = store.cardClickQuery;
     if (cardClickQuery) {
+      const cardMessage: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: cardClickQuery,
+      };
+      setMessages(prev => [...prev, cardMessage]);
       store.setCardClickQuery(null);
-      handleSubmit(null, cardClickQuery);
     }
   }, [store.cardClickQuery]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      window.location.href = '/login';
+    } catch (err) {
+      console.error('Logout failed', err);
+      // Force redirect anyway
+      window.location.href = '/login';
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-warm-light border-r border-warm-grey/70">
@@ -574,6 +531,24 @@ export default function Chat() {
           <div className="text-xs text-onyx-muted hidden sm:block">
             {userEmail || userPhone || 'User'}
           </div>
+          <a
+            href="/merchants/register"
+            className="flex items-center gap-1.5 text-xs text-onyx-muted hover:text-agent-blurple transition-colors"
+            title="Become a seller"
+          >
+            <Store className="w-4 h-4" />
+            <span className="hidden sm:inline">Sell</span>
+          </a>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="text-xs text-onyx-muted hover:text-agent-blurple"
+            title="Sign out"
+          >
+            <LogOut className="w-4 h-4" />
+          </Button>
         </div>
       </div>
 
@@ -631,8 +606,7 @@ export default function Chat() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="px-6 py-4 bg-white border-t border-warm-grey space-y-2">
-        <SearchProviderToggle />
+      <div className="px-6 py-5 bg-white border-t border-warm-grey">
         <form onSubmit={handleSubmit} className="flex gap-3 items-end">
           <Input
             ref={inputRef}

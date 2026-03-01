@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, expect, beforeEach, vi, afterEach } from 'vitest';
 import { useShoppingStore } from '../store';
 import type { Row, Offer } from '../store';
 
@@ -428,5 +428,101 @@ describe('Zustand Store - rowSearchErrors', () => {
     store.clearRowResults(1);
 
     expect(useShoppingStore.getState().rowSearchErrors[1]).toBeUndefined();
+  });
+});
+
+describe('Zustand Store - requestDeleteRow (bug #130: immediate deletion)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    global.fetch = vi.fn().mockResolvedValue({ ok: true }) as unknown as typeof fetch;
+    useShoppingStore.getState().clearSearch();
+    useShoppingStore.getState().setRows([
+      mockRow({ id: 1, status: 'sourcing' }),
+      mockRow({ id: 2, status: 'sourcing' }),
+    ]);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  test('immediately removes the row from local state', () => {
+    useShoppingStore.getState().requestDeleteRow(1);
+    const rows = useShoppingStore.getState().rows;
+    expect(rows.find(r => r.id === 1)).toBeUndefined();
+    expect(rows).toHaveLength(1);
+  });
+
+  test('immediately calls DELETE API without waiting for undo window', () => {
+    useShoppingStore.getState().requestDeleteRow(1);
+    expect(global.fetch).toHaveBeenCalledWith('/api/rows?id=1', { method: 'DELETE' });
+  });
+
+  test('sets pendingRowDelete with row data for undo', () => {
+    useShoppingStore.getState().requestDeleteRow(1);
+    const pending = useShoppingStore.getState().pendingRowDelete;
+    expect(pending).not.toBeNull();
+    expect(pending?.row.id).toBe(1);
+  });
+
+  test('clears pendingRowDelete after undo window expires', () => {
+    useShoppingStore.getState().requestDeleteRow(1, 100);
+    expect(useShoppingStore.getState().pendingRowDelete).not.toBeNull();
+
+    vi.advanceTimersByTime(100);
+    expect(useShoppingStore.getState().pendingRowDelete).toBeNull();
+  });
+});
+
+describe('Zustand Store - undoDeleteRow (bug #130: restore via PATCH)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    global.fetch = vi.fn().mockResolvedValue({ ok: true }) as unknown as typeof fetch;
+    useShoppingStore.getState().clearSearch();
+    useShoppingStore.getState().setRows([
+      mockRow({ id: 1, status: 'sourcing' }),
+      mockRow({ id: 2, status: 'sourcing' }),
+    ]);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  test('restores the row back into the rows array', () => {
+    useShoppingStore.getState().requestDeleteRow(1);
+    expect(useShoppingStore.getState().rows).toHaveLength(1);
+
+    useShoppingStore.getState().undoDeleteRow();
+    expect(useShoppingStore.getState().rows).toHaveLength(2);
+    expect(useShoppingStore.getState().rows.find(r => r.id === 1)).toBeDefined();
+  });
+
+  test('calls PATCH to restore row status in the backend', () => {
+    useShoppingStore.getState().requestDeleteRow(1);
+    vi.mocked(global.fetch).mockClear();
+
+    useShoppingStore.getState().undoDeleteRow();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/rows?id=1',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'sourcing' }),
+      }),
+    );
+  });
+
+  test('clears pendingRowDelete after undo', () => {
+    useShoppingStore.getState().requestDeleteRow(1);
+    useShoppingStore.getState().undoDeleteRow();
+    expect(useShoppingStore.getState().pendingRowDelete).toBeNull();
+  });
+
+  test('no-op when there is no pending delete', () => {
+    expect(() => useShoppingStore.getState().undoDeleteRow()).not.toThrow();
+    expect(global.fetch).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: 'PATCH' }));
   });
 });

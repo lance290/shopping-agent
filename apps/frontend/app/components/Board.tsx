@@ -221,6 +221,8 @@ export default function ProcurementBoard() {
       await navigator.clipboard.writeText(url.toString());
       showToast(`Board link copied! (${rows.length} request${rows.length !== 1 ? 's' : ''})`);
     } catch (err) {
+      // AbortError: user dismissed the clipboard permission prompt — ignore silently
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       console.error('Failed to copy board link:', err);
       showToast('Failed to copy link', 'error');
     }

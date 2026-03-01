@@ -5,7 +5,6 @@ import json
 from datetime import datetime
 from pgvector.sqlalchemy import Vector
 from sqlmodel import Field, SQLModel, Relationship, Column
-import sqlalchemy as sa
 from pydantic import ConfigDict, computed_field
 
 if TYPE_CHECKING:
@@ -25,7 +24,7 @@ class Vendor(SQLModel, table=True):
     website: Optional[str] = None
     # Classification
     category: Optional[str] = Field(default=None, index=True)
-    service_areas: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    service_areas: Optional[str] = None  # JSON
     specialties: Optional[str] = None
     description: Optional[str] = None
     tagline: Optional[str] = None
@@ -35,12 +34,6 @@ class Vendor(SQLModel, table=True):
     embedding: Optional[Any] = Field(default=None, sa_column=Column(Vector(1536), nullable=True))
     embedding_model: Optional[str] = None
     embedded_at: Optional[datetime] = None
-    
-    # Programmatic SEO
-    slug: Optional[str] = Field(default=None, index=True)
-    seo_content: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
-    schema_markup: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
-    
     # Contact
     contact_name: Optional[str] = None
     # Status & trust
@@ -116,13 +109,6 @@ class Bid(SQLModel, table=True):
     # Like status — stored directly on the bid for reliable persistence
     is_liked: bool = False
     liked_at: Optional[datetime] = None
-
-    # Swap flag — classified by LLM (None=unclassified, True=swap, False=direct match)
-    is_swap: Optional[bool] = Field(default=None, nullable=True)
-
-    # Soft delete — superseded bids are hidden from results but never deleted
-    is_superseded: bool = False
-    superseded_at: Optional[datetime] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any, Set
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from abc import ABC, abstractmethod
 import httpx
@@ -45,17 +45,6 @@ def normalize_url(url: str) -> str:
 # Keeping this alias for backward compatibility
 redact_secrets = redact_secrets_from_text
 
-
-_PROVIDER_FILTER_ALIASES: Dict[str, str] = {
-    "rainforest": "amazon",
-    "google": "serpapi",
-    "google_shopping": "serpapi",
-    "ebay": "ebay_browse",
-    "grocery": "kroger",
-}
-
-
-
 class SearchResult(BaseModel):
     title: str
     price: Optional[float] = None
@@ -74,8 +63,6 @@ class SearchResult(BaseModel):
     is_selected: bool = False
     is_liked: bool = False
     liked_at: Optional[str] = None
-    description: Optional[str] = None
-    matched_features: List[str] = []
 
 
 class SearchResultWithStatus(BaseModel):
@@ -145,19 +132,6 @@ class SearchAPIProvider(SourcingProvider):
             "gl": kwargs.get("gl", "us"),
             "hl": kwargs.get("hl", "en"),
         }
-
-        # Price range filtering via tbs param (Google Shopping format)
-        tbs_parts = []
-        min_price = kwargs.get("min_price")
-        max_price = kwargs.get("max_price")
-        if min_price is not None or max_price is not None:
-            tbs_parts.append("mr:1")
-            tbs_parts.append("price:1")
-            if min_price is not None:
-                tbs_parts.append(f"ppr_min:{int(float(min_price) * 100)}")
-            if max_price is not None:
-                tbs_parts.append(f"ppr_max:{int(float(max_price) * 100)}")
-            params["tbs"] = ",".join(tbs_parts)
         
         async with httpx.AsyncClient() as client:
             response = await client.get(self.base_url, params=params)
@@ -199,8 +173,6 @@ class EbayBrowseProvider(SourcingProvider):
         self.client_id = client_id
         self.client_secret = client_secret
         self.marketplace_id = marketplace_id
-        self.campaign_id = os.getenv("EBAY_CAMPAIGN_ID")
-        self.custom_id = os.getenv("EBAY_CUSTOM_ID")
         self.auth_url = "https://api.ebay.com/identity/v1/oauth2/token"
         self.base_url = "https://api.ebay.com/buy/browse/v1/item_summary/search"
         self._token: Optional[str] = None
@@ -224,12 +196,11 @@ class EbayBrowseProvider(SourcingProvider):
         }
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=2.5) as client:
                 resp = await client.post(self.auth_url, data=data, headers=headers)
                 resp.raise_for_status()
                 payload = resp.json()
-        except Exception as e:
-            print(f"[EbayBrowseProvider] OAuth token request failed: {e}")
+        except Exception:
             return None
 
         token = payload.get("access_token")
@@ -260,21 +231,13 @@ class EbayBrowseProvider(SourcingProvider):
             "Authorization": f"Bearer {token}",
             "X-EBAY-C-MARKETPLACE-ID": self.marketplace_id,
         }
-        
-        # If we have an EPN Campaign ID, request official affiliate links from eBay
-        if self.campaign_id:
-            enduserctx = f"affiliateCampaignId={self.campaign_id}"
-            if self.custom_id:
-                enduserctx += f",affiliateReferenceId={self.custom_id}"
-            headers["X-EBAY-C-ENDUSERCTX"] = enduserctx
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=2.5) as client:
                 resp = await client.get(self.base_url, params=params, headers=headers)
                 resp.raise_for_status()
                 data = resp.json()
-        except Exception as e:
-            print(f"[EbayBrowseProvider] Search request failed: {e}")
+        except Exception:
             return []
 
         results: List[SearchResult] = []
@@ -288,8 +251,7 @@ class EbayBrowseProvider(SourcingProvider):
                 price = 0.0
             currency = price_obj.get("currency") or "USD"
 
-            # Prefer official affiliate link if eBay provided it, fallback to standard web url
-            url = normalize_url(item.get("itemAffiliateWebUrl") or item.get("itemWebUrl") or "")
+            url = normalize_url(item.get("itemWebUrl") or "")
 
             seller = item.get("seller") or {}
             merchant = seller.get("username") or "eBay"
@@ -345,19 +307,6 @@ class SerpAPIProvider(SourcingProvider):
             "gl": kwargs.get("gl", "us"),
             "hl": kwargs.get("hl", "en"),
         }
-
-        # Price range filtering via tbs param (Google Shopping format)
-        tbs_parts = []
-        min_price = kwargs.get("min_price")
-        max_price = kwargs.get("max_price")
-        if min_price is not None or max_price is not None:
-            tbs_parts.append("mr:1")
-            tbs_parts.append("price:1")
-            if min_price is not None:
-                tbs_parts.append(f"ppr_min:{int(float(min_price) * 100)}")
-            if max_price is not None:
-                tbs_parts.append(f"ppr_max:{int(float(max_price) * 100)}")
-            params["tbs"] = ",".join(tbs_parts)
         
         async with httpx.AsyncClient() as client:
             response = await client.get(self.base_url, params=params)
@@ -405,19 +354,6 @@ class ValueSerpProvider(SourcingProvider):
             "gl": kwargs.get("gl", "us"),
             "hl": kwargs.get("hl", "en"),
         }
-
-        # Price range filtering via tbs param (Google Shopping format)
-        tbs_parts = []
-        min_price = kwargs.get("min_price")
-        max_price = kwargs.get("max_price")
-        if min_price is not None or max_price is not None:
-            tbs_parts.append("mr:1")
-            tbs_parts.append("price:1")
-            if min_price is not None:
-                tbs_parts.append(f"ppr_min:{int(float(min_price) * 100)}")
-            if max_price is not None:
-                tbs_parts.append(f"ppr_max:{int(float(max_price) * 100)}")
-            params["tbs"] = ",".join(tbs_parts)
         
         async with httpx.AsyncClient() as client:
             response = await client.get(self.base_url, params=params)
@@ -456,15 +392,6 @@ class RainforestAPIProvider(SourcingProvider):
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.base_url = "https://api.rainforestapi.com/request"
-        self.affiliate_tag = os.getenv("AMAZON_AFFILIATE_TAG", "")
-
-    def _append_affiliate_tag(self, url: str) -> str:
-        """Append ?tag=<affiliate> to an Amazon URL (or replace existing tag)."""
-        if not self.affiliate_tag or not url:
-            return url
-        url = re.sub(r"[?&]tag=[^&]*", "", url)
-        sep = "&" if "?" in url else "?"
-        return f"{url}{sep}tag={self.affiliate_tag}"
 
     def _parse_price_to_float(self, price_info) -> float:
         if price_info is None:
@@ -646,21 +573,20 @@ class RainforestAPIProvider(SourcingProvider):
                 if max_price is not None and price_f > float(max_price):
                     dropped_constraints += 1
                     continue
-
+                
                 url = normalize_url(item.get("link", ""))
-                url = self._append_affiliate_tag(url)
                 
                 results.append(SearchResult(
                     title=item.get("title", "Unknown"),
                     price=price_f,
                     merchant="Amazon",
                     url=url,
-                    merchant_domain="amazon.com",
+                    merchant_domain=extract_merchant_domain(url),
                     image_url=item.get("image"),
                     rating=item.get("rating"),
                     reviews_count=item.get("ratings_total"),
                     shipping_info=item.get("delivery", {}).get("tagline"),
-                    source="amazon"
+                    source="rainforest_amazon"
                 ))
 
             if (not results) and search_results:
@@ -760,162 +686,6 @@ class ScaleSerpProvider(SourcingProvider):
             raise
 
 
-class ScaleSerpAmazonProvider(SourcingProvider):
-    """Amazon product search via ScaleSerp organic results scoped to amazon.com.
-
-    Uses ``site:amazon.com`` queries to return direct Amazon product links.
-    Appends an Amazon Associates affiliate tag when configured.
-    """
-
-    # Regex to pull a price from an Amazon snippet like "$12.99" or "$1,299.00"
-    _PRICE_RE = re.compile(r"\$(\d[\d,]*\.?\d*)")
-
-    def __init__(self, api_key: str, affiliate_tag: str | None = None):
-        self.api_key = api_key
-        self.base_url = "https://api.scaleserp.com/search"
-        self.affiliate_tag = affiliate_tag or os.getenv("AMAZON_AFFILIATE_TAG", "")
-
-    def _append_affiliate_tag(self, url: str) -> str:
-        """Append ?tag=<affiliate> to an Amazon URL (or replace existing tag)."""
-        if not self.affiliate_tag:
-            return url
-        sep = "&" if "?" in url else "?"
-        # Strip existing tag param if present
-        url = re.sub(r"[?&]tag=[^&]*", "", url)
-        return f"{url}{sep}tag={self.affiliate_tag}"
-
-    def _extract_price(self, *texts: str) -> float:
-        """Best-effort price extraction from title, snippet, or any text fields."""
-        for text in texts:
-            if not text:
-                continue
-            m = self._PRICE_RE.search(text)
-            if m:
-                try:
-                    val = float(m.group(1).replace(",", ""))
-                    if val > 0:
-                        return val
-                except (ValueError, TypeError):
-                    pass
-        return 0.0
-
-    def _is_product_url(self, url: str) -> bool:
-        """Filter to actual Amazon product/store pages, skip Q&A / forums."""
-        if not url:
-            return False
-        lower = url.lower()
-        # Skip non-product pages
-        for skip in ("/ask/", "/forum/", "/gp/help", "/ap/signin", "/review/"):
-            if skip in lower:
-                return False
-        return "amazon.com" in lower
-
-    def _get_amazon_placeholder_image(self) -> str:
-        """Return a generic Amazon product placeholder image."""
-        # Use Amazon's standard "no image available" placeholder
-        return "https://m.media-amazon.com/images/G/01/ui/loadIndicators/loading-large_labeled._CB485921773_.gif"
-
-    async def search(self, query: str, **kwargs) -> List[SearchResult]:
-        print(f"[ScaleSerpAmazon] Searching Amazon for: {query!r}")
-
-        min_price = kwargs.get("min_price")
-        max_price = kwargs.get("max_price")
-
-        # Build price hint for the query
-        price_hint = ""
-        if min_price is not None and max_price is not None:
-            price_hint = f" ${int(min_price)}-${int(max_price)}"
-        elif min_price is not None:
-            price_hint = f" over ${int(min_price)}"
-        elif max_price is not None:
-            price_hint = f" under ${int(max_price)}"
-
-        params = {
-            "api_key": self.api_key,
-            "q": f"{query}{price_hint} site:amazon.com",
-            "num": 15,
-            "gl": "us",
-            "hl": "en",
-        }
-
-        try:
-            async with httpx.AsyncClient(timeout=12.0) as client:
-                response = await client.get(self.base_url, params=params)
-                response.raise_for_status()
-                data = response.json()
-        except httpx.HTTPStatusError as e:
-            status = getattr(e.response, "status_code", None)
-            safe_msg = redact_secrets(str(e))
-            print(f"[ScaleSerpAmazon] HTTP error status={status}: {safe_msg}")
-            raise
-        except Exception as e:
-            safe_msg = redact_secrets(str(e))
-            print(f"[ScaleSerpAmazon] Error: {safe_msg}")
-            raise
-
-        organic = data.get("organic_results", [])
-        print(f"[ScaleSerpAmazon] Got {len(organic)} organic results")
-
-        results: List[SearchResult] = []
-        for item in organic:
-            url = item.get("link", "")
-            if not self._is_product_url(url):
-                continue
-
-            url = normalize_url(url)
-            url = self._append_affiliate_tag(url)
-
-            title = item.get("title", "Unknown")
-            snippet = item.get("snippet", "")
-
-            # Try rich snippet price first, then title/snippet
-            price = 0.0
-            rich = item.get("rich_snippet", {})
-            if isinstance(rich, dict):
-                top = rich.get("top", {})
-                if isinstance(top, dict):
-                    detected = top.get("detected_extensions", {})
-                    if isinstance(detected, dict) and "price" in detected:
-                        try:
-                            price = float(str(detected["price"]).replace(",", ""))
-                        except (ValueError, TypeError):
-                            pass
-            if price <= 0:
-                price = self._extract_price(title, snippet)
-
-            # Skip price filtering for Amazon organic results — prices are unreliable
-            # The query hint (e.g. "over $50") guides Amazon's search algorithm instead
-
-            # Extract image from rich snippet or use placeholder
-            image_url = None
-            rich = item.get("rich_snippet", {})
-            if isinstance(rich, dict):
-                top = rich.get("top", {})
-                if isinstance(top, dict):
-                    image_url = top.get("image")
-            
-            # Use placeholder if no image from API
-            if not image_url:
-                image_url = self._get_amazon_placeholder_image()
-
-            results.append(SearchResult(
-                title=title,
-                price=price,
-                currency="USD",
-                merchant="Amazon",
-                url=url,
-                merchant_domain="amazon.com",
-                image_url=image_url,
-                rating=None,
-                reviews_count=None,
-                shipping_info=None,
-                source="amazon",
-            ))
-
-        print(f"[ScaleSerpAmazon] Returning {len(results)} Amazon product results")
-        return results
-
-
 class MockShoppingProvider(SourcingProvider):
     """Mock provider for testing - returns sample data based on query"""
     def __init__(self):
@@ -959,16 +729,7 @@ class GoogleCustomSearchProvider(SourcingProvider):
         self.base_url = "https://www.googleapis.com/customsearch/v1"
 
     async def search(self, query: str, **kwargs) -> List[SearchResult]:
-        min_price = kwargs.get("min_price")
-        max_price = kwargs.get("max_price")
-        price_hint = ""
-        if min_price is not None and max_price is not None:
-            price_hint = f" ${int(min_price)}-${int(max_price)}"
-        elif min_price is not None:
-            price_hint = f" over ${int(min_price)}"
-        elif max_price is not None:
-            price_hint = f" under ${int(max_price)}"
-        search_query = f"{query} buy price{price_hint}"
+        search_query = f"{query} buy price"
         print(f"[GoogleCSE] Searching: {search_query}")
         
         params = {
@@ -1139,37 +900,50 @@ class SourcingRepository:
         self.providers: Dict[str, SourcingProvider] = {}
         
         # Initialize providers in priority order
-        # Rainforest API - Amazon search with real images, prices, and ratings
-        rainforest_key = os.getenv("RAINFOREST_API_KEY")
-        if rainforest_key:
-            self.providers["amazon"] = RainforestAPIProvider(rainforest_key)
-
-        # Google Shopping via SerpAPI — DISABLED (Skimlinks conflict)
+        # SerpAPI - DISABLED (registration issues)
         # serpapi_key = os.getenv("SERPAPI_API_KEY")
         # if serpapi_key and serpapi_key != "demo":
         #     self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
+        
+        # Rainforest API - Amazon search
+        rainforest_key = os.getenv("RAINFOREST_API_KEY")
+        rainforest_key_len = len(rainforest_key) if rainforest_key is not None else None
+        rainforest_present = rainforest_key is not None and rainforest_key_len > 0
+        print(
+            f"[SourcingRepository] RAINFOREST_API_KEY present: {rainforest_present} "
+            f"(is_none={rainforest_key is None}, len={rainforest_key_len})"
+        )
+        if rainforest_present:
+            self.providers["rainforest"] = RainforestAPIProvider(rainforest_key)
 
+        serpapi_key = os.getenv("SERPAPI_API_KEY")
+        if serpapi_key and serpapi_key != "demo":
+            self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
+
+        valueserp_key = os.getenv("VALUESERP_API_KEY")
+        if valueserp_key and valueserp_key != "demo":
+            self.providers["valueserp"] = ValueSerpProvider(valueserp_key)
+
+        searchapi_key = os.getenv("SEARCHAPI_API_KEY")
+        if searchapi_key and searchapi_key != "demo":
+            self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
+        
+        # Scale SERP - Google Shopping (same company as Rainforest)
+        scaleserp_key = os.getenv("SCALESERP_API_KEY")
+        if scaleserp_key and scaleserp_key != "demo":
+            self.providers["google_shopping"] = ScaleSerpProvider(scaleserp_key)
+        
+        # Other providers DISABLED - using only Rainforest for now
+        # ValueSerp - cheap alternative
         # valueserp_key = os.getenv("VALUESERP_API_KEY")
-        # if valueserp_key and valueserp_key != "demo":
+        # if valueserp_key:
         #     self.providers["valueserp"] = ValueSerpProvider(valueserp_key)
-
-        # searchapi_key = os.getenv("SEARCHAPI_API_KEY")
-        # if searchapi_key and searchapi_key != "demo":
-        #     self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
-
-        # scaleserp_key = os.getenv("SCALESERP_API_KEY")
-        # if scaleserp_key and scaleserp_key != "demo":
-        #     self.providers["google_shopping"] = ScaleSerpProvider(scaleserp_key)
-
-        # google_key = os.getenv("GOOGLE_CSE_API_KEY")
-        # google_cx = os.getenv("GOOGLE_CSE_CX")
-        # if google_key and google_cx:
-        #     self.providers["google_cse"] = GoogleCustomSearchProvider(google_key, google_cx)
-
-        # ScaleSerpAmazon - DISABLED (organic search has no images or prices)
-        # scaleserp_key = os.getenv("SCALESERP_API_KEY")
-        # if scaleserp_key and scaleserp_key != "demo":
-        #     self.providers["amazon"] = ScaleSerpAmazonProvider(scaleserp_key)
+        
+        # Google Custom Search - 100 free/day
+        google_key = os.getenv("GOOGLE_CSE_API_KEY")
+        google_cx = os.getenv("GOOGLE_CSE_CX")
+        if google_key and google_cx:
+            self.providers["google_cse"] = GoogleCustomSearchProvider(google_key, google_cx)
         
         # SearchAPI (original)
         # searchapi_key = os.getenv("SEARCHAPI_API_KEY")
@@ -1177,35 +951,17 @@ class SourcingRepository:
         #     self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
 
         # eBay Browse API (official)
-        ebay_client_id = os.getenv("EBAY_CLIENT_ID")
-        ebay_client_secret = os.getenv("EBAY_CLIENT_SECRET")
-        ebay_marketplace_id = os.getenv("EBAY_MARKETPLACE_ID", "EBAY-US")
-        if ebay_client_id and ebay_client_secret:
-            self.providers["ebay_browse"] = EbayBrowseProvider(
-                client_id=ebay_client_id,
-                client_secret=ebay_client_secret,
-                marketplace_id=ebay_marketplace_id
-            )
-            print(f"[SourcingRepository] eBay Browse API provider initialized")
+        # ebay_client_id = os.getenv("EBAY_CLIENT_ID")
+        # ebay_client_secret = os.getenv("EBAY_CLIENT_SECRET")
+        # ebay_marketplace_id = os.getenv("EBAY_MARKETPLACE_ID", "EBAY-US")
+        # if ebay_client_id and ebay_client_secret:
+        #     self.providers["ebay"] = EbayBrowseProvider(...)
         
         # Ticketmaster Discovery API — event tickets
         ticketmaster_key = os.getenv("TICKETMASTER_API_KEY")
         if ticketmaster_key:
             self.providers["ticketmaster"] = TicketmasterProvider(ticketmaster_key)
             print(f"[SourcingRepository] Ticketmaster provider initialized")
-
-        # Kroger Product API — grocery search with real-time pricing
-        kroger_client_id = os.getenv("KROGER_CLIENT_ID")
-        kroger_client_secret = os.getenv("KROGER_CLIENT_SECRET")
-        if kroger_client_id and kroger_client_secret:
-            from sourcing.kroger_provider import KrogerProvider
-            self.providers["kroger"] = KrogerProvider(
-                client_id=kroger_client_id,
-                client_secret=kroger_client_secret,
-                location_id=os.getenv("KROGER_LOCATION_ID"),
-                zip_code=os.getenv("KROGER_ZIP_CODE"),
-            )
-            print("[SourcingRepository] Kroger provider initialized")
 
         # Vendor Directory — pgvector semantic search (always runs)
         from sourcing.vendor_provider import VendorDirectoryProvider
@@ -1228,17 +984,40 @@ class SourcingRepository:
         result = await self.search_all_with_status(query, **kwargs)
         return result.results
 
-    def _normalize_provider_filter(self, providers_filter: Optional[List[str]]) -> Optional[Set[str]]:
-        if not providers_filter:
-            return None
-        allow: Set[str] = set()
-        for provider_id in providers_filter:
-            raw = str(provider_id).strip().lower()
-            if not raw:
-                continue
-            allow.add(_PROVIDER_FILTER_ALIASES.get(raw, raw))
-        return allow or None
+    def _filter_providers_by_tier(self, providers: Dict[str, "SourcingProvider"], desire_tier: Optional[str] = None) -> Dict[str, "SourcingProvider"]:
+        """
+        Gate providers based on desire tier.
+        
+        Only exclude MARKETPLACE-specific providers (Amazon via rainforest, eBay via ebay_browse)
+        for service/bespoke/high-value tiers. General web search providers (serpapi, valueserp,
+        searchapi, google_cse, google_shopping) are kept because they find luxury retailers,
+        specialist sites, and broker pages.
+        """
+        if not desire_tier:
+            return providers
 
+        # Only marketplace-specific aggregators that return mass-market products
+        MARKETPLACE_ONLY_PROVIDERS = {
+            "rainforest",     # Amazon-specific — doesn't sell jets or $50k earrings
+            "ebay_browse",    # eBay-specific — mostly consumer goods
+            "mock",           # Test provider
+        }
+
+        if desire_tier in ("service", "bespoke", "high_value"):
+            filtered = {k: v for k, v in providers.items() if k not in MARKETPLACE_ONLY_PROVIDERS}
+            print(f"[SourcingRepository] Tier '{desire_tier}' — excluded marketplace-only providers, running: {list(filtered.keys())}")
+            if not filtered:
+                print(f"[SourcingRepository] WARNING: No providers left after tier filtering, falling back to all")
+                return providers
+            return filtered
+
+        if desire_tier == "advisory":
+            print(f"[SourcingRepository] Tier 'advisory' — no search providers (handled by chat)")
+            return {}
+
+        # commodity / considered: run everything
+        print(f"[SourcingRepository] Tier '{desire_tier}' — running all providers: {list(providers.keys())}")
+        return providers
 
     async def search_all_with_status(self, query: str, **kwargs) -> SearchResultWithStatus:
         """Search all providers and return results with provider status."""
@@ -1249,31 +1028,21 @@ class SourcingRepository:
 
         providers_filter = kwargs.pop("providers", None)
         desire_tier = kwargs.pop("desire_tier", None)
-        vendor_query = kwargs.pop("vendor_query", None)
         selected_providers: Dict[str, SourcingProvider] = self.providers
-        allow = self._normalize_provider_filter(providers_filter)
-        if allow:
+        if providers_filter:
+            allow = {str(p).strip() for p in providers_filter if str(p).strip()}
             selected_providers = {k: v for k, v in self.providers.items() if k in allow}
             print(f"[SourcingRepository] Provider filter requested: {sorted(list(allow))}")
             print(f"[SourcingRepository] Providers selected: {list(selected_providers.keys())}")
 
-        if not selected_providers:
-            return SearchResultWithStatus(
-                results=[],
-                normalized_results=[],
-                provider_statuses=[],
-                all_providers_failed=False,
-                user_message="No enabled providers are available for this search.",
-            )
+        # Apply desire-tier filtering
+        selected_providers = self._filter_providers_by_tier(selected_providers, desire_tier)
         
-        if vendor_query:
-            print(f"[SourcingRepository] Vendor query (LLM intent): {vendor_query!r}")
-
         start_time = time.time()
         try:
-            PROVIDER_TIMEOUT_SECONDS = float(os.getenv("SOURCING_PROVIDER_TIMEOUT_SECONDS", "15.0"))
+            PROVIDER_TIMEOUT_SECONDS = float(os.getenv("SOURCING_PROVIDER_TIMEOUT_SECONDS", "5.0"))
         except Exception:
-            PROVIDER_TIMEOUT_SECONDS = 15.0
+            PROVIDER_TIMEOUT_SECONDS = 5.0
 
         provider_statuses: List[ProviderStatusSnapshot] = []
         normalized_results: List[NormalizedResult] = []
@@ -1281,21 +1050,13 @@ class SourcingRepository:
         async def search_with_timeout(
             name: str, provider: SourcingProvider
         ) -> tuple[str, List[SearchResult], ProviderStatusSnapshot]:
-            # Vendor directory: use LLM's clean intent as primary query,
-            # pass full query as context_query for weighted blending (70/30)
-            if name == "vendor_directory" and vendor_query:
-                effective_query = vendor_query
-                extra_kwargs = {**kwargs, "context_query": query}
-            else:
-                effective_query = query
-                extra_kwargs = kwargs
-            print(f"[SourcingRepository] Starting search with provider: {name} query={effective_query!r}")
+            print(f"[SourcingRepository] Starting search with provider: {name}")
             results, status = await run_provider_with_status(
                 name,
                 provider,
-                effective_query,
+                query,
                 timeout_seconds=PROVIDER_TIMEOUT_SECONDS,
-                **extra_kwargs,
+                **kwargs,
             )
             if status.status != "ok":
                 error_str = redact_secrets(status.message or "")
@@ -1410,14 +1171,13 @@ class SourcingRepository:
 
         providers_filter = kwargs.pop("providers", None)
         desire_tier = kwargs.pop("desire_tier", None)
-        vendor_query = kwargs.pop("vendor_query", None)
         selected_providers: Dict[str, SourcingProvider] = self.providers
-        allow = self._normalize_provider_filter(providers_filter)
-        if allow:
+        if providers_filter:
+            allow = {str(p).strip() for p in providers_filter if str(p).strip()}
             selected_providers = {k: v for k, v in self.providers.items() if k in allow}
 
-        if not selected_providers:
-            return
+        # Apply desire-tier filtering
+        selected_providers = self._filter_providers_by_tier(selected_providers, desire_tier)
 
         # No timeout for streaming - results flow in as each provider completes
         # Slow providers just arrive later in the stream
@@ -1426,19 +1186,13 @@ class SourcingRepository:
         async def search_with_timeout(
             name: str, provider: SourcingProvider
         ) -> tuple[str, List[SearchResult], ProviderStatusSnapshot]:
-            if name == "vendor_directory" and vendor_query:
-                effective_query = vendor_query
-                extra_kwargs = {**kwargs, "context_query": query}
-            else:
-                effective_query = query
-                extra_kwargs = kwargs
-            print(f"[SourcingRepository] [STREAM] Starting provider: {name} query={effective_query!r}")
+            print(f"[SourcingRepository] [STREAM] Starting provider: {name}")
             results, status = await run_provider_with_status(
                 name,
                 provider,
-                effective_query,
+                query,
                 timeout_seconds=PROVIDER_TIMEOUT_SECONDS,
-                **extra_kwargs,
+                **kwargs,
             )
             if status.status != "ok":
                 error_str = redact_secrets(status.message or "")

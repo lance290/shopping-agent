@@ -2,12 +2,11 @@
 
 import json
 import logging
-import re
 from datetime import datetime
 from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import selectinload
-from sqlmodel import select
+from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models import Bid, Row, Seller
@@ -15,7 +14,6 @@ from sourcing.models import NormalizedResult, ProviderStatusSnapshot, SearchInte
 from sourcing.repository import SourcingRepository
 from sourcing.metrics import get_metrics_collector, log_search_start
 from sourcing.scorer import score_results
-from sourcing.filters import should_exclude_by_exclusions
 
 logger = logging.getLogger(__name__)
 
@@ -25,225 +23,29 @@ class SourcingService:
         self.session = session
         self.repo = sourcing_repo
 
-    @staticmethod
-    def _parse_price_value(val) -> Optional[float]:
-        """Parse a price value that might be a number, string like '>50', or None."""
-        if val is None or val == "":
-            return None
-        if isinstance(val, (int, float)):
-            return float(val)
-        if isinstance(val, str):
-            # Be permissive: extract the first numeric token from free-form text
-            # like ">$50", "$50, please", "minimum 50", etc.
-            cleaned = re.sub(r"^[\s><=~$€£:]+", "", val.strip())
-            if not cleaned:
-                return None
-            match = re.search(r"(-?\d[\d,]*(?:\.\d+)?)", cleaned)
-            if not match:
-                return None
-            try:
-                return float(match.group(1).replace(",", ""))
-            except (ValueError, TypeError):
-                return None
-        return None
-
-    @staticmethod
-    def _normalize_constraint_key(key: object) -> str:
-        """Normalize choice/intent keys to a stable snake_case-like token."""
-        return re.sub(r"[^a-z0-9]+", "_", str(key or "").strip().lower()).strip("_")
-
-    def _parse_range_hint_value(self, val) -> tuple[Optional[float], Optional[float]]:
-        """Parse range-style strings such as '>50', '<100', or '50-100'."""
-        if val is None or val == "":
-            return None, None
-
-        if isinstance(val, (int, float)):
-            # Bare numbers under generic budget/value fields are treated as max.
-            return None, float(val)
-
-        if not isinstance(val, str):
-            return None, None
-
-        raw = val.strip()
-        if not raw:
-            return None, None
-
-        if raw[0] in (">", "≥"):
-            return self._parse_price_value(raw), None
-        if raw[0] in ("<", "≤"):
-            return None, self._parse_price_value(raw)
-
-        range_match = re.match(
-            r"^\s*[^0-9]*([\d,]+(?:\.\d+)?)\s*[-–—]\s*[^0-9]*([\d,]+(?:\.\d+)?)\s*$",
-            raw,
-        )
-        if range_match:
-            lo = self._parse_price_value(range_match.group(1))
-            hi = self._parse_price_value(range_match.group(2))
-            return lo, hi
-
-        lower = raw.lower()
-        parsed = self._parse_price_value(raw)
-        if parsed is None:
-            return None, None
-
-        if re.search(r"\b(over|above|at\s*least|min(?:imum)?)\b", lower):
-            return parsed, None
-        if re.search(r"\b(under|below|at\s*most|max(?:imum)?)\b", lower):
-            return None, parsed
-
-        return None, parsed
-
-    def _extract_prices_from_mapping(self, payload: dict) -> tuple[Optional[float], Optional[float]]:
-        """Extract min/max price from a dict with flexible key naming."""
-        if not isinstance(payload, dict):
-            return None, None
-
-        normalized: dict[str, object] = {}
-        for raw_key, raw_val in payload.items():
-            key = self._normalize_constraint_key(raw_key)
-            if key and key not in normalized:
-                normalized[key] = raw_val
-
-        min_price: Optional[float] = None
-        max_price: Optional[float] = None
-
-        min_keys = (
-            "min_price",
-            "price_min",
-            "minimum_price",
-            "min_budget",
-            "budget_min",
-            "minimum_budget",
-            "min_value",
-            "value_min",
-            "minimum_value",
-            "min_amount",
-            "amount_min",
-            "minimum_amount",
-            "at_least",
-        )
-        max_keys = (
-            "max_price",
-            "price_max",
-            "maximum_price",
-            "max_budget",
-            "budget_max",
-            "maximum_budget",
-            "max_value",
-            "value_max",
-            "maximum_value",
-            "max_amount",
-            "amount_max",
-            "maximum_amount",
-            "at_most",
-        )
-
-        for key in min_keys:
-            parsed = self._parse_price_value(normalized.get(key))
-            if parsed is not None:
-                min_price = parsed
-                break
-
-        for key in max_keys:
-            parsed = self._parse_price_value(normalized.get(key))
-            if parsed is not None:
-                max_price = parsed
-                break
-
-        priceish_tokens = {"price", "budget", "value", "amount", "cost"}
-        min_hints = ("min", "minimum", "at_least", "from", "over", "above", "greater")
-        max_hints = ("max", "maximum", "at_most", "to", "under", "below", "less")
-
-        if min_price is None or max_price is None:
-            for key, raw_val in normalized.items():
-                parsed = self._parse_price_value(raw_val)
-                if parsed is None:
-                    continue
-
-                has_priceish = any(tok in key for tok in priceish_tokens)
-                if not has_priceish:
-                    continue
-
-                if min_price is None and any(h in key for h in min_hints):
-                    min_price = parsed
-                if max_price is None and any(h in key for h in max_hints):
-                    max_price = parsed
-                if min_price is not None and max_price is not None:
-                    break
-
-        # Generic fields can still carry encoded range hints (e.g. ">50", "50-100").
-        if min_price is None or max_price is None:
-            for key in ("price", "budget", "value", "amount", "cost", "gift_card_value"):
-                if key not in normalized:
-                    continue
-                hint_min, hint_max = self._parse_range_hint_value(normalized.get(key))
-                if min_price is None and hint_min is not None:
-                    min_price = hint_min
-                if max_price is None and hint_max is not None:
-                    max_price = hint_max
-                if min_price is not None and max_price is not None:
-                    break
-
-        return min_price, max_price
-
-    @staticmethod
-    def _extract_exclusions(row) -> tuple[List[str], List[str]]:
-        """Extract LLM-populated exclude_keywords and exclude_merchants from row.search_intent."""
-        if not row or not row.search_intent:
-            return [], []
-        try:
-            si = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
-            if isinstance(si, dict):
-                return (
-                    si.get("exclude_keywords") or [],
-                    si.get("exclude_merchants") or [],
-                )
-        except Exception:
-            pass
-        return [], []
-
-    @staticmethod
-    def extract_vendor_query(row) -> Optional[str]:
-        """Extract the LLM's clean product_name from search_intent for vendor vector search.
-
-        The LLM distills 'jet to nashville' → product_name: 'Private jet charter'.
-        Web providers get the full query (locations help find routes).
-        Vendor provider gets the clean intent (no location noise in embeddings).
-        """
-        if not row or not row.search_intent:
-            return None
-        try:
-            si = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
-            if isinstance(si, dict):
-                return si.get("product_name") or si.get("raw_input") or None
-        except Exception:
-            pass
-        return None
-
     def _extract_price_constraints(self, row: Row) -> tuple[Optional[float], Optional[float]]:
         min_price: Optional[float] = None
         max_price: Optional[float] = None
 
-        # 1. Check search_intent first (structured, most reliable)
         if row.search_intent:
             try:
                 payload = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
                 if isinstance(payload, dict):
-                    min_price, max_price = self._extract_prices_from_mapping(payload)
+                    if payload.get("min_price") is not None:
+                        min_price = float(payload["min_price"])
+                    if payload.get("max_price") is not None:
+                        max_price = float(payload["max_price"])
             except Exception:
                 pass
 
-        # 2. Fallback to choice_answers (LLM/UI use varying key names)
-        if row.choice_answers and (min_price is None or max_price is None):
+        if (min_price is None and max_price is None) and row.choice_answers:
             try:
                 answers = json.loads(row.choice_answers) if isinstance(row.choice_answers, str) else row.choice_answers
                 if isinstance(answers, dict):
-                    fallback_min, fallback_max = self._extract_prices_from_mapping(answers)
-                    if min_price is None:
-                        min_price = fallback_min
-                    if max_price is None:
-                        max_price = fallback_max
+                    if answers.get("min_price") not in (None, ""):
+                        min_price = float(answers["min_price"])
+                    if answers.get("max_price") not in (None, ""):
+                        max_price = float(answers["max_price"])
             except Exception:
                 pass
 
@@ -275,15 +77,27 @@ class SourcingService:
         row = row_res.first()
         min_price, max_price = self._extract_price_constraints(row) if row else (None, None)
 
+        if row and max_price is not None:
+            # Only hard-delete bids that exceed the budget ceiling (max_price).
+            # Keep bids with no price and bids below min_price — scorer ranks them.
+            # Protect liked/selected bids and service providers.
+            await self.session.exec(
+                delete(Bid).where(
+                    Bid.row_id == row_id,
+                    Bid.price > max_price,
+                    Bid.source != "vendor_directory",
+                    Bid.is_liked == False,
+                    Bid.is_selected == False,
+                )
+            )
+            await self.session.commit()
+
         # 1. Execute Search with metrics tracking
         metrics = get_metrics_collector()
         log_search_start(row_id, query, providers or [])
         
-        # Extract desire_tier and product_name for search context
+        # Extract desire_tier for logging/repo context
         desire_tier = row.desire_tier if row else None
-
-        # Extract clean product intent for vendor vector search.
-        vendor_query = self.extract_vendor_query(row) if row else None
 
         with metrics.track_search(row_id=row_id, query=query):
             search_response = await self.repo.search_all_with_status(
@@ -292,7 +106,6 @@ class SourcingService:
                 min_price=min_price,
                 max_price=max_price,
                 desire_tier=desire_tier,
-                vendor_query=vendor_query,
             )
 
             normalized_results = search_response.normalized_results
@@ -309,8 +122,35 @@ class SourcingService:
                     error_message=status.message
                 )
         
-        # Record result counts (no filtering — scorer handles ranking)
-        metrics.record_price_filter(applied=False, dropped=0)
+        # If no normalized results (e.g. legacy providers only), fallback to normalizing raw results
+        if not normalized_results and search_response.results:
+            # Fallback logic if needed, or rely on repo to handle normalization
+            pass
+
+        # Unified price/source filtering
+        from sourcing.filters import should_include_result
+        desire_tier = row.desire_tier if row else None
+        if min_price is not None or max_price is not None:
+            filtered: List[NormalizedResult] = []
+            dropped = 0
+            for res in normalized_results:
+                if should_include_result(
+                    price=res.price,
+                    source=res.source,
+                    desire_tier=desire_tier,
+                    min_price=min_price,
+                    max_price=max_price,
+                ):
+                    filtered.append(res)
+                else:
+                    dropped += 1
+            logger.info(f"[SourcingService] Price filter: {len(normalized_results)} -> {len(filtered)} (dropped={dropped})")
+            metrics.record_price_filter(applied=True, dropped=dropped)
+            normalized_results = filtered
+        else:
+            metrics.record_price_filter(applied=False, dropped=0)
+
+        # Record result counts
         metrics.record_results(
             total=len(search_response.results),
             unique=len(search_response.normalized_results),
@@ -321,8 +161,9 @@ class SourcingService:
             f"[SourcingService] Row {row_id}: Got {len(normalized_results)} normalized results from {len(provider_statuses)} providers"
         )
 
-        # 2. Score & Rank Results (no filtering — only re-ranking)
+        # 2. Score & Rank Results
         search_intent = self._parse_search_intent(row) if row else None
+        desire_tier = row.desire_tier if row else None
         normalized_results = score_results(
             normalized_results,
             intent=search_intent,
@@ -331,24 +172,75 @@ class SourcingService:
             desire_tier=desire_tier,
         )
 
-        # 2b. Apply LLM-extracted exclusions (Amazon doesn't support negative keywords)
-        exclude_kw, exclude_merchants = self._extract_exclusions(row)
-        if exclude_kw or exclude_merchants:
-            before = len(normalized_results)
-            normalized_results = [
-                r for r in normalized_results
-                if not should_exclude_by_exclusions(
-                    r.title, r.merchant_name, r.merchant_domain,
-                    exclude_kw, exclude_merchants,
-                )
-            ]
-            dropped = before - len(normalized_results)
-            if dropped:
-                logger.info(f"[SourcingService] Row {row_id}: Excluded {dropped} results by user exclusions (keywords={exclude_kw}, merchants={exclude_merchants})")
+        # 2b. Quantum re-ranking (for results with embeddings)
+        try:
+            from sourcing.quantum.reranker import QuantumReranker
+            if not hasattr(self, '_quantum_reranker'):
+                self._quantum_reranker = QuantumReranker()
+            reranker = self._quantum_reranker
+            if reranker.is_available() and row:
+                # Build result dicts with embeddings for quantum scoring, keyed by index
+                results_for_quantum = []
+                for idx, res in enumerate(normalized_results):
+                    rd = {
+                        "_idx": idx,
+                        "title": res.title,
+                        "embedding": res.raw_data.get("embedding") if res.raw_data else None,
+                    }
+                    results_for_quantum.append(rd)
+
+                # Get query embedding from search intent
+                query_emb = None
+                if row.search_intent:
+                    try:
+                        intent_data = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
+                        query_emb = intent_data.get("query_embedding")
+                    except Exception:
+                        pass
+
+                if query_emb and any(r.get("embedding") for r in results_for_quantum):
+                    reranked = await reranker.rerank_results(
+                        query_embedding=query_emb,
+                        search_results=results_for_quantum,
+                        top_k=len(normalized_results),
+                    )
+                    # Apply quantum scores back using the _idx key to match correctly
+                    score_map = {}
+                    for r in reranked:
+                        if r.get("quantum_reranked") and "_idx" in r:
+                            score_map[r["_idx"]] = r
+                    for idx, res in enumerate(normalized_results):
+                        if idx in score_map:
+                            qr = score_map[idx]
+                            res.provenance["quantum_score"] = qr.get("quantum_score", 0.0)
+                            res.provenance["blended_score"] = qr.get("blended_score", 0.0)
+                            res.provenance["novelty_score"] = qr.get("novelty_score", 0.0)
+                            res.provenance["coherence_score"] = qr.get("coherence_score", 0.0)
+                    logger.info(f"[SourcingService] Quantum reranking applied to {len(score_map)} results")
+        except ImportError:
+            pass  # Quantum module not available — classical scoring only
+        except Exception as e:
+            logger.warning(f"[SourcingService] Quantum reranking failed (graceful degradation): {e}")
+
+        # 2c. Constraint satisfaction scoring
+        if row and row.structured_constraints:
+            try:
+                from sourcing.quantum.constraint_scorer import constraint_satisfaction_score
+                constraints = json.loads(row.structured_constraints) if isinstance(row.structured_constraints, str) else row.structured_constraints
+                if isinstance(constraints, dict) and constraints:
+                    for res in normalized_results:
+                        result_data = {"title": res.title, "raw_data": res.raw_data}
+                        c_score = constraint_satisfaction_score(result_data, constraints)
+                        res.provenance["constraint_score"] = round(c_score, 4)
+                    logger.info(f"[SourcingService] Constraint scoring applied to {len(normalized_results)} results")
+            except Exception as e:
+                logger.warning(f"[SourcingService] Constraint scoring failed: {e}")
 
         # 3. Persist Results
         bids = await self._persist_results(row_id, normalized_results, row)
         
+        # Record persistence metrics
+        new_count = sum(1 for b in bids if not any(eb.id == b.id for eb in []))
         metrics.record_persistence(created=len(bids), updated=0)
 
         return bids, provider_statuses, user_message
@@ -489,8 +381,8 @@ class SourcingService:
         for name, domain in unique_merchants:
             seller_cache[name] = await self._get_or_create_seller(name, domain)
 
-        # Fetch existing bids to handle upserts (deduplication) — exclude superseded
-        existing_bids_stmt = select(Bid).where(Bid.row_id == row_id, Bid.is_superseded == False)
+        # Fetch existing bids to handle upserts (deduplication)
+        existing_bids_stmt = select(Bid).where(Bid.row_id == row_id)
         existing_bids_res = await self.session.exec(existing_bids_stmt)
         existing_bids = existing_bids_res.all()
         
@@ -578,7 +470,7 @@ class SourcingService:
         # Never rely on in-memory object IDs which may be expired after async commit.
         stmt = (
             select(Bid)
-            .where(Bid.row_id == row_id, Bid.is_superseded == False)
+            .where(Bid.row_id == row_id)
             .options(selectinload(Bid.seller))
             .order_by(Bid.combined_score.desc().nullslast(), Bid.id)
         )

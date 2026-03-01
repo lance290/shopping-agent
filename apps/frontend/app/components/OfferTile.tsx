@@ -1,11 +1,11 @@
-import { Offer, Row, useShoppingStore } from '../store';
+import { Offer, Row } from '../store';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Heart, MessageSquare, Share2, ShieldCheck, Star, Truck, X, UserPlus, Mail, MailCheck } from 'lucide-react';
+import { Heart, MessageSquare, Share2, ShieldCheck, Star, Truck, Info } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
-import { isLoggedIn } from '../utils/auth';
+import { useDetailPanelStore } from '../stores/detailPanelStore';
+import { MobileDetailTooltip } from './MobileDetailTooltip';
 import VendorContactModal from './VendorContactModal';
 
 interface OfferTileProps {
@@ -16,7 +16,7 @@ interface OfferTileProps {
   onSelect?: (offer: Offer) => void | Promise<void>;
   onToggleLike?: (offer: Offer) => void;
   onComment?: (offer: Offer) => void;
-  onShare?: (offer: Offer) => void;
+  onShare?: (offer: Offer) => void | Promise<void>;
 }
 
 export default function OfferTile({
@@ -29,9 +29,9 @@ export default function OfferTile({
   onComment,
   onShare,
 }: OfferTileProps) {
+  const [showMobileTooltip, setShowMobileTooltip] = useState(false);
   const [showVendorModal, setShowVendorModal] = useState(false);
-  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const updateRowOffer = useShoppingStore(state => state.updateRowOffer);
+  const { openPanel } = useDetailPanelStore();
 
   // Build clickout URL - service providers show modal, others go through clickout
   const isQuoteBased = offer.price === null || offer.price === undefined;
@@ -52,17 +52,32 @@ export default function OfferTile({
   const hasRating = ratingValue !== null && ratingValue > 0;
   const merchantLabel = offer.merchant_domain || offer.merchant;
 
+  const handleDetailClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!offer.bid_id) return;
+
+    // Check if mobile (< 768px)
+    const isMobile = window.innerWidth < 768;
+
+    if (isMobile) {
+      setShowMobileTooltip(true);
+    } else {
+      openPanel(offer.bid_id);
+    }
+  };
+  
   return (
     <Card
       variant="hover"
       data-testid="offer-tile"
       className={cn(
-        "min-w-[255px] max-w-[255px] h-[450px] flex flex-col relative group transition-all duration-300",
+        "min-w-[255px] max-w-[255px] h-[450px] flex flex-col relative group",
         "shadow-[0_2px_6px_rgba(0,0,0,0.16)]",
         isSelected
           ? "border-status-success ring-2 ring-status-success/30 shadow-[0_10px_24px_rgba(28,148,64,0.25)]"
-          : "border-warm-grey/70",
-        row.status === 'selected' && !isSelected ? "opacity-40 grayscale-[0.5]" : ""
+          : "border-warm-grey/70"
       )}
     >
       <a
@@ -87,18 +102,6 @@ export default function OfferTile({
             <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
               <ShieldCheck size={10} />
               Vendor Quote
-            </div>
-          )}
-          {offer.outreach_status === 'contacted' && (
-            <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-amber-500/10 text-amber-700 border border-amber-500/20">
-              <Mail size={10} />
-              Contacted
-            </div>
-          )}
-          {offer.outreach_status === 'quoted' && (
-            <div className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
-              <MailCheck size={10} />
-              Quote Received
             </div>
           )}
           {isBiddable && !isSellerQuote && !isServiceProvider && (
@@ -145,43 +148,15 @@ export default function OfferTile({
         </div>
         
         {/* Content */}
-        <div className="p-3 flex flex-col flex-1 bg-warm-light border-t border-warm-grey/70 relative">
+        <div className="p-3 flex flex-col flex-1 bg-warm-light border-t border-warm-grey/70">
           <div className="text-xs font-medium text-onyx-muted mb-1 truncate flex items-center gap-1.5">
             <span className="w-1 h-1 rounded-full bg-onyx-muted/60"></span>
             {offer.merchant_domain || offer.merchant}
           </div>
           
-          <div className="text-sm font-bold text-onyx line-clamp-3 mb-2 min-h-[48px] leading-snug transition-colors" title={offer.title}>
+          <div className="text-sm font-bold text-onyx line-clamp-3 mb-2 min-h-[48px] leading-snug group-hover:text-onyx-muted transition-colors" title={offer.title}>
             {offer.title}
           </div>
-
-          {/* Hover Details Overlay */}
-          {(offer.description || (offer.matched_features && offer.matched_features.length > 0)) && (
-            <div className="absolute inset-0 bg-warm-light z-20 p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none overflow-y-auto scrollbar-hide border-t border-warm-grey/70">
-              <div className="text-xs font-medium text-onyx-muted mb-2 truncate flex items-center gap-1.5">
-                <span className="w-1 h-1 rounded-full bg-onyx-muted/60"></span>
-                {offer.merchant_domain || offer.merchant}
-              </div>
-              <div className="text-sm font-bold text-onyx mb-3 leading-snug">
-                {offer.title}
-              </div>
-              {offer.description && (
-                <div className="text-xs text-onyx-muted leading-relaxed mb-3">
-                  {offer.description}
-                </div>
-              )}
-              {offer.matched_features && offer.matched_features.length > 0 && (
-                <ul className="space-y-1.5 mb-2">
-                  {offer.matched_features.map((feature, i) => (
-                    <li key={i} className="text-[11px] text-onyx-muted/90 flex items-start gap-1.5 leading-snug">
-                      <span className="text-agent-blurple mt-0.5">•</span>
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
 
           {offer.comment_preview && (
             <div className="text-[10px] text-onyx-muted/90 bg-white/60 border border-warm-grey/60 rounded-md px-2 py-1 mb-2 line-clamp-2">
@@ -191,12 +166,8 @@ export default function OfferTile({
           
           <div className="mt-auto">
             {isQuoteBased && (
-              <div className="text-[11px] font-medium text-onyx-muted mb-8 text-center leading-snug">
-                {isVendorDirectory
-                  ? (offer.description
-                      ? <span className="line-clamp-2">{offer.description}</span>
-                      : <span>Specialist · Custom pricing</span>)
-                  : 'Pricing on request'}
+              <div className="text-xl font-bold text-onyx mb-8 text-center">
+                Request Quote
               </div>
             )}
             {!isQuoteBased && (
@@ -206,6 +177,16 @@ export default function OfferTile({
               </div>
             )}
             <div className="flex items-center gap-2 mb-2">
+              {offer.bid_id && (
+                <button
+                  type="button"
+                  onClick={handleDetailClick}
+                  className="h-7 w-7 rounded-full border border-warm-grey/70 flex items-center justify-center bg-white text-onyx-muted hover:text-onyx transition-colors"
+                  title="View details"
+                >
+                  <Info size={12} />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={(e) => {
@@ -251,7 +232,7 @@ export default function OfferTile({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  onShare?.(offer);
+                  (onShare?.(offer) as Promise<void> | undefined)?.catch(() => {});
                 }}
                 className="h-7 w-7 rounded-full border border-warm-grey/70 flex items-center justify-center bg-white text-onyx-muted hover:text-onyx transition-colors"
                 title="Share"
@@ -292,7 +273,7 @@ export default function OfferTile({
             </div>
             
             <div className="grid gap-2">
-              {canSelect && !isSelected && row.status !== 'selected' && (
+              {canSelect && !isSelected && (
                 <Button
                   size="sm"
                   variant="primary"
@@ -310,7 +291,6 @@ export default function OfferTile({
                 <Button
                   size="sm"
                   variant="secondary"
-                  disabled={row.status === 'selected'}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -329,16 +309,11 @@ export default function OfferTile({
               {isVendorDirectory && !isSelected && (
                 <Button
                   size="sm"
-                  disabled={row.status === 'selected'}
                   variant="secondary"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (!isLoggedIn()) {
-                      setShowAuthPrompt(true);
-                    } else {
-                      setShowVendorModal(true);
-                    }
+                    setShowVendorModal(true);
                   }}
                   className="w-full h-8 text-xs"
                 >
@@ -355,39 +330,10 @@ export default function OfferTile({
         </div>
       </a>
 
-      {showAuthPrompt && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAuthPrompt(false)} />
-          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6 text-center">
-            <button onClick={() => setShowAuthPrompt(false)} className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"><X size={18} /></button>
-            <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
-              <UserPlus size={24} className="text-blue-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Create a free account</h3>
-            <p className="text-sm text-gray-500 mb-5">
-              Sign up in 30 seconds to request quotes from vendors. We&apos;ll keep your search history too.
-            </p>
-            <Button
-              variant="primary"
-              className="w-full mb-3"
-              onClick={() => {
-                // Save all anonymous row IDs so they can be claimed after login
-                const storeState = useShoppingStore.getState();
-                const rowIds = storeState.rows.map((r: { id: number }) => r.id);
-                console.log('[OfferTile] Saving anonymous row IDs for claim:', rowIds);
-                if (rowIds.length) sessionStorage.setItem('pending_claim_rows', JSON.stringify(rowIds));
-                window.location.href = '/login';
-              }}
-            >
-              Sign Up / Log In
-            </Button>
-            <button onClick={() => setShowAuthPrompt(false)} className="text-sm text-gray-400 hover:text-gray-600">
-              Maybe later
-            </button>
-          </div>
-        </div>,
-        document.body
-      )}
+      <MobileDetailTooltip
+        show={showMobileTooltip}
+        onDismiss={() => setShowMobileTooltip(false)}
+      />
 
       {(isServiceProvider || isVendorDirectory) && (
         <VendorContactModal
@@ -400,17 +346,6 @@ export default function OfferTile({
           vendorName={offer.vendor_name || 'Contact'}
           vendorCompany={offer.vendor_company || offer.merchant}
           vendorEmail={offer.vendor_email || ''}
-          onSent={() => {
-            // Update the offer's outreach_status to 'contacted' after successful send
-            const email = offer.vendor_email;
-            if (email) {
-              updateRowOffer(
-                rowId,
-                (o) => (o.vendor_email || '').toLowerCase() === email.toLowerCase(),
-                { outreach_status: 'contacted' },
-              );
-            }
-          }}
         />
       )}
     </Card>

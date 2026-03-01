@@ -16,8 +16,8 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-3-flash-preview")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001")
 
 
 def _get_gemini_api_key() -> str:
@@ -92,13 +92,8 @@ async def _call_openrouter(prompt: str, timeout: float = 30.0) -> str:
     return choices[0].get("message", {}).get("content", "")
 
 
-async def call_gemini(prompt: str, timeout: float = 30.0, image_base64: str | None = None) -> str:
-    """Call LLM: try Gemini direct first, fall back to OpenRouter.
-    If image_base64 is provided, uses Gemini vision (multimodal)."""
-    # If image provided, use vision-capable Gemini directly
-    if image_base64:
-        return await _call_gemini_vision(prompt, image_base64, timeout)
-
+async def call_gemini(prompt: str, timeout: float = 30.0) -> str:
+    """Call LLM: try Gemini direct first, fall back to OpenRouter."""
     # Try Gemini direct
     if _get_gemini_api_key():
         try:
@@ -111,55 +106,6 @@ async def call_gemini(prompt: str, timeout: float = 30.0, image_base64: str | No
         return await _call_openrouter(prompt, timeout)
 
     raise ValueError("No LLM API key configured (GEMINI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or OPENROUTER_API_KEY)")
-
-
-async def _call_gemini_vision(prompt: str, image_base64: str, timeout: float = 30.0) -> str:
-    """Call Gemini with a multimodal (text + image) request for vision tasks."""
-    api_key = _get_gemini_api_key()
-    if not api_key:
-        raise ValueError("No Gemini API key for vision request")
-
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
-
-    # Strip data URL prefix if present
-    if "," in image_base64 and image_base64.startswith("data:"):
-        image_base64 = image_base64.split(",", 1)[1]
-
-    payload = {
-        "contents": [{
-            "parts": [
-                {"text": prompt},
-                {
-                    "inline_data": {
-                        "mime_type": "image/jpeg",
-                        "data": image_base64,
-                    }
-                },
-            ]
-        }],
-        "generationConfig": {
-            "temperature": 0.1,
-            "maxOutputTokens": 4096,
-        },
-    }
-
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            url,
-            params={"key": api_key},
-            json=payload,
-            timeout=timeout,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-    candidates = data.get("candidates", [])
-    if not candidates:
-        raise ValueError("Gemini vision returned no candidates")
-    parts = candidates[0].get("content", {}).get("parts", [])
-    if not parts:
-        raise ValueError("Gemini vision returned no content parts")
-    return parts[0].get("text", "")
 
 
 def _extract_json(text: str) -> dict:
@@ -198,10 +144,8 @@ class UserIntent(BaseModel):
     service_type: Optional[str] = None  # vendor_category hint (e.g. "private_aviation")
     search_query: str
     constraints: Dict[str, Any] = {}
-    exclude_keywords: List[str] = []  # terms to filter OUT of results (e.g. ["digital", "electronic"])
-    exclude_merchants: List[str] = []  # merchants/retailers to exclude (e.g. ["amazon", "target"])
-    desire_tier: Optional[str] = None  # LLM must classify — None means unclassified
-    desire_confidence: float = 0.0  # 0.0-1.0, LLM sets this
+    desire_tier: str = "commodity"  # one of DESIRE_TIERS
+    desire_confidence: float = 0.8  # 0.0-1.0
 
 
 class ClarificationAction(BaseModel):
@@ -230,22 +174,14 @@ class UnifiedDecision(BaseModel):
     action: Dict[str, Any]  # flexible to handle all action types
 
     @property
-    def desire_tier(self) -> Optional[str]:
-        return self.intent.desire_tier if self.intent.desire_tier in DESIRE_TIERS else None
+    def desire_tier(self) -> str:
+        return self.intent.desire_tier if self.intent.desire_tier in DESIRE_TIERS else "commodity"
 
     @property
     def skip_web_search(self) -> bool:
         """Service/bespoke/high-value/advisory tiers skip web search — it can't help."""
         return self.desire_tier in ("service", "bespoke", "high_value", "advisory")
 
-
-class PopItem(BaseModel):
-    intent: UserIntent
-    action: Dict[str, Any]
-
-class PopDecision(BaseModel):
-    message: str
-    items: List[PopItem]
 
 class ChatContext(BaseModel):
     user_message: str
@@ -305,10 +241,8 @@ You MUST always return an "intent" object that captures WHAT THE USER WANTS:
     "what": "The core thing they want - e.g., 'private jet charter', 'kids baseball glove', 'custom diamonds'",
     "category": "request",
     "service_type": "optional vendor category hint: private_aviation, roofing, hvac, jewelry, catering, etc. Use when a vendor directory might have relevant providers. null if unsure.",
-    "search_query": "A CLEAN product search query. ONLY include positive terms describing what the user WANTS. NEVER include negations, exclusions, 'NOT', 'no', 'excluding', or retailer names to avoid. Example: user says 'Roblox gift card, no digital, not from Amazon' → search_query: 'Roblox physical gift card'",
+    "search_query": "The query to find this - derived from WHAT, not conversation snippets",
     "constraints": {{ structured data ONLY: origin, destination, date, size, color, price, recipient, etc. NEVER include 'what', 'is_service', 'service_category', 'search_query', or 'title' in constraints — those belong in the parent intent fields. }},
-    "exclude_keywords": ["terms to FILTER OUT from results — e.g. 'digital', 'electronic', 'download', 'code'. Extract from user negations like 'no digital', 'not electronic'. Empty array if none."],
-    "exclude_merchants": ["retailer/merchant names to exclude — e.g. 'amazon', 'target', 'walmart'. Extract from user statements like 'NOT from Amazon', 'excluding Target'. Empty array if none."],
     "desire_tier": "one of: commodity, considered, service, bespoke, high_value, advisory",
     "desire_confidence": 0.0-1.0
   }}
@@ -320,7 +254,7 @@ Before deciding the action, classify what KIND of desire this is:
 | Tier | When to use | Examples |
 | commodity | Simple product or standard ticket/event | "AA batteries", "Roblox gift card", "running shoes", "Taylor Swift concert tickets", "NBA game tickets" |
 | considered | Complex product or event needing comparison | "laptop for video editing", "best DSLR camera", "Notre Dame vs Clemson tickets", "Broadway show for anniversary" |
-| service | Hire someone / book a service / travel booking | "private jet charter", "HVAC repair", "catering for 200", "wedding photographer", "flight to Nashville", "hotel in Paris", "car rental in Miami", "cruise to Alaska" |
+| service | Hire someone / book a service | "private jet charter", "HVAC repair", "catering for 200", "wedding photographer" |
 | bespoke | Custom-made / commissioned item | "custom engagement ring", "commission a mural", "bespoke suit" |
 | high_value | Major asset purchase (>$100k typically) | "mega-yacht", "aircraft purchase", "commercial real estate" |
 | advisory | Needs professional advisory, not a search | "acquire a SaaS company", "set up a family trust", "corporate M&A" |
@@ -367,12 +301,6 @@ RULES:
 
 CRITICAL: If an active row exists and the user's message relates to the SAME category/topic, you MUST use update_row. NEVER create a duplicate row for the same request. "Make it round trip", "add return leg", "change date", "2 passengers" — these are ALL update_row when an active row exists.
 
-=== ANTI-LOOP RULE (HANDLING CLARIFICATIONS) ===
-If `pending_clarification` is NOT "none":
-1. The user is answering your previous question. Their message might be a short fragment (e.g., "just 2 people", "tomorrow", "under $500").
-2. MERGE their new answer with the original intent from `pending_clarification`. Do not evaluate their short answer in a vacuum.
-3. NEVER ASK ANOTHER CLARIFYING QUESTION IMMEDIATELY. You MUST proceed to action (`create_row` or `update_row`) with whatever partial information you now have. It is better to run a broad search than to annoy the user with endless questions.
-
 === STRUCTURED RFP BUILDER (Phase 4) ===
 You are NOT just a chatbot. You are a procurement agent. For every request, follow this pattern:
 
@@ -380,23 +308,34 @@ You are NOT just a chatbot. You are a procurement agent. For every request, foll
    - Electronics: brand, specs, budget, warranty, condition
    - Vehicles: make/model, year, mileage, budget, features
    - Events/Tickets: event name, date, venue/city, number of tickets, seating preference, budget
-   - Services (aviation): origin, destination, date, passengers, aircraft type
-   - Services (catering): date, location, headcount, cuisine
+   - Services (aviation): origin, destination, date, passengers, passenger_names, aircraft type
+   - Services (catering): date, location, headcount, cuisine, dietary restrictions
+   - Services (general): date, location, scope, budget, timeline
    - Apparel: size, color, material, brand, budget
+   - Home goods: dimensions, style, material, budget, delivery timeline
 
-2. ASK about missing choice factors using ask_clarification ONLY ONCE. Be specific:
+2. ASK about missing choice factors using ask_clarification. Be specific:
    - BAD: "Can you tell me more?"
-   - GOOD: "To find the best options, I need a few details:\\n• What's your budget range?\\n• Any preferred brands?"
-   - Ask 2-3 questions MAX per turn.
+   - GOOD: "To find the best options, I need a few details:\\n• What's your budget range?\\n• Any preferred brands?\\n• New or refurbished OK?"
+   - Ask 2-3 questions MAX per turn. Don't overwhelm.
 
-3. COMPLEX REQUESTS (services, custom/bespoke items, high-value purchases):
-   - Use ask_clarification to gather essential details first (like origin/destination/date for flights).
-   - Once they answer (even partially), apply the ANTI-LOOP RULE and execute the search. Do not keep asking.
+3. SUMMARIZE before creating/searching. When you have enough info, your message should include a brief summary.
+
+4. Only use ask_clarification when you're missing ESSENTIAL choice factors. For simple product searches with enough context, go straight to create_row.
+
+COMPLEX REQUESTS (services, custom/bespoke items, high-value purchases):
+- Use ask_clarification to gather essential details first
+- Essential details by type:
+  - Private jets: origin, destination, date, passengers, passenger_names
+  - Catering: date, location, headcount
+  - Photography: date, location, event type
+  - Custom jewelry: recipient, budget, carat weight, style preferences
+- Then create_row with full intent
 
 Return ONLY valid JSON:
 {{
   "message": "Conversational response to user (REQUIRED)",
-  "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}}, "exclude_keywords": [], "exclude_merchants": [], "desire_tier": "commodity|considered|service|bespoke|high_value|advisory", "desire_confidence": 0.9 }},
+  "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}}, "desire_tier": "commodity|considered|service|bespoke|high_value|advisory", "desire_confidence": 0.9 }},
   "action": {{ "type": "..." }}
 }}"""
 
@@ -409,107 +348,13 @@ Return ONLY valid JSON:
         # Fallback: create a basic row from the user message
         return UnifiedDecision(
             message="I'll help you find that. Let me set up a search for you.",
-            intent={"what": ctx.user_message, "category": "request", "search_query": ctx.user_message, "constraints": {}, "desire_tier": "commodity", "desire_confidence": 0.5, "exclude_keywords": [], "exclude_merchants": []},
-            action={"type": "create_row" if not ctx.active_row else "update_row"}
-        )
-
-
-# =============================================================================
-# POP NLU DECISION (Grocery / Family context)
-# =============================================================================
-
-async def make_pop_decision(ctx: ChatContext) -> PopDecision:
-    """
-    Dedicated LLM call for Pop (popsavings.com).
-    Uses the "Friendly 60s Dad" persona and focuses on grocery lists, swaps, and family savings.
-    Can extract multiple independent grocery items from a single message.
-    """
-    active_row_json = json.dumps({
-        "id": ctx.active_row["id"],
-        "title": ctx.active_row.get("title", ""),
-    }) if ctx.active_row else "none"
-
-    active_project_json = json.dumps({
-        "id": ctx.active_project["id"],
-        "title": ctx.active_project.get("title", ""),
-    }) if ctx.active_project else "none"
-
-    pending_json = json.dumps(ctx.pending_clarification) if ctx.pending_clarification else "none"
-
-    recent = ctx.conversation_history[-6:] if ctx.conversation_history else []
-    recent_text = "\n".join(f"  {m['role']}: {m['content']}" for m in recent)
-
-    prompt = f"""You are Pop, a friendly dad from the 1960s who is now an AI grocery savings assistant.
-You help families build their grocery lists, find deals, and suggest money-saving product swaps.
-You are warm, cheerful, use mild 60s dad-isms ("sport", "kiddo", "you betcha", "gee whiz"), and love saving a buck.
-
-INPUTS:
-- User message: "{ctx.user_message}"
-- Active list item (row): {active_row_json}
-- Active family list (project): {active_project_json}
-- Pending clarification: {pending_json}
-- Recent conversation:
-{recent_text}
-
-YOUR JOB: 
-1. UNDERSTAND all the items the user wants to add to their grocery list or do. If they list multiple things (e.g. "milk, eggs, and bread"), extract each one as a SEPARATE item.
-2. Decide what action to take for EACH item (usually creating a new list item).
-3. Return JSON with a single Dad-persona message, and an array of items.
-
-=== INTENT ===
-{{
-  "what": "The specific grocery or household item - e.g., 'milk', 'A1 Sauce'",
-  "category": "request",
-  "service_type": null,
-  "search_query": "Clean product search query. e.g. 'A1 steak sauce'",
-  "constraints": {{ "brand": "...", "size": "...", "flavor": "..." }},
-  "exclude_keywords": [],
-  "exclude_merchants": [],
-  "desire_tier": "commodity",
-  "desire_confidence": 0.9
-}}
-
-Note: For Pop, most items are "commodity" or "considered" (groceries, household goods).
-
-=== ACTION TYPES ===
-1. "create_row" - Add a new item to the grocery list
-2. "update_row" - Refine the active item
-3. "ask_clarification" - Need essential info
-4. "context_switch" - User changed topics entirely
-5. "search" - Refresh deals
-
-Return ONLY valid JSON:
-{{
-  "message": "Your friendly 60s dad response to the user acknowledging all the items. Keep it brief, helpful, and in character. (REQUIRED)",
-  "items": [
-    {{
-      "intent": {{ "what": "First item...", "category": "...", "service_type": null, "search_query": "...", "constraints": {{...}}, "exclude_keywords": [], "exclude_merchants": [], "desire_tier": "commodity", "desire_confidence": 0.9 }},
-      "action": {{ "type": "create_row" }}
-    }},
-    {{
-      "intent": {{ "what": "Second item...", "category": "...", "service_type": null, "search_query": "...", "constraints": {{...}}, "exclude_keywords": [], "exclude_merchants": [], "desire_tier": "commodity", "desire_confidence": 0.9 }},
-      "action": {{ "type": "create_row" }}
-    }}
-  ]
-}}"""
-
-    try:
-        text = await call_gemini(prompt, timeout=30.0)
-        parsed = _extract_json(text)
-        # Ensure we have items array
-        if "items" not in parsed and "intent" in parsed:
-            # Fallback if LLM returns old schema
-            parsed["items"] = [{"intent": parsed["intent"], "action": parsed["action"]}]
-            
-        return PopDecision(**parsed)
-    except Exception as e:
-        logger.error(f"Failed to parse Pop LLM decision: {e}")
-        return PopDecision(
-            message="You betcha, I'll get that on the list for you!",
-            items=[{
-                "intent": {"what": ctx.user_message, "category": "request", "search_query": ctx.user_message, "constraints": {}, "desire_tier": "commodity", "desire_confidence": 0.5, "exclude_keywords": [], "exclude_merchants": []},
-                "action": {"type": "create_row" if not ctx.active_row else "update_row"}
-            }]
+            intent=UserIntent(
+                what=ctx.user_message,
+                category="product",
+                search_query=ctx.user_message,
+                constraints={},
+            ),
+            action={"type": "create_row"},
         )
 
 
@@ -668,8 +513,6 @@ Goal:
 - Output a provider_query that maximizes product relevance.
 - Do NOT include price phrases like "$50 and up", "over $50", "under $50", "50+", "or more" in provider_query.
 - Keep it short (2-6 words), only the core product/category.
-- PRESERVE format qualifiers like "physical", "digital", "virtual", "card", "gift card" — these are critical for finding the right product type.
-- If the user specifies a brand (e.g. "Roblox", "Steam", "iTunes"), include it in the query.
 - If the project title helps disambiguate meaning, use it ONLY as context to choose the right meaning; do not include project title in provider_query.
 
 Return JSON ONLY:
@@ -682,75 +525,3 @@ Return JSON ONLY:
         return q or _heuristic_provider_query(display_query or row_title or "")
     except Exception:
         return _heuristic_provider_query(display_query or row_title or "")
-
-
-async def generate_outreach_email(
-    row_title: str,
-    vendor_company: str,
-    sender_name: Optional[str] = None,
-    sender_role: Optional[str] = None,
-    chat_history: Optional[str] = None,
-    choice_answers: Optional[str] = None,
-    search_intent: Optional[str] = None,
-    sender_company: Optional[str] = None,
-) -> dict:
-    """
-    Generate a personalized vendor outreach email using the LLM.
-
-    Returns {"subject": "...", "body": "..."} with a professional,
-    context-aware email derived from the chat conversation.
-    """
-    name = sender_name or "the buyer"
-    company = sender_company or ""
-    signature = name
-    if company:
-        signature = f"{name}, {company}"
-
-    context_parts = []
-    if chat_history:
-        context_parts.append(f"Chat history:\n{chat_history[:2000]}")
-    if choice_answers:
-        context_parts.append(f"Structured answers:\n{choice_answers[:1000]}")
-    if search_intent:
-        context_parts.append(f"Search intent:\n{search_intent[:500]}")
-
-    context = "\n\n".join(context_parts) if context_parts else "No additional context."
-
-    prompt = f"""You are writing a professional outreach email to a vendor on behalf of a buyer.
-
-CONTEXT:
-- Buyer is looking for: {json.dumps(row_title)}
-- Vendor company: {json.dumps(vendor_company)}
-- Sender name: {json.dumps(name)}
-- Sender company: {json.dumps(company) if company else "not specified"}
-
-CONVERSATION CONTEXT:
-{context}
-
-INSTRUCTIONS:
-- Write a concise, professional email from {name} to {vendor_company}.
-- Reference specific details from the conversation (dates, locations, quantities, preferences, etc.).
-- Keep it warm but professional. 3-5 short paragraphs max.
-- Ask for pricing, availability, and any relevant details.
-- Sign off with the sender's name{f' and company ({company})' if company else ''}.
-- Do NOT include a subject line in the body.
-- Do NOT include placeholder brackets like [date] — use the actual values from context, or omit if unknown.
-- If the sender name is "the buyer", write in first person ("I'm looking for...") instead of third person.
-
-Return JSON ONLY:
-{{"subject": "...", "body": "..."}}"""
-
-    try:
-        text = await call_gemini(prompt, timeout=20.0)
-        parsed = _extract_json(text)
-        subject = parsed.get("subject", f"Inquiry: {row_title}").strip()
-        body = parsed.get("body", "").strip()
-        if not body:
-            raise ValueError("Empty body")
-        return {"subject": subject, "body": body}
-    except Exception as e:
-        logger.warning(f"[LLM] Email generation failed, using fallback: {e}")
-        return {
-            "subject": f"Inquiry — {row_title}",
-            "body": f"Hi {vendor_company},\n\nI'm reaching out regarding:\n\n  {row_title}\n\nCould you please let us know about pricing, availability, and any relevant details?\n\nThanks,\n{signature}",
-        }

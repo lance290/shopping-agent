@@ -16,7 +16,9 @@ async def test_test_bug_filtered_from_github_issue_creation():
         "Verification Test Bug",
         "Some bug DO NOT CREATE GITHUB ISSUE",
         "[test data] lowercase test marker",
-        "VERIFICATION TEST BUG uppercase"
+        "VERIFICATION TEST BUG uppercase",
+        "Test bug to verify GitHub token on Railway",
+        "test bug to verify integration is working",
     ]
 
     for notes in test_cases:

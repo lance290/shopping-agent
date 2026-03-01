@@ -43,10 +43,9 @@ async def test_rows_authorization(client: AsyncClient, session):
     headers_a = {"Authorization": f"Bearer {token_a}"}
     headers_b = {"Authorization": f"Bearer {token_b}"}
     
-    # 1. Unauthenticated access returns empty list (not 401)
+    # 1. Verify Unauthenticated Access is Blocked
     resp = await client.get("/rows")
-    assert resp.status_code == 200
-    assert resp.json() == []
+    assert resp.status_code == 401
     
     # 2. User A creates a row
     row_data = {
@@ -500,12 +499,15 @@ async def test_rows_filter_preserves_service_provider_bids(client: AsyncClient, 
     payload = resp.json()
     bids = payload.get("bids") or []
     titles = {b["item_title"] for b in bids}
-    # No filtering — all bids returned regardless of price
+    # Vendor bid (price=None, quote-based) passes price filter naturally
     assert "JetRight (Contact: Alexis)" in titles
+    # In-range ($300, between $200-$500) survives
     assert "Mid-range poster (in budget)" in titles
-    assert "Cheap poster (under min)" in titles
-    assert "Luxury poster (over max)" in titles
-    assert len(bids) == 4
+    # Too cheap ($50 < $200 min) filtered out
+    assert "Cheap poster (under min)" not in titles
+    # Over budget ($999 > $500 max) filtered out
+    assert "Luxury poster (over max)" not in titles
+    assert len(bids) == 2
     # Verify service provider fields preserved
     svc = next(b for b in bids if b["is_service_provider"])
     assert svc["contact_email"] == "team@jetright.com"
@@ -558,8 +560,7 @@ async def test_reset_bids_clears_existing_bids(client: AsyncClient, session):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert refreshed.status_code == 200
-    bids_in_response = [b for b in refreshed.json().get("bids", []) if not b.get("is_superseded")]
-    assert bids_in_response == []
+    assert refreshed.json().get("bids") == []
 
 
 

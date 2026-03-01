@@ -4,7 +4,7 @@ import RequestTile from './RequestTile';
 import OfferTile from './OfferTile';
 import ProviderStatusBadge from './ProviderStatusBadge';
 import { RefreshCw, FlaskConical, Undo2, Link2, X } from 'lucide-react';
-import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, createCommentApi, fetchCommentsApi, fetchContactStatuses, AUTH_REQUIRED } from '../utils/api';
+import { fetchSingleRowFromDb, runSearchApiWithStatus, selectOfferForRow, toggleLikeApi, createCommentApi, fetchCommentsApi } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -27,7 +27,6 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const setRowOfferSort = useShoppingStore(state => state.setRowOfferSort);
   const setIsSearching = useShoppingStore(state => state.setIsSearching);
   const setRowResults = useShoppingStore(state => state.setRowResults);
-  const updateRowOffer = useShoppingStore(state => state.updateRowOffer);
   const updateRow = useShoppingStore(state => state.updateRow);
   const isPendingArchive = pendingRowDelete?.row.id === row.id;
   const sortMode: OfferSortMode = rowOfferSort[row.id] || 'original';
@@ -42,7 +41,6 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didAutoLoadRef = useRef<boolean>(false);
   const didLoadCommentsRef = useRef<boolean>(false);
-  const didLoadContactStatusRef = useRef<boolean>(false);
 
   useEffect(() => {
     return () => {
@@ -84,7 +82,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     return extract(raw) || extract(offer.click_url || '');
   };
 
-  const refresh = async (mode: 'all' | 'amazon') => {
+  const refresh = async (mode: 'all' | 'rainforest') => {
     if (!canRefresh()) {
       return;
     }
@@ -100,7 +98,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       const searchResponse = await runSearchApiWithStatus(
         row.title,
         row.id,
-        mode === 'amazon' ? { providers: ['amazon'] } : undefined
+        mode === 'rainforest' ? { providers: ['rainforest'] } : undefined
       );
 
       if (searchResponse.userMessage) {
@@ -121,68 +119,66 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
 
   // is_liked now comes directly from the Bid via search results — no separate fetch/merge needed
 
+  // Helper to merge comment previews into offers (latest comment wins)
+  const mergeComments = (currentOffers: Offer[], comments: any[]): Offer[] => {
+    if (!comments || comments.length === 0) return currentOffers;
+
+    const latestByBidId = new Map<number, string>();
+    const latestByUrl = new Map<string, string>();
+    const countByBidId = new Map<number, number>();
+
+    for (const c of comments) {
+      const body = typeof c?.body === 'string' ? c.body : '';
+      if (!body) continue;
+      if (typeof c?.bid_id === 'number') {
+        if (!latestByBidId.has(c.bid_id)) latestByBidId.set(c.bid_id, body);
+        countByBidId.set(c.bid_id, (countByBidId.get(c.bid_id) || 0) + 1);
+        continue;
+      }
+      if (typeof c?.offer_url === 'string' && c.offer_url) {
+        if (!latestByUrl.has(c.offer_url)) latestByUrl.set(c.offer_url, body);
+      }
+    }
+
+    return currentOffers.map((offer) => {
+      const preview =
+        (offer.bid_id && latestByBidId.get(offer.bid_id)) ||
+        (offer.url && latestByUrl.get(offer.url)) ||
+        offer.comment_preview;
+      const commentCount = offer.bid_id ? (countByBidId.get(offer.bid_id) || 0) : 0;
+      return {
+        ...offer,
+        comment_preview: preview || offer.comment_preview,
+        comment_count: commentCount > 0 ? commentCount : offer.comment_count,
+      };
+    });
+  };
+
   // Load comments when active (once)
-  // Uses updateRowOffer for targeted mutation — safe during streaming
   useEffect(() => {
     if (isActive && !didLoadCommentsRef.current && row.id) {
       didLoadCommentsRef.current = true;
       fetchCommentsApi(row.id).then((comments) => {
-        if (!comments || comments.length === 0) return;
-
-        // Build lookup maps from comments
-        const latestByBidId = new Map<number, string>();
-        const countByBidId = new Map<number, number>();
-        for (const c of comments) {
-          const body = typeof c?.body === 'string' ? c.body : '';
-          if (!body || typeof c?.bid_id !== 'number') continue;
-          if (!latestByBidId.has(c.bid_id)) latestByBidId.set(c.bid_id, body);
-          countByBidId.set(c.bid_id, (countByBidId.get(c.bid_id) || 0) + 1);
-        }
-
-        // Apply comment data via targeted mutations — never replaces the full array
-        latestByBidId.forEach((preview, bidId) => {
-          updateRowOffer(
-            row.id,
-            (o) => o.bid_id === bidId,
-            { comment_preview: preview, comment_count: countByBidId.get(bidId) || 0 },
-          );
-        });
-      });
-    }
-  }, [isActive, row.id, updateRowOffer]);
-
-  // Load contact statuses when active (once) — shows "Contacted" / "Quote Received" badges
-  useEffect(() => {
-    if (isActive && !didLoadContactStatusRef.current && row.id) {
-      didLoadContactStatusRef.current = true;
-      fetchContactStatuses(row.id).then((statuses) => {
-        if (!statuses) return;
-        // Merge outreach_status into offers by matching vendor_email
-        for (const [email, info] of Object.entries(statuses)) {
-          const status = info.status as 'contacted' | 'quoted' | 'pending';
-          updateRowOffer(
-            row.id,
-            (o) => (o.vendor_email || '').toLowerCase() === email,
-            { outreach_status: status },
-          );
+        if (comments.length > 0) {
+          const merged = mergeComments(offers, comments);
+          if (JSON.stringify(merged) !== JSON.stringify(offers)) {
+            setRowResults(row.id, merged);
+          }
         }
       });
     }
-  }, [isActive, row.id, updateRowOffer]);
+  }, [isActive, row.id, offers, setRowResults]);
 
   const isSearching = useShoppingStore(state => state.isSearching);
-  const streamingRowIds = useShoppingStore(state => state.streamingRowIds);
-  const selectedProviders = useShoppingStore(state => state.selectedProviders);
   
   useEffect(() => {
     if (!isActive) return;
     if (didAutoLoadRef.current) return;
-    // Don't auto-refresh if Chat is already streaming results or streaming lock is held
-    const streamingInProgress = isSearching || (moreResultsIncoming[row.id] ?? false) || (streamingRowIds[row.id] ?? false);
+    // Don't auto-refresh if Chat is already streaming results
+    const streamingInProgress = isSearching || (moreResultsIncoming[row.id] ?? false);
     if (streamingInProgress) return;
     if (Array.isArray(offers) && offers.length > 0) {
-        // Results already loaded (e.g. via chat SSE) — mark as loaded so toggle re-search works
-        didAutoLoadRef.current = true;
+        // If we have offers but haven't loaded likes yet, ensure we do (handled above)
         return;
     }
 
@@ -192,38 +188,13 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
     refresh('all');
   }, [isActive, row.id, isSearching, moreResultsIncoming, row.service_category, row.status, setRowResults, updateRow]);
 
-  // Re-search when provider toggles change on the active row
-  const prevProvidersRef = useRef<string>(JSON.stringify(selectedProviders));
-  useEffect(() => {
-    if (!isActive) return;
-    const current = JSON.stringify(selectedProviders);
-    if (current === prevProvidersRef.current) return;
-    prevProvidersRef.current = current;
-    // Skip if initial load hasn't happened yet or if already searching
-    if (!didAutoLoadRef.current) return;
-    if (isSearching) return;
-    refresh('all');
-  }, [isActive, selectedProviders, isSearching]);
-
   const sortOffers = (list: Offer[]) => {
     if (!list || list.length === 0) return [];
-    if (sortMode === 'original') {
-      const hasScore = list.some((o) => Number.isFinite(o.match_score as number));
-      if (!hasScore) return list;
-      return list
-        .map((offer, idx) => ({ offer, idx }))
-        .sort((a, b) => {
-          const aScore = Number.isFinite(a.offer.match_score as number) ? (a.offer.match_score as number) : -1;
-          const bScore = Number.isFinite(b.offer.match_score as number) ? (b.offer.match_score as number) : -1;
-          if (bScore !== aScore) return bScore - aScore;
-          return a.idx - b.idx;
-        })
-        .map((entry) => entry.offer);
-    }
+    if (sortMode === 'original') return list;
 
     const byPrice = [...list].sort((a, b) => {
-      const ap = (a.price !== null && Number.isFinite(a.price)) ? a.price : Number.POSITIVE_INFINITY;
-      const bp = (b.price !== null && Number.isFinite(b.price)) ? b.price : Number.POSITIVE_INFINITY;
+      const ap = Number.isFinite(a.price) ? (a.price as number) : Number.POSITIVE_INFINITY;
+      const bp = Number.isFinite(b.price) ? (b.price as number) : Number.POSITIVE_INFINITY;
       return ap - bp;
     });
     return sortMode === 'price_desc' ? byPrice.reverse() : byPrice;
@@ -266,40 +237,45 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   const handleSelectOffer = async (offer: Offer) => {
     if (!offer.bid_id) return;
 
+    const previousOffers = offers.map((item) => ({ ...item }));
     const previousStatus = row.status;
-    // Optimistic: mark this offer selected, unselect others — targeted mutation
-    updateRowOffer(row.id, () => true, { is_selected: false });
-    updateRowOffer(row.id, (o: Offer) => o.bid_id === offer.bid_id, { is_selected: true });
-    updateRow(row.id, { status: 'selected' });
+    const updatedOffers = offers.map((item) => ({
+      ...item,
+      is_selected: item.bid_id === offer.bid_id,
+    }));
+
+    setRowResults(row.id, updatedOffers);
+    updateRow(row.id, { status: 'closed' });
 
     const success = await selectOfferForRow(row.id, offer.bid_id);
     if (!success) {
       console.error('[RowStrip] Failed to persist selection');
-      // Revert: unselect all
-      updateRowOffer(row.id, (o: Offer) => o.bid_id === offer.bid_id, { is_selected: false });
+      setRowResults(row.id, previousOffers);
       updateRow(row.id, { status: previousStatus });
       onToast?.('Could not select that deal. Try again.', 'error');
       return;
     }
 
-    onToast?.(`Selected "${offer.title}"`, 'success');
+    onToast?.(`Selected “${offer.title}”`, 'success');
   };
 
-  const _isLoggedIn = () => typeof window !== 'undefined' && !!localStorage.getItem('session_token');
-
   const handleToggleLike = async (offer: Offer) => {
-    if (!_isLoggedIn()) {
-      onToast?.('Sign up to save likes and track your finds → /login', 'error');
-      return;
-    }
-
+    const previousOffers = [...offers];
     const optimisticIsLiked = !offer.is_liked;
     const offerBidId = offer.bid_id;
 
-    // Optimistic update — targeted mutation, safe during streaming
-    if (offerBidId) {
-      updateRowOffer(row.id, (o: Offer) => o.bid_id === offerBidId, { is_liked: optimisticIsLiked });
-    }
+    // Optimistic update - match by bid_id only
+    const updatedOffers = offers.map((item) => {
+      if (offerBidId && item.bid_id === offerBidId) {
+        return {
+          ...item,
+          is_liked: optimisticIsLiked,
+        };
+      }
+      return item;
+    });
+
+    setRowResults(row.id, updatedOffers);
 
     // Call API — ONE toggle endpoint
     const toggled = await toggleLikeApi(
@@ -308,59 +284,45 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
       offer.bid_id || undefined,
     );
 
-    if (toggled === AUTH_REQUIRED) {
-      if (offerBidId) {
-        updateRowOffer(row.id, (o: Offer) => o.bid_id === offerBidId, { is_liked: !optimisticIsLiked });
-      }
-      localStorage.removeItem('session_token');
-      onToast?.('Sign up to save likes and track your finds → /login', 'error');
-      return;
-    }
     if (toggled) {
       onToast?.(toggled.is_liked ? 'Liked this offer.' : 'Removed like.', 'success');
     } else {
-      if (offerBidId) {
-        updateRowOffer(row.id, (o: Offer) => o.bid_id === offerBidId, { is_liked: !optimisticIsLiked });
-      }
+      // Revert on failure
+      setRowResults(row.id, previousOffers);
       onToast?.('Failed to save like.', 'error');
     }
   };
 
   const handleComment = (_offer: Offer) => {
-    if (!_isLoggedIn()) {
-      onToast?.('Create an account to leave comments → /login', 'error');
-      return;
-    }
-
     const comment = window.prompt('Add a comment for this offer');
     if (!comment || comment.trim().length === 0) return;
 
     const body = comment.trim();
-    const previousPreview = _offer.comment_preview;
+    const previousOffers = [...offers];
 
-    // Optimistic UI — targeted mutation, safe during streaming
-    const matcher = _offer.bid_id
-      ? (o: Offer) => o.bid_id === _offer.bid_id
-      : (o: Offer) => o.url === _offer.url;
-    updateRowOffer(row.id, matcher, { comment_preview: body });
+    // Optimistic UI
+    const optimisticOffers = offers.map((item) => {
+      if (_offer.bid_id && item.bid_id === _offer.bid_id) {
+        return { ...item, comment_preview: body };
+      }
+      if (!_offer.bid_id && item.url === _offer.url) {
+        return { ...item, comment_preview: body };
+      }
+      return item;
+    });
+    setRowResults(row.id, optimisticOffers);
 
     createCommentApi(row.id, body, _offer.bid_id, _offer.url)
       .then((created) => {
-        if (created === AUTH_REQUIRED) {
-          updateRowOffer(row.id, matcher, { comment_preview: previousPreview });
-          localStorage.removeItem('session_token');
-          onToast?.('Sign up to leave comments → /login', 'error');
-          return;
-        }
         if (created) {
           onToast?.('Comment saved.', 'success');
           return;
         }
-        updateRowOffer(row.id, matcher, { comment_preview: previousPreview });
+        setRowResults(row.id, previousOffers);
         onToast?.('Failed to save comment. Try again.', 'error');
       })
       .catch(() => {
-        updateRowOffer(row.id, matcher, { comment_preview: previousPreview });
+        setRowResults(row.id, previousOffers);
         onToast?.('Failed to save comment. Try again.', 'error');
       });
   };
@@ -384,15 +346,6 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
           onToast?.('Share link copied!', 'success');
           return;
         }
-        if (res.status === 401) {
-          // Still copy raw URL as fallback, but prompt signup
-          const link = offer.url || offer.click_url || '';
-          if (navigator?.clipboard && link) {
-            await navigator.clipboard.writeText(link);
-          }
-          onToast?.('Sign up to create trackable share links → /login', 'error');
-          return;
-        }
       }
       // Fallback: copy raw URL
       const link = offer.url || offer.click_url || '';
@@ -401,7 +354,9 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         onToast?.('Link copied.', 'success');
         return;
       }
-    } catch {
+    } catch (err) {
+      // AbortError: user dismissed the clipboard permission prompt — ignore silently
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       onToast?.('Could not copy share link.', 'error');
       return;
     }
@@ -409,38 +364,15 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
   };
 
   const handleCopySearchLink = async () => {
+    if (typeof window === 'undefined') return;
+    const shareUrl = `${window.location.origin}/list/${row.id}`;
     try {
-      if (typeof window === 'undefined') return;
-
-      // Try creating a backend share link for the row
-      const res = await fetch('/api/shares', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('session_token') || ''}`,
-        },
-        body: JSON.stringify({ resource_type: 'row', resource_id: row.id }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const shareUrl = `${window.location.origin}/share/${data.token}`;
-        await navigator.clipboard.writeText(shareUrl);
-        onToast?.('Share link copied!', 'success');
-        return;
-      }
-
-      // Fallback: copy search query URL
-      const url = new URL(window.location.origin);
-      url.searchParams.set('q', row.title);
-      if (navigator?.clipboard) {
-        await navigator.clipboard.writeText(url.toString());
-        onToast?.('Search link copied to clipboard.', 'success');
-        return;
-      }
-
-      onToast?.('Could not copy link.', 'error');
+      await navigator.clipboard.writeText(shareUrl);
+      onToast?.('Link copied! Share it with family.', 'success');
     } catch (err) {
-      console.error('[RowStrip] Failed to copy search link:', err);
+      // AbortError: user dismissed the clipboard permission prompt — ignore silently
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      console.error('[RowStrip] Failed to copy link:', err);
       onToast?.('Failed to copy link.', 'error');
     }
   };
@@ -463,8 +395,6 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
           <h3 className="text-base font-semibold text-onyx">{row.title}</h3>
           {(() => {
             const statusLabels: Record<string, string> = {
-              selected: 'Deal in Progress',
-              completed: 'Deal Completed',
               closed: 'Selected',
               new: 'New',
               sourcing: 'Searching',
@@ -474,7 +404,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
             return (
               <span className={cn(
                 "text-[10px] uppercase tracking-wider font-semibold",
-                row.status === 'selected' || row.status === 'completed' || row.status === 'closed' ? "text-status-success" : "text-onyx-muted"
+                row.status === 'closed' ? "text-status-success" : "text-onyx-muted"
               )}>
                 {label}
               </span>
@@ -485,8 +415,8 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
         {/* Provider Status Badges */}
         {providerStatuses && providerStatuses.length > 0 && (
           <div className="flex-1 flex items-center justify-end px-4 gap-2 overflow-hidden opacity-80 hover:opacity-100 transition-opacity">
-            {providerStatuses.map((status) => (
-              <ProviderStatusBadge key={status.provider_id} status={status} />
+            {providerStatuses.map((status, idx) => (
+              <ProviderStatusBadge key={status.provider_id + idx} status={status} />
             ))}
           </div>
         )}
@@ -500,7 +430,7 @@ export default function RowStrip({ row, offers, isActive, onSelect, onToast }: R
               handleCopySearchLink();
             }}
             className="h-8 w-8 p-0 rounded-lg border border-warm-grey/60 text-onyx-muted hover:text-onyx"
-            title="Copy search link"
+            title="Share with Family (copy link)"
           >
             <Link2 size={14} />
           </Button>

@@ -24,10 +24,10 @@ def upgrade() -> None:
         "WHERE source = 'vendor_directory' AND (price = 0 OR price IS NULL)"
     )
 
-    # --- Vendor table: add tier affinity and price range (idempotent) ---
-    op.execute("ALTER TABLE vendor ADD COLUMN IF NOT EXISTS tier_affinity VARCHAR(20)")
-    op.execute("ALTER TABLE vendor ADD COLUMN IF NOT EXISTS price_range_min FLOAT")
-    op.execute("ALTER TABLE vendor ADD COLUMN IF NOT EXISTS price_range_max FLOAT")
+    # --- Vendor table: add tier affinity and price range ---
+    op.add_column("vendor", sa.Column("tier_affinity", sa.String(20), nullable=True))
+    op.add_column("vendor", sa.Column("price_range_min", sa.Float(), nullable=True))
+    op.add_column("vendor", sa.Column("price_range_max", sa.Float(), nullable=True))
 
 
 def downgrade() -> None:

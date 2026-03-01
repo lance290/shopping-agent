@@ -1,11 +1,10 @@
 """
-Tests for the Re-Ranking Strategy (Scorer).
+Tests for the Re-Ranking Strategy (Scorer + Tier Logic).
 
 Verifies that:
-1. All results are scored and ranked — never dropped.
-2. Score breakdown contains expected fields.
-3. Vendor results with high vector similarity rank well.
-4. Scoring uses vector similarity for vendors, not hardcoded tier matrices.
+1. Commodity searches prioritize Big Box results but don't exclude Vendors (Goodwill scenario).
+2. Bespoke searches prioritize Vendor results but don't exclude Big Box (Vintage eBay scenario).
+3. Scores are adjusted correctly based on desire_tier.
 """
 
 import pytest
@@ -42,7 +41,7 @@ def mixed_results():
             url="https://goodwill.org/truck",
             merchant_name="Goodwill",
             merchant_domain="goodwill.org",
-            provenance={"vector_similarity": 0.58}
+            provenance={}
         ),
         NormalizedResult(
             title="Custom Diamond Ring",
@@ -51,7 +50,7 @@ def mixed_results():
             url="https://local-jeweler.com/ring",
             merchant_name="Local Jeweler",
             merchant_domain="local-jeweler.com",
-            provenance={"vector_similarity": 0.65}
+            provenance={}
         ),
         NormalizedResult(
             title="Cubic Zirconia Ring",
@@ -65,56 +64,77 @@ def mixed_results():
     ]
 
 
-def test_all_results_preserved(mixed_results):
-    """Scoring must never drop results — only re-order."""
+def test_commodity_ranking(mixed_results):
+    """
+    Scenario: User wants a 'toy truck' (Commodity).
+    Expectation: Amazon/eBay results should rank higher than Vendor results, 
+    but Vendor results (Goodwill) should still be present.
+    """
     intent = SearchIntent(keywords=["truck"], product_category="toys")
-    ranked = score_results(results=mixed_results[:3], intent=intent, desire_tier="commodity")
-    assert len(ranked) == 3
+    
+    ranked = score_results(
+        results=mixed_results[:3],  # Just the trucks
+        intent=intent,
+        desire_tier="commodity"
+    )
+    
+    # Top result should be Amazon or eBay (Big Box)
+    assert ranked[0].source in ["rainforest", "ebay_browse"]
+    
+    # Vendor result should be present but ranked lower
+    vendor_result = next((r for r in ranked if r.source == "vendor_directory"), None)
+    assert vendor_result is not None
+    assert vendor_result.provenance["score"]["tier_fit"] == 0.3  # Penalized but not zero
 
 
-def test_vendor_with_high_similarity_ranks_well(mixed_results):
-    """Vendor with high vector similarity should rank competitively."""
+def test_bespoke_ranking(mixed_results):
+    """
+    Scenario: User wants a 'custom ring' (Bespoke).
+    Expectation: Vendor results should rank higher than Amazon results.
+    """
     intent = SearchIntent(keywords=["ring"], product_category="jewelry")
-    ranked = score_results(results=mixed_results[3:], intent=intent, desire_tier="bespoke")
-
-    # Vendor with 0.65 similarity should rank above Amazon for a ring query
+    
+    ranked = score_results(
+        results=mixed_results[3:],  # Just the rings
+        intent=intent,
+        desire_tier="bespoke"
+    )
+    
+    # Top result should be Vendor
     assert ranked[0].source == "vendor_directory"
     assert ranked[0].merchant_name == "Local Jeweler"
-
-    # Amazon result should still be present
+    
+    # Amazon result should be present but ranked lower
     amazon_result = next((r for r in ranked if r.source == "rainforest"), None)
     assert amazon_result is not None
+    assert amazon_result.provenance["score"]["tier_fit"] == 0.2  # Heavy penalty
 
 
 def test_score_breakdown(mixed_results):
-    """Verify score breakdown contains source_fit (not tier_fit)."""
+    """Verify score breakdown contains tier_fit."""
     intent = SearchIntent(keywords=["truck"], product_category="toys")
-    ranked = score_results(results=mixed_results[:1], intent=intent, desire_tier="commodity")
-
+    ranked = score_results(
+        results=mixed_results[:1],
+        intent=intent,
+        desire_tier="commodity"
+    )
+    
     score_data = ranked[0].provenance["score"]
-    assert "source_fit" in score_data
-    assert "relevance" in score_data
-    assert "price" in score_data
-    assert "quality" in score_data
-    assert "combined" in score_data
+    assert "tier_fit" in score_data
+    assert score_data["tier_fit"] == 1.0  # Amazon is perfect fit for commodity
 
 
-def test_vendor_vector_similarity_drives_source_fit():
-    """Vendor source_fit score should reflect vector_similarity, not a hardcoded tier matrix."""
-    high_sim = NormalizedResult(
-        title="Relevant Vendor", price=None, source="vendor_directory",
-        url="https://v1.example", merchant_name="V1", merchant_domain="v1.example",
-        provenance={"vector_similarity": 0.65},
+def test_advisory_tier(mixed_results):
+    """
+    Scenario: Advisory tier.
+    Expectation: Vendors preferred over Big Box, but generally scores should be lower/handled carefully.
+    """
+    intent = SearchIntent(keywords=["truck"], product_category="toys")
+    ranked = score_results(
+        results=mixed_results[:3],
+        intent=intent,
+        desire_tier="advisory"
     )
-    low_sim = NormalizedResult(
-        title="Irrelevant Vendor", price=None, source="vendor_directory",
-        url="https://v2.example", merchant_name="V2", merchant_domain="v2.example",
-        provenance={"vector_similarity": 0.30},
-    )
-
-    intent = SearchIntent(keywords=["test"], product_category="general")
-    ranked = score_results([high_sim, low_sim], intent=intent)
-
-    high_score = ranked[0].provenance["score"]["source_fit"]
-    low_score = ranked[1].provenance["score"]["source_fit"]
-    assert high_score > low_score, "Higher vector similarity should produce higher source_fit"
+    
+    # Vendor should be top for advisory if forced to rank
+    assert ranked[0].source == "vendor_directory"
