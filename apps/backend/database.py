@@ -25,8 +25,11 @@ print(f"DEBUG: DATABASE_URL starts with: {DATABASE_URL[:15]}...") # Debug log (s
 connect_args = {}
 if os.getenv("DB_SSL", "true").lower() != "false" and os.getenv("RAILWAY_ENVIRONMENT"):
     ssl_context = ssl.create_default_context()
-    ssl_context.check_hostname = False
-    ssl_context.verify_mode = ssl.CERT_NONE
+    # Only weaken SSL verification if explicitly opted in (e.g. self-signed certs)
+    if os.getenv("DB_SSL_VERIFY", "true").lower() == "false":
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        print("WARNING: DB SSL certificate verification disabled (DB_SSL_VERIFY=false)")
     connect_args["ssl"] = ssl_context
 
 # Connection Pool Configuration

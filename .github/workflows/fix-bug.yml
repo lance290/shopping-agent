@@ -136,6 +136,6 @@ jobs:
             fi
           fi
           
-          # Auto-merge the PR immediately
-          echo "Auto-merging branch ${BRANCH} into dev..."
-          gh pr merge "${BRANCH}" --repo "${{ github.repository }}" --squash --auto --delete-branch
+          # Merge the PR immediately
+          echo "Merging branch ${BRANCH} into dev..."
+          gh pr merge "${BRANCH}" --repo "${{ github.repository }}" --squash --delete-branch

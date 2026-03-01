@@ -90,12 +90,13 @@ if _csrf_secret:
     set_csrf_secret(_csrf_secret)
 else:
     import logging
+    import secrets as _secrets
+    _auto_secret = _secrets.token_hex(32)
+    set_csrf_secret(_auto_secret)
     logging.warning(
-        "CSRF_SECRET_KEY not set — CSRF protection will be inactive. "
-        "Generate one with: openssl rand -hex 32"
+        "CSRF_SECRET_KEY not set — generated ephemeral secret (tokens won't survive restarts). "
+        "Set a persistent one with: openssl rand -hex 32"
     )
-    # Don't crash — the middleware gracefully skips validation when no secret is set.
-    # Set CSRF_SECRET_KEY in production for full protection: openssl rand -hex 32
 
 # Always register middleware; it skips validation when no secret is configured
 app.add_middleware(CSRFProtectionMiddleware)

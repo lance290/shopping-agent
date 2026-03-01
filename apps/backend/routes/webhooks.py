@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["webhooks"])
 
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "dev-webhook-secret")
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
 
 
 def verify_webhook_signature(payload: bytes, signature: str) -> bool:
@@ -44,9 +44,10 @@ async def github_webhook(
     """Handle GitHub webhooks (PR opened, merged)."""
     payload_bytes = await request.body()
     
-    if WEBHOOK_SECRET != "dev-webhook-secret":
-        if not verify_webhook_signature(payload_bytes, x_hub_signature_256 or ""):
-            raise HTTPException(status_code=401, detail="Invalid signature")
+    if not WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail="Webhook secret not configured")
+    if not verify_webhook_signature(payload_bytes, x_hub_signature_256 or ""):
+        raise HTTPException(status_code=401, detail="Invalid signature")
             
     payload = await request.json()
     action = payload.get("action")
@@ -94,9 +95,10 @@ async def railway_webhook(
     x_railway_secret: Optional[str] = Header(None)
 ):
     """Handle Railway webhooks (Deployment success)."""
-    if WEBHOOK_SECRET != "dev-webhook-secret":
-        if x_railway_secret != WEBHOOK_SECRET:
-             raise HTTPException(status_code=401, detail="Invalid secret")
+    if not WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail="Webhook secret not configured")
+    if x_railway_secret != WEBHOOK_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid secret")
              
     payload = await request.json()
     print(f"[WEBHOOK] Received Railway event: {payload.get('type')}")
@@ -191,6 +193,18 @@ async def resend_inbound_webhook(
     3. Record the message in the immutable ledger
     4. Relay the email to the other party
     """
+    # Verify Resend webhook signature (fail-closed: reject if secret not configured)
+    raw_body = await request.body()
+    if not RESEND_WEBHOOK_SECRET:
+        logger.error("[ResendWebhook] RESEND_WEBHOOK_SECRET not set — rejecting webhook")
+        raise HTTPException(status_code=503, detail="Webhook secret not configured")
+    sig = request.headers.get("resend-signature", "")
+    expected = hmac.new(
+        RESEND_WEBHOOK_SECRET.encode(), raw_body, hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(expected, sig):
+        raise HTTPException(status_code=401, detail="Invalid Resend signature")
+
     from services.deal_pipeline import (
         resolve_deal_from_alias,
         identify_sender,

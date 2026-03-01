@@ -16,6 +16,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database import engine, init_db
 from main import app, get_session
 
+# Disable CSRF protection in tests — test clients don't use browser cookies
+from security.csrf import set_csrf_secret
+set_csrf_secret(None)  # type: ignore[arg-type]
+
 @pytest_asyncio.fixture(name="session", scope="function")
 async def session_fixture():
     # Use a SEPARATE test database to avoid nuking dev data.
@@ -186,3 +190,115 @@ async def test_project_fixture(session: AsyncSession, auth_user_and_token):
     await session.refresh(project)
 
     return project
+
+
+# ---------------------------------------------------------------------------
+# Shared Pop fixtures (used by test_pop_routes, test_pop_list, etc.)
+# ---------------------------------------------------------------------------
+
+POP_GUEST_EMAIL = "guest@buy-anything.com"
+
+
+@pytest_asyncio.fixture(name="pop_user")
+async def pop_user_fixture(session: AsyncSession):
+    """Authenticated Pop user + valid session token."""
+    from models import User, AuthSession, hash_token, generate_session_token
+
+    user = User(email="pop_user@example.com", is_admin=False)
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    token = generate_session_token()
+    auth_session = AuthSession(
+        email=user.email,
+        user_id=user.id,
+        session_token_hash=hash_token(token),
+    )
+    session.add(auth_session)
+    await session.commit()
+    return user, token
+
+
+@pytest_asyncio.fixture(name="other_user")
+async def other_user_fixture(session: AsyncSession):
+    """A second authenticated user (for ownership-boundary tests)."""
+    from models import User, AuthSession, hash_token, generate_session_token
+
+    user = User(email="other_pop@example.com", is_admin=False)
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    token = generate_session_token()
+    auth_session = AuthSession(
+        email=user.email,
+        user_id=user.id,
+        session_token_hash=hash_token(token),
+    )
+    session.add(auth_session)
+    await session.commit()
+    return user, token
+
+
+@pytest_asyncio.fixture(name="guest_user")
+async def guest_user_fixture(session: AsyncSession):
+    """The shared guest user used by anonymous Pop chat."""
+    from models import User
+
+    user = User(email=POP_GUEST_EMAIL, is_admin=False)
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture(name="pop_project")
+async def pop_project_fixture(session: AsyncSession, pop_user):
+    """A 'Family Shopping List' project owned by pop_user."""
+    from models import Project
+
+    user, _ = pop_user
+    project = Project(title="Family Shopping List", user_id=user.id, status="active")
+    session.add(project)
+    await session.commit()
+    await session.refresh(project)
+    return project
+
+
+@pytest_asyncio.fixture(name="pop_row")
+async def pop_row_fixture(session: AsyncSession, pop_user, pop_project):
+    """A sourcing row inside pop_project."""
+    from models import Row
+
+    user, _ = pop_user
+    row = Row(
+        title="Whole milk",
+        status="sourcing",
+        user_id=user.id,
+        project_id=pop_project.id,
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return row
+
+
+@pytest_asyncio.fixture(name="pop_invite")
+async def pop_invite_fixture(session: AsyncSession, pop_user, pop_project):
+    """A valid (non-expired) invite for pop_project."""
+    import uuid
+    from datetime import datetime, timedelta
+    from models import ProjectInvite
+
+    user, _ = pop_user
+    invite = ProjectInvite(
+        id=str(uuid.uuid4()),
+        project_id=pop_project.id,
+        invited_by=user.id,
+        expires_at=datetime.utcnow() + timedelta(days=30),
+    )
+    session.add(invite)
+    await session.commit()
+    await session.refresh(invite)
+    return invite

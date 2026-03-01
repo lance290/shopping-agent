@@ -33,8 +33,32 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+*.log
 
 # Database
 *.sqlite
 postgres_data
 docs/prelier
+
+# Data dumps — never commit prod/large data files
+*.json.gz
+vendors_prod_dump.json
+vendors-export.csv
+
+# Test artifacts
+test-results/
+.last-run.json
+coverage.xml
+.coverage
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+
+# Screenshots and uploads
+uploads/
+*.png
+!assets/*.png
+
+# Runtime / temp
+.logs/
+*.pyc
