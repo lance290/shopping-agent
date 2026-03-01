@@ -226,6 +226,7 @@ async def test_chat_create_row_action_persists_to_db(
     mock_decision.intent = mock_intent
     mock_decision.action = {"type": "create_row"}
     mock_decision.message = "Added avocados!"
+    mock_decision.items = None
 
     with patch("routes.pop_chat.make_pop_decision", new_callable=AsyncMock, return_value=mock_decision):
         with patch("routes.pop_chat._create_row", new_callable=AsyncMock) as mock_create:

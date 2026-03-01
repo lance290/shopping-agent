@@ -148,6 +148,7 @@ async def pop_web_chat(
         logger.info(f"[Pop Web] Decision: action={decision.action}, intent={decision.intent.what}")
 
         target_row = None
+        created_rows = []
 
         action_type = decision.action.get("type", "")
         intent = decision.intent
@@ -162,7 +163,31 @@ async def pop_web_chat(
         }
         constraints = {k: v for k, v in (intent.constraints or {}).items() if k not in _META_KEYS}
 
-        if action_type in ("create_row", "context_switch") or (action_type == "search" and not active_row):
+        # Multi-item creation: LLM returned an items array
+        if decision.items and action_type in ("create_row", "context_switch"):
+            for item_data in decision.items:
+                item_title = item_data.get("what", "").strip()
+                if not item_title:
+                    continue
+                item_title = item_title[0].upper() + item_title[1:]
+                item_query = item_data.get("search_query", f"{item_title} grocery deals")
+                row = await _create_row(
+                    session, user.id, item_title, project.id,
+                    False, None, {}, item_query,
+                    desire_tier="commodity",
+                )
+                created_rows.append((row, item_query))
+            # Search for deals on each created row
+            for row, q in created_rows:
+                try:
+                    async for _batch in _stream_search(row.id, q, authorization=None):
+                        pass
+                except Exception as e:
+                    logger.warning(f"[Pop Web] Search failed for row {row.id}: {e}")
+            if created_rows:
+                target_row = created_rows[-1][0]
+
+        elif action_type in ("create_row", "context_switch") or (action_type == "search" and not active_row):
             row = await _create_row(
                 session, user.id, title, project.id,
                 is_service, service_category, constraints, search_query,
@@ -174,6 +199,14 @@ async def pop_web_chat(
             if factors:
                 await _save_choice_factors(session, row, factors)
 
+            # Trigger sourcing (non-streaming for web response)
+            if search_query:
+                try:
+                    async for _batch in _stream_search(target_row.id, search_query, authorization=None):
+                        pass
+                except Exception as e:
+                    logger.warning(f"[Pop Web] Search failed for row {target_row.id}: {e}")
+
         elif action_type == "update_row" and active_row:
             row = await _update_row(
                 session, active_row,
@@ -183,10 +216,12 @@ async def pop_web_chat(
             )
             target_row = row
 
-        # Trigger sourcing (non-streaming for web response)
-        if search_query and target_row:
-            async for _batch in _stream_search(target_row.id, search_query, authorization=None):
-                pass
+            if search_query:
+                try:
+                    async for _batch in _stream_search(target_row.id, search_query, authorization=None):
+                        pass
+                except Exception as e:
+                    logger.warning(f"[Pop Web] Search failed for row {target_row.id}: {e}")
 
         if target_row is None:
             target_row = active_row

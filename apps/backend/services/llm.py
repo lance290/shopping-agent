@@ -172,6 +172,7 @@ class UnifiedDecision(BaseModel):
     message: str
     intent: UserIntent
     action: Dict[str, Any]  # flexible to handle all action types
+    items: Optional[List[Dict[str, str]]] = None  # multi-item Pop responses
 
     @property
     def desire_tier(self) -> str:
@@ -398,13 +399,14 @@ GOLDEN RULES:
 3. **Stay in grocery land.** You help with groceries, household items, and everyday store purchases. If someone asks for a private jet or laptop, say "I'm Pop, your grocery helper! I can help with food and household items. What do you need from the store?"
 4. **Quantity is implicit.** "eggs" means a carton. "milk" means a gallon. Don't ask unless the user specifies a weird amount.
 5. **Simple item names.** Use normal grocery names: "Steak", "Eggs", "Milk", "Bread". Not "USDA Prime Grade Ribeye Steak".
-6. **Multiple items in one message.** If user says "milk, eggs, and bread" — create a row for each OR add them all. Respond with a quick confirmation like "Added milk, eggs, and bread to your list!"
+6. **SPLIT MULTIPLE ITEMS.** If user says "milk, eggs, and bread" — return ALL items in the "items" array. NEVER combine multiple grocery items into one. Each item gets its own entry.
 
 HANDLING USER MESSAGES:
 - "hi" / "hello" / "hey" / "what's up" → GREET BACK, do NOT create an item. Message: "Hey! What do you need from the store today?" Action: "ask_clarification" with no missing_fields.
 - "thanks" / "thank you" / "ok" / "cool" → Acknowledge briefly. Do NOT create an item. Action: "ask_clarification" with no missing_fields.
-- "steak" → Add "Steak", search for steak deals. Message: "Added steak to your list! I'll find the best deals."
+- "steak" → Add "Steak", search for steak deals. Message: "Added steak to your list!"
 - "filet mignon" → Add "Filet Mignon", search. Message: "Added filet mignon to your list!"
+- "ice cream, cookies, and wine" → THREE separate items: "Ice Cream", "Cookies", "Wine". Message: "Added ice cream, cookies, and wine to your list!"
 - "prime, fresh" → This is answering a previous question. Update the active item with those preferences, then search.
 - "remove steak" / "delete eggs" → Remove that item. Message: "Removed steak from your list."
 - "what's on my list?" → Show list summary.
@@ -425,7 +427,18 @@ RULES:
 - User adds detail to current item (e.g., "organic", "2 pounds") → update_row
 - User says something totally non-grocery → respond with a friendly redirect, action type "ask_clarification" with no missing_fields
 
-Return ONLY valid JSON:
+Return ONLY valid JSON. For MULTIPLE items, use the "items" array:
+{{
+  "message": "Brief friendly response (REQUIRED)",
+  "items": [
+    {{ "what": "Ice Cream", "search_query": "ice cream grocery deals" }},
+    {{ "what": "Cookies", "search_query": "cookies grocery deals" }},
+    {{ "what": "Wine", "search_query": "wine grocery deals" }}
+  ],
+  "action": {{ "type": "create_row" }}
+}}
+
+For a SINGLE item, you may use either the "items" array OR the flat format:
 {{
   "message": "Brief friendly response (REQUIRED)",
   "intent": {{
@@ -443,6 +456,24 @@ Return ONLY valid JSON:
     try:
         text = await call_gemini(prompt, timeout=20.0)
         parsed = _extract_json(text)
+
+        # Handle multi-item responses: LLM returns "items" array instead of "intent"
+        items_list = parsed.pop("items", None)
+        if items_list and isinstance(items_list, list) and len(items_list) > 0:
+            first = items_list[0]
+            if "intent" not in parsed:
+                parsed["intent"] = {
+                    "what": first.get("what", ""),
+                    "category": "product",
+                    "search_query": first.get("search_query", f"{first.get('what', '')} grocery deals"),
+                    "constraints": {},
+                    "desire_tier": "commodity",
+                    "desire_confidence": 0.95,
+                }
+            decision = UnifiedDecision(**parsed)
+            decision.items = items_list
+            return decision
+
         return UnifiedDecision(**parsed)
     except Exception as e:
         logger.error(f"[Pop] Failed to parse LLM decision: {e}")
