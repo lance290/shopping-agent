@@ -178,12 +178,11 @@ def test_provenance_enrichment_budget_match():
     # Create a mock row with choice_answers containing max_price
     class MockRow:
         search_intent = None
-        choice_answers = json.dumps({"max_price": "100"})
+        choice_answers = {"max_price": "100"}
         chat_history = None
 
     service = SourcingService.__new__(SourcingService)
-    prov_json = service._build_enriched_provenance(result, MockRow())
-    prov = json.loads(prov_json)
+    prov = service._build_enriched_provenance(result, MockRow())
 
     # Should contain a budget match feature
     features = prov.get("matched_features", [])
@@ -211,14 +210,13 @@ def test_provenance_enrichment_chat_excerpts():
     class MockRow:
         search_intent = None
         choice_answers = None
-        chat_history = json.dumps([
+        chat_history = [
             {"role": "user", "content": "I need a good bicycle for commuting"},
             {"role": "assistant", "content": "I found several options for commuter bicycles"},
-        ])
+        ]
 
     service = SourcingService.__new__(SourcingService)
-    prov_json = service._build_enriched_provenance(result, MockRow())
-    prov = json.loads(prov_json)
+    prov = service._build_enriched_provenance(result, MockRow())
 
     excerpts = prov.get("chat_excerpts", [])
     assert len(excerpts) == 2

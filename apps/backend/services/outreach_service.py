@@ -303,7 +303,7 @@ class OutreachService:
         parts = [row.title]
         if row.choice_answers:
             try:
-                answers = json.loads(row.choice_answers)
+                answers = json.loads(row.choice_answers) if isinstance(row.choice_answers, str) else row.choice_answers
                 if isinstance(answers, dict):
                     for key, val in answers.items():
                         if val and str(val).lower() not in ("not answered", "none", "null"):

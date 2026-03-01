@@ -148,7 +148,7 @@ def extract_choice_constraints(choice_answers: Optional[str]) -> Dict[str, Any]:
         return {}
 
     try:
-        answers_obj = json.loads(choice_answers)
+        answers_obj = json.loads(choice_answers) if isinstance(choice_answers, str) else choice_answers
         # Filter out price constraints and meta fields
         return {
             k: v for k, v in answers_obj.items()

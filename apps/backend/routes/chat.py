@@ -95,7 +95,7 @@ def row_to_dict(row: Row) -> dict:
 # INTERNAL HELPERS (replace BFF HTTP calls with direct DB ops)
 # =============================================================================
 
-def _build_search_intent_json(title: str, search_query: str, constraints: Dict[str, Any], service_category: Optional[str]) -> str:
+def _build_search_intent_json(title: str, search_query: str, constraints: Dict[str, Any], service_category: Optional[str]) -> dict:
     """Build a SearchIntent JSON from LLM intent fields so the scorer can rank by relevance."""
     # Extract keywords from the title (the core "what")
     stop_words = {"a", "an", "the", "for", "my", "i", "me", "to", "and", "or", "of", "in", "on", "with"}
@@ -115,7 +115,7 @@ def _build_search_intent_json(title: str, search_query: str, constraints: Dict[s
     }
     # Remove None values
     intent_data = {k: v for k, v in intent_data.items() if v is not None}
-    return json.dumps(intent_data)
+    return intent_data
 
 
 async def _create_row(
@@ -152,7 +152,7 @@ async def _create_row(
     session.add(spec)
 
     if constraints:
-        row.choice_answers = json.dumps(constraints)
+        row.choice_answers = constraints
 
     await session.commit()
     await session.refresh(row)
@@ -179,7 +179,7 @@ async def _update_row(
     if title:
         row.title = title
     if constraints is not None:
-        row.choice_answers = json.dumps(constraints)
+        row.choice_answers = constraints
     row.updated_at = datetime.utcnow()
     session.add(row)
 
@@ -201,7 +201,7 @@ async def _update_row(
 
 async def _save_choice_factors(session: AsyncSession, row: Row, factors: list) -> Row:
     """Save generated choice factors to a row."""
-    row.choice_factors = json.dumps(factors)
+    row.choice_factors = factors
     row.updated_at = datetime.utcnow()
     session.add(row)
     await session.commit()

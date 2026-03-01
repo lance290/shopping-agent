@@ -372,7 +372,7 @@ class SourcingService:
             logger.debug(f"[SourcingService] Could not parse SearchIntent: {e}")
         return None
 
-    def _build_enriched_provenance(self, res: NormalizedResult, row: Optional["Row"]) -> str:
+    def _build_enriched_provenance(self, res: NormalizedResult, row: Optional["Row"]) -> dict:
         """Merge normalizer provenance with search intent context, choice factors, and chat excerpts."""
         provenance = dict(res.provenance) if res.provenance else {}
 
@@ -476,7 +476,7 @@ class SourcingService:
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        return json.dumps(provenance)
+        return provenance
 
     @staticmethod
     def _safe_total_cost(price: Optional[float], shipping: Optional[float]) -> Optional[float]:

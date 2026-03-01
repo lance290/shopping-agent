@@ -402,7 +402,9 @@ async def test_row_creation_populates_choice_factors_by_default(client: AsyncCli
     created = resp.json()
     assert created.get("choice_factors") is not None
 
-    factors = json.loads(created["choice_factors"])
+    factors = created["choice_factors"]
+    if isinstance(factors, str):
+        factors = json.loads(factors)
     assert isinstance(factors, list)
     # Backend returns empty factors — BFF LLM generates proper contextual factors
     assert len(factors) == 0

@@ -64,8 +64,11 @@ async def test_search_persists_search_intent_and_provider_query_map(
 
     persisted = await session.get(Row, row.id)
     assert persisted is not None
-    persisted_intent = json.loads(persisted.search_intent or "{}")
+    raw_intent = persisted.search_intent or {}
+    persisted_intent = json.loads(raw_intent) if isinstance(raw_intent, str) else raw_intent
     assert persisted_intent.get("product_category") == intent_payload["product_category"]
     assert persisted_intent.get("taxonomy_version") == intent_payload["taxonomy_version"]
     assert persisted_intent.get("max_price") == intent_payload["max_price"]
-    assert json.loads(persisted.provider_query_map or "{}") == provider_query_map
+    raw_pqm = persisted.provider_query_map or {}
+    persisted_pqm = json.loads(raw_pqm) if isinstance(raw_pqm, str) else raw_pqm
+    assert persisted_pqm == provider_query_map

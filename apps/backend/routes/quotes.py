@@ -165,7 +165,7 @@ async def submit_quote(
         answers["aircraft_type"] = submission.aircraft_type
     if submission.includes_catering is not None:
         answers["includes_catering"] = submission.includes_catering
-    quote.answers = json.dumps(answers)
+    quote.answers = answers
     
     # Create a Bid from the quote
     bid = Bid(
@@ -180,14 +180,14 @@ async def submit_quote(
         source="seller_quote",
         condition="service",
         # Store provenance linking to quote
-        provenance=json.dumps({
+        provenance={
             "type": "seller_quote",
             "quote_id": quote.id,
             "seller_company": quote.seller_company,
             "seller_email": quote.seller_email,
             "description": submission.description,
             "answers": answers,
-        }),
+        },
     )
     session.add(bid)
     await session.flush()  # Get bid.id

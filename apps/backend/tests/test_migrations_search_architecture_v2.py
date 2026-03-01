@@ -69,7 +69,7 @@ async def test_persist_search_architecture_v2_fields(session: AsyncSession):
         total_cost=110.0,
         item_title="Test Item",
         canonical_url="https://example.com/item",
-        source_payload='{"raw": "data"}',
+        source_payload={"raw": "data"},
         search_intent_version="v1",
     )
     session.add(bid)
@@ -77,7 +77,7 @@ async def test_persist_search_architecture_v2_fields(session: AsyncSession):
     await session.refresh(bid)
     
     assert bid.canonical_url == "https://example.com/item"
-    assert bid.source_payload == '{"raw": "data"}'
+    assert bid.source_payload == {"raw": "data"}
     assert bid.search_intent_version == "v1"
     assert bid.normalized_at is None # Default is None
     

@@ -110,7 +110,7 @@ async def test_get_bid_with_provenance(session: AsyncSession, client: AsyncClien
         total_cost=110.0,
         item_title="Test Product",
         item_url="https://example.com/product",
-        provenance=json.dumps(provenance_data)
+        provenance=provenance_data
     )
     session.add(bid)
     await session.commit()
@@ -321,7 +321,7 @@ async def test_get_bid_sparse_provenance(session: AsyncSession, client: AsyncCli
         price=100.0,
         total_cost=110.0,
         item_title="Test Product",
-        provenance=json.dumps(provenance_data)
+        provenance=provenance_data
     )
     session.add(bid)
     await session.commit()

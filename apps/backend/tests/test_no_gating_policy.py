@@ -115,8 +115,8 @@ class TestPriceConstraintExtraction:
 
     def _make_row(self, choice_answers=None, search_intent=None):
         row = MagicMock()
-        row.choice_answers = json.dumps(choice_answers) if choice_answers else None
-        row.search_intent = json.dumps(search_intent) if search_intent else None
+        row.choice_answers = choice_answers if choice_answers else None
+        row.search_intent = search_intent if search_intent else None
         return row
 
     def test_min_price_key(self):

@@ -221,11 +221,10 @@ class TestEnrichedProvenance:
         svc = self._make_service()
         res = self._make_normalized_result()
         row = MagicMock()
-        row.search_intent = json.dumps({"keywords": ["blue", "widget"]})
+        row.search_intent = {"keywords": ["blue", "widget"]}
         row.chat_history = None
 
-        prov_json = svc._build_enriched_provenance(res, row)
-        prov = json.loads(prov_json)
+        prov = svc._build_enriched_provenance(res, row)
 
         assert any("Matches: blue, widget" in f for f in prov["matched_features"])
 
@@ -234,11 +233,10 @@ class TestEnrichedProvenance:
         svc = self._make_service()
         res = self._make_normalized_result()
         row = MagicMock()
-        row.search_intent = json.dumps({"brand": "Acme", "keywords": []})
+        row.search_intent = {"brand": "Acme", "keywords": []}
         row.chat_history = None
 
-        prov_json = svc._build_enriched_provenance(res, row)
-        prov = json.loads(prov_json)
+        prov = svc._build_enriched_provenance(res, row)
 
         assert prov["product_info"]["brand"] == "Acme"
 
@@ -254,11 +252,10 @@ class TestEnrichedProvenance:
             }
         )
         row = MagicMock()
-        row.search_intent = json.dumps({"brand": "Override", "keywords": []})
+        row.search_intent = {"brand": "Override", "keywords": []}
         row.chat_history = None
 
-        prov_json = svc._build_enriched_provenance(res, row)
-        prov = json.loads(prov_json)
+        prov = svc._build_enriched_provenance(res, row)
 
         assert prov["product_info"]["brand"] == "Original"
 
@@ -267,14 +264,13 @@ class TestEnrichedProvenance:
         svc = self._make_service()
         res = self._make_normalized_result()
         row = MagicMock()
-        row.search_intent = json.dumps({
+        row.search_intent = {
             "keywords": [],
             "features": {"color": "blue", "size": "large"},
-        })
+        }
         row.chat_history = None
 
-        prov_json = svc._build_enriched_provenance(res, row)
-        prov = json.loads(prov_json)
+        prov = svc._build_enriched_provenance(res, row)
 
         assert any("color: blue" in f for f in prov["matched_features"])
         assert any("size: large" in f for f in prov["matched_features"])
@@ -285,15 +281,14 @@ class TestEnrichedProvenance:
         res = self._make_normalized_result()
         row = MagicMock()
         row.search_intent = None
-        row.chat_history = json.dumps([
+        row.chat_history = [
             {"role": "user", "content": "I need a blue widget"},
             {"role": "assistant", "content": "Sure, let me search"},
             {"role": "user", "content": "Under $50 please"},
             {"role": "user", "content": "Make it large"},
-        ])
+        ]
 
-        prov_json = svc._build_enriched_provenance(res, row)
-        prov = json.loads(prov_json)
+        prov = svc._build_enriched_provenance(res, row)
 
         assert len(prov["chat_excerpts"]) == 3
         assert prov["chat_excerpts"][0]["role"] == "user"
@@ -307,12 +302,11 @@ class TestEnrichedProvenance:
         res = self._make_normalized_result()
         row = MagicMock()
         row.search_intent = None
-        row.chat_history = json.dumps([
+        row.chat_history = [
             {"role": "user", "content": "x" * 500},
-        ])
+        ]
 
-        prov_json = svc._build_enriched_provenance(res, row)
-        prov = json.loads(prov_json)
+        prov = svc._build_enriched_provenance(res, row)
 
         assert len(prov["chat_excerpts"]) == 1
         assert len(prov["chat_excerpts"][0]["content"]) == 200
@@ -322,8 +316,7 @@ class TestEnrichedProvenance:
         svc = self._make_service()
         res = self._make_normalized_result()
 
-        prov_json = svc._build_enriched_provenance(res, None)
-        prov = json.loads(prov_json)
+        prov = svc._build_enriched_provenance(res, None)
 
         assert "matched_features" in prov
         assert "product_info" in prov
@@ -336,8 +329,7 @@ class TestEnrichedProvenance:
         row.search_intent = "{ invalid json }"
         row.chat_history = None
 
-        prov_json = svc._build_enriched_provenance(res, row)
-        prov = json.loads(prov_json)
+        prov = svc._build_enriched_provenance(res, row)
         assert isinstance(prov["matched_features"], list)
 
     def test_malformed_chat_history_handled(self):
@@ -348,8 +340,7 @@ class TestEnrichedProvenance:
         row.search_intent = None
         row.chat_history = "not valid json"
 
-        prov_json = svc._build_enriched_provenance(res, row)
-        prov = json.loads(prov_json)
+        prov = svc._build_enriched_provenance(res, row)
         assert prov.get("chat_excerpts", []) == []
 
     def test_preserves_existing_features(self):
@@ -357,11 +348,10 @@ class TestEnrichedProvenance:
         svc = self._make_service()
         res = self._make_normalized_result()
         row = MagicMock()
-        row.search_intent = json.dumps({"keywords": ["extra"]})
+        row.search_intent = {"keywords": ["extra"]}
         row.chat_history = None
 
-        prov_json = svc._build_enriched_provenance(res, row)
-        prov = json.loads(prov_json)
+        prov = svc._build_enriched_provenance(res, row)
 
         # "Free shipping" was in the original provenance
         assert "Free shipping" in prov["matched_features"]

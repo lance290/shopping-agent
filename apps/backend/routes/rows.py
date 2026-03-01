@@ -112,9 +112,9 @@ class RowUpdate(BaseModel):
     service_category: Optional[str] = None
 
 
-def _default_choice_factors_for_row(row: Row) -> str:
+def _default_choice_factors_for_row(row: Row) -> list:
     """Return empty factors — LLM generates proper contextual factors via regenerate_choice_factors."""
-    return "[]"
+    return []
 
 
 @router.post("/rows", response_model=Row)
@@ -159,7 +159,7 @@ async def create_row(
             answers = safe_json_loads(db_row.choice_answers, {})
             answers["safety_status"] = check["status"]
             answers["safety_reason"] = check["reason"]
-            db_row.choice_answers = json.dumps(answers)
+            db_row.choice_answers = answers
 
     session.add(db_row)
     await session.commit()
@@ -328,7 +328,14 @@ async def update_row(
     if reset_bids:
         await session.exec(delete(Bid).where(Bid.row_id == row_id))
 
+    # JSONB columns need native dicts/lists, not JSON strings
+    jsonb_fields = {"choice_factors", "choice_answers", "search_intent", "provider_query_map", "chat_history"}
     for key, value in row_data.items():
+        if key in jsonb_fields and isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                pass
         setattr(row, key, value)
 
     if regenerate_choice_factors:
@@ -343,7 +350,7 @@ async def update_row(
                 row.is_service or False, row.service_category,
             )
             if factors:
-                row.choice_factors = json.dumps(factors)
+                row.choice_factors = factors
             else:
                 row.choice_factors = _default_choice_factors_for_row(row)
         except Exception as e:
@@ -376,7 +383,7 @@ async def update_row(
         if check["status"] != "safe" or current_status:
             answers["safety_status"] = check["status"]
             answers["safety_reason"] = check["reason"]
-            row.choice_answers = json.dumps(answers)
+            row.choice_answers = answers
             session.add(row)
             await session.commit()
 

@@ -112,7 +112,7 @@ class TestExtractVendorQuery:
 
     def _make_row(self, search_intent=None):
         row = MagicMock()
-        row.search_intent = json.dumps(search_intent) if search_intent else None
+        row.search_intent = search_intent if search_intent else None
         return row
 
     def test_extracts_product_name(self):

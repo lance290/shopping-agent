@@ -129,7 +129,7 @@ async def pop_web_chat(
             active_row_data = {
                 "id": active_row.id,
                 "title": active_row.title or "",
-                "constraints": json.loads(active_row.choice_answers) if active_row.choice_answers else {},
+                "constraints": (json.loads(active_row.choice_answers) if isinstance(active_row.choice_answers, str) else active_row.choice_answers) if active_row.choice_answers else {},
                 "is_service": active_row.is_service or False,
                 "service_category": active_row.service_category,
             }

@@ -41,7 +41,10 @@ def _load_chat_history(row: Optional[Row]) -> List[dict]:
     if not row or not row.chat_history:
         return []
     try:
-        history = json.loads(row.chat_history)
+        raw = row.chat_history
+        if isinstance(raw, list):
+            return raw
+        history = json.loads(raw)
         if isinstance(history, list):
             return history
     except (json.JSONDecodeError, TypeError):
@@ -56,12 +59,12 @@ async def _append_chat_history(
     assistant_message: str,
 ) -> None:
     """Append the latest user + assistant exchange to Row.chat_history."""
-    history = _load_chat_history(row)
+    history = list(_load_chat_history(row))  # copy to ensure SQLAlchemy detects mutation
     history.append({"role": "user", "content": user_message})
     history.append({"role": "assistant", "content": assistant_message})
     if len(history) > 50:
         history = history[-50:]
-    row.chat_history = json.dumps(history)
+    row.chat_history = history
     row.updated_at = datetime.utcnow()
     session.add(row)
     await session.commit()

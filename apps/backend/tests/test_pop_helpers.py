@@ -31,7 +31,7 @@ def test_load_chat_history_valid_json():
         {"role": "assistant", "content": "Added eggs!"},
     ]
     row = MagicMock()
-    row.chat_history = json.dumps(history)
+    row.chat_history = history
     result = _load_chat_history(row)
     assert len(result) == 2
     assert result[0]["role"] == "user"
@@ -50,7 +50,7 @@ def test_load_chat_history_truncates_at_50_entries():
     from routes.pop_helpers import _load_chat_history
     history = [{"role": "user", "content": f"msg {i}"} for i in range(60)]
     row = MagicMock()
-    row.chat_history = json.dumps(history)
+    row.chat_history = history
     result = _load_chat_history(row)
     assert len(result) == 60  # _load does not truncate, _append does
 
@@ -63,7 +63,7 @@ async def test_append_chat_history_persists_exchange(session: AsyncSession, pop_
     await _append_chat_history(session, pop_row, "I need eggs", "Added eggs to your list!")
 
     await session.refresh(pop_row)
-    history = json.loads(pop_row.chat_history)
+    history = pop_row.chat_history
     assert len(history) == 2
     assert history[0] == {"role": "user", "content": "I need eggs"}
     assert history[1] == {"role": "assistant", "content": "Added eggs to your list!"}
@@ -76,19 +76,19 @@ async def test_append_chat_history_truncates_at_50(session: AsyncSession, pop_us
 
     # Pre-load 48 messages
     initial = [{"role": "user", "content": f"msg {i}"} for i in range(48)]
-    pop_row.chat_history = json.dumps(initial)
+    pop_row.chat_history = initial
     session.add(pop_row)
     await session.commit()
 
     # This append adds 2 more = 50 — should stay at 50
     await _append_chat_history(session, pop_row, "msg 48", "reply 48")
     await session.refresh(pop_row)
-    assert len(json.loads(pop_row.chat_history)) == 50
+    assert len(pop_row.chat_history) == 50
 
     # One more append = 52 → truncate to 50
     await _append_chat_history(session, pop_row, "msg 49", "reply 49")
     await session.refresh(pop_row)
-    assert len(json.loads(pop_row.chat_history)) == 50
+    assert len(pop_row.chat_history) == 50
 
 
 @pytest.mark.asyncio

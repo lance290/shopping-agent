@@ -164,15 +164,21 @@ class RowSearchRequest(BaseModel):
     provider_query_map: Optional[Any] = None
 
 
-def _serialize_json_payload(payload: Optional[Any]) -> Optional[str]:
+def _serialize_json_payload(payload: Optional[Any]) -> Optional[Any]:
+    """Return native dict/list for JSONB columns. Parse strings if needed."""
     if payload is None:
         return None
-    if isinstance(payload, str):
+    if isinstance(payload, (dict, list)):
         return payload
+    if isinstance(payload, str):
+        try:
+            return json.loads(payload)
+        except (json.JSONDecodeError, TypeError):
+            return payload
     try:
-        return json.dumps(payload)
-    except TypeError:
-        return json.dumps(payload, default=str)
+        return json.loads(json.dumps(payload, default=str))
+    except (TypeError, json.JSONDecodeError):
+        return str(payload)
 
 
 def _parse_intent_payload(payload: Optional[Any]) -> Optional[SearchIntent]:

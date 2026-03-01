@@ -1,8 +1,9 @@
 """Admin and system models: bug reports, notifications, signals, and preferences."""
 
-from typing import Optional
+from typing import Any, Optional
 from datetime import datetime
-from sqlmodel import Field, SQLModel
+import sqlalchemy as sa
+from sqlmodel import Field, SQLModel, Column
 
 
 class BugReport(SQLModel, table=True):
@@ -30,7 +31,7 @@ class BugReport(SQLModel, table=True):
 
     # JSON fields
     attachments: Optional[str] = None  # JSON list of stored file paths/urls
-    diagnostics: Optional[str] = None  # JSON object with captured context
+    diagnostics: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))  # JSONB object with captured context
 
     # External Links
     github_issue_url: Optional[str] = None

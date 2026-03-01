@@ -6,9 +6,10 @@ preserved as aliases to Vendor for backward compatibility.
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from sqlmodel import Field, SQLModel
+import sqlalchemy as sa
+from sqlmodel import Field, SQLModel, Column
 
 from models.bids import Vendor
 
@@ -42,11 +43,11 @@ class SellerQuote(SQLModel, table=True):
     currency: str = "USD"
     description: Optional[str] = None
 
-    # Choice factor answers (JSON)
-    answers: Optional[str] = None  # JSON object: { "aircraft_type": "Citation XLS", ... }
+    # Choice factor answers (JSONB in DB)
+    answers: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
 
-    # Attachments (JSON array of URLs)
-    attachments: Optional[str] = None
+    # Attachments (JSONB array of URLs in DB)
+    attachments: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
 
     # Status tracking
     status: str = "pending"  # pending, submitted, accepted, rejected

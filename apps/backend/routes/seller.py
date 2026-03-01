@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
+import sqlalchemy as sa
 from sqlalchemy import func, or_
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -130,8 +131,8 @@ async def seller_inbox(
         for cat in categories:
             category_filters.append(Row.service_category.ilike(f"%{cat}%"))
             category_filters.append(Row.title.ilike(f"%{cat}%"))
-            # Also match search intent category
-            category_filters.append(Row.search_intent.ilike(f"%{cat}%"))
+            # Also match search intent category (cast JSONB to text for ILIKE)
+            category_filters.append(Row.search_intent.cast(sa.Text).ilike(f"%{cat}%"))
         query = query.where(or_(*category_filters))
     else:
         # If no categories set, only show service rows (legacy behavior)

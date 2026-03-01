@@ -78,12 +78,12 @@ class Bid(SQLModel, table=True):
 
     # Search Architecture v2
     canonical_url: Optional[str] = None
-    source_payload: Optional[str] = None  # JSON of raw provider data
+    source_payload: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))  # JSONB of raw provider data
     search_intent_version: Optional[str] = None
     normalized_at: Optional[datetime] = None
 
-    # Tile Provenance - structured provenance data
-    provenance: Optional[str] = None  # JSON of structured provenance data
+    # Tile Provenance - structured provenance data (JSONB in DB)
+    provenance: Optional[Any] = Field(default=None, sa_column=Column("provenance", sa.JSON, nullable=True))
 
     eta_days: Optional[int] = None
     return_policy: Optional[str] = None
@@ -148,12 +148,12 @@ class BidWithProvenance(SQLModel):
 
     # Search Architecture v2
     canonical_url: Optional[str] = None
-    source_payload: Optional[str] = None
+    source_payload: Optional[Any] = None  # JSONB
     search_intent_version: Optional[str] = None
     normalized_at: Optional[datetime] = None
 
-    # Tile Provenance - structured provenance data
-    provenance: Optional[str] = None
+    # Tile Provenance - structured provenance data (JSONB)
+    provenance: Optional[Any] = None
 
     eta_days: Optional[int] = None
     return_policy: Optional[str] = None

@@ -1,9 +1,10 @@
 """Row and project models: core search and organization entities."""
 
-from typing import Optional, List, TYPE_CHECKING
+from typing import Any, Optional, List, TYPE_CHECKING
 from datetime import datetime
 import uuid
-from sqlmodel import Field, SQLModel, Relationship
+import sqlalchemy as sa
+from sqlmodel import Field, SQLModel, Relationship, Column
 
 if TYPE_CHECKING:
     from models.bids import Bid
@@ -17,21 +18,21 @@ class RowBase(SQLModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    # Choice factors as JSON strings for MVP simplicity
-    choice_factors: Optional[str] = None  # JSON array of ChoiceFactor objects
-    choice_answers: Optional[str] = None  # JSON object of factor_name -> answer
+    # Choice factors — JSONB in DB (migration s01)
+    choice_factors: Optional[Any] = None  # JSON array of ChoiceFactor objects
+    choice_answers: Optional[Any] = None  # JSON object of factor_name -> answer
     provider_query: Optional[str] = None
 
-    # Search Architecture v2
-    search_intent: Optional[str] = None  # JSON of SearchIntent
-    provider_query_map: Optional[str] = None  # JSON of ProviderQueryMap
+    # Search Architecture v2 — JSONB in DB (migration s01)
+    search_intent: Optional[Any] = None  # JSON of SearchIntent
+    provider_query_map: Optional[Any] = None  # JSON of ProviderQueryMap
 
     # Outreach tracking (Phase 2)
     outreach_status: Optional[str] = None  # none, in_progress, complete
     outreach_count: int = 0
 
-    # Chat history for this row (JSON array of messages)
-    chat_history: Optional[str] = None
+    # Chat history for this row — JSONB in DB (migration s01)
+    chat_history: Optional[Any] = None
 
     # Service detection - set by LLM, persisted on row
     is_service: bool = False
@@ -101,6 +102,13 @@ class Row(RowBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
     project_id: Optional[int] = Field(default=None, foreign_key="project.id", index=True)
+
+    # Override JSONB columns with proper sa_column so SQLAlchemy sends jsonb, not varchar
+    choice_factors: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    choice_answers: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    search_intent: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    provider_query_map: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    chat_history: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
 
     # Relationships
     bids: List["Bid"] = Relationship(back_populates="row")
