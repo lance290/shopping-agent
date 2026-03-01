@@ -65,11 +65,10 @@ async def test_csrf_cookie_set_on_get(client):
 
 @pytest.mark.asyncio
 async def test_post_without_csrf_token_fails(client):
-    """POST without CSRF token should return 403."""
+    """POST without CSRF token (and no Bearer auth) should return 403."""
     response = await client.post(
         "/rows",
         json={"text": "Test row", "project_id": 1},
-        headers={"Authorization": "Bearer fake-token"},
     )
     assert response.status_code == 403
 
@@ -108,7 +107,7 @@ async def test_exempt_paths_bypass_csrf(client):
 
 @pytest.mark.asyncio
 async def test_post_with_invalid_csrf_token_fails(client):
-    """POST with mismatched CSRF token should return 403."""
+    """POST with mismatched CSRF token (no Bearer auth) should return 403."""
     from security.csrf import create_signed_csrf_token, encode_csrf_cookie
     
     token, timestamp, signature = create_signed_csrf_token()
@@ -119,8 +118,19 @@ async def test_post_with_invalid_csrf_token_fails(client):
         json={"text": "Test row"},
         headers={
             "X-CSRF-Token": "wrong-token-value",
-            "Authorization": "Bearer fake-token",
         },
         cookies={"csrf_token": cookie_value},
     )
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_bearer_auth_skips_csrf(client):
+    """POST with Bearer auth should skip CSRF check entirely."""
+    response = await client.post(
+        "/rows",
+        json={"text": "Test row", "project_id": 1},
+        headers={"Authorization": "Bearer fake-token"},
+    )
+    # Should NOT be 403 — Bearer auth bypasses CSRF
+    assert response.status_code != 403

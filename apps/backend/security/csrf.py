@@ -137,6 +137,7 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         "/health",
         "/webhooks/",
         "/api/bugs",  # Allow bug reports from unauthenticated users
+        "/api/chat",  # Chat SSE endpoint — uses Bearer auth, not cookies
         "/pop/",      # Pop API endpoints (chat, receipt scanning) handle their own auth
     ]
 
@@ -152,6 +153,12 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             # Always set CSRF cookie on safe requests
             self._set_csrf_cookie(response)
+            return response
+
+        # Skip CSRF check for requests using Bearer token auth (not cookie-based)
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.lower().startswith("bearer "):
+            response = await call_next(request)
             return response
 
         # Skip CSRF check for exempt paths
