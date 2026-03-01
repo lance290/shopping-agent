@@ -31,7 +31,6 @@ class SearchIntentResult:
         condition: Optional[str] = None,
         features: Optional[Dict[str, Any]] = None,
         keywords: Optional[List[str]] = None,
-        exclude_keywords: Optional[List[str]] = None,
         confidence: float = 0.0,
         raw_input: str = "",
         source: str = "heuristic",
@@ -49,7 +48,6 @@ class SearchIntentResult:
         self.condition = condition
         self.features = features or {}
         self.keywords = keywords or []
-        self.exclude_keywords = exclude_keywords or []
         self.confidence = confidence
         self.raw_input = raw_input
         self.source = source
@@ -69,7 +67,6 @@ class SearchIntentResult:
             "condition": self.condition,
             "features": self.features,
             "keywords": self.keywords,
-            "exclude_keywords": self.exclude_keywords,
             "confidence": self.confidence,
             "raw_input": self.raw_input,
         }
@@ -190,7 +187,6 @@ def build_heuristic_intent(
         condition=None,
         features=features,
         keywords=keywords,
-        exclude_keywords=[],
         confidence=0.2,
         raw_input=raw_input,
         source="heuristic",
@@ -234,8 +230,6 @@ Schema:
   "condition": "'new'|'used'|'refurbished'|null",
   "features": {{"key": "value pairs"}},
   "keywords": ["short", "lowercase", "positive tokens ONLY — no negations"],
-  "exclude_keywords": ["terms to FILTER OUT from results, e.g. 'digital', 'electronic'. Extract from user negations like 'no digital'. Empty if none."],
-  "exclude_merchants": ["retailer names to exclude, e.g. 'amazon', 'target'. Extract from 'NOT from Amazon'. Empty if none."],
   "confidence": 0.0-1.0,
   "raw_input": "string — the original user query, CLEAN, no negation words"
 }}
@@ -245,8 +239,6 @@ Rules:
 - min_price/max_price should be numbers if present.
 - features should include non-price constraints.
 - keywords should be short, lower-case tokens describing what the user WANTS (never what they don't want).
-- exclude_keywords: terms the user wants to EXCLUDE from results (e.g. "digital", "electronic"). Extracted from negations.
-- exclude_merchants: retailer/merchant names to exclude (e.g. "amazon", "target"). Extracted from "NOT from X".
 - confidence should be 0-1.
 """
 
@@ -286,7 +278,6 @@ async def extract_search_intent(
             condition=parsed.get("condition"),
             features=parsed.get("features", {}),
             keywords=parsed.get("keywords", []),
-            exclude_keywords=parsed.get("exclude_keywords", []),
             confidence=parsed.get("confidence", 0.5),
             raw_input=parsed.get("raw_input", display_query or ""),
             source="llm",

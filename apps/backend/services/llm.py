@@ -146,8 +146,6 @@ class UserIntent(BaseModel):
     constraints: Dict[str, Any] = {}
     desire_tier: str = "commodity"  # one of DESIRE_TIERS
     desire_confidence: float = 0.8  # 0.0-1.0
-    exclude_keywords: List[str] = []
-    exclude_merchants: List[str] = []
 
 
 class ClarificationAction(BaseModel):

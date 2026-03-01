@@ -26,8 +26,6 @@ def _mock_pop_decision(message: str = "Got it! Added to your list.", action_type
     mock_intent.category = "product"
     mock_intent.service_type = None
     mock_intent.search_query = None
-    mock_intent.exclude_keywords = []
-    mock_intent.exclude_merchants = []
     mock_intent.constraints = {}
     mock_intent.desire_tier = None
 
@@ -221,8 +219,6 @@ async def test_chat_create_row_action_persists_to_db(
     mock_intent.category = "product"
     mock_intent.service_type = None
     mock_intent.search_query = "avocados"
-    mock_intent.exclude_keywords = []
-    mock_intent.exclude_merchants = []
     mock_intent.constraints = {}
     mock_intent.desire_tier = None
 

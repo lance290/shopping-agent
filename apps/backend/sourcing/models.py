@@ -29,11 +29,10 @@ class SearchIntent(BaseModel):
     condition: Optional[ConditionType] = None
     features: Dict[str, FeatureValue] = Field(default_factory=dict)
     keywords: List[str] = Field(default_factory=list)
-    exclude_keywords: List[str] = Field(default_factory=list)
     confidence: float = Field(0.0, ge=0.0, le=1.0)
     raw_input: str = Field("", description="Original free-form text")
 
-    @field_validator("keywords", "exclude_keywords", mode="before")
+    @field_validator("keywords", mode="before")
     @classmethod
     def _normalize_keywords(
         cls, value: Sequence[str] | str | None

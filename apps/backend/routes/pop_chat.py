@@ -156,12 +156,9 @@ async def pop_web_chat(
         service_category = intent.service_type
         title = intent.what[0].upper() + intent.what[1:] if intent.what else intent.what
         search_query = intent.search_query
-        exclude_keywords = intent.exclude_keywords or []
-        exclude_merchants = intent.exclude_merchants or []
         _META_KEYS = {
             "what", "is_service", "service_category", "search_query", "title",
             "category", "desire_tier", "desire_confidence",
-            "exclude_keywords", "exclude_merchants",
         }
         constraints = {k: v for k, v in (intent.constraints or {}).items() if k not in _META_KEYS}
 

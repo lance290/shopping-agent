@@ -17,14 +17,12 @@ def test_search_intent_keyword_normalization():
         category_path=["Electronics", "Laptops"],
         product_name="MacBook Pro",
         keywords=["Laptop", "laptop", "Apple"],
-        exclude_keywords="refurbished,damaged",
         features={"ram": ["16 GB", "32 GB"]},
         raw_input="Looking for a new MacBook",
     )
 
     assert intent.product_category == "electronics"
     assert intent.keywords == ["Apple", "Laptop"]
-    assert intent.exclude_keywords == ["damaged", "refurbished"]
     assert intent.category_path == ["Electronics", "Laptops"]
 
 
