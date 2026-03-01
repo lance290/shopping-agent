@@ -16,7 +16,7 @@ from database import get_session
 from models.rows import Row, Project, ProjectInvite
 from models.bids import Bid
 from services.llm import call_gemini
-from routes.pop_helpers import POP_DOMAIN, _get_pop_user, _ensure_project_member
+from routes.pop_helpers import POP_DOMAIN, _get_pop_user, _ensure_project_member, _build_item_with_deals
 from models.rows import ProjectMember
 
 logger = logging.getLogger(__name__)
@@ -192,7 +192,7 @@ async def get_my_pop_list(
     rows_result = await session.execute(rows_stmt)
     rows = rows_result.scalars().all()
 
-    items = [{"id": r.id, "title": r.title, "status": r.status} for r in rows]
+    items = [await _build_item_with_deals(session, r) for r in rows]
     return {"project_id": project.id, "title": project.title, "items": items}
 
 

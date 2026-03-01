@@ -12,6 +12,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session  # noqa: F401 — re-exported for convenience
 from models.rows import Row, Project, ProjectMember
+from models.bids import Bid
 from models.auth import User
 from dependencies import get_current_session
 
@@ -100,3 +101,45 @@ async def _ensure_project_member(
     await session.commit()
     await session.refresh(member)
     return member
+
+
+async def _build_item_with_deals(session: AsyncSession, row: Row) -> dict:
+    """
+    Build a list-item dict with deals (bids) attached.
+    Used by both the chat response and the list endpoints.
+    """
+    bids_stmt = (
+        select(Bid)
+        .where(Bid.row_id == row.id)
+        .order_by(Bid.combined_score.desc().nullslast())
+        .limit(5)
+    )
+    bids_result = await session.execute(bids_stmt)
+    bids = bids_result.scalars().all()
+
+    deals = []
+    lowest_price = None
+    priced_bids = [b for b in bids if b.price is not None]
+
+    for b in priced_bids:
+        deal = {
+            "id": b.id,
+            "title": b.item_title,
+            "price": b.price,
+            "source": b.source,
+            "url": b.canonical_url,
+            "image_url": b.image_url,
+            "is_selected": b.is_selected or False,
+        }
+        deals.append(deal)
+        if lowest_price is None or b.price < lowest_price:
+            lowest_price = b.price
+
+    return {
+        "id": row.id,
+        "title": row.title,
+        "status": row.status,
+        "deals": deals,
+        "lowest_price": lowest_price,
+        "deal_count": len(deals),
+    }

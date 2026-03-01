@@ -17,7 +17,7 @@ from models.rows import Row, Project
 from models.auth import User
 from services.llm import make_pop_decision, ChatContext, generate_choice_factors
 from routes.chat import _create_row, _update_row, _save_choice_factors, _stream_search
-from routes.pop_helpers import _get_pop_user, _ensure_project_member, _load_chat_history, _append_chat_history
+from routes.pop_helpers import _get_pop_user, _ensure_project_member, _load_chat_history, _append_chat_history, _build_item_with_deals
 
 logger = logging.getLogger(__name__)
 chat_router = APIRouter()
@@ -195,7 +195,7 @@ async def pop_web_chat(
         if target_row:
             await _append_chat_history(session, target_row, body.message, decision.message or "")
 
-        # Load list items for the project
+        # Load list items with deals for the project
         list_stmt = (
             select(Row)
             .where(Row.project_id == project.id)
@@ -206,10 +206,7 @@ async def pop_web_chat(
         list_result = await session.execute(list_stmt)
         list_rows = list_result.scalars().all()
 
-        list_items = [
-            {"id": r.id, "title": r.title, "status": r.status}
-            for r in list_rows
-        ]
+        list_items = [await _build_item_with_deals(session, r) for r in list_rows]
 
         response_data = {
             "reply": decision.message or "Got it!",
