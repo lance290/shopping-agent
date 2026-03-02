@@ -17,14 +17,50 @@ from models.rows import Row, Project
 from models.auth import User
 from services.llm import make_pop_decision, ChatContext, generate_choice_factors
 from routes.chat import _create_row, _update_row, _save_choice_factors, _stream_search
+from routes.rows_search import get_sourcing_repo, _sanitize_query
+from services.sdui_builder import build_ui_schema
+from sourcing.service import SourcingService
 from routes.pop_helpers import _get_pop_user, _ensure_project_member, _load_chat_history, _append_chat_history, _build_item_with_deals
 
 logger = logging.getLogger(__name__)
 chat_router = APIRouter()
 
 GUEST_EMAIL = "guest@buy-anything.com"
+
+
+async def _persist_ui_schema(session: AsyncSession, row: Row, ui_hint_data=None):
+    """Build SDUI schema from bids and persist on the Row."""
+    try:
+        from models.bids import Bid
+        bids_result = await session.execute(
+            select(Bid).where(Bid.row_id == row.id).order_by(Bid.combined_score.desc().nullslast()).limit(5)
+        )
+        bids = list(bids_result.scalars().all())
+        schema = build_ui_schema(ui_hint_data, row, bids)
+        row.ui_schema = schema
+        row.ui_schema_version = (getattr(row, 'ui_schema_version', 0) or 0) + 1
+        session.add(row)
+        await session.commit()
+    except Exception as e:
+        logger.warning(f"[Pop Web] Failed to build ui_schema for row {row.id}: {e}")
+
+
 _GUEST_SESSION_SECRET = os.getenv("GUEST_SESSION_SECRET", "pop-guest-session-default-key")
 
+
+
+async def _trigger_search_local(session: AsyncSession, row: Row, query: str):
+    try:
+        row.status = "bids_arriving"
+        session.add(row)
+        await session.commit()
+        
+        sourcing_service = SourcingService(session, get_sourcing_repo())
+        sanitized = _sanitize_query(query, True)
+        
+        await sourcing_service.search_and_persist(row.id, sanitized)
+    except Exception as e:
+        logger.warning(f"[Pop Web] Search failed for row {row.id}: {e}")
 
 def _sign_guest_project(project_id: int) -> str:
     """Create an HMAC token binding a guest session to a specific project."""
@@ -47,6 +83,7 @@ class PopChatRequest(BaseModel):
     channel: str = "web"
     guest_project_id: Optional[int] = None
     guest_session_token: Optional[str] = None  # HMAC token binding guest to project
+    target_project_id: Optional[int] = None
 
 
 @chat_router.post("/chat")
@@ -94,21 +131,32 @@ async def pop_web_chat(
                 await session.commit()
                 await session.refresh(project)
         else:
-            # Authenticated users — find or create their personal "Family Shopping List"
-            proj_stmt = (
-                select(Project)
-                .where(Project.user_id == user.id)
-                .where(Project.title == "Family Shopping List")
-                .where(Project.status == "active")
-            )
-            proj_result = await session.execute(proj_stmt)
-            project = proj_result.scalar_one_or_none()
+            # Authenticated users
+            if body.target_project_id:
+                project = await session.get(Project, body.target_project_id)
+                if project and project.user_id != user.id:
+                    project = None
+            if not project:
+                proj_stmt = (
+                    select(Project)
+                    .where(Project.user_id == user.id)
+                    .where(Project.status == "active")
+                    .order_by(Project.updated_at.desc())
+                    .limit(1)
+                )
+                proj_result = await session.execute(proj_stmt)
+                project = proj_result.scalar_one_or_none()
 
             if not project:
-                project = Project(title="Family Shopping List", user_id=user.id)
+                project = Project(title="My Shopping List", user_id=user.id)
                 session.add(project)
                 await session.commit()
                 await session.refresh(project)
+            else:
+                from datetime import datetime
+                project.updated_at = datetime.utcnow()
+                session.add(project)
+                await session.commit()
 
         await _ensure_project_member(session, project.id, user.id, channel="web")
 
@@ -178,10 +226,13 @@ async def pop_web_chat(
                 )
                 created_rows.append((row, item_query))
             # Search for deals on each created row
+            auth_header = request.headers.get("Authorization")
             for row, q in created_rows:
                 try:
-                    async for _batch in _stream_search(row.id, q, authorization=None):
+                    async for _batch in _stream_search(row.id, q, authorization=auth_header):
                         pass
+                    # Build SDUI schema after sourcing
+                    await _persist_ui_schema(session, row, decision.ui_hint)
                 except Exception as e:
                     logger.warning(f"[Pop Web] Search failed for row {row.id}: {e}")
             if created_rows:
@@ -201,9 +252,12 @@ async def pop_web_chat(
 
             # Trigger sourcing (non-streaming for web response)
             if search_query:
+                auth_header = request.headers.get("Authorization")
                 try:
-                    async for _batch in _stream_search(target_row.id, search_query, authorization=None):
+                    async for _batch in _stream_search(target_row.id, search_query, authorization=auth_header):
                         pass
+                    # Build SDUI schema after sourcing
+                    await _persist_ui_schema(session, target_row, decision.ui_hint)
                 except Exception as e:
                     logger.warning(f"[Pop Web] Search failed for row {target_row.id}: {e}")
 
@@ -217,9 +271,12 @@ async def pop_web_chat(
             target_row = row
 
             if search_query:
+                auth_header = request.headers.get("Authorization")
                 try:
-                    async for _batch in _stream_search(target_row.id, search_query, authorization=None):
+                    async for _batch in _stream_search(target_row.id, search_query, authorization=auth_header):
                         pass
+                    # Build SDUI schema after sourcing
+                    await _persist_ui_schema(session, target_row, decision.ui_hint)
                 except Exception as e:
                     logger.warning(f"[Pop Web] Search failed for row {target_row.id}: {e}")
 
@@ -240,7 +297,7 @@ async def pop_web_chat(
         list_stmt = (
             select(Row)
             .where(Row.project_id == project.id)
-            .where(Row.status.in_(["sourcing", "active", "pending"]))
+            .where(Row.status.in_(["sourcing", "bids_arriving", "open", "active", "pending"]))
             .order_by(Row.created_at.desc())
             .limit(20)
         )

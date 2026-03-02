@@ -12,7 +12,7 @@ from decimal import Decimal
 sys.path.append(str(Path(__file__).parent.parent))
 
 # Local DB
-DATABASE_URL = "postgresql://postgres:postgres@127.0.0.1:5435/shopping_agent"
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5437/shopping_agent").replace("+asyncpg", "").replace("?ssl=disable", "").replace("?sslmode=disable", "")
 
 async def dump_vendors():
     print(f"Connecting to {DATABASE_URL}...")

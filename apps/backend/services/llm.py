@@ -16,8 +16,8 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")  # Direct Gemini REST API fallback
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-3-flash-preview")  # Primary LLM path
 
 
 def _get_gemini_api_key() -> str:
@@ -93,19 +93,23 @@ async def _call_openrouter(prompt: str, timeout: float = 30.0) -> str:
 
 
 async def call_gemini(prompt: str, timeout: float = 30.0) -> str:
-    """Call LLM: try Gemini direct first, fall back to OpenRouter."""
-    # Try Gemini direct
+    """Call LLM: try OpenRouter first (gemini-3-flash-preview), fall back to Gemini direct."""
+    # Primary: OpenRouter (supports gemini-3-flash-preview)
+    if _get_openrouter_api_key():
+        try:
+            return await _call_openrouter(prompt, timeout)
+        except Exception as e:
+            logger.warning(f"OpenRouter failed, trying Gemini direct: {e}")
+
+    # Fallback: Gemini direct API
     if _get_gemini_api_key():
         try:
             return await _call_gemini_direct(prompt, timeout)
         except Exception as e:
-            logger.warning(f"Gemini direct failed, trying OpenRouter: {e}")
+            logger.error(f"Gemini direct also failed: {e}")
+            raise
 
-    # Fall back to OpenRouter
-    if _get_openrouter_api_key():
-        return await _call_openrouter(prompt, timeout)
-
-    raise ValueError("No LLM API key configured (GEMINI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or OPENROUTER_API_KEY)")
+    raise ValueError("No LLM API key configured (OPENROUTER_API_KEY, GEMINI_API_KEY, or GOOGLE_GENERATIVE_AI_API_KEY)")
 
 
 def _extract_json(text: str) -> dict:
@@ -172,7 +176,9 @@ class UnifiedDecision(BaseModel):
     message: str
     intent: UserIntent
     action: Dict[str, Any]  # flexible to handle all action types
-    items: Optional[List[Dict[str, str]]] = None  # multi-item Pop responses
+    items: Optional[List[Dict[str, str]]] = None  # multi-item responses
+    project_title: Optional[str] = None  # Name for a group of items
+    ui_hint: Optional[Dict[str, Any]] = None  # SDUI layout hint from LLM
 
     @property
     def desire_tier(self) -> str:
@@ -302,6 +308,24 @@ RULES:
 
 CRITICAL: If an active row exists and the user's message relates to the SAME category/topic, you MUST use update_row. NEVER create a duplicate row for the same request. "Make it round trip", "add return leg", "change date", "2 passengers" — these are ALL update_row when an active row exists.
 
+=== LISTS & MULTIPLE ITEMS ===
+If the user asks for multiple completely separate things in one message (e.g., a grocery list, or "I need a lawnmower and some running shoes"), return them in the `items` array and set `action` to `create_row`.
+If the user names the list (e.g., "Camping trip: tent, sleeping bag, stove"), set `project_title` to "Camping Trip".
+Otherwise, if it's just a bunch of random items, set `project_title` to a logical group name or null.
+
+For MULTIPLE items, your JSON MUST look like this:
+{{
+  "message": "I'll start searching for these items right away.",
+  "action": {{ "type": "create_row" }},
+  "project_title": "Camping Trip",
+  "items": [
+    {{ "what": "Tent", "search_query": "4 person camping tent" }},
+    {{ "what": "Sleeping Bag", "search_query": "cold weather sleeping bag" }},
+    {{ "what": "Stove", "search_query": "portable camping stove" }}
+  ],
+  "intent": {{ "what": "Multiple items", "category": "product", "search_query": "list", "constraints": {{}}, "desire_tier": "commodity", "desire_confidence": 0.9 }}
+}}
+
 === STRUCTURED RFP BUILDER (Phase 4) ===
 You are NOT just a chatbot. You are a procurement agent. For every request, follow this pattern:
 
@@ -333,16 +357,47 @@ COMPLEX REQUESTS (services, custom/bespoke items, high-value purchases):
   - Custom jewelry: recipient, budget, carat weight, style preferences
 - Then create_row with full intent
 
+=== UI HINT (optional but recommended) ===
+Select how the results should be displayed. Pick a layout and list which UI blocks to show:
+
+Layouts: ROW_COMPACT (text-only comparison), ROW_MEDIA_LEFT (image + details), ROW_TIMELINE (progress/fulfillment tracking)
+Blocks (pick 3-6 from): ProductImage, PriceBlock, DataGrid, FeatureList, BadgeList, MarkdownText, Timeline, MessageList, ChoiceFactorForm, ActionRow
+
+Examples:
+- Grocery items: {{"layout": "ROW_MEDIA_LEFT", "blocks": ["ProductImage", "PriceBlock", "BadgeList", "ActionRow"], "value_vector": "unit_price"}}
+- Private jet charter: {{"layout": "ROW_TIMELINE", "blocks": ["DataGrid", "BadgeList", "Timeline", "ActionRow"], "value_vector": "safety"}}
+- Simple product search: {{"layout": "ROW_COMPACT", "blocks": ["MarkdownText", "PriceBlock", "BadgeList", "ActionRow"]}}
+- Custom/bespoke item needing details: {{"layout": "ROW_COMPACT", "blocks": ["MarkdownText", "ChoiceFactorForm", "ActionRow"]}}
+
 Return ONLY valid JSON:
 {{
   "message": "Conversational response to user (REQUIRED)",
   "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}}, "desire_tier": "commodity|considered|service|bespoke|high_value|advisory", "desire_confidence": 0.9 }},
-  "action": {{ "type": "..." }}
+  "action": {{ "type": "..." }},
+  "ui_hint": {{ "layout": "ROW_COMPACT|ROW_MEDIA_LEFT|ROW_TIMELINE", "blocks": ["..."], "value_vector": "unit_price|safety|speed|reliability|durability" }}
 }}"""
 
     try:
         text = await call_gemini(prompt, timeout=30.0)
         parsed = _extract_json(text)
+
+        # Handle multi-item responses
+        items_list = parsed.pop("items", None)
+        if items_list and isinstance(items_list, list) and len(items_list) > 0:
+            first = items_list[0]
+            if "intent" not in parsed:
+                parsed["intent"] = {
+                    "what": first.get("what", ""),
+                    "category": "product",
+                    "search_query": first.get("search_query", f"{first.get('what', '')} deals"),
+                    "constraints": {},
+                    "desire_tier": "commodity",
+                    "desire_confidence": 0.95,
+                }
+            decision = UnifiedDecision(**parsed)
+            decision.items = items_list
+            return decision
+
         return UnifiedDecision(**parsed)
     except Exception as e:
         logger.error(f"Failed to parse LLM decision: {e}")

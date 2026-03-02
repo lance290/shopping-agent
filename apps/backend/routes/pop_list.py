@@ -84,7 +84,7 @@ async def get_pop_list(
     rows_stmt = (
         select(Row)
         .where(Row.project_id == project_id)
-        .where(Row.status.in_(["sourcing", "active", "pending"]))
+        .where(Row.status.in_(["sourcing", "bids_arriving", "open", "active", "pending"]))
         .order_by(Row.created_at.desc())
         .limit(50)
     )
@@ -190,22 +190,32 @@ async def get_my_pop_list(
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    proj_stmt = (
-        select(Project)
-        .where(Project.user_id == user.id)
-        .where(Project.title == "Family Shopping List")
-        .where(Project.status == "active")
-    )
+    project_id = request.query_params.get("project_id")
+    if project_id:
+        proj_stmt = (
+            select(Project)
+            .where(Project.id == int(project_id))
+            .where(Project.user_id == user.id)
+            .where(Project.status == "active")
+        )
+    else:
+        proj_stmt = (
+            select(Project)
+            .where(Project.user_id == user.id)
+            .where(Project.status == "active")
+            .order_by(Project.updated_at.desc())
+            .limit(1)
+        )
     proj_result = await session.execute(proj_stmt)
     project = proj_result.scalar_one_or_none()
 
     if not project:
-        return {"project_id": None, "title": "Family Shopping List", "items": []}
+        return {"project_id": None, "title": "My Shopping List", "items": []}
 
     rows_stmt = (
         select(Row)
         .where(Row.project_id == project.id)
-        .where(Row.status.in_(["sourcing", "active", "pending"]))
+        .where(Row.status.in_(["sourcing", "bids_arriving", "open", "active", "pending"]))
         .order_by(Row.created_at.asc())
         .limit(50)
     )
@@ -214,6 +224,91 @@ async def get_my_pop_list(
 
     items = [await _build_item_with_deals(session, r) for r in rows]
     return {"project_id": project.id, "title": project.title, "items": items}
+
+
+@list_router.get("/lists")
+async def get_pop_lists(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    proj_stmt = (
+        select(Project)
+        .where(Project.user_id == user.id)
+        .where(Project.status == "active")
+        .order_by(Project.updated_at.desc())
+    )
+    result = await session.execute(proj_stmt)
+    projects = result.scalars().all()
+
+    return [{"id": p.id, "title": p.title, "created_at": p.created_at.isoformat() if p.created_at else None} for p in projects]
+
+
+@list_router.post("/list/{project_id}/duplicate")
+async def duplicate_pop_list(
+    project_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    project = await session.get(Project, project_id)
+    if not project or project.user_id != user.id:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    new_project = Project(
+        title=f"{project.title} (Copy)",
+        user_id=user.id
+    )
+    session.add(new_project)
+    await session.commit()
+    await session.refresh(new_project)
+
+    rows_stmt = select(Row).where(Row.project_id == project_id, Row.status.in_(["sourcing", "bids_arriving", "open", "active", "pending"]))
+    rows_result = await session.execute(rows_stmt)
+    rows = rows_result.scalars().all()
+
+    for row in rows:
+        new_row = Row(
+            user_id=user.id,
+            project_id=new_project.id,
+            title=row.title,
+            status=row.status,
+            is_service=row.is_service,
+            service_category=row.service_category,
+            choice_answers=row.choice_answers,
+            provider_query=row.provider_query,
+            desire_tier=row.desire_tier,
+            budget_max=row.budget_max,
+            currency=row.currency
+        )
+        session.add(new_row)
+
+    await session.commit()
+    return {"project_id": new_project.id, "title": new_project.title}
+
+
+@list_router.post("/lists")
+async def create_pop_list(
+    request: Request,
+    body: dict,
+    session: AsyncSession = Depends(get_session),
+):
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    title = body.get("title", "New List").strip() or "New List"
+    project = Project(title=title, user_id=user.id)
+    session.add(project)
+    await session.commit()
+    await session.refresh(project)
+    return {"project_id": project.id, "title": project.title}
 
 
 @list_router.post("/list/{project_id}/invite")
@@ -274,7 +369,7 @@ async def resolve_pop_invite(
     rows_stmt = (
         select(Row)
         .where(Row.project_id == project.id)
-        .where(Row.status.in_(["sourcing", "active", "pending"]))
+        .where(Row.status.in_(["sourcing", "bids_arriving", "open", "active", "pending"]))
     )
     rows_result = await session.execute(rows_stmt)
     items = rows_result.scalars().all()
@@ -405,11 +500,38 @@ async def claim_pop_offer(
         prior.liked_at = None
         session.add(prior)
 
-    bid.is_selected = True
-    bid.liked_at = datetime.utcnow()
-    session.add(bid)
+        # Cancel any associated swap claims
+        from models.coupons import PopSwapClaim
+        claims_stmt = select(PopSwapClaim).where(PopSwapClaim.row_id == row.id, PopSwapClaim.user_id == user.id)
+        claims_result = await session.execute(claims_stmt)
+        for claim in claims_result.scalars().all():
+            claim.status = "canceled"
+            session.add(claim)
+
+    # Note: Bid IDs > 1,000,000 are synthesized PopSwap objects from CouponProvider,
+    # not actual database Bids. But for real database Bids that have is_swap=True,
+    # we might need a mapping to the underlying PopSwap. For now, we assume the frontend
+    # sends the synthesized ID (1,000,000 + swap_id).
+    swap_id = None
+    if bid_id >= 1000000:
+        swap_id = bid_id - 1000000
+    
+    if swap_id:
+        from models.coupons import PopSwapClaim
+        claim = PopSwapClaim(
+            swap_id=swap_id,
+            user_id=user.id,
+            row_id=row.id,
+            status="claimed",
+        )
+        session.add(claim)
+    else:
+        bid.is_selected = True
+        bid.liked_at = datetime.utcnow()
+        session.add(bid)
+        
     await session.commit()
-    return {"claimed": True, "bid_id": bid_id, "title": bid.item_title, "price": bid.price}
+    return {"claimed": True, "bid_id": bid_id, "title": bid.item_title if not swap_id else "Swap Offer", "price": bid.price if not swap_id else None}
 
 
 @list_router.delete("/offer/{bid_id}/claim")
@@ -434,5 +556,18 @@ async def unclaim_pop_offer(
     bid.is_selected = False
     bid.liked_at = None
     session.add(bid)
+
+    swap_id = None
+    if bid_id >= 1000000:
+        swap_id = bid_id - 1000000
+        
+    if swap_id:
+        from models.coupons import PopSwapClaim
+        claims_stmt = select(PopSwapClaim).where(PopSwapClaim.row_id == row.id, PopSwapClaim.user_id == user.id, PopSwapClaim.swap_id == swap_id)
+        claims_result = await session.execute(claims_stmt)
+        for claim in claims_result.scalars().all():
+            claim.status = "canceled"
+            session.add(claim)
+
     await session.commit()
     return {"claimed": False, "bid_id": bid_id}

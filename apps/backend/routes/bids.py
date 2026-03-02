@@ -9,8 +9,10 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
-from models import Bid, BidWithProvenance, Comment
+from models import Bid, BidWithProvenance, Comment, Row
 from dependencies import get_current_session
+from services.sdui_builder import build_ui_schema, derive_layout_fallback, hydrate_ui_schema
+from services.sdui_schema import validate_ui_hint, UIHint
 
 router = APIRouter(tags=["bids"])
 
@@ -254,3 +256,49 @@ async def get_bid_social(
         comment_count=len(comment_data),
         comments=comment_data
     )
+
+
+@router.get("/bids/{bid_id}/schema")
+async def get_bid_schema(
+    bid_id: int,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Lazy bid-expand: hydrate and return a bid-level ui_schema on demand.
+
+    If the bid already has a cached ui_schema, return it.
+    Otherwise, hydrate from the Row's ui_hint + bid data, cache it, and return.
+
+    Per PRD-SDUI-Schema-Spec.md §6: Bid schemas are generated lazily on-expand only.
+    """
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    result = await session.exec(
+        select(Bid).where(Bid.id == bid_id).options(selectinload(Bid.seller))
+    )
+    bid = result.first()
+    if not bid:
+        raise HTTPException(status_code=404, detail="Bid not found")
+
+    # Return cached schema if available
+    if bid.ui_schema and bid.ui_schema_version > 0:
+        return {"bid_id": bid_id, "ui_schema": bid.ui_schema, "ui_schema_version": bid.ui_schema_version}
+
+    # Hydrate on demand: use the parent Row for context
+    row = await session.get(Row, bid.row_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Parent row not found")
+
+    # Build a bid-level schema (detail view for this specific option)
+    schema = build_ui_schema(None, row, [bid])
+
+    # Cache to the bid
+    bid.ui_schema = schema
+    bid.ui_schema_version = 1
+    session.add(bid)
+    await session.commit()
+
+    return {"bid_id": bid_id, "ui_schema": schema, "ui_schema_version": 1}

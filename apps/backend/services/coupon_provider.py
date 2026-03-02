@@ -171,8 +171,8 @@ class ManualProvider(CouponProvider):
             )
         )
 
-        result = await session.exec(stmt)
-        swaps = result.all()
+        result = await session.execute(stmt)
+        swaps = result.scalars().all()
 
         matched_swaps = []
         search_terms = category.lower().split()
@@ -235,8 +235,8 @@ class HomeBrewProvider(CouponProvider):
         )
 
         # If max_redemptions set, exclude fully redeemed offers
-        result = await session.exec(stmt)
-        swaps = result.all()
+        result = await session.execute(stmt)
+        swaps = result.scalars().all()
 
         available = [
             s for s in swaps

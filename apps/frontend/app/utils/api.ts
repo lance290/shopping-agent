@@ -419,6 +419,23 @@ export const deleteProjectFromDb = async (id: number): Promise<boolean> => {
   }
 };
 
+// Helper: Duplicate project
+export const duplicateProjectInDb = async (id: number): Promise<Project | null> => {
+  try {
+    const res = await fetchWithAuth(`/api/projects/${id}/duplicate`, { 
+      method: 'POST',
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+    console.error('[API] Duplicate project failed:', res.status, await res.text());
+    return null;
+  } catch (err) {
+    console.error('[API] Duplicate project error:', err);
+    return null;
+  }
+};
+
 // Helper: Save choice answer
 export const saveChoiceAnswerToDb = async (
   rowId: number,

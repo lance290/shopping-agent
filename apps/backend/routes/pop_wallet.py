@@ -190,6 +190,28 @@ async def scan_receipt(
         )
         session.add(txn)
 
+        # PRD 6.2: 30% of swap payouts to the referrer
+        from models.pop import Referral
+        ref_stmt = select(Referral).where(Referral.referred_user_id == user.id, Referral.status == "activated")
+        ref_result = await session.execute(ref_stmt)
+        referral = ref_result.scalar_one_or_none()
+        
+        if referral:
+            referrer_amount = int(credits_cents * 0.30)
+            if referrer_amount > 0:
+                from models.auth import User as AuthUser
+                referrer = await session.get(AuthUser, referral.referrer_user_id)
+                if referrer:
+                    referrer.wallet_balance_cents = (referrer.wallet_balance_cents or 0) + referrer_amount
+                    session.add(referrer)
+                    ref_txn = WalletTransaction(
+                        user_id=referrer.id,
+                        amount_cents=referrer_amount,
+                        description="Referral share — 30% from a friend's savings",
+                        source="referral_share",
+                    )
+                    session.add(ref_txn)
+
     await session.commit()
 
     return {

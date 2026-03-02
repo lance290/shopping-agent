@@ -84,7 +84,7 @@ def test_commodity_ranking(mixed_results):
     # Vendor result should be present but ranked lower
     vendor_result = next((r for r in ranked if r.source == "vendor_directory"), None)
     assert vendor_result is not None
-    assert vendor_result.provenance["score"]["tier_fit"] == 0.3  # Penalized but not zero
+    assert vendor_result.provenance["score"]["source_fit"] == 0.3  # Penalized but not zero
 
 
 def test_bespoke_ranking(mixed_results):
@@ -107,7 +107,7 @@ def test_bespoke_ranking(mixed_results):
     # Amazon result should be present but ranked lower
     amazon_result = next((r for r in ranked if r.source == "rainforest"), None)
     assert amazon_result is not None
-    assert amazon_result.provenance["score"]["tier_fit"] == 0.2  # Heavy penalty
+    assert amazon_result.provenance["score"]["source_fit"] == 0.2  # Heavy penalty
 
 
 def test_score_breakdown(mixed_results):
@@ -120,8 +120,8 @@ def test_score_breakdown(mixed_results):
     )
     
     score_data = ranked[0].provenance["score"]
-    assert "tier_fit" in score_data
-    assert score_data["tier_fit"] == 1.0  # Amazon is perfect fit for commodity
+    assert "source_fit" in score_data
+    assert score_data["source_fit"] == 1.0  # Amazon is perfect fit for commodity
 
 
 def test_advisory_tier(mixed_results):

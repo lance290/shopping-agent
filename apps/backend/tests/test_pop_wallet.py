@@ -90,14 +90,38 @@ async def test_receipt_scan_matches_list_items_and_earns_credits(
 
 
 @pytest.mark.asyncio
-async def test_receipt_scan_swap_earns_extra_credits(
+async def test_receipt_scan_triggers_referral_revenue_share(
     client: AsyncClient,
+    session: AsyncSession,
     pop_user,
     pop_project: Project,
     pop_row: Row,
 ):
-    """Swap purchases earn 50 cents (vs 25 for regular match)."""
-    _, token = pop_user
+    """
+    When a referred user earns swap credits, 30% of their earnings
+    should be credited to their referrer's wallet.
+    """
+    user, token = pop_user
+    
+    # 1. Create a referrer user
+    from models import User
+    from models.pop import Referral
+    referrer = User(email="referrer@example.com", is_admin=False, ref_code="TESTREF1", wallet_balance_cents=1000)
+    session.add(referrer)
+    await session.commit()
+    await session.refresh(referrer)
+
+    # 2. Link them via a referral
+    referral = Referral(
+        referrer_user_id=referrer.id,
+        referred_user_id=user.id,
+        ref_code="TESTREF1",
+        status="activated",
+    )
+    session.add(referral)
+    await session.commit()
+
+    # 3. Simulate a receipt scan that earns 50 cents (swap)
     mock_items = [{"name": "Whole milk", "price": 3.49, "is_swap": True}]
     with patch("routes.pop_wallet._extract_receipt_items", new_callable=AsyncMock, return_value=mock_items):
         resp = await client.post(
@@ -105,8 +129,14 @@ async def test_receipt_scan_swap_earns_extra_credits(
             json={"image_base64": "dGVzdA==", "project_id": pop_project.id},
             headers={"Authorization": f"Bearer {token}"},
         )
+    
     assert resp.status_code == 200
     data = resp.json()
     assert data["credits_earned_cents"] == 50
+    
+    # 4. Check referrer's wallet balance
+    # Base 1000 + (50 * 0.3) = 1000 + 15 = 1015
+    await session.refresh(referrer)
+    assert referrer.wallet_balance_cents == 1015
 
 

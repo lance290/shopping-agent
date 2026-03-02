@@ -1,0 +1,65 @@
+--- apps/frontend/app/pop-site/chat/page.tsx
++++ apps/frontend/app/pop-site/chat/page.tsx
+@@ -7,6 +7,7 @@
+ 
+ const LS_ITEMS_KEY = 'pop_guest_list_items';
+ const LS_GUEST_PROJECT_KEY = 'pop_guest_project_id';
++const LS_GUEST_TOKEN_KEY = 'pop_guest_session_token';
+ 
+ interface Message {
+   id: string;
+@@ -29,6 +30,7 @@
+   const [editingId, setEditingId] = useState<number | null>(null);
+   const [editValue, setEditValue] = useState('');
+   const [projectId, setProjectId] = useState<number | null>(null);
++  const [guestToken, setGuestToken] = useState<string | null>(null);
+ 
+   const searchParams = useSearchParams();
+   const sharedListId = searchParams.get('list');
+@@ -107,6 +109,8 @@
+         }
+         const savedProjectId = localStorage.getItem(LS_GUEST_PROJECT_KEY);
+         if (savedProjectId) setProjectId(Number(savedProjectId));
++        const savedToken = localStorage.getItem(LS_GUEST_TOKEN_KEY);
++        if (savedToken) setGuestToken(savedToken);
+       } catch {
+         // ignore
+       }
+@@ -118,6 +122,7 @@
+     if (!isLoggedIn) {
+       if (listItems.length > 0) localStorage.setItem(LS_ITEMS_KEY, JSON.stringify(listItems));
+       if (projectId) localStorage.setItem(LS_GUEST_PROJECT_KEY, String(projectId));
++      if (guestToken) localStorage.setItem(LS_GUEST_TOKEN_KEY, guestToken);
+     }
+   }, [listItems, isLoggedIn, projectId]);
+ 
+@@ -134,13 +139,21 @@
+     const guestProjectId = !isLoggedIn
+       ? projectId ?? (localStorage.getItem(LS_GUEST_PROJECT_KEY) ? Number(localStorage.getItem(LS_GUEST_PROJECT_KEY)) : null)
+       : null;
++      
++    const currentGuestToken = !isLoggedIn
++      ? guestToken ?? localStorage.getItem(LS_GUEST_TOKEN_KEY)
++      : null;
+ 
+     try {
+       const res = await fetch('/api/pop/chat', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+-        body: JSON.stringify({ message: text, ...(guestProjectId ? { guest_project_id: guestProjectId } : {}) }),
++        body: JSON.stringify({ 
++          message: text, 
++          ...(guestProjectId ? { guest_project_id: guestProjectId } : {}),
++          ...(currentGuestToken ? { guest_session_token: currentGuestToken } : {})
++        }),
+       });
+       const data = await res.json();
+ 
+@@ -151,6 +164,7 @@
+ 
+       if (data.list_items?.length > 0) setListItems(data.list_items);
+       if (data.project_id) setProjectId(data.project_id);
++      if (data.guest_session_token) setGuestToken(data.guest_session_token);
+     } catch {
+       setMessages((prev) => [
+         ...prev,

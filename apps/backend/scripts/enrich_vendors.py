@@ -61,7 +61,7 @@ logger = logging.getLogger(__name__)
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "openai/text-embedding-3-small")
 EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIMENSIONS", "1536"))
-LLM_MODEL = "google/gemini-2.0-flash-001"  # cheap + fast for extraction
+LLM_MODEL = "google/gemini-3-flash-preview"  # cheap + fast for extraction
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"

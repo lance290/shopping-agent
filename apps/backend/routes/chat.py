@@ -30,16 +30,20 @@ from services.llm import (
     generate_choice_factors,
     make_unified_decision,
 )
+from services.sdui_builder import build_ui_schema
 
 router = APIRouter(tags=["chat"])
 logger = logging.getLogger(__name__)
 
+
 def _get_self_base_url() -> str:
-    """Detect the actual server port for internal self-calls."""
-    # Check explicit env var first
+    # First respect an explicit self call URL (useful for production/railway)
+    explicit_url = os.environ.get("SELF_BASE_URL")
+    if explicit_url:
+        return explicit_url.rstrip("/")
+        
     port = os.environ.get("PORT")
     if not port:
-        # Detect from uvicorn command-line args (handles --port 8080)
         import sys
         args = sys.argv
         for i, arg in enumerate(args):
@@ -52,6 +56,7 @@ def _get_self_base_url() -> str:
     return f"http://127.0.0.1:{port or '8000'}"
 
 _SELF_BASE_URL = _get_self_base_url()
+
 
 
 # =============================================================================
@@ -72,6 +77,37 @@ class ChatRequest(BaseModel):
 def sse_event(event: str, data: Any) -> str:
     """Format a single SSE event."""
     return f"event: {event}\ndata: {json.dumps(data if data is not None else None)}\n\n"
+
+
+async def _build_and_persist_ui_schema(
+    session: AsyncSession, row: Row, ui_hint_data=None
+) -> Optional[dict]:
+    """Build SDUI schema from bids and persist on the Row. Returns schema dict or None."""
+    try:
+        result = await session.exec(
+            select(Bid).where(Bid.row_id == row.id).order_by(Bid.combined_score.desc().nullslast()).limit(30)
+        )
+        bids = list(result.all())
+        schema = build_ui_schema(ui_hint_data, row, bids)
+        row.ui_schema = schema
+        row.ui_schema_version = (getattr(row, "ui_schema_version", 0) or 0) + 1
+        session.add(row)
+        await session.commit()
+        return schema
+    except Exception as e:
+        logger.warning(f"[Chat] Failed to build ui_schema for row {row.id}: {e}")
+        return None
+
+
+def sse_ui_schema_event(row_id: int, schema: dict, version: int, trigger: str) -> str:
+    """Emit a ui_schema_updated SSE event per Schema Spec §9."""
+    return sse_event("ui_schema_updated", {
+        "entity_type": "row",
+        "entity_id": row_id,
+        "schema": schema,
+        "version": version,
+        "trigger": trigger,
+    })
 
 
 def row_to_dict(row: Row) -> dict:
@@ -180,6 +216,8 @@ async def _update_row(
         row.title = title
     if constraints is not None:
         row.choice_answers = constraints
+    if reset_bids:
+        row.ui_schema = None  # Invalidate SDUI schema — rebuilt after next search
     row.updated_at = datetime.utcnow()
     session.add(row)
 
@@ -376,6 +414,63 @@ async def chat_endpoint(
                 yield sse_event("done", {})
                 return
 
+            # --- MULTI-ITEM / LIST CREATION ---
+            if decision.items and action_type in ("create_row", "context_switch"):
+                # If there's no project yet, create one for this list
+                if not project_id:
+                    proj_title = decision.project_title or "Shopping List"
+                    new_proj = Project(title=proj_title, user_id=user_id)
+                    session.add(new_proj)
+                    await session.commit()
+                    await session.refresh(new_proj)
+                    project_id = new_proj.id
+
+                created_rows = []
+                for item_data in decision.items:
+                    item_title = item_data.get("what", "").strip()
+                    if not item_title:
+                        continue
+                    item_title = item_title[0].upper() + item_title[1:]
+                    item_query = item_data.get("search_query", item_title)
+                    item_tier = item_data.get("desire_tier", "commodity")
+                    
+                    row = await _create_row(
+                        session, user_id, item_title, project_id,
+                        False, None, {}, item_query,
+                        desire_tier=item_tier,
+                    )
+                    created_rows.append((row, item_query, item_tier))
+                    yield sse_event("row_created", {"row": row_to_dict(row)})
+
+                # Search for deals on each created row sequentially
+                for row, q, tier in created_rows:
+                    yield sse_event("action_started", {"type": "search", "row_id": row.id, "query": q})
+                    async for batch in _stream_search(row.id, q, authorization):
+                        if batch.get("event") == "complete":
+                            if batch.get("user_message"):
+                                yield sse_event("search_results", {
+                                    "row_id": row.id,
+                                    "results": [],
+                                    "more_incoming": False,
+                                    "user_message": batch["user_message"],
+                                })
+                        else:
+                            yield sse_event("search_results", {
+                                "row_id": row.id,
+                                "results": batch.get("results", []),
+                                "provider_statuses": [batch.get("status")] if batch.get("status") else [],
+                                "more_incoming": batch.get("more_incoming", False),
+                                "provider": batch.get("provider"),
+                            })
+
+                    # Build and emit SDUI schema after search completes
+                    schema = await _build_and_persist_ui_schema(session, row, decision.ui_hint)
+                    if schema:
+                        yield sse_ui_schema_event(row.id, schema, row.ui_schema_version, "search_complete")
+
+                yield sse_event("done", {})
+                return
+
             # --- CREATE ROW (also used for context_switch) ---
             if action_type in ("create_row", "context_switch"):
                 event_name = "context_switch" if action_type == "context_switch" else "row_created"
@@ -423,6 +518,11 @@ async def chat_endpoint(
                             "provider": batch.get("provider"),
                         })
 
+                # Build and emit SDUI schema after search completes
+                schema = await _build_and_persist_ui_schema(session, row, decision.ui_hint)
+                if schema:
+                    yield sse_ui_schema_event(row.id, schema, row.ui_schema_version, "search_complete")
+
                 yield sse_event("done", {})
                 return
 
@@ -462,6 +562,11 @@ async def chat_endpoint(
                                 yield sse_event("search_results", {"row_id": row.id, "results": [], "more_incoming": False, "user_message": batch["user_message"]})
                         else:
                             yield sse_event("search_results", {"row_id": row.id, "results": batch.get("results", []), "provider_statuses": [batch.get("status")] if batch.get("status") else [], "more_incoming": batch.get("more_incoming", False), "provider": batch.get("provider")})
+
+                    # Build and emit SDUI schema
+                    schema = await _build_and_persist_ui_schema(session, row, decision.ui_hint)
+                    if schema:
+                        yield sse_ui_schema_event(row.id, schema, row.ui_schema_version, "search_complete")
 
                     yield sse_event("done", {})
                     return
@@ -533,6 +638,11 @@ async def chat_endpoint(
                                 "more_incoming": batch.get("more_incoming", False),
                                 "provider": batch.get("provider"),
                             })
+
+                    # Build and emit SDUI schema
+                    schema = await _build_and_persist_ui_schema(session, row, decision.ui_hint)
+                    if schema:
+                        yield sse_ui_schema_event(row.id, schema, row.ui_schema_version, "search_complete")
 
                 yield sse_event("done", {})
                 return
