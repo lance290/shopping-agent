@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { DynamicRenderer } from '../../components/sdui/DynamicRenderer';
 
 const LS_ITEMS_KEY = 'pop_guest_list_items';
 const LS_GUEST_PROJECT_KEY = 'pop_guest_project_id';
@@ -31,6 +32,7 @@ interface ListItem {
   deals?: Deal[];
   lowest_price?: number | null;
   deal_count?: number;
+  ui_schema?: Record<string, unknown> | null;
 }
 
 function PopChatInner() {
@@ -430,8 +432,19 @@ function PopChatInner() {
                       </div>
                     </div>
 
-                    {/* Deal choices (expanded) */}
-                    {isExpanded && item.deals && item.deals.length > 0 && (
+                    {/* SDUI rendering (expanded) */}
+                    {isExpanded && item.ui_schema && (
+                      <div className="border-t border-gray-100 px-3 py-2">
+                        <DynamicRenderer
+                          schema={item.ui_schema}
+                          fallbackTitle={item.title}
+                          fallbackStatus={item.status}
+                        />
+                      </div>
+                    )}
+
+                    {/* Legacy deal choices (expanded, when no ui_schema) */}
+                    {isExpanded && !item.ui_schema && item.deals && item.deals.length > 0 && (
                       <div className="border-t border-gray-100 px-3 py-2 space-y-2">
                         {item.deals.map((deal) => (
                           <button

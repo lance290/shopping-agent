@@ -14,6 +14,7 @@ from database import get_session  # noqa: F401 — re-exported for convenience
 from models.rows import Row, Project, ProjectMember
 from models.bids import Bid
 from services.coupon_provider import get_coupon_provider
+from services.sdui_builder import build_ui_schema, build_zero_results_schema
 from models.auth import User
 from dependencies import get_current_session
 
@@ -165,6 +166,14 @@ async def _build_item_with_deals(session: AsyncSession, row: Row) -> dict:
             "savings_vs_first": s.savings_cents / 100,
         })
 
+    # Build SDUI schema from bids
+    ui_schema = row.ui_schema if hasattr(row, 'ui_schema') and row.ui_schema else None
+    if ui_schema is None:
+        if bids:
+            ui_schema = build_ui_schema(None, row, list(bids))
+        else:
+            ui_schema = build_zero_results_schema(row)
+
     return {
         "id": row.id,
         "title": row.title,
@@ -173,4 +182,5 @@ async def _build_item_with_deals(session: AsyncSession, row: Row) -> dict:
         "swaps": swaps[:3],
         "lowest_price": lowest_price,
         "deal_count": len(deals),
+        "ui_schema": ui_schema,
     }
