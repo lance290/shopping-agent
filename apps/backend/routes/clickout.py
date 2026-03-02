@@ -22,6 +22,7 @@ async def clickout_redirect(
     url: str,
     request: Request,
     row_id: Optional[int] = None,
+    bid_id: Optional[int] = None,
     idx: int = 0,
     source: str = "unknown",
     authorization: Optional[str] = Header(None),
@@ -33,6 +34,7 @@ async def clickout_redirect(
     Query params:
         url: The canonical merchant URL
         row_id: The procurement row this offer belongs to
+        bid_id: The specific bid this offer belongs to (for SDUI tracking)
         idx: The offer's position in search results
         source: The sourcing provider (e.g., serpapi_google_shopping)
     """
@@ -80,6 +82,7 @@ async def clickout_redirect(
                     user_id=user_id,
                     session_id=session_id,
                     row_id=row_id,
+                    bid_id=bid_id,
                     offer_index=idx,
                     canonical_url=url,
                     final_url=resolved.final_url,

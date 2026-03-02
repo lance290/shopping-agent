@@ -70,6 +70,7 @@ class ClickoutEvent(SQLModel, table=True):
 
     # What they clicked
     row_id: Optional[int] = Field(default=None, index=True)
+    bid_id: Optional[int] = Field(default=None, index=True)  # Added for SDUI attribution
     offer_index: int = 0  # Position in results (for ranking analysis)
 
     # URL info
