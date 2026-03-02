@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useShoppingStore, mapBidToOffer } from '../../store';
 import type { Row, Offer } from '../../store';
 import { createProjectInDb } from '../../utils/api';
@@ -20,6 +20,23 @@ export function AppView({ children }: AppViewProps) {
   const setTargetProjectId = useShoppingStore((s) => s.setTargetProjectId);
   const setReportBugModalOpen = useShoppingStore((s) => s.setReportBugModalOpen);
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
+  const [isProd, setIsProd] = useState(true);
+
+  // Check environment on mount
+  useEffect(() => {
+    const hostname = window.location.hostname;
+    // Show bug reporter on localhost, dev.*, staging.*, etc.
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.includes('dev.') ||
+      hostname.includes('staging.')
+    ) {
+      setIsProd(false);
+    } else {
+      setIsProd(true);
+    }
+  }, []);
 
   // Filter out archived/cancelled rows
   const activeRows = rows.filter((r) => r.status !== 'archived' && r.status !== 'cancelled');
@@ -83,14 +100,16 @@ export function AppView({ children }: AppViewProps) {
                 <FolderPlus size={14} />
                 New Project
               </button>
-              <button
-                onClick={() => setReportBugModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-                title="Report Bug"
-              >
-                <Bug size={14} />
-                Report Bug
-              </button>
+              {!isProd && (
+                <button
+                  onClick={() => setReportBugModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                  title="Report Bug"
+                >
+                  <Bug size={14} />
+                  Report Bug
+                </button>
+              )}
             </div>
           </div>
 
