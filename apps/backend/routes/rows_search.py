@@ -102,10 +102,23 @@ def _extract_filters(row: Row, spec: Optional[RequestSpec]) -> tuple[Optional[fl
         try:
             if isinstance(value, (int, float)):
                 return float(value)
-            match = re.search(r"(\d[\d,]*\.?\d*)", str(value))
+            value_str = str(value).lower().replace('$', '').strip()
+            
+            # Match digits (with optional commas) and optional decimal part
+            match = re.search(r'(\d[\d,]*(?:\.\d*)?)', value_str)
             if not match:
                 return None
-            return float(match.group(1).replace(",", ""))
+                
+            num_str = match.group(1).replace(',', '')
+            if not num_str:
+                return None
+            val = float(num_str)
+            
+            # Check if the number is followed by a 'k'
+            if re.search(r'\d[\d,]*(?:\.\d*)?\s*k\b', value_str):
+                val *= 1000
+                
+            return val
         except Exception:
             return None
 

@@ -262,13 +262,26 @@ class TestPriceExtractionFromRow:
 
     def test_string_price_values_handled(self):
         """String price values should be convertible to float."""
-        choice_answers = {"min_price": "500", "max_price": "2000"}
+        from routes.rows_search import _extract_filters
+        from models import Row
+        import json
         
-        min_price = float(choice_answers.get("min_price", 0))
-        max_price = float(choice_answers.get("max_price", 0))
+        row = Row(
+            title="Test",
+            choice_answers=json.dumps({"min_price": "$3k", "max_price": "over 5000", "budget": "2,500"})
+        )
         
-        assert min_price == 500.0
-        assert max_price == 2000.0
+        min_price, max_price, _ = _extract_filters(row, None)
+        
+        assert min_price == 3000.0
+        assert max_price == 5000.0
+        
+        row2 = Row(
+            title="Test2",
+            choice_answers=json.dumps({"price": "$5.99"})
+        )
+        min2, _, _ = _extract_filters(row2, None)
+        assert min2 == 5.99
 
 
 class TestPriceFilteringLogging:

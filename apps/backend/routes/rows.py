@@ -25,22 +25,12 @@ router.include_router(rows_search_router)
 def filter_bids_by_price(row: Row) -> List:
     """Filter row.bids using the unified should_include_result filter."""
     from sourcing.filters import should_include_result
+    from routes.rows_search import _extract_filters
 
     if not row.bids:
         return []
-    
-    min_price = None
-    max_price = None
-    
-    if row.choice_answers:
-        try:
-            answers = json.loads(row.choice_answers) if isinstance(row.choice_answers, str) else row.choice_answers
-            if answers.get("min_price"):
-                min_price = float(answers["min_price"])
-            if answers.get("max_price"):
-                max_price = float(answers["max_price"])
-        except Exception:
-            pass
+
+    min_price, max_price, _ = _extract_filters(row, None)
 
     filtered = []
     for bid in row.bids:
@@ -55,7 +45,7 @@ def filter_bids_by_price(row: Row) -> List:
             is_service_provider=getattr(bid, "is_service_provider", False),
         ):
             filtered.append(bid)
-
+    
     return filtered
 
 

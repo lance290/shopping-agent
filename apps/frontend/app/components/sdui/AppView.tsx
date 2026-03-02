@@ -22,6 +22,7 @@ export function AppView({ children }: AppViewProps) {
   const setTargetProjectId = useShoppingStore((s) => s.setTargetProjectId);
   const setReportBugModalOpen = useShoppingStore((s) => s.setReportBugModalOpen);
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
+  const [collapsedProjects, setCollapsedProjects] = useState<Record<number | string, boolean>>({});
   const [isProd, setIsProd] = useState(true);
 
   // Check environment on mount
@@ -125,33 +126,61 @@ export function AppView({ children }: AppViewProps) {
           {projects.map((project) => {
             const projectRows = grouped[project.id];
             if (!projectRows || projectRows.length === 0) return null;
+            const isCollapsed = collapsedProjects[project.id];
+            
             return (
               <div key={project.id} className="mb-4">
-                <div className="flex items-center gap-2 mb-2 pb-1 border-b border-gray-200">
-                  <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                <button
+                  onClick={() => setCollapsedProjects(prev => ({ ...prev, [project.id]: !isCollapsed }))}
+                  className="w-full flex items-center justify-between mb-2 pb-1 border-b border-gray-200 group hover:border-blue-300 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                    </svg>
+                    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide group-hover:text-blue-700 transition-colors">{project.title}</span>
+                    <span className="text-xs text-gray-400">{projectRows.length} item{projectRows.length !== 1 ? 's' : ''}</span>
+                  </div>
+                  <svg className={`w-4 h-4 text-gray-400 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
-                  <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{project.title}</span>
-                  <span className="text-xs text-gray-400">{projectRows.length} item{projectRows.length !== 1 ? 's' : ''}</span>
-                </div>
-                <div className="space-y-2 pl-2 border-l-2 border-blue-100">
-                  {projectRows.map(renderRow)}
-                </div>
+                </button>
+                {!isCollapsed && (
+                  <div className="space-y-2 pl-2 border-l-2 border-blue-100">
+                    {projectRows.map(renderRow)}
+                  </div>
+                )}
               </div>
             );
           })}
 
           {/* Ungrouped rows */}
-          {ungrouped.length > 0 && (
-            <div className="space-y-2">
-              {projects.length > 0 && ungrouped.length > 0 && (
-                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-                  Other Requests
-                </div>
-              )}
-              {ungrouped.map(renderRow)}
-            </div>
-          )}
+          {ungrouped.length > 0 && (() => {
+            const isCollapsed = collapsedProjects['ungrouped'];
+            return (
+              <div className="mb-4">
+                {projects.length > 0 && (
+                  <button
+                    onClick={() => setCollapsedProjects(prev => ({ ...prev, ungrouped: !isCollapsed }))}
+                    className="w-full flex items-center justify-between mb-2 pb-1 border-b border-gray-200 group hover:border-blue-300 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide group-hover:text-blue-700 transition-colors">Other Requests</span>
+                      <span className="text-xs text-gray-400">{ungrouped.length} item{ungrouped.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    <svg className={`w-4 h-4 text-gray-400 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                )}
+                {(!isCollapsed || projects.length === 0) && (
+                  <div className="space-y-2">
+                    {ungrouped.map(renderRow)}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>
