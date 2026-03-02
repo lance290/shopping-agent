@@ -1,21 +1,19 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import ErrorBoundary from '../../../components/ErrorBoundary';
-
-const WorkspaceView = dynamic(() => import('../../components/WorkspaceView'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center h-screen">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-    </div>
-  ),
-});
+import Chat from '../../components/Chat';
+import ReportBugModal from '../../components/ReportBugModal';
+import { AppView } from '../../components/sdui';
 
 export default function WorkspacePage() {
   return (
     <ErrorBoundary>
-      <WorkspaceView />
+      <main className="h-[100dvh] w-full overflow-hidden font-sans">
+        <AppView>
+          <Chat />
+        </AppView>
+        <ReportBugModal />
+      </main>
     </ErrorBoundary>
   );
 }
