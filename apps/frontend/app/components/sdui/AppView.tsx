@@ -82,14 +82,14 @@ export function AppView({ children }: AppViewProps) {
   );
 
   return (
-    <div className="flex flex-col lg:flex-row h-full min-h-0">
+    <div className="flex flex-col lg:flex-row h-[100dvh] w-full overflow-hidden">
       {/* Chat Pane */}
-      <div className="flex-1 min-h-0 lg:max-w-[50%]">
+      <div className="flex-[0_0_50vh] lg:flex-[0_0_400px] xl:flex-[0_0_500px] min-h-0 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-200 z-10">
         {children}
       </div>
 
       {/* List Pane */}
-      <div className="flex-1 border-t lg:border-t-0 lg:border-l border-gray-200 overflow-y-auto bg-gray-50/50">
+      <div className="flex-1 min-w-0 overflow-y-auto bg-gray-50/50">
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
