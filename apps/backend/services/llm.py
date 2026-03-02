@@ -16,8 +16,8 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-3-flash-preview")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")  # Direct Gemini REST API model ID (fallback only)
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-3-flash-preview")  # Primary LLM path
 
 
 def _get_gemini_api_key() -> str:
@@ -93,19 +93,23 @@ async def _call_openrouter(prompt: str, timeout: float = 30.0) -> str:
 
 
 async def call_gemini(prompt: str, timeout: float = 30.0) -> str:
-    """Call LLM: try Gemini direct first, fall back to OpenRouter."""
-    # Try Gemini direct
+    """Call LLM: try OpenRouter first (gemini-3-flash-preview), fall back to Gemini direct."""
+    # Primary: OpenRouter (supports gemini-3-flash-preview)
+    if _get_openrouter_api_key():
+        try:
+            return await _call_openrouter(prompt, timeout)
+        except Exception as e:
+            logger.warning(f"OpenRouter failed, trying Gemini direct: {e}")
+
+    # Fallback: Gemini direct API (uses gemini-2.0-flash model ID format)
     if _get_gemini_api_key():
         try:
             return await _call_gemini_direct(prompt, timeout)
         except Exception as e:
-            logger.warning(f"Gemini direct failed, trying OpenRouter: {e}")
+            logger.error(f"Gemini direct also failed: {e}")
+            raise
 
-    # Fall back to OpenRouter
-    if _get_openrouter_api_key():
-        return await _call_openrouter(prompt, timeout)
-
-    raise ValueError("No LLM API key configured (GEMINI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or OPENROUTER_API_KEY)")
+    raise ValueError("No LLM API key configured (OPENROUTER_API_KEY, GEMINI_API_KEY, or GOOGLE_GENERATIVE_AI_API_KEY)")
 
 
 def _extract_json(text: str) -> dict:
