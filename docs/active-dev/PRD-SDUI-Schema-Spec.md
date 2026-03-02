@@ -144,7 +144,10 @@ If `project_ui_hint` is missing, the builder uses a static default (list title +
 - Max text length per `MarkdownText` block: **500 characters**
 - Max items in a `DataGrid`: **12**
 - Max actions in an `ActionRow`: **3**
-- **Row Cardinality Limit:** The Row-level schema hydrates data for a **maximum of 5 bids**. If more exist, the builder appends a "View All (X)" action. This keeps the Row JSON payload <5KB.
+- **Row Cardinality Limit (domain-aware):**
+  - **Groceries / Pop Swaps:** hydrate a **maximum of 5 bids**.
+  - **Retail products + vendor/concierge sourcing:** hydrate a **maximum of 30 bids**.
+  - If more bids exist than the active cap, the builder appends a "View All (X)" action.
 
 ### Unknown Block & Zero Results Behavior
 Unknown block types can appear only in invalid `ui_hint` output from the LLM. These are rejected at `ui_hint` validation time before hydration:

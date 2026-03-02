@@ -6,7 +6,7 @@
 - **Target users:** All shoppers across all domains who need to evaluate multiple options quickly.
 
 ## Scope
-- **In-scope:** Implementing Server-Driven UI (SDUI) where the LLM selects the UI blueprint and the server hydrates it with trusted data. The UI must support three core comparison layouts (Compact, Media-Left, Timeline) built from a strict registry of 13 atomic primitives (Legos). Must include schema versioning for backwards compatibility, the Value Vector & Provenance system for trust, and a row cardinality cap of 5 bids for performance.
+- **In-scope:** Implementing Server-Driven UI (SDUI) where the LLM selects the UI blueprint and the server hydrates it with trusted data. The UI must support three core comparison layouts (Compact, Media-Left, Timeline) built from a strict registry of 13 atomic primitives (Legos). Must include schema versioning for backwards compatibility, the Value Vector & Provenance system for trust, and domain-aware row cardinality caps (5 for groceries/swaps, 30 for retail/vendor sourcing) for performance.
 - **Out-of-scope:** Building new backend sourcing integrations; monetizing the clicks (this is handled in `prd-dynamic-monetization.md`).
 
 ## User Flow
@@ -34,7 +34,7 @@
 ### Data Requirements
 - **What information must persist?** The JSON schema blueprint (`ui_schema`) and its version counter (`ui_schema_version`) must be saved on `Project`, `Row`, and `Bid`.
 - **Schema versioning:** `ui_schema_version` starts at 0 (never had a schema). The builder sets it to 1 on first write, increments on each replacement. The `DynamicRenderer` routes schemas to the correct parser based on version for backwards compatibility. (See Schema Spec §1 and PRD §4.1.)
-- **Row cardinality cap:** The Row-level schema hydrates data for a **maximum of 5 bids**. If more exist, the builder appends a "View All (X)" action. This keeps the Row JSON payload <5KB. (See Schema Spec §7.)
+- **Row cardinality cap (domain-aware):** The Row-level schema hydrates data for a **maximum of 5 bids** for groceries/swaps and **30 bids** for retail/vendor sourcing. If more exist than the active cap, the builder appends a "View All (X)" action. (See Schema Spec §7.)
 - **How long must data be retained?** Indefinitely to support persistent shared lists.
 - **Schema invalidation:** When a bid's core data changes (price, status, image), its cached `Bid.ui_schema` is set to NULL (re-hydrated on next expand). When bids are added/removed or Row status changes, the Row schema is fully rebuilt and `ui_schema_version` incremented. (See Schema Spec §6.)
 - **Concurrency:** Concurrent schema writes (e.g., status change + webhook) are resolved via optimistic locking (`WHERE id=X AND ui_schema_version=Y`); on conflict, refetch and rebuild. (See Migration Plan §7.)
@@ -69,7 +69,7 @@
 - [ ] 0% occurrence of LLM-hallucinated prices appearing in the UI (all prices must map exactly to the underlying database values).
 - [ ] If sourcing returns zero results, the UI gracefully displays a "No options found" state rather than a broken or blank row.
 - [ ] Every `BadgeList` block that makes a claim (e.g., "Best Value") includes `source_refs` and the frontend renders a clickable provenance tooltip.
-- [ ] Row schemas never exceed 5 bids; overflow shows a "View All (X)" action.
+- [ ] Row schemas honor domain-aware caps (5 for groceries/swaps, 30 for retail/vendor sourcing); overflow shows a "View All (X)" action.
 - [ ] Choice Factor interaction: answering a factor re-ranks bids and pushes an updated schema via SSE within 2 seconds.
 
 ## Traceability
