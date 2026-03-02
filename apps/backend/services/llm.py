@@ -101,7 +101,7 @@ async def call_gemini(prompt: str, timeout: float = 30.0) -> str:
         except Exception as e:
             logger.warning(f"OpenRouter failed, trying Gemini direct: {e}")
 
-    # Fallback: Gemini direct API (uses gemini-2.0-flash model ID format)
+    # Fallback: Gemini direct API
     if _get_gemini_api_key():
         try:
             return await _call_gemini_direct(prompt, timeout)
