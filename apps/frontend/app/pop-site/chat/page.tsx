@@ -49,6 +49,9 @@ function PopChatInner() {
   ]);
   const [listItems, setListItems] = useState<ListItem[]>([]);
   const [projectId, setProjectId] = useState<number | null>(null);
+  const [projectTitle, setProjectTitle] = useState<string>('My Shopping List');
+  const [allProjects, setAllProjects] = useState<{id: number, title: string}[]>([]);
+  const [showProjectMenu, setShowProjectMenu] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -58,6 +61,71 @@ function PopChatInner() {
   const inputRef = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const isCommittingRef = useRef(false);
+
+  const handleDuplicateProject = async () => {
+    if (!projectId || !isLoggedIn) return;
+    try {
+      const res = await fetch(`/api/pop/list/${projectId}/duplicate`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setProjectId(data.project_id);
+        setProjectTitle(data.title);
+        // refresh items
+        const listRes = await fetch(`/api/pop/my-list?project_id=${data.project_id}`);
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          setListItems(listData.items || []);
+        }
+        // refresh all projects
+        const listsRes = await fetch('/api/pop/lists');
+        if (listsRes.ok) {
+          setAllProjects(await listsRes.json());
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSwitchProject = async (id: number) => {
+    setShowProjectMenu(false);
+    try {
+      const listRes = await fetch(`/api/pop/my-list?project_id=${id}`);
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        setProjectId(listData.project_id);
+        setProjectTitle(listData.title || 'My Shopping List');
+        setListItems(listData.items || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleCreateProject = async () => {
+    setShowProjectMenu(false);
+    const title = window.prompt("Enter new list name:");
+    if (!title || !title.trim()) return;
+    try {
+      const res = await fetch('/api/pop/lists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title.trim() })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjectId(data.project_id);
+        setProjectTitle(data.title);
+        setListItems([]);
+        const listsRes = await fetch('/api/pop/lists');
+        if (listsRes.ok) {
+          setAllProjects(await listsRes.json());
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -259,6 +327,14 @@ function PopChatInner() {
             <span className="text-lg font-bold text-green-700">Pop</span>
           </Link>
           <div className="flex items-center gap-3">
+            <a
+              href="https://buy.stripe.com/test_dRm5kEcSC6lWc0NeUh1ck00"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-50 text-green-700 hover:bg-green-100 transition-colors mr-2"
+            >
+              <span>☕️</span> Tip Jar
+            </a>
             {listItems.length > 0 && (
               <Link
                 href={projectId ? `/list/${projectId}` : '#'}
@@ -339,22 +415,79 @@ function PopChatInner() {
         </div>
 
         {/* List Sidebar */}
-        {listItems.length > 0 && (
-          <div className="lg:w-96 border-t lg:border-t-0 lg:border-l border-gray-100 bg-gray-50/50 p-4 overflow-y-auto">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                <span>🛒</span> Your List
-              </h3>
-              {projectId && (
-                <Link
-                  href={`/list/${projectId}`}
-                  className="text-xs text-green-600 hover:text-green-700 font-medium"
-                >
-                  View Full List →
-                </Link>
+        {(listItems.length > 0 || isLoggedIn) && (
+          <div className="lg:w-96 border-t lg:border-t-0 lg:border-l border-gray-100 bg-gray-50/50 p-4 flex flex-col h-[calc(100vh-56px)]">
+            <div className="flex items-center justify-between mb-3 relative flex-shrink-0">
+              <button 
+                onClick={() => isLoggedIn && setShowProjectMenu(!showProjectMenu)}
+                className={`flex items-center gap-2 text-sm font-semibold text-gray-900 ${isLoggedIn ? 'hover:bg-gray-200 px-2 py-1 rounded -ml-2' : ''}`}
+              >
+                <span>🛒</span> {projectTitle}
+                {isLoggedIn && (
+                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
+              </button>
+              
+              {showProjectMenu && isLoggedIn && (
+                <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                  <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
+                    Your Lists
+                  </div>
+                  {allProjects.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => handleSwitchProject(p.id)}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${p.id === projectId ? 'text-green-700 font-medium bg-green-50/50' : 'text-gray-700'}`}
+                    >
+                      <span className="truncate">{p.title}</span>
+                      {p.id === projectId && <span className="text-green-500">✓</span>}
+                    </button>
+                  ))}
+                  <div className="border-t border-gray-100 mt-1">
+                    <button
+                      onClick={handleCreateProject}
+                      className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center gap-2 font-medium"
+                    >
+                      <span className="text-lg leading-none">+</span> New List
+                    </button>
+                  </div>
+                </div>
               )}
+
+              <div className="flex items-center gap-2">
+                {isLoggedIn && projectId && (
+                  <button
+                    onClick={handleDuplicateProject}
+                    className="p-1.5 text-gray-400 hover:text-green-600 rounded hover:bg-green-50 transition-colors"
+                    title="Duplicate List"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                )}
+                {projectId && (
+                  <Link
+                    href={`/pop-site/list/${projectId}`}
+                    className="text-xs text-green-600 hover:text-green-700 font-medium flex items-center gap-1"
+                  >
+                    View Full <span className="hidden sm:inline">List</span> →
+                  </Link>
+                )}
+              </div>
             </div>
-            <ul className="space-y-3">
+            
+            <div className="flex-1 overflow-y-auto -mx-4 px-4 pb-4">
+              {listItems.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <span className="text-4xl block mb-3">🛒</span>
+                  <p className="text-sm">List is empty.</p>
+                  <p className="text-xs mt-1">Tell Pop what you need!</p>
+                </div>
+              ) : (
+                <ul className="space-y-3">
               {listItems.map((item) => {
                 const isExpanded = expandedItemId === item.id;
                 const selectedDeal = item.deals?.find((d) => d.is_selected);

@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useShoppingStore, mapBidToOffer } from '../../store';
 import type { Row, Offer } from '../../store';
-import { createProjectInDb } from '../../utils/api';
-import { Bug, FolderPlus } from 'lucide-react';
+import { createProjectInDb, duplicateProjectInDb, runSearchApiWithStatus } from '../../utils/api';
+import { Bug, FolderPlus, Trash2, RotateCw, Copy } from 'lucide-react';
 import { DynamicRenderer } from './DynamicRenderer';
 import { validateUISchema } from '../../sdui/types';
 
@@ -21,6 +21,11 @@ export function AppView({ children }: AppViewProps) {
   const addProject = useShoppingStore((s) => s.addProject);
   const setTargetProjectId = useShoppingStore((s) => s.setTargetProjectId);
   const setReportBugModalOpen = useShoppingStore((s) => s.setReportBugModalOpen);
+  const pendingRowDelete = useShoppingStore((s) => s.pendingRowDelete);
+  const undoDeleteRow = useShoppingStore((s) => s.undoDeleteRow);
+  const requestDeleteRow = useShoppingStore((s) => s.requestDeleteRow);
+  const setIsSearching = useShoppingStore((s) => s.setIsSearching);
+  const setRowResults = useShoppingStore((s) => s.setRowResults);
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
   const [collapsedProjects, setCollapsedProjects] = useState<Record<number | string, boolean>>({});
   const [isProd, setIsProd] = useState(true);
@@ -71,6 +76,20 @@ export function AppView({ children }: AppViewProps) {
     }
   };
 
+  const handleDuplicateProject = async (e: React.MouseEvent, projectId: number) => {
+    e.stopPropagation();
+    const newProject = await duplicateProjectInDb(projectId);
+    if (newProject) {
+      addProject(newProject);
+      setTargetProjectId(newProject.id);
+      // We trigger a full reload to get the newly duplicated rows
+      // since the duplicate endpoint creates them all on the backend
+      window.location.reload();
+    } else {
+      alert('Failed to duplicate list');
+    }
+  };
+
   const renderRow = (row: Row) => (
     <VerticalListRow
       key={row.id}
@@ -84,7 +103,22 @@ export function AppView({ children }: AppViewProps) {
   );
 
   return (
-    <div className="flex flex-col lg:flex-row h-[100dvh] w-full overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-[100dvh] w-full overflow-hidden relative">
+      {/* Undo Toast */}
+      {pendingRowDelete && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
+          <div className="text-sm font-medium">
+            Deleted &quot;{pendingRowDelete.row.title}&quot;
+          </div>
+          <button
+            onClick={undoDeleteRow}
+            className="text-sm font-bold text-blue-400 hover:text-blue-300 transition-colors bg-white/10 px-3 py-1.5 rounded-lg"
+          >
+            Undo
+          </button>
+        </div>
+      )}
+
       {/* Chat Pane */}
       <div className="flex-[0_0_50vh] lg:flex-[0_0_400px] xl:flex-[0_0_500px] min-h-0 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-200 z-10">
         {children}
@@ -162,6 +196,13 @@ export function AppView({ children }: AppViewProps) {
                     >
                       {targetProjectId === project.id ? 'Cancel Add' : '+ Add Item'}
                     </button>
+                    <button
+                      onClick={(e) => handleDuplicateProject(e, project.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-blue-600 rounded transition-colors"
+                      title="Duplicate List"
+                    >
+                      <Copy size={14} />
+                    </button>
                     <svg className={`w-4 h-4 text-gray-400 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
@@ -222,6 +263,28 @@ function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, onToggle
   const hasSchema = !!(row.ui_schema && validateUISchema(row.ui_schema));
   const bidCount = row.bids?.length ?? 0;
   const displayOffers = offers.length > 0 ? offers : (row.bids || []).map(mapBidToOffer);
+  
+  const requestDeleteRow = useShoppingStore((s) => s.requestDeleteRow);
+  const setIsSearching = useShoppingStore((s) => s.setIsSearching);
+  const setRowResults = useShoppingStore((s) => s.setRowResults);
+
+  const handleRerunSearch = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      setIsSearching(true);
+      const res = await runSearchApiWithStatus(null, row.id);
+      setRowResults(row.id, res.results, res.providerStatuses);
+    } catch (err) {
+      console.error('Failed to rerun search', err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    requestDeleteRow(row.id);
+  };
 
   return (
     <div
@@ -231,7 +294,7 @@ function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, onToggle
     >
       {/* Row Header */}
       <button
-        className="w-full text-left px-4 py-3 flex items-center gap-3"
+        className="w-full text-left px-4 py-3 flex items-center gap-3 group"
         onClick={() => { onSelect(); onToggleExpand(); }}
       >
         <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
@@ -247,7 +310,26 @@ function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, onToggle
              row.status}
           </p>
         </div>
-        <svg className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        
+        {/* Quick Actions (visible on hover) */}
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pr-2">
+          <div 
+            onClick={handleRerunSearch}
+            className="p-1.5 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+            title="Rerun Search"
+          >
+            <RotateCw size={14} />
+          </div>
+          <div 
+            onClick={handleDelete}
+            className="p-1.5 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
+            title="Delete Request"
+          >
+            <Trash2 size={14} />
+          </div>
+        </div>
+
+        <svg className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>

@@ -83,6 +83,7 @@ class PopChatRequest(BaseModel):
     channel: str = "web"
     guest_project_id: Optional[int] = None
     guest_session_token: Optional[str] = None  # HMAC token binding guest to project
+    target_project_id: Optional[int] = None
 
 
 @chat_router.post("/chat")
@@ -130,21 +131,32 @@ async def pop_web_chat(
                 await session.commit()
                 await session.refresh(project)
         else:
-            # Authenticated users — find or create their personal "Family Shopping List"
-            proj_stmt = (
-                select(Project)
-                .where(Project.user_id == user.id)
-                .where(Project.title == "Family Shopping List")
-                .where(Project.status == "active")
-            )
-            proj_result = await session.execute(proj_stmt)
-            project = proj_result.scalar_one_or_none()
+            # Authenticated users
+            if body.target_project_id:
+                project = await session.get(Project, body.target_project_id)
+                if project and project.user_id != user.id:
+                    project = None
+            if not project:
+                proj_stmt = (
+                    select(Project)
+                    .where(Project.user_id == user.id)
+                    .where(Project.status == "active")
+                    .order_by(Project.updated_at.desc())
+                    .limit(1)
+                )
+                proj_result = await session.execute(proj_stmt)
+                project = proj_result.scalar_one_or_none()
 
             if not project:
-                project = Project(title="Family Shopping List", user_id=user.id)
+                project = Project(title="My Shopping List", user_id=user.id)
                 session.add(project)
                 await session.commit()
                 await session.refresh(project)
+            else:
+                from datetime import datetime
+                project.updated_at = datetime.utcnow()
+                session.add(project)
+                await session.commit()
 
         await _ensure_project_member(session, project.id, user.id, channel="web")
 

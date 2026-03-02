@@ -70,21 +70,27 @@ async def process_pop_message(
                 await session.refresh(user)
                 logger.info(f"[Pop] Saved zip_code {user.zip_code} for user {user.id}")
 
-        # 2. Find active Pop project (Family List)
+        # 2. Find active Pop project
         proj_stmt = (
             select(Project)
             .where(Project.user_id == user.id)
-            .where(Project.title == "Family Shopping List")
             .where(Project.status == "active")
+            .order_by(Project.updated_at.desc())
+            .limit(1)
         )
         proj_result = await session.execute(proj_stmt)
         project = proj_result.scalar_one_or_none()
 
         if not project:
-            project = Project(title="Family Shopping List", user_id=user.id)
+            project = Project(title="My Shopping List", user_id=user.id)
             session.add(project)
             await session.commit()
             await session.refresh(project)
+        else:
+            from datetime import datetime
+            project.updated_at = datetime.utcnow()
+            session.add(project)
+            await session.commit()
 
         # Register user as project member (tracks channel preference)
         await _ensure_project_member(session, project.id, user.id, channel=channel)
