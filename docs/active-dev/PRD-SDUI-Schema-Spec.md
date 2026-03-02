@@ -34,7 +34,7 @@ type UISchema = {
 
 ## 3. The "Lego" Component Registry (v0)
 
-The deterministic schema builder may **only** select blocks from this exact registry.
+The LLM may **only** select blocks from this exact registry (via `ui_hint`), and the builder may only hydrate blocks from this same registry.
 *Note: Legacy complex components like "DealCard", "TipJar", or "ComparisonTable" are not primitives; they are composite patterns built by stacking these v0 primitives.*
 
 ### Display Primitives
@@ -80,7 +80,7 @@ type ActionObject = {
   count?: number;        // For view_all_bids
 }
 ```
-*Backend Resolution:* If `intent === 'outbound_affiliate'`, the backend reads the `merchant_id`, verifies it against the server allowlist, appends the server-managed tracking parameters to the base URL, and serves the clean URL to the frontend.
+*Backend Resolution:* If `intent === 'outbound_affiliate'`, the backend reads `bid_id` and `url`, verifies the merchant/domain against the server allowlist, appends server-managed tracking parameters to the destination URL, logs attribution for that bid, and returns a 302 redirect.
 
 ---
 
@@ -147,7 +147,7 @@ If `project_ui_hint` is missing, the builder uses a static default (list title +
 - **Row Cardinality Limit:** The Row-level schema hydrates data for a **maximum of 5 bids**. If more exist, the builder appends a "View All (X)" action. This keeps the Row JSON payload <5KB.
 
 ### Unknown Block & Zero Results Behavior
-The deterministic builder cannot produce unknown block types. This guard exists as defense-in-depth for future LLM-generated schemas (Phase 3+):
+Unknown block types can appear only in invalid `ui_hint` output from the LLM. These are rejected at `ui_hint` validation time before hydration:
 - **Dev Environment:** Render a highly visible debug stub: `[Unsupported block: {type} (vX)]`
 - **Prod Environment:** The backend normalizer strips the unknown block before persistence. If stripping it violates the "Minimum Viable Row" requirement, the entire schema is rejected and replaced with the Fallback Schema.
 
@@ -251,7 +251,7 @@ If the LLM omits `ui_hint`, returns an invalid one, or the hint fails validation
 ```python
 def derive_layout_fallback(row: Row, bids: list[Bid]) -> UIHint:
     """Last resort when LLM ui_hint is missing or invalid."""
-    if row.status in ("funded", "in_progress", "shipped", "delivered"):
+    if is_post_decision_fulfillment(row, bids):
         return UIHint(layout="ROW_TIMELINE", blocks=["MarkdownText", "Timeline", "ActionRow"])
 
     if any(b.image_url for b in bids):

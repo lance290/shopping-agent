@@ -2,7 +2,7 @@
 
 > **Status:** Draft  
 > **Parent docs:** [PRD-Generative-UX-UI.md](./PRD-Generative-UX-UI.md) · [PRD-SDUI-Schema-Spec.md](./PRD-SDUI-Schema-Spec.md)  
-> **Goal:** Merge the BuyAnything and Pop experiences into a single Chat + Vertical List interface powered by Server-Driven UI.
+> **Goal:** Merge the BuyAnything and Pop experiences into a single Chat + Vertical List **app workspace** powered by Server-Driven UI (mounted on a dedicated app route, not the public home page).
 
 ---
 
@@ -61,6 +61,7 @@
 
 - **One layout** for both brands (brand theming via `BrandProvider`)
 - **Vertical list** replaces horizontal Netflix board
+- **Routing constraint:** The SDUI Chat+List experience is mounted on the authenticated app workspace route (e.g., `/app`), not the public home page (`/`).
 - **Each row** renders via `DynamicRenderer` reading `row.ui_schema`
 - **Each bid** within a row can override UI via `bid.ui_schema`
 - **Fallback:** `MinimumViableRow` renders if schema is missing/invalid
@@ -115,8 +116,8 @@
 |---|------|-------|------|---------------|
 | 2.1 | Add `ui_hint` to BuyAnything LLM prompt; wire `hydrate_ui_schema` into `routes/chat.py` SSE pipeline | Backend | Medium — prompt change | `services/llm.py`, `routes/chat.py`, `services/sdui_builder.py` |
 | 2.2 | Add `ui_schema_updated` SSE event after schema build + on status transitions | Backend | Medium | `routes/chat.py` |
-| 2.3 | Create unified `AppView.tsx` (Chat + Vertical List) | Frontend | High — replaces root `page.tsx` | New `components/AppView.tsx` |
-| 2.4 | Feature-flag: `SDUI_ENABLED` (per-user) toggles between Board and AppView | Frontend | Low | `page.tsx`, env config |
+| 2.3 | Create unified `AppView.tsx` (Chat + Vertical List) | Frontend | High — mounted on app workspace route (e.g., `/app`) | New `components/AppView.tsx` |
+| 2.4 | Feature-flag: `SDUI_ENABLED` (per-user) toggles between Board and AppView **inside app workspace only** | Frontend | Low | app-route entrypoint, env config |
 | 2.5 | Wire DynamicRenderer for retail/concierge/service intents | Frontend | Medium | `components/sdui/DynamicRenderer.tsx` |
 
 **Deliverable:** BuyAnything users can opt-in to SDUI via feature flag.

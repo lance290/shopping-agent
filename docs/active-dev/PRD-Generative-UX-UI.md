@@ -8,7 +8,8 @@
 
 ## 1. The Core Paradigm Shift
 
-We are moving away from the "Netflix-style" horizontal rows of product tiles (BuyAnything V2) and standardizing entirely on a dead-simple, mobile-first **Chat + Shared List** interface. 
+We are moving away from the "Netflix-style" horizontal rows of product tiles (BuyAnything V2) and standardizing entirely on a dead-simple, mobile-first **Chat + Shared List** interface.
+This interface is the authenticated app workspace (for example, `/app`), **not** the public marketing home page (`/`).
 
 The value prop is **friction-free comparison shopping**. The user says what they want; the system finds options across retailers and sources; the UI makes comparing and choosing effortless. No tab switching, no manual price-checking, no hunting for coupons.
 
@@ -34,6 +35,7 @@ To serve both without alienation, the UI must adhere to these principles:
 ### 3.1 The Two-Pane View
 - **Desktop:** Split screen. Chat on the left, Active List on the right.
 - **Mobile:** Two distinct tabs (Chat | List) with bottom navigation.
+- **Routing constraint:** This two-pane experience must not be the public home page. Keep affiliate-compliance content and disclosures on `/`; mount the app workspace on a dedicated app route.
 
 ### 3.2 Lists of Lists (`Projects`) & Collaboration
 Users can maintain multiple lists (e.g., "Default Groceries", "Aspen Trip", "Office Supplies"). 
@@ -41,7 +43,7 @@ Users can maintain multiple lists (e.g., "Default Groceries", "Aspen Trip", "Off
 - **Multi-User Dynamics:** Lists natively support collaboration. 
   - *For Families:* Shared household grocery lists where anyone can add items.
   - *For UHNW:* Executive Assistant (EA) acting as the operator, gathering options on a list, and sharing a read-only or approval-gated view with the Principal.
-- Lists are highly shareable. Sharing a list URL acts as the primary viral growth loop (30% revenue share to referrers).
+- Lists are highly shareable. Sharing a list URL acts as the primary viral growth loop (30% of **swap payouts only** are shared with the referrer who brought the new user to the platform — see §6.2).
 
 ---
 
@@ -108,7 +110,7 @@ The beauty of SDUI is that the schema becomes extremely flexible without alterin
 
 The generative UI must seamlessly surface the correct revenue capture mechanism for the item's context. Because users range from budget-conscious families to UHNWIs, the platform must never block a transaction just to extract a fee. Instead, we provide immense value and capture revenue where friction is lowest.
 
-The deterministic schema builder injects the appropriate `ActionRow` primitives based on bid data and these four monetization models:
+The LLM selects the appropriate monetization-oriented `ActionRow` primitives, and the builder resolves/gates them using trusted bid data and backend state. This supports these four monetization models:
 
 ### 6.1 Affiliate & Retail (Low Friction, High Volume)
 - **Target:** Everyday products (Amazon, Walmart, eBay), consumer travel (Kayak, Booking.com).
@@ -150,7 +152,7 @@ Schema generation is split into two responsibilities:
 6. **Fallback:** If `ui_hint` is missing or invalid, a deterministic fallback derives layout from the data (see [Schema Spec §8](./PRD-SDUI-Schema-Spec.md)).
 
 ### 7.2 Example Schema (Service Request with Vendor Quotes)
-The builder detects `row.service_type` is set and `row.status` is pre-decision, so it assembles a timeline-ready layout from standard primitives.
+The builder detects `row.service_type` is set and the selected bid is already in post-decision fulfillment, so it assembles a timeline layout from standard primitives.
 ```json
 {
   "version": 1,
@@ -219,7 +221,7 @@ By saving the `ui_schema` to the database:
 1. **Remove legacy classification:** Delete `desire_tier` and `intent.category` from models, LLM prompts, routes, and tests.
 2. **Implement Core SDUI Infrastructure:** Build the `DynamicRenderer`, the v0 primitive registry, `build_ui_schema()`, and the "Minimum Viable Row" fallback.
 3. **Ship One Domain (Groceries):** Wire the builder into the Pop pipeline. Every grocery row gets a schema built from its bids.
-4. **Persist at Row Level Only:** Skip Bid-level overrides for v1 to keep state simple.
+4. **Persist at Project + Row + Bid levels:** Project header schemas for global actions, Row schemas for comparison, and lazy Bid schemas on-expand for deep details.
 5. **Monitor:** Watch fallback rates and click-through rates per `ActionRow` type.
 
 *See [MIGRATION-PLAN-SDUI.md](./MIGRATION-PLAN-SDUI.md) for the full phased plan.* 
