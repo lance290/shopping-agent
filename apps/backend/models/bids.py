@@ -51,6 +51,10 @@ class Vendor(SQLModel, table=True):
     tier_affinity: Optional[str] = None
     price_range_min: Optional[float] = None  # Typical minimum order/price
     price_range_max: Optional[float] = None  # Typical maximum order/price
+    # Programmatic SEO / GEO
+    slug: Optional[str] = Field(default=None, index=True, unique=True)
+    seo_content: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    schema_markup: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
