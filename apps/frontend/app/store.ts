@@ -82,6 +82,8 @@ export interface Row {
   service_category?: string; // e.g., "private_aviation", "catering"
   desire_tier?: string;      // commodity, considered, service, bespoke, high_value, advisory
   selected_providers?: string; // JSON string: {"amazon": true, "serpapi": false, ...}
+  ui_schema?: Record<string, unknown> | null;  // SDUI schema (JSONB from backend)
+  ui_schema_version?: number;                   // 0 = no schema, increments on rebuild
 }
 
 export interface Project {

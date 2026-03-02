@@ -1,5 +1,6 @@
 export { DynamicRenderer } from './DynamicRenderer';
 export { MinimumViableRow } from './MinimumViableRow';
+export { AppView } from './AppView';
 export { ProductImage } from './ProductImage';
 export { PriceBlock } from './PriceBlock';
 export { DataGrid } from './DataGrid';
