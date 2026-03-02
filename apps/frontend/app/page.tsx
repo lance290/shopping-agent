@@ -71,16 +71,7 @@ export default function Home() {
 
   return (
     <main className="h-[100dvh] w-full overflow-hidden font-sans">
-      <div className="absolute top-4 right-4 z-50">
-        <a
-          href="https://buy.stripe.com/test_dRm5kEcSC6lWc0NeUh1ck00"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 bg-gradient-to-r from-amber-400 to-amber-500 text-amber-950 px-4 py-2 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all font-semibold text-sm border border-amber-300"
-        >
-          <span>☕️</span> Buy us a coffee
-        </a>
-      </div>
+
       <AppView>
         <Chat />
       </AppView>

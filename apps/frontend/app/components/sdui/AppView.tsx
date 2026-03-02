@@ -132,6 +132,16 @@ export function AppView({ children }: AppViewProps) {
               Your List
             </h2>
             <div className="flex items-center gap-2">
+              <a
+                href="https://buy.stripe.com/test_dRm5kEcSC6lWc0NeUh1ck00"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors"
+                title="Support our team"
+              >
+                <span>☕️</span>
+                Tip Jar
+              </a>
               <button
                 onClick={handleCreateProject}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
