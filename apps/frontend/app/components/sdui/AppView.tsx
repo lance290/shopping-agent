@@ -41,6 +41,8 @@ export function AppView({ children }: AppViewProps) {
     }
   }, []);
 
+  const targetProjectId = useShoppingStore((s) => s.targetProjectId);
+
   // Filter out archived/cancelled rows
   const activeRows = rows.filter((r) => r.status !== 'archived' && r.status !== 'cancelled');
 
@@ -140,10 +142,30 @@ export function AppView({ children }: AppViewProps) {
                     </svg>
                     <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide group-hover:text-blue-700 transition-colors">{project.title}</span>
                     <span className="text-xs text-gray-400">{projectRows.length} item{projectRows.length !== 1 ? 's' : ''}</span>
+                    {targetProjectId === project.id && (
+                      <span className="ml-2 px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider">
+                        Active
+                      </span>
+                    )}
                   </div>
-                  <svg className={`w-4 h-4 text-gray-400 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (targetProjectId === project.id) {
+                          setTargetProjectId(null);
+                        } else {
+                          setTargetProjectId(project.id);
+                        }
+                      }}
+                      className="opacity-0 group-hover:opacity-100 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition-all"
+                    >
+                      {targetProjectId === project.id ? 'Cancel Add' : '+ Add Item'}
+                    </button>
+                    <svg className={`w-4 h-4 text-gray-400 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
                 </button>
                 {!isCollapsed && (
                   <div className="space-y-2 pl-2 border-l-2 border-blue-100">
