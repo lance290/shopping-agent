@@ -432,59 +432,63 @@ function PopChatInner() {
                       </div>
                     </div>
 
-                    {/* SDUI rendering (expanded) */}
-                    {isExpanded && item.ui_schema && (
-                      <div className="border-t border-gray-100 px-3 py-2">
-                        <DynamicRenderer
-                          schema={item.ui_schema}
-                          fallbackTitle={item.title}
-                          fallbackStatus={item.status}
-                        />
-                      </div>
-                    )}
+                    {/* Expanded Content: SDUI + Legacy deal choices */}
+                    {isExpanded && (
+                      <div className="border-t border-gray-100 px-3 py-2 space-y-3 max-h-[400px] overflow-y-auto">
+                        {item.ui_schema && (
+                          <div className="mb-2">
+                            <DynamicRenderer
+                              schema={item.ui_schema}
+                              fallbackTitle={item.title}
+                              fallbackStatus={item.status}
+                            />
+                          </div>
+                        )}
 
-                    {/* Legacy deal choices (expanded, when no ui_schema) */}
-                    {isExpanded && !item.ui_schema && item.deals && item.deals.length > 0 && (
-                      <div className="border-t border-gray-100 px-3 py-2 space-y-2">
-                        {item.deals.map((deal) => (
-                          <button
-                            key={deal.id}
-                            onClick={() => handleClaimDeal(item.id, deal.id)}
-                            className={`w-full flex items-center gap-2.5 p-2 rounded-lg text-left transition-colors ${
-                              deal.is_selected
-                                ? 'bg-green-50 ring-1 ring-green-300'
-                                : 'hover:bg-gray-50'
-                            }`}
-                          >
-                            {deal.image_url ? (
-                              <img
-                                src={deal.image_url}
-                                alt={deal.title}
-                                className="w-10 h-10 rounded-md object-cover flex-shrink-0 bg-gray-100"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-md bg-gray-100 flex-shrink-0 flex items-center justify-center">
-                                <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-gray-800 truncate">{deal.title}</p>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-sm font-semibold text-gray-900">${deal.price.toFixed(2)}</span>
-                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${sourceColor(deal.source)}`}>
-                                  {sourceLabel(deal.source)}
-                                </span>
-                              </div>
-                            </div>
-                            {deal.is_selected && (
-                              <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </button>
-                        ))}
+                        {item.deals && item.deals.length > 0 && (
+                          <div className="space-y-2">
+                            {item.deals.map((deal) => (
+                              <button
+                                key={deal.id}
+                                onClick={() => handleClaimDeal(item.id, deal.id)}
+                                className={`w-full flex items-center gap-2.5 p-2 rounded-lg text-left transition-colors ${
+                                  deal.is_selected
+                                    ? 'bg-green-50 ring-1 ring-green-300'
+                                    : 'hover:bg-gray-50'
+                                }`}
+                              >
+                                {deal.image_url ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={deal.image_url}
+                                    alt={deal.title}
+                                    className="w-10 h-10 rounded-md object-cover flex-shrink-0 bg-gray-100"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-md bg-gray-100 flex-shrink-0 flex items-center justify-center">
+                                    <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-gray-800 truncate">{deal.title}</p>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="text-sm font-semibold text-gray-900">${deal.price.toFixed(2)}</span>
+                                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${sourceColor(deal.source)}`}>
+                                      {sourceLabel(deal.source)}
+                                    </span>
+                                  </div>
+                                </div>
+                                {deal.is_selected && (
+                                  <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
 
