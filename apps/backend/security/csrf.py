@@ -140,6 +140,7 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         "/api/chat",  # Chat SSE endpoint — uses Bearer auth, not cookies
         "/pop/",      # Pop API endpoints (chat, receipt scanning) handle their own auth
         "/rows/",     # Row search endpoints — use own auth via _resolve_user_id
+        "/admin/",    # Admin ops use their own key-based auth (X-Restore-Key etc.)
     ]
 
     async def dispatch(self, request: Request, call_next):
