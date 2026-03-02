@@ -258,6 +258,12 @@ interface ShoppingState {
   pendingRowDelete: PendingRowDelete | null;
   requestDeleteRow: (rowId: number, undoWindowMs?: number) => void;
   undoDeleteRow: () => void;
+
+  // SDUI state
+  expandedRowId: number | null;            // Which row is expanded in vertical list
+  setExpandedRowId: (id: number | null) => void;
+  sduiFallbackCount: number;               // Observability: how often MVR fallback is used
+  incrementSduiFallback: () => void;
   
   // Combined actions for the flow
   selectOrCreateRow: (query: string, existingRows: Row[]) => Row | null;
@@ -283,7 +289,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   isSidebarOpen: false, // Default closed
 
   pendingRowDelete: null,
-  
+
+  // SDUI state
+  expandedRowId: null,
+  sduiFallbackCount: 0,
+  setExpandedRowId: (id) => set({ expandedRowId: id }),
+  incrementSduiFallback: () => set((s) => ({ sduiFallbackCount: s.sduiFallbackCount + 1 })),
+
   // Basic setters
   setCurrentQuery: (query) => set({ currentQuery: query }),
   setTargetProjectId: (id) => set({ targetProjectId: id }),
