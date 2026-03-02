@@ -216,6 +216,8 @@ async def _update_row(
         row.title = title
     if constraints is not None:
         row.choice_answers = constraints
+    if reset_bids:
+        row.ui_schema = None  # Invalidate SDUI schema — rebuilt after next search
     row.updated_at = datetime.utcnow()
     session.add(row)
 
