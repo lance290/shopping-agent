@@ -45,6 +45,9 @@ class RowBase(SQLModel):
     # Per-row provider selection (JSON object: {"amazon": true, "serpapi": false, ...})
     selected_providers: Optional[str] = None
 
+    # SDUI schema (Phase 0.2)
+    ui_schema_version: int = 0  # 0 = never had a schema; increments on each replacement
+
 
 class RequestSpecBase(SQLModel):
     item_name: str
@@ -71,6 +74,10 @@ class Project(ProjectBase, table=True):
     user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # SDUI schema (Phase 0.2)
+    ui_schema: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    ui_schema_version: int = Field(default=0)
 
     rows: List["Row"] = Relationship(back_populates="project")
 
@@ -109,6 +116,9 @@ class Row(RowBase, table=True):
     search_intent: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
     provider_query_map: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
     chat_history: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+
+    # SDUI schema (Phase 0.2)
+    ui_schema: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
 
     # Relationships
     bids: List["Bid"] = Relationship(back_populates="row")

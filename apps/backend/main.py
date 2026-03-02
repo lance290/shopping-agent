@@ -331,6 +331,25 @@ async def startup_event():
             await conn.execute(text("""
                 CREATE UNIQUE INDEX IF NOT EXISTS vendor_slug_idx ON vendor (slug);
             """))
+            # SDUI schema columns (Phase 0.2)
+            await conn.execute(text("""
+                ALTER TABLE project ADD COLUMN IF NOT EXISTS ui_schema JSONB;
+            """))
+            await conn.execute(text("""
+                ALTER TABLE project ADD COLUMN IF NOT EXISTS ui_schema_version INTEGER DEFAULT 0;
+            """))
+            await conn.execute(text("""
+                ALTER TABLE row ADD COLUMN IF NOT EXISTS ui_schema JSONB;
+            """))
+            await conn.execute(text("""
+                ALTER TABLE row ADD COLUMN IF NOT EXISTS ui_schema_version INTEGER DEFAULT 0;
+            """))
+            await conn.execute(text("""
+                ALTER TABLE bid ADD COLUMN IF NOT EXISTS bid_ui_schema JSONB;
+            """))
+            await conn.execute(text("""
+                ALTER TABLE bid ADD COLUMN IF NOT EXISTS ui_schema_version INTEGER DEFAULT 0;
+            """))
             # pg_trgm for fuzzy text search
             await conn.execute(text("""
                 CREATE EXTENSION IF NOT EXISTS pg_trgm;

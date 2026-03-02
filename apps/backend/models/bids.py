@@ -118,6 +118,10 @@ class Bid(SQLModel, table=True):
     is_superseded: bool = Field(default=False)
     superseded_at: Optional[datetime] = None
 
+    # SDUI schema (Phase 0.2) — lazy: generated on-expand only, not on creation
+    ui_schema: Optional[Any] = Field(default=None, sa_column=Column("bid_ui_schema", sa.JSON, nullable=True))
+    ui_schema_version: int = Field(default=0)
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     row: "Row" = Relationship(back_populates="bids")

@@ -22,7 +22,9 @@ def score_results(
     intent: Optional[SearchIntent] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
-    desire_tier: Optional[str] = None,
+    desire_tier: Optional[str] = None,  # DEPRECATED — kept for backwards compat, use is_service/service_category
+    is_service: Optional[bool] = None,
+    service_category: Optional[str] = None,
 ) -> List[NormalizedResult]:
     """
     Score and rank a list of NormalizedResults.
@@ -32,6 +34,10 @@ def score_results(
     """
     if not results:
         return results
+
+    # Bridge: derive is_service from desire_tier if caller hasn't migrated yet
+    if is_service is None and desire_tier:
+        is_service = desire_tier in ("service", "bespoke", "high_value", "advisory")
 
     scored: List[tuple[float, NormalizedResult]] = []
 
@@ -46,18 +52,18 @@ def score_results(
         rs = _relevance_score(r, intent)
         qs = _quality_score(r)
         db = _diversity_bonus(r.source, source_counts, total)
-        tr = _tier_relevance_score(r.source, desire_tier)
+        sf = _source_fit_score(r.source, is_service, service_category)
 
-        # Tier fit is a MULTIPLIER, not additive — mismatched sources get a real penalty.
-        # tr=1.0 → full score. tr=0.2 → 44% of base score.
+        # Source fit is a MULTIPLIER, not additive — mismatched sources get a real penalty.
+        # sf=1.0 → full score. sf=0.2 → 44% of base score.
         base = (rs * 0.45) + (ps * 0.20) + (qs * 0.20) + (db * 0.15)
-        combined = base * (0.3 + 0.7 * tr)
+        combined = base * (0.3 + 0.7 * sf)
 
         # Enrich provenance with score breakdown
         r.provenance["score"] = {
             "combined": round(combined, 4),
             "relevance": round(rs, 4),
-            "tier_fit": round(tr, 4),
+            "source_fit": round(sf, 4),
             "price": round(ps, 4),
             "quality": round(qs, 4),
             "diversity": round(db, 4),
@@ -76,44 +82,40 @@ def score_results(
     return [r for _, r in scored]
 
 
-def _tier_relevance_score(source: str, desire_tier: Optional[str]) -> float:
+def _source_fit_score(source: str, is_service: Optional[bool], service_category: Optional[str] = None) -> float:
     """
-    Score how well the source fits the desire tier.
-    This acts as a soft router/reranker.
+    Score how well the source fits the request context.
+    Replaces desire_tier-based _tier_relevance_score with context-derived signals.
     """
-    if not desire_tier:
-        return 0.5
-
-    # Group providers
     BIG_BOX_PROVIDERS = {
-        "rainforest", "ebay_browse", "google_shopping", 
+        "rainforest", "ebay_browse", "google_shopping",
         "searchapi", "google_cse", "serpapi", "ticketmaster"
     }
     VENDOR_PROVIDERS = {"vendor_directory"}
 
-    # Commodity / Considered -> Prefer Big Box
-    if desire_tier in ("commodity", "considered"):
-        if source in BIG_BOX_PROVIDERS:
-            return 1.0
-        if source in VENDOR_PROVIDERS:
-            return 0.3  # Penalize but don't hide
-        return 0.5
-
-    # Service / Bespoke / High Value -> Prefer Vendor Directory
-    if desire_tier in ("service", "bespoke", "high_value"):
+    # Service requests → prefer vendor directory
+    if is_service or service_category:
         if source in VENDOR_PROVIDERS:
             return 1.0
         if source in BIG_BOX_PROVIDERS:
-            return 0.2  # Heavy penalty for big box (Amazon doesn't sell private jets)
+            return 0.2  # Heavy penalty — Amazon doesn't sell private jets
         return 0.5
-    
-    # Advisory -> Should be handled by chat, but if searching, prefer vendors
-    if desire_tier == "advisory":
-        if source in VENDOR_PROVIDERS:
-            return 0.8
-        return 0.1
 
+    # Product requests (default) → prefer big box
+    if source in BIG_BOX_PROVIDERS:
+        return 1.0
+    if source in VENDOR_PROVIDERS:
+        return 0.3  # Penalize but don't hide
     return 0.5
+
+
+# DEPRECATED — kept for backwards compat during migration
+def _tier_relevance_score(source: str, desire_tier: Optional[str]) -> float:
+    """Deprecated: use _source_fit_score instead."""
+    if not desire_tier:
+        return 0.5
+    is_service = desire_tier in ("service", "bespoke", "high_value", "advisory")
+    return _source_fit_score(source, is_service)
 
 
 def _price_score(
