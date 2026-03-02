@@ -5,6 +5,9 @@ import { useShoppingStore, mapBidToOffer } from '../../store';
 import type { Row, Offer } from '../../store';
 import { createProjectInDb } from '../../utils/api';
 import { Bug, FolderPlus } from 'lucide-react';
+import { DynamicRenderer } from './DynamicRenderer';
+import { MinimumViableRow } from './MinimumViableRow';
+import { validateUISchema } from '../../sdui/types';
 
 interface AppViewProps {
   children?: React.ReactNode;
@@ -166,6 +169,7 @@ interface VerticalListRowProps {
 }
 
 function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, onToggleExpand }: VerticalListRowProps) {
+  const hasSchema = !!(row.ui_schema && validateUISchema(row.ui_schema));
   const bidCount = row.bids?.length ?? 0;
   const displayOffers = offers.length > 0 ? offers : (row.bids || []).map(mapBidToOffer);
 
@@ -198,15 +202,27 @@ function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, onToggle
         </svg>
       </button>
 
-      {/* Expanded: show ALL bids as cards */}
+      {/* Expanded: show SDUI schema + ALL bids as cards */}
       {isExpanded && (
-        <div className="border-t border-gray-100 px-4 py-3 space-y-2 max-h-[400px] overflow-y-auto">
-          {displayOffers.length === 0 && (
-            <p className="text-sm text-gray-400 italic">No options found yet.</p>
+        <div className="border-t border-gray-100 px-4 py-3 space-y-4 max-h-[600px] overflow-y-auto">
+          {hasSchema && (
+            <div className="mb-4">
+              <DynamicRenderer
+                schema={row.ui_schema}
+                fallbackTitle={row.title}
+                fallbackStatus={row.status}
+              />
+            </div>
           )}
-          {displayOffers.map((offer, i) => (
-            <BidCard key={offer.bid_id ?? i} offer={offer} />
-          ))}
+          
+          <div className="space-y-2">
+            {displayOffers.length === 0 && !hasSchema && (
+              <p className="text-sm text-gray-400 italic">No options found yet.</p>
+            )}
+            {displayOffers.map((offer, i) => (
+              <BidCard key={offer.bid_id ?? i} offer={offer} />
+            ))}
+          </div>
         </div>
       )}
     </div>
