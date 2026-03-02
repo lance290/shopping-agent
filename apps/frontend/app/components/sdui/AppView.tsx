@@ -25,12 +25,12 @@ export function AppView({ children }: AppViewProps) {
   // Check environment on mount
   useEffect(() => {
     const hostname = window.location.hostname;
-    // Show bug reporter on localhost, dev.*, staging.*, etc.
+    // Show bug reporter on localhost, dev, staging, etc.
     if (
       hostname === 'localhost' ||
       hostname === '127.0.0.1' ||
-      hostname.includes('dev.') ||
-      hostname.includes('staging.')
+      hostname.includes('dev') ||
+      hostname.includes('staging')
     ) {
       setIsProd(false);
     } else {
