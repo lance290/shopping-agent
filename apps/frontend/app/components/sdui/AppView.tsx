@@ -6,7 +6,6 @@ import type { Row, Offer } from '../../store';
 import { createProjectInDb } from '../../utils/api';
 import { Bug, FolderPlus } from 'lucide-react';
 import { DynamicRenderer } from './DynamicRenderer';
-import { MinimumViableRow } from './MinimumViableRow';
 import { validateUISchema } from '../../sdui/types';
 
 interface AppViewProps {
