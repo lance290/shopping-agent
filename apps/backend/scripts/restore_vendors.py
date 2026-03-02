@@ -149,6 +149,40 @@ async def restore_vendors_logic(session: AsyncSession):
             print(f"❌ Error batch {i} (first item id={batch[0].get('id')}): {err_str}")
             await session.rollback()
 
+    # --- SEO fields pass ---
+    # slug, seo_content, schema_markup are not in the Vendor SQLModel so the ORM upsert
+    # above silently drops them. Write them separately via raw SQL.
+    print("Writing SEO fields (slug, seo_content, schema_markup) via raw SQL...")
+    seo_updated = 0
+    for v in vendors_data:
+        vendor_id = v.get("id")
+        slug = v.get("slug")
+        seo_content = v.get("seo_content")
+        schema_markup = v.get("schema_markup")
+        if not vendor_id or (not slug and not seo_content and not schema_markup):
+            continue
+        try:
+            await session.execute(
+                text("""
+                    UPDATE vendor
+                    SET slug         = COALESCE(:slug, slug),
+                        seo_content  = COALESCE(CAST(:seo_content AS jsonb), seo_content),
+                        schema_markup = COALESCE(CAST(:schema_markup AS jsonb), schema_markup)
+                    WHERE id = :id
+                """),
+                {
+                    "id": vendor_id,
+                    "slug": slug,
+                    "seo_content": json.dumps(seo_content) if seo_content else None,
+                    "schema_markup": json.dumps(schema_markup) if schema_markup else None,
+                },
+            )
+            seo_updated += 1
+        except Exception as e:
+            print(f"⚠️ SEO update failed for vendor {vendor_id}: {e}")
+    await session.commit()
+    print(f"✅ SEO fields written for {seo_updated} vendors.")
+
     # Reset the sequence so new inserts don't conflict with restored IDs
     try:
         async with session.bind.connect() as conn:
