@@ -344,6 +344,15 @@ export default function Chat() {
               if (!moreIncoming) {
                 store.setIsSearching(false);
               }
+            } else if (eventName === 'ui_schema_updated') {
+              const entityId = data?.entity_id;
+              const schema = data?.schema;
+              if (entityId && schema) {
+                store.updateRow(entityId, {
+                  ui_schema: schema,
+                  ui_schema_version: data?.version ?? 1,
+                });
+              }
             } else if (eventName === 'vendors_loaded') {
               // Service request - convert vendors to offer-like tiles
               const rowId = data?.row_id;

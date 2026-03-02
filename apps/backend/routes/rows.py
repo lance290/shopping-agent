@@ -1,7 +1,7 @@
 """Rows routes - CRUD for procurement rows."""
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Any, Optional, List
 from datetime import datetime
 import json
 
@@ -88,6 +88,7 @@ class RowReadWithBids(RowBase):
     user_id: int
     project_id: Optional[int] = None
     bids: List[BidRead] = []
+    ui_schema: Optional[Any] = None  # SDUI schema (JSONB)
 
 
 class RequestSpecUpdate(BaseModel):
