@@ -34,12 +34,15 @@ from services.llm import (
 router = APIRouter(tags=["chat"])
 logger = logging.getLogger(__name__)
 
+
 def _get_self_base_url() -> str:
-    """Detect the actual server port for internal self-calls."""
-    # Check explicit env var first
+    # First respect an explicit self call URL (useful for production/railway)
+    explicit_url = os.environ.get("SELF_BASE_URL")
+    if explicit_url:
+        return explicit_url.rstrip("/")
+        
     port = os.environ.get("PORT")
     if not port:
-        # Detect from uvicorn command-line args (handles --port 8080)
         import sys
         args = sys.argv
         for i, arg in enumerate(args):
@@ -52,6 +55,7 @@ def _get_self_base_url() -> str:
     return f"http://127.0.0.1:{port or '8000'}"
 
 _SELF_BASE_URL = _get_self_base_url()
+
 
 
 # =============================================================================

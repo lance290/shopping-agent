@@ -3250,3 +3250,195 @@ DETAIL:  Key (slug)=(colin-cowie-lifestyle) already exists.
 2026-02-27 08:19:17,029 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
 2026-02-27 08:19:17,065 INFO    [1604/2863] Silver Lake — https://www.silverlake.com
 2026-02-27 08:19:48,579 WARNING Ollama LLM extract failed for Silver Lake: Server disconnected without sending a response.
+2026-03-01 14:16:42,001 INFO    Enriching 1814 vendors for SEO (dry_run=False)
+2026-03-01 14:16:42,002 INFO    [1/1814] MidSouth Construction — https://roofingbymidsouth.com/
+2026-03-01 14:18:13,541 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:18:13,697 INFO    [2/1814] Bill Ragan Roofing Company — https://www.billraganroofing.com/
+2026-03-01 14:18:36,622 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:18:36,644 INFO    [3/1814] H.E. Parmer Company, Inc. — https://heparmer.com/
+2026-03-01 14:19:05,712 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:19:05,883 INFO    [4/1814] Tim Leeper Roofing — https://timleeperroofing.com/
+2026-03-01 14:19:39,284 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:19:39,299 INFO    [5/1814] Five Points Roofing — https://fivepointsroofing.com/
+2026-03-01 14:20:03,553 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:20:03,573 INFO    [6/1814] Sumner Roofing & Exteriors — https://www.sumnerroofing.com/
+2026-03-01 14:20:25,144 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:20:25,162 INFO    [7/1814] Quality Exteriors — https://qualityexteriors.com/
+2026-03-01 14:20:47,664 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:20:47,688 INFO    [8/1814] Ford Roofing Company — https://fordroofing.com/
+2026-03-01 14:21:13,945 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:21:13,963 INFO    [9/1814] Bone Dry Roofing (Nashville) — https://bonedry.com/nashville/
+2026-03-01 14:21:45,129 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:21:45,159 INFO    [10/1814] Roofing by Design, Inc. — https://roofingbydesign.net/
+2026-03-01 14:22:29,120 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:22:29,153 INFO    [11/1814] Undersun Roofing — https://undersunroofing.com/
+2026-03-01 14:22:54,980 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:22:54,995 INFO    [12/1814] Storm Guard Roofing & Construction (Nashville) — https://www.stormguardrc.com/tn/nashville/
+2026-03-01 14:23:27,073 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:23:27,100 INFO    [13/1814] Elite Roofing LLC — https://www.eliteroofpro.com/
+2026-03-01 14:23:28,874 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:23:28,874 INFO    [14/1814] Merrill Construction Group — https://merrillconstructiongroup.com/
+2026-03-01 14:23:30,435 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:23:30,435 INFO    [15/1814] Trace Ventures — https://traceventures.com/
+2026-03-01 14:23:54,929 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:23:54,969 INFO    [16/1814] Superior Home — https://mysuperiorhome.com/
+2026-03-01 14:24:23,215 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:24:23,237 INFO    [17/1814] Crane Builders — https://www.cranebuilders.com/
+2026-03-01 14:24:56,134 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:24:56,168 INFO    [18/1814] The Dan Company — https://www.dancompany.net/
+2026-03-01 14:25:24,073 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:25:24,091 INFO    [19/1814] Prodigy AV — https://prodigyav.com/
+2026-03-01 14:25:44,552 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:25:44,574 INFO    [20/1814] Liaison Technology Group — https://www.liaisontechgroup.com/
+2026-03-01 14:26:11,616 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:26:11,643 INFO    [21/1814] Allison Companies — https://www.allisoncompanies.com/
+2026-03-01 14:26:35,257 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:26:35,286 INFO    [22/1814] TN Outdoor Living — https://tnoutdoor.com/
+2026-03-01 14:26:58,193 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:26:58,215 INFO    [23/1814] Kalamazoo Outdoor Gourmet — https://kalamazoogourmet.com/
+2026-03-01 14:27:16,368 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:27:16,395 INFO    [24/1814] Joseph & Curtis Custom Wine Cellars — https://www.josephandcurtis.com/
+2026-03-01 14:27:34,852 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:27:34,869 INFO    [25/1814] Fraser Yachts — https://www.fraseryachts.com/
+2026-03-01 14:27:56,413 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:27:56,445 INFO    [26/1814] Burgess — https://www.burgessyachts.com/
+2026-03-01 14:28:18,475 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:28:18,491 INFO    [27/1814] Northrop & Johnson — https://www.northropandjohnson.com/
+2026-03-01 14:28:43,029 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:28:43,063 INFO    [28/1814] Camper & Nicholsons — https://camperandnicholsons.com/
+2026-03-01 14:29:09,142 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:29:09,158 INFO    [29/1814] Edmiston — https://www.edmiston.com/
+2026-03-01 14:29:38,081 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:29:38,114 INFO    [30/1814] Denison Yachting — https://www.denisonyachtsales.com/
+2026-03-01 14:30:03,886 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:30:03,917 INFO    [31/1814] Worth Avenue Yachts — https://www.worthavenueyachts.com/
+2026-03-01 14:30:32,949 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:30:32,973 INFO    [32/1814] Boatsetter — https://www.boatsetter.com/
+2026-03-01 14:30:56,228 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:30:56,256 INFO    [33/1814] GetMyBoat — https://www.getmyboat.com/
+2026-03-01 14:31:23,489 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:31:23,522 INFO    [34/1814] CharterWorld — https://www.charterworld.com/
+2026-03-01 14:31:52,937 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:31:52,966 INFO    [35/1814] King Jewelers — https://kingjewelers.com/
+2026-03-01 14:32:16,158 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:32:16,192 INFO    [36/1814] Diamond Cellar (Green Hills) — https://www.diamondcellar.com/pages/diamond-cellar-nashville-tennessee-green-hills
+2026-03-01 14:32:36,372 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:32:36,391 INFO    [37/1814] Harry Winston — https://www.harrywinston.com/en
+2026-03-01 14:34:41,857 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:34:41,858 INFO    [38/1814] Cartier — https://www.cartier.com/
+2026-03-01 14:34:42,628 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:34:42,628 INFO    [39/1814] Van Cleef & Arpels — https://www.vancleefarpels.com/
+2026-03-01 14:36:47,857 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:36:47,857 INFO    [40/1814] Tiffany & Co. — https://www.tiffany.com/
+2026-03-01 14:36:48,786 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:36:48,787 INFO    [41/1814] Blue Nile — https://www.bluenile.com/
+2026-03-01 14:37:30,358 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:37:30,390 INFO    [42/1814] James Allen — https://www.jamesallen.com/
+2026-03-01 14:37:57,812 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:37:57,835 INFO    [43/1814] Brilliant Earth — https://www.brilliantearth.com/
+2026-03-01 14:37:58,466 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:37:58,467 INFO    [44/1814] Leibish & Co. — https://www.leibish.com/
+2026-03-01 14:38:26,031 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:38:26,052 INFO    [45/1814] Haute Retreats — https://hauteretreats.com/
+2026-03-01 14:38:49,153 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:38:49,170 INFO    [46/1814] Edge Retreats — https://edgeretreats.com/
+2026-03-01 14:38:51,874 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:38:51,874 INFO    [47/1814] Sibarth (St. Barts) — https://sibarth.com/
+2026-03-01 14:39:25,919 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:39:25,940 INFO    [48/1814] Le Collectionist — https://www.lecollectionist.com/en
+2026-03-01 14:39:55,135 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:39:55,149 INFO    [49/1814] Villas of Distinction — https://www.villasofdistinction.com/
+2026-03-01 14:40:19,464 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:40:19,480 INFO    [50/1814] Inspirato — https://www.inspirato.com/
+2026-03-01 14:40:39,052 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:40:39,076 INFO    [51/1814] Exclusive Resorts — https://www.exclusiveresorts.com/
+2026-03-01 14:40:59,247 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:40:59,262 INFO    [52/1814] Rental Escapes — https://www.rentalescapes.com/
+2026-03-01 14:41:21,112 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:41:21,135 INFO    [53/1814] onefinestay — https://www.onefinestay.com/
+2026-03-01 14:41:21,852 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:41:21,852 INFO    [54/1814] Marriott Homes & Villas — https://homes-and-villas.marriott.com/
+2026-03-01 14:41:41,876 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:41:41,897 INFO    [55/1814] Elk Springs Resort (Gatlinburg) — https://www.elkspringsresort.com/
+2026-03-01 14:42:09,420 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:42:09,436 INFO    [56/1814] Luxury Gatlinburg Cabins — https://luxurygatlinburgcabins.com/
+2026-03-01 14:42:17,355 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:42:17,355 INFO    [57/1814] The Cabin Rental Store — https://thecabinrentalstore.com/
+2026-03-01 14:42:44,542 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:42:44,557 INFO    [58/1814] Tennessee Titans — Nissan Stadium Premium — https://www.tennesseetitans.com/tickets/premium-seating/luxury-suites
+2026-03-01 14:43:01,361 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:43:01,390 INFO    [59/1814] Bridgestone Arena Premium Seating — https://www.bridgestonearena.com/premium-seating
+2026-03-01 14:43:02,698 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:43:02,698 INFO    [60/1814] Nashville Predators Premium Seating — https://www.nhl.com/predators/tickets/premium-seating
+2026-03-01 14:43:36,103 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:43:36,128 INFO    [61/1814] Nashville SC — GEODIS Park Premium — https://www.nashvillesc.com/tickets/premium/
+2026-03-01 14:43:59,094 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:43:59,120 INFO    [62/1814] Grand Ole Opry Tours/Specials — https://www.opry.com/specials
+2026-03-01 14:44:00,259 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:44:00,259 INFO    [63/1814] Ryman Auditorium Tours — https://www.ryman.com/tours
+2026-03-01 14:44:25,542 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:44:25,562 INFO    [64/1814] Edge Global Events — https://edgeglobalevents.com/
+2026-03-01 14:44:29,776 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:44:29,776 INFO    [65/1814] SuiteHop — https://suitehop.com/
+2026-03-01 14:44:50,388 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:44:50,404 INFO    [66/1814] Vivid Seats — https://www.vividseats.com/
+2026-03-01 14:46:30,687 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:46:30,724 INFO    [67/1814] StubHub — https://www.stubhub.com/
+2026-03-01 14:46:32,260 INFO      Scrape returned insufficient text (51 chars)
+2026-03-01 14:46:32,261 INFO    [68/1814] Centurion Defense Solutions — https://centuriondefensesolutions.com/
+2026-03-01 14:47:07,206 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:47:07,242 INFO    [69/1814] Global Risk Solutions — https://www.grsprotection.com/
+2026-03-01 14:47:38,713 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:47:38,741 INFO    [70/1814] Nationwide Investigations & Security (Nashville) — https://ntwinvestigations.com/service-areas/tn/nashville/bodyguards-vip-protection/
+2026-03-01 14:48:49,511 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:48:49,543 INFO    [71/1814] Extrity Services — https://extrityservices.com/private-security-nashville/
+2026-03-01 14:49:19,131 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:49:19,165 INFO    [72/1814] Gavin de Becker & Associates — https://gdba.com/
+2026-03-01 14:49:41,414 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:49:41,432 INFO    [73/1814] AS Solution — https://assolution.com/
+2026-03-01 14:49:41,571 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:49:41,572 INFO    [74/1814] World Protection Group — https://www.worldprotectiongroup.com/
+2026-03-01 14:51:01,009 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:51:01,061 INFO    [75/1814] Pinkerton (HNWI Program) — https://pinkerton.com/programs/high-net-worth-individuals-hnwi
+2026-03-01 14:51:22,654 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:51:22,688 INFO    [76/1814] K2 Integrity — https://www.k2integrity.com/
+2026-03-01 14:51:44,753 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:51:44,775 INFO    [77/1814] GardaWorld — https://www.garda.com/
+2026-03-01 14:51:47,744 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:51:47,744 INFO    [78/1814] Securitas — https://www.securitas.com/
+2026-03-01 14:52:14,533 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:52:14,558 INFO    [79/1814] Hillard Heintze (Jensen Hughes) — https://www.jensenhughes.com/
+2026-03-01 14:52:57,890 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:52:57,915 INFO    [80/1814] Kroll — https://www.kroll.com/
+2026-03-01 14:53:27,935 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:53:27,958 INFO    [81/1814] Prancing Horse of Nashville (Ferrari) — https://nashville.ferraridealers.com/en-US
+2026-03-01 14:53:59,399 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:53:59,434 INFO    [82/1814] Gooding & Company / Gooding Christie's — https://www.goodingco.com/
+2026-03-01 14:54:37,884 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:54:37,907 INFO    [83/1814] Mecum Auctions — https://www.mecum.com/
+2026-03-01 14:54:39,634 INFO      Scrape returned insufficient text (80 chars)
+2026-03-01 14:54:39,634 INFO    [84/1814] duPont Registry — https://www.dupontregistry.com/
+2026-03-01 14:54:57,378 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:54:57,396 INFO    [85/1814] Hemmings — https://www.hemmings.com/
+2026-03-01 14:54:58,048 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 14:54:58,049 INFO    [86/1814] iLusso — https://www.ilusso.com/
+2026-03-01 14:55:48,973 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:55:48,999 INFO    [87/1814] Manhattan Motorcars — https://www.manhattanmotorcars.com/
+2026-03-01 14:56:07,972 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:56:07,990 INFO    [88/1814] Miller Motorcars — https://www.millermotorcars.com/
+2026-03-01 14:56:34,519 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:56:34,559 INFO    [89/1814] Brentwood MD — https://brentwoodmd.com/
+2026-03-01 14:56:57,051 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:56:57,080 INFO    [90/1814] Nashville Concierge Medicine (Dr. Conway) — https://nashvilleconciergemedicines.com/
+2026-03-01 14:57:22,249 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:57:22,268 INFO    [91/1814] Medical House Calls — https://medicalhousecalls.com/
+2026-03-01 14:57:57,605 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:57:57,638 INFO    [92/1814] MDVIP Nashville (directory) — https://www.mdvip.com/physicians-directory/tn/nashville
+2026-03-01 14:58:23,295 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:58:23,308 INFO    [93/1814] Fountain Life — https://www.fountainlife.com
+2026-03-01 14:58:44,753 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:58:44,774 INFO    [94/1814] Next Health — https://www.next-health.com/
+2026-03-01 14:59:09,285 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:59:09,306 INFO    [95/1814] Parsley Health — https://www.parsleyhealth.com/
+2026-03-01 14:59:35,641 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 14:59:35,681 INFO    [96/1814] One Medical — https://www.onemedical.com/membership/

@@ -16,7 +16,9 @@ from database import get_session
 from models.rows import Row, Project
 from models.auth import User
 from services.llm import make_pop_decision, ChatContext, generate_choice_factors
-from routes.chat import _create_row, _update_row, _save_choice_factors, _stream_search
+from routes.chat import _create_row, _update_row, _save_choice_factors
+from routes.rows_search import get_sourcing_repo, _sanitize_query
+from sourcing.service import SourcingService
 from routes.pop_helpers import _get_pop_user, _ensure_project_member, _load_chat_history, _append_chat_history, _build_item_with_deals
 
 logger = logging.getLogger(__name__)
@@ -25,6 +27,20 @@ chat_router = APIRouter()
 GUEST_EMAIL = "guest@buy-anything.com"
 _GUEST_SESSION_SECRET = os.getenv("GUEST_SESSION_SECRET", "pop-guest-session-default-key")
 
+
+
+async def _trigger_search_local(session: AsyncSession, row: Row, query: str):
+    try:
+        row.status = "bids_arriving"
+        session.add(row)
+        await session.commit()
+        
+        sourcing_service = SourcingService(session, get_sourcing_repo())
+        sanitized = _sanitize_query(query, True)
+        
+        await sourcing_service.search_and_persist(row.id, sanitized)
+    except Exception as e:
+        logger.warning(f"[Pop Web] Search failed for row {row.id}: {e}")
 
 def _sign_guest_project(project_id: int) -> str:
     """Create an HMAC token binding a guest session to a specific project."""
