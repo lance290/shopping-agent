@@ -16,7 +16,7 @@ from database import get_session
 from models.rows import Row, Project
 from models.auth import User
 from services.llm import make_pop_decision, ChatContext, generate_choice_factors
-from routes.chat import _create_row, _update_row, _save_choice_factors
+from routes.chat import _create_row, _update_row, _save_choice_factors, _stream_search
 from routes.rows_search import get_sourcing_repo, _sanitize_query
 from sourcing.service import SourcingService
 from routes.pop_helpers import _get_pop_user, _ensure_project_member, _load_chat_history, _append_chat_history, _build_item_with_deals

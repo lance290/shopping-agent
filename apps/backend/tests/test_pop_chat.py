@@ -44,7 +44,7 @@ async def test_chat_guest_mode_without_auth(
 ):
     """Regression: POST /pop/chat without auth uses guest user — must not 401."""
     with patch("routes.pop_chat.make_pop_decision", new_callable=AsyncMock, return_value=_mock_pop_decision()):
-        with patch("routes.pop_chat._stream_search", return_value=_empty_async_gen()):
+        with patch("routes.pop_chat._trigger_search_local", return_value=_empty_async_gen()):
             resp = await client.post(
                 "/pop/chat",
                 json={"message": "I need eggs"},
@@ -83,7 +83,7 @@ async def test_chat_authenticated_creates_family_shopping_list(
     user, token = pop_user
 
     with patch("routes.pop_chat.make_pop_decision", new_callable=AsyncMock, return_value=_mock_pop_decision()):
-        with patch("routes.pop_chat._stream_search", return_value=_empty_async_gen()):
+        with patch("routes.pop_chat._trigger_search_local", return_value=_empty_async_gen()):
             resp = await client.post(
                 "/pop/chat",
                 json={"message": "Need milk"},
@@ -110,7 +110,7 @@ async def test_chat_authenticated_reuses_existing_project(
     """Chat must reuse an existing 'Family Shopping List', not create a duplicate."""
     _, token = pop_user
     with patch("routes.pop_chat.make_pop_decision", new_callable=AsyncMock, return_value=_mock_pop_decision()):
-        with patch("routes.pop_chat._stream_search", return_value=_empty_async_gen()):
+        with patch("routes.pop_chat._trigger_search_local", return_value=_empty_async_gen()):
             r1 = await client.post(
                 "/pop/chat",
                 json={"message": "Need eggs"},
@@ -138,7 +138,7 @@ async def test_chat_returns_list_items_in_response(
     """POST /pop/chat response always includes current list_items snapshot."""
     _, token = pop_user
     with patch("routes.pop_chat.make_pop_decision", new_callable=AsyncMock, return_value=_mock_pop_decision()):
-        with patch("routes.pop_chat._stream_search", return_value=_empty_async_gen()):
+        with patch("routes.pop_chat._trigger_search_local", return_value=_empty_async_gen()):
             resp = await client.post(
                 "/pop/chat",
                 json={"message": "What's on my list?"},
@@ -168,7 +168,7 @@ async def test_chat_guest_resuming_session_via_guest_project_id(
     guest_token = _sign_guest_project(project.id)
 
     with patch("routes.pop_chat.make_pop_decision", new_callable=AsyncMock, return_value=_mock_pop_decision()):
-        with patch("routes.pop_chat._stream_search", return_value=_empty_async_gen()):
+        with patch("routes.pop_chat._trigger_search_local", return_value=_empty_async_gen()):
             resp = await client.post(
                 "/pop/chat",
                 json={
@@ -193,7 +193,7 @@ async def test_chat_guest_cannot_resume_other_users_project(
 ):
     """Regression: guest cannot hijack another user's project via guest_project_id."""
     with patch("routes.pop_chat.make_pop_decision", new_callable=AsyncMock, return_value=_mock_pop_decision()):
-        with patch("routes.pop_chat._stream_search", return_value=_empty_async_gen()):
+        with patch("routes.pop_chat._trigger_search_local", return_value=_empty_async_gen()):
             resp = await client.post(
                 "/pop/chat",
                 json={"message": "list items", "guest_project_id": pop_project.id},
@@ -231,7 +231,7 @@ async def test_chat_create_row_action_persists_to_db(
     with patch("routes.pop_chat.make_pop_decision", new_callable=AsyncMock, return_value=mock_decision):
         with patch("routes.pop_chat._create_row", new_callable=AsyncMock) as mock_create:
             with patch("routes.pop_chat.generate_choice_factors", new_callable=AsyncMock, return_value=None):
-                with patch("routes.pop_chat._stream_search", return_value=_empty_async_gen()):
+                with patch("routes.pop_chat._trigger_search_local", return_value=_empty_async_gen()):
                     # create a fake row returned by _create_row
                     fake_row = Row(title="Avocados", status="sourcing", user_id=user.id)
                     session.add(fake_row)

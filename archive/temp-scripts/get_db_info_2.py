@@ -15,14 +15,12 @@ from apps.backend.database import engine
 
 async def main():
     async with engine.connect() as conn:
-        res = await conn.execute(text("SELECT id, row_id, item_title, price, image_url, source FROM bid ORDER BY id DESC LIMIT 20"))
         print("BIDS:")
-        for b in res.fetchall():
-            print(dict(b._mapping))
-            
-        res = await conn.execute(text("SELECT id, title, status, provider_query FROM row ORDER BY id DESC LIMIT 10"))
-        print("\nROWS:")
-        for r in res.fetchall():
-            print(dict(r._mapping))
+        try:
+            res = await conn.execute(text("SELECT id, row_id, item_title, price, image_url, source FROM bid ORDER BY id DESC LIMIT 10"))
+            for b in res.fetchall():
+                print(dict(b._mapping))
+        except Exception as e:
+            print("ERROR on bid:", e)
 
 asyncio.run(main())
