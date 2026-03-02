@@ -12,6 +12,7 @@ from models.rows import Row, Project
 from models.auth import User
 from services.llm import make_pop_decision, ChatContext, generate_choice_factors
 from routes.chat import _create_row, _update_row, _save_choice_factors, _stream_search
+from services.sdui_builder import build_ui_schema
 from routes.pop_helpers import (
     POP_DOMAIN,
     _ensure_project_member,
@@ -165,6 +166,22 @@ async def process_pop_message(
         if search_query and target_row:
             async for _batch in _stream_search(target_row.id, search_query, authorization=None):
                 pass
+
+            # Build and persist SDUI schema after sourcing
+            try:
+                from sqlmodel import select as sql_select
+                from models.bids import Bid
+                bids_result = await session.execute(
+                    sql_select(Bid).where(Bid.row_id == target_row.id).order_by(Bid.combined_score.desc().nullslast()).limit(5)
+                )
+                bids = list(bids_result.scalars().all())
+                ui_schema = build_ui_schema(decision.ui_hint, target_row, bids)
+                target_row.ui_schema = ui_schema
+                target_row.ui_schema_version = (target_row.ui_schema_version or 0) + 1
+                session.add(target_row)
+                await session.commit()
+            except Exception as e:
+                logger.warning(f"[Pop] Failed to build ui_schema for row {target_row.id}: {e}")
 
         # If no row was created/updated, use active_row for history persistence
         if target_row is None:

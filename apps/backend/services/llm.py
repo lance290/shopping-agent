@@ -173,6 +173,7 @@ class UnifiedDecision(BaseModel):
     intent: UserIntent
     action: Dict[str, Any]  # flexible to handle all action types
     items: Optional[List[Dict[str, str]]] = None  # multi-item Pop responses
+    ui_hint: Optional[Dict[str, Any]] = None  # SDUI layout hint from LLM
 
     @property
     def desire_tier(self) -> str:
@@ -333,11 +334,24 @@ COMPLEX REQUESTS (services, custom/bespoke items, high-value purchases):
   - Custom jewelry: recipient, budget, carat weight, style preferences
 - Then create_row with full intent
 
+=== UI HINT (optional but recommended) ===
+Select how the results should be displayed. Pick a layout and list which UI blocks to show:
+
+Layouts: ROW_COMPACT (text-only comparison), ROW_MEDIA_LEFT (image + details), ROW_TIMELINE (progress/fulfillment tracking)
+Blocks (pick 3-6 from): ProductImage, PriceBlock, DataGrid, FeatureList, BadgeList, MarkdownText, Timeline, MessageList, ChoiceFactorForm, ActionRow
+
+Examples:
+- Grocery items: {{"layout": "ROW_MEDIA_LEFT", "blocks": ["ProductImage", "PriceBlock", "BadgeList", "ActionRow"], "value_vector": "unit_price"}}
+- Private jet charter: {{"layout": "ROW_TIMELINE", "blocks": ["DataGrid", "BadgeList", "Timeline", "ActionRow"], "value_vector": "safety"}}
+- Simple product search: {{"layout": "ROW_COMPACT", "blocks": ["MarkdownText", "PriceBlock", "BadgeList", "ActionRow"]}}
+- Custom/bespoke item needing details: {{"layout": "ROW_COMPACT", "blocks": ["MarkdownText", "ChoiceFactorForm", "ActionRow"]}}
+
 Return ONLY valid JSON:
 {{
   "message": "Conversational response to user (REQUIRED)",
   "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}}, "desire_tier": "commodity|considered|service|bespoke|high_value|advisory", "desire_confidence": 0.9 }},
-  "action": {{ "type": "..." }}
+  "action": {{ "type": "..." }},
+  "ui_hint": {{ "layout": "ROW_COMPACT|ROW_MEDIA_LEFT|ROW_TIMELINE", "blocks": ["..."], "value_vector": "unit_price|safety|speed|reliability|durability" }}
 }}"""
 
     try:

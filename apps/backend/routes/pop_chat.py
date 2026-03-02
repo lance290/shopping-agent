@@ -18,6 +18,7 @@ from models.auth import User
 from services.llm import make_pop_decision, ChatContext, generate_choice_factors
 from routes.chat import _create_row, _update_row, _save_choice_factors, _stream_search
 from routes.rows_search import get_sourcing_repo, _sanitize_query
+from services.sdui_builder import build_ui_schema
 from sourcing.service import SourcingService
 from routes.pop_helpers import _get_pop_user, _ensure_project_member, _load_chat_history, _append_chat_history, _build_item_with_deals
 
@@ -25,6 +26,25 @@ logger = logging.getLogger(__name__)
 chat_router = APIRouter()
 
 GUEST_EMAIL = "guest@buy-anything.com"
+
+
+async def _persist_ui_schema(session: AsyncSession, row: Row, ui_hint_data=None):
+    """Build SDUI schema from bids and persist on the Row."""
+    try:
+        from models.bids import Bid
+        bids_result = await session.execute(
+            select(Bid).where(Bid.row_id == row.id).order_by(Bid.combined_score.desc().nullslast()).limit(5)
+        )
+        bids = list(bids_result.scalars().all())
+        schema = build_ui_schema(ui_hint_data, row, bids)
+        row.ui_schema = schema
+        row.ui_schema_version = (getattr(row, 'ui_schema_version', 0) or 0) + 1
+        session.add(row)
+        await session.commit()
+    except Exception as e:
+        logger.warning(f"[Pop Web] Failed to build ui_schema for row {row.id}: {e}")
+
+
 _GUEST_SESSION_SECRET = os.getenv("GUEST_SESSION_SECRET", "pop-guest-session-default-key")
 
 
@@ -199,6 +219,8 @@ async def pop_web_chat(
                 try:
                     async for _batch in _stream_search(row.id, q, authorization=auth_header):
                         pass
+                    # Build SDUI schema after sourcing
+                    await _persist_ui_schema(session, row, decision.ui_hint)
                 except Exception as e:
                     logger.warning(f"[Pop Web] Search failed for row {row.id}: {e}")
             if created_rows:
@@ -222,6 +244,8 @@ async def pop_web_chat(
                 try:
                     async for _batch in _stream_search(target_row.id, search_query, authorization=auth_header):
                         pass
+                    # Build SDUI schema after sourcing
+                    await _persist_ui_schema(session, target_row, decision.ui_hint)
                 except Exception as e:
                     logger.warning(f"[Pop Web] Search failed for row {target_row.id}: {e}")
 
@@ -239,6 +263,8 @@ async def pop_web_chat(
                 try:
                     async for _batch in _stream_search(target_row.id, search_query, authorization=auth_header):
                         pass
+                    # Build SDUI schema after sourcing
+                    await _persist_ui_schema(session, target_row, decision.ui_hint)
                 except Exception as e:
                     logger.warning(f"[Pop Web] Search failed for row {target_row.id}: {e}")
 
