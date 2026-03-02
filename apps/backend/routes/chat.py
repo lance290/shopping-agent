@@ -414,6 +414,63 @@ async def chat_endpoint(
                 yield sse_event("done", {})
                 return
 
+            # --- MULTI-ITEM / LIST CREATION ---
+            if decision.items and action_type in ("create_row", "context_switch"):
+                # If there's no project yet, create one for this list
+                if not project_id:
+                    proj_title = decision.project_title or "Shopping List"
+                    new_proj = Project(title=proj_title, user_id=user_id)
+                    session.add(new_proj)
+                    await session.commit()
+                    await session.refresh(new_proj)
+                    project_id = new_proj.id
+
+                created_rows = []
+                for item_data in decision.items:
+                    item_title = item_data.get("what", "").strip()
+                    if not item_title:
+                        continue
+                    item_title = item_title[0].upper() + item_title[1:]
+                    item_query = item_data.get("search_query", item_title)
+                    item_tier = item_data.get("desire_tier", "commodity")
+                    
+                    row = await _create_row(
+                        session, user_id, item_title, project_id,
+                        False, None, {}, item_query,
+                        desire_tier=item_tier,
+                    )
+                    created_rows.append((row, item_query, item_tier))
+                    yield sse_event("row_created", {"row": row_to_dict(row)})
+
+                # Search for deals on each created row sequentially
+                for row, q, tier in created_rows:
+                    yield sse_event("action_started", {"type": "search", "row_id": row.id, "query": q})
+                    async for batch in _stream_search(row.id, q, authorization):
+                        if batch.get("event") == "complete":
+                            if batch.get("user_message"):
+                                yield sse_event("search_results", {
+                                    "row_id": row.id,
+                                    "results": [],
+                                    "more_incoming": False,
+                                    "user_message": batch["user_message"],
+                                })
+                        else:
+                            yield sse_event("search_results", {
+                                "row_id": row.id,
+                                "results": batch.get("results", []),
+                                "provider_statuses": [batch.get("status")] if batch.get("status") else [],
+                                "more_incoming": batch.get("more_incoming", False),
+                                "provider": batch.get("provider"),
+                            })
+
+                    # Build and emit SDUI schema after search completes
+                    schema = await _build_and_persist_ui_schema(session, row, decision.ui_hint)
+                    if schema:
+                        yield sse_ui_schema_event(row.id, schema, row.ui_schema_version, "search_complete")
+
+                yield sse_event("done", {})
+                return
+
             # --- CREATE ROW (also used for context_switch) ---
             if action_type in ("create_row", "context_switch"):
                 event_name = "context_switch" if action_type == "context_switch" else "row_created"

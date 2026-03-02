@@ -176,7 +176,8 @@ class UnifiedDecision(BaseModel):
     message: str
     intent: UserIntent
     action: Dict[str, Any]  # flexible to handle all action types
-    items: Optional[List[Dict[str, str]]] = None  # multi-item Pop responses
+    items: Optional[List[Dict[str, str]]] = None  # multi-item responses
+    project_title: Optional[str] = None  # Name for a group of items
     ui_hint: Optional[Dict[str, Any]] = None  # SDUI layout hint from LLM
 
     @property
@@ -307,6 +308,24 @@ RULES:
 
 CRITICAL: If an active row exists and the user's message relates to the SAME category/topic, you MUST use update_row. NEVER create a duplicate row for the same request. "Make it round trip", "add return leg", "change date", "2 passengers" — these are ALL update_row when an active row exists.
 
+=== LISTS & MULTIPLE ITEMS ===
+If the user asks for multiple completely separate things in one message (e.g., a grocery list, or "I need a lawnmower and some running shoes"), return them in the `items` array and set `action` to `create_row`.
+If the user names the list (e.g., "Camping trip: tent, sleeping bag, stove"), set `project_title` to "Camping Trip".
+Otherwise, if it's just a bunch of random items, set `project_title` to a logical group name or null.
+
+For MULTIPLE items, your JSON MUST look like this:
+{{
+  "message": "I'll start searching for these items right away.",
+  "action": {{ "type": "create_row" }},
+  "project_title": "Camping Trip",
+  "items": [
+    {{ "what": "Tent", "search_query": "4 person camping tent" }},
+    {{ "what": "Sleeping Bag", "search_query": "cold weather sleeping bag" }},
+    {{ "what": "Stove", "search_query": "portable camping stove" }}
+  ],
+  "intent": {{ "what": "Multiple items", "category": "product", "search_query": "list", "constraints": {{}}, "desire_tier": "commodity", "desire_confidence": 0.9 }}
+}}
+
 === STRUCTURED RFP BUILDER (Phase 4) ===
 You are NOT just a chatbot. You are a procurement agent. For every request, follow this pattern:
 
@@ -361,6 +380,24 @@ Return ONLY valid JSON:
     try:
         text = await call_gemini(prompt, timeout=30.0)
         parsed = _extract_json(text)
+
+        # Handle multi-item responses
+        items_list = parsed.pop("items", None)
+        if items_list and isinstance(items_list, list) and len(items_list) > 0:
+            first = items_list[0]
+            if "intent" not in parsed:
+                parsed["intent"] = {
+                    "what": first.get("what", ""),
+                    "category": "product",
+                    "search_query": first.get("search_query", f"{first.get('what', '')} deals"),
+                    "constraints": {},
+                    "desire_tier": "commodity",
+                    "desire_confidence": 0.95,
+                }
+            decision = UnifiedDecision(**parsed)
+            decision.items = items_list
+            return decision
+
         return UnifiedDecision(**parsed)
     except Exception as e:
         logger.error(f"Failed to parse LLM decision: {e}")
