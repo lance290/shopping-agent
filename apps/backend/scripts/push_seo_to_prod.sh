@@ -20,7 +20,7 @@ cd "$BACKEND_DIR"
 source .env 2>/dev/null || true
 
 echo "=== Step 1: Count enriched vendors in local DB ==="
-python3 - <<'PY'
+uv run python3 - <<'PY'
 import os
 from sqlalchemy import create_engine, text
 url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5437/shopping_agent").replace("+asyncpg","").replace("?ssl=disable","").replace("?sslmode=disable","")
@@ -34,7 +34,7 @@ PY
 
 echo ""
 echo "=== Step 2: Dump local vendor table to JSON ==="
-python3 scripts/dump_vendors_async.py
+uv run python3 scripts/dump_vendors_async.py
 
 echo ""
 echo "=== Step 3: Compress to gzip ==="
@@ -61,7 +61,7 @@ fi
 
 echo ""
 echo "=== Step 5: Spot-check a vendor page ==="
-SLUG=$(python3 - <<'PY'
+SLUG=$(uv run python3 - <<'PY'
 import os
 from sqlalchemy import create_engine, text
 url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5437/shopping_agent").replace("+asyncpg","").replace("?ssl=disable","").replace("?sslmode=disable","")

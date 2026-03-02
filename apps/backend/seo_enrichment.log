@@ -5671,3 +5671,1221 @@ DETAIL:  Key (slug)=(colin-cowie-lifestyle) already exists.
 2026-03-01 20:31:27,768 INFO    [1206/1814] Progressive Corporation — https://www.progressive.com
 2026-03-01 20:31:57,118 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
 2026-03-01 20:31:57,144 INFO    [1207/1814] The Hartford — https://www.thehartford.com
+2026-03-01 20:32:22,540 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:32:22,558 INFO    [1208/1814] Allstate Corporation — https://www.allstate.com
+2026-03-01 20:32:26,003 INFO      Scrape returned insufficient text (82 chars)
+2026-03-01 20:32:26,003 INFO    [1209/1814] Capital One Financial — https://www.capitalone.com
+2026-03-01 20:32:56,369 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:32:56,388 INFO    [1210/1814] Discover Financial Services — https://www.discover.com
+2026-03-01 20:33:25,615 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:33:25,636 INFO    [1211/1814] Charles Schwab SF — https://www.schwab.com
+2026-03-01 20:33:53,709 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:33:53,725 INFO    [1212/1814] Coinbase Global — https://www.coinbase.com
+2026-03-01 20:33:54,355 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 20:33:54,355 INFO    [1213/1814] S&P Global — https://www.spglobal.com
+2026-03-01 20:33:55,083 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 20:33:55,084 INFO    [1214/1814] United Parcel Service Atlanta — https://www.ups.com
+2026-03-01 20:36:00,848 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 20:36:00,849 INFO    [1215/1814] Boeing Chicago — https://www.boeing.com
+2026-03-01 20:36:21,339 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:36:21,351 INFO    [1216/1814] Lockheed Martin Bethesda — https://www.lockheedmartin.com
+2026-03-01 20:36:41,909 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:36:41,926 INFO    [1217/1814] Raytheon Waltham — https://www.rtx.com
+2026-03-01 20:37:04,943 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:37:04,959 INFO    [1218/1814] Deere & Company (John Deere) — https://www.deere.com
+2026-03-01 20:37:35,052 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:37:35,069 INFO    [1219/1814] Cummins Inc. — https://www.cummins.com
+2026-03-01 20:37:36,279 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 20:37:36,279 INFO    [1220/1814] Parker Hannifin — https://www.parker.com
+2026-03-01 20:37:37,080 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 20:37:37,080 INFO    [1221/1814] Eaton Corporation — https://www.eaton.com
+2026-03-01 20:39:42,846 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 20:39:42,847 INFO    [1222/1814] Emerson Electric Co. — https://www.emerson.com
+2026-03-01 20:40:06,259 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:40:06,279 INFO    [1223/1814] Rockwell Automation — https://www.rockwellautomation.com
+2026-03-01 20:40:15,863 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:40:15,879 INFO    [1224/1814] Danaher Corporation — https://www.danaher.com
+2026-03-01 20:40:37,837 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:40:37,860 INFO    [1225/1814] Thermo Fisher Scientific — https://www.thermofisher.com
+2026-03-01 20:41:01,690 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:41:01,707 INFO    [1226/1814] Illumina Inc. — https://www.illumina.com
+2026-03-01 20:41:26,424 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:41:26,443 INFO    [1227/1814] Baskin-Robbins — https://www.baskinrobbins.com
+2026-03-01 20:43:31,540 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:43:31,562 INFO    [1228/1814] Burger King US — https://www.bk.com
+2026-03-01 20:43:33,642 INFO      Scrape returned insufficient text (11 chars)
+2026-03-01 20:43:33,643 INFO    [1229/1814] Subway IP LLC — https://www.subway.com
+2026-03-01 20:45:38,854 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 20:45:38,860 INFO    [1230/1814] Taco Bell Corp. — https://www.tacobell.com
+2026-03-01 20:46:00,850 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:46:00,881 INFO    [1231/1814] Pizza Hut US — https://www.pizzahut.com
+2026-03-01 20:48:06,847 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 20:48:06,847 INFO    [1232/1814] KFC US — https://www.kfc.com
+2026-03-01 20:48:07,887 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 20:48:07,888 INFO    [1233/1814] Papa John’s International — https://www.papajohns.com
+2026-03-01 20:48:47,858 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:48:47,893 INFO    [1234/1814] Chipotle Newport Beach — https://www.chipotle.com
+2026-03-01 20:49:09,206 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:49:09,240 INFO    [1235/1814] Shake Shack — https://www.shakeshack.com
+2026-03-01 20:49:10,552 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 20:49:10,552 INFO    [1236/1814] Panda Express — https://www.pandaexpress.com
+2026-03-01 20:49:11,336 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 20:49:11,336 INFO    [1237/1814] Buffalo Wild Wings — https://www.buffalowildwings.com
+2026-03-01 20:49:37,353 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:49:37,378 INFO    [1238/1814] University of California, Los Angeles (UCLA) — https://www.ucla.edu
+2026-03-01 20:49:58,215 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:49:58,232 INFO    [1239/1814] University of Michigan — https://umich.edu
+2026-03-01 20:49:58,983 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 20:49:58,984 INFO    [1240/1814] University of Virginia — https://www.virginia.edu
+2026-03-01 20:50:16,009 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:50:16,040 INFO    [1241/1814] University of North Carolina at Chapel Hill — https://www.unc.edu
+2026-03-01 20:50:46,162 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:50:46,179 INFO    [1242/1814] Dartmouth College — https://home.dartmouth.edu
+2026-03-01 20:51:14,981 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:51:14,998 INFO    [1243/1814] Rice University — https://www.rice.edu
+2026-03-01 20:51:35,897 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:51:35,931 INFO    [1244/1814] Georgetown University — https://www.georgetown.edu
+2026-03-01 20:52:00,163 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:52:00,188 INFO    [1245/1814] Northwestern University — https://www.northwestern.edu
+2026-03-01 20:52:25,263 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:52:25,277 INFO    [1246/1814] Bill & Melinda Gates Foundation — https://www.gatesfoundation.org
+2026-03-01 20:52:51,769 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:52:51,796 INFO    [1247/1814] United Way Worldwide — https://www.unitedway.org
+2026-03-01 20:53:13,135 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:53:13,156 INFO    [1248/1814] Feeding America — https://www.feedingamerica.org
+2026-03-01 20:53:37,822 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:53:37,841 INFO    [1249/1814] The Nature Conservancy — https://www.nature.org
+2026-03-01 20:54:03,140 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:54:03,172 INFO    [1250/1814] World Wildlife Fund (WWF) US — https://www.worldwildlife.org
+2026-03-01 20:54:03,996 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 20:54:03,996 INFO    [1251/1814] Doctors Without Borders (MSF) USA — https://www.doctorswithoutborders.org
+2026-03-01 20:54:37,400 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:54:37,419 INFO    [1252/1814] St. Jude Children's Research Hospital — https://www.stjude.org
+2026-03-01 20:55:01,010 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:55:01,037 INFO    [1253/1814] Make-A-Wish Foundation — https://wish.org
+2026-03-01 20:55:24,710 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:55:24,731 INFO    [1254/1814] Habitat for Humanity International — https://www.habitat.org
+2026-03-01 20:56:01,581 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:56:01,594 INFO    [1255/1814] The Washington Post — https://www.washingtonpost.com
+2026-03-01 20:58:06,848 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 20:58:06,851 INFO    [1256/1814] The Wall Street Journal — https://www.wsj.com
+2026-03-01 20:58:47,317 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:58:47,350 INFO    [1257/1814] USA Today — https://www.usatoday.com
+2026-03-01 20:59:16,601 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:59:16,626 INFO    [1258/1814] Los Angeles Times — https://www.latimes.com
+2026-03-01 20:59:43,622 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 20:59:43,648 INFO    [1259/1814] Associated Press (AP) — https://www.ap.org
+2026-03-01 21:00:13,485 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:00:13,514 INFO    [1260/1814] Fox News Media — https://www.foxnews.com
+2026-03-01 21:00:39,589 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:00:39,628 INFO    [1261/1814] NPR (National Public Radio) — https://www.npr.org
+2026-03-01 21:01:02,000 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:01:02,030 INFO    [1262/1814] Exxon Mobil Corporation — https://corporate.exxonmobil.com
+2026-03-01 21:01:25,559 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:01:25,590 INFO    [1263/1814] NextEra Energy — https://www.nexteraenergy.com
+2026-03-01 21:01:47,558 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:01:47,577 INFO    [1264/1814] Duke Energy — https://www.duke-energy.com
+2026-03-01 21:01:48,290 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:01:48,290 INFO    [1265/1814] Valero Energy — https://www.valero.com
+2026-03-01 21:02:08,332 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:02:08,363 INFO    [1266/1814] Phillips 66 — https://www.phillips66.com
+2026-03-01 21:02:25,428 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:02:25,453 INFO    [1267/1814] Dominion Energy — https://www.dominionenergy.com
+2026-03-01 21:02:52,918 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:02:52,951 INFO    [1268/1814] American Electric Power (AEP) — https://www.aep.com
+2026-03-01 21:03:15,323 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:03:15,346 INFO    [1269/1814] RE/MAX Holdings — https://www.remax.com
+2026-03-01 21:03:35,783 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:03:35,815 INFO    [1270/1814] Keller Williams Realty — https://kw.com
+2026-03-01 21:03:36,539 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:03:36,540 INFO    [1271/1814] Coldwell Banker — https://www.coldwellbanker.com
+2026-03-01 21:04:04,548 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:04:04,583 INFO    [1272/1814] Century 21 Real Estate — https://www.century21.com
+2026-03-01 21:04:05,642 INFO      Scrape returned insufficient text (14 chars)
+2026-03-01 21:04:05,642 INFO    [1273/1814] Compass Inc. — https://www.compass.com
+2026-03-01 21:04:27,251 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:04:27,278 INFO    [1274/1814] Zillow Group — https://www.zillow.com
+2026-03-01 21:04:28,653 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:04:28,653 INFO    [1275/1814] Redfin Corporation — https://www.redfin.com
+2026-03-01 21:04:29,194 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:04:29,194 INFO    [1276/1814] Jones Lang LaSalle (JLL) — https://www.us.jll.com
+2026-03-01 21:04:52,364 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:04:52,381 INFO    [1277/1814] Cushman & Wakefield US — https://www.cushmanwakefield.com/en/united-states
+2026-03-01 21:05:27,835 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:05:27,874 INFO    [1278/1814] Colliers International US — https://www.colliers.com/en-us
+2026-03-01 21:05:28,776 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:05:28,776 INFO    [1279/1814] Expedia Group US — https://www.expediagroup.com
+2026-03-01 21:05:29,456 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:05:29,456 INFO    [1280/1814] Booking.com US — https://www.booking.com
+2026-03-01 21:05:33,823 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:05:33,823 INFO    [1281/1814] Tripadvisor US — https://www.tripadvisor.com
+2026-03-01 21:05:34,814 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:05:34,815 INFO    [1282/1814] Carnival Corporation US — https://www.carnivalcorp.com
+2026-03-01 21:06:04,692 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:06:04,718 INFO    [1283/1814] Royal Caribbean Group — https://www.royalcaribbeangroup.com
+2026-03-01 21:06:22,651 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:06:22,686 INFO    [1284/1814] United Airlines Chicago — https://www.united.com
+2026-03-01 21:08:27,846 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:08:27,849 INFO    [1285/1814] Delta Air Lines Atlanta — https://www.delta.com
+2026-03-01 21:08:54,439 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:08:54,459 INFO    [1286/1814] American Airlines Fort Worth — https://www.aa.com
+2026-03-01 21:08:55,317 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:08:55,317 INFO    [1287/1814] JetBlue Airways — https://www.jetblue.com
+2026-03-01 21:09:12,932 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:09:12,954 INFO    [1288/1814] Lowe’s Companies — https://www.lowes.com
+2026-03-01 21:10:32,365 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:10:32,386 INFO    [1289/1814] Best Buy Co. Inc. — https://www.bestbuy.com
+2026-03-01 21:12:37,850 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:12:37,850 INFO    [1290/1814] Macy’s Inc. — https://www.macys.com
+2026-03-01 21:12:39,438 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:12:39,438 INFO    [1291/1814] Kohl’s Corporation — https://www.kohls.com
+2026-03-01 21:12:40,352 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:12:40,352 INFO    [1292/1814] The TJX Companies — https://www.tjx.com
+2026-03-01 21:12:41,191 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:12:41,192 INFO    [1293/1814] Ross Stores Inc. — https://www.rossstores.com
+2026-03-01 21:13:03,119 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:13:03,141 INFO    [1294/1814] Dollar General — https://www.dollargeneral.com
+2026-03-01 21:13:44,958 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:13:44,982 INFO    [1295/1814] AutoZone Inc. — https://www.autozone.com
+2026-03-01 21:13:47,001 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:13:47,001 INFO    [1296/1814] O’Reilly Automotive — https://www.oreillyauto.com
+2026-03-01 21:13:47,768 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:13:47,769 INFO    [1297/1814] Sherwin-Williams — https://www.sherwin-williams.com
+2026-03-01 21:14:20,390 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:14:20,410 INFO    [1298/1814] Intuit Inc. — https://www.intuit.com
+2026-03-01 21:14:22,378 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:14:22,379 INFO    [1299/1814] ServiceNow — https://www.servicenow.com
+2026-03-01 21:16:27,849 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:16:27,850 INFO    [1300/1814] Workday Inc. — https://www.workday.com
+2026-03-01 21:16:47,625 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:16:47,649 INFO    [1301/1814] Autodesk Inc. — https://www.autodesk.com
+2026-03-01 21:18:52,851 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:18:52,851 INFO    [1302/1814] Cadence Design Systems — https://www.cadence.com
+2026-03-01 21:18:53,826 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:18:53,827 INFO    [1303/1814] Fortinet — https://www.fortinet.com
+2026-03-01 21:19:17,508 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:19:17,569 INFO    [1304/1814] Arista Networks — https://www.arista.com
+2026-03-01 21:19:18,380 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:19:18,380 INFO    [1305/1814] Akamai Technologies — https://www.akamai.com
+2026-03-01 21:19:19,085 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:19:19,085 INFO    [1306/1814] U.S. Bancorp — https://www.usbank.com
+2026-03-01 21:19:48,191 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:19:48,211 INFO    [1307/1814] PNC Financial Services — https://www.pnc.com
+2026-03-01 21:21:53,849 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:21:53,851 INFO    [1308/1814] Truist Financial — https://www.truist.com
+2026-03-01 21:22:21,115 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:22:21,137 INFO    [1309/1814] Capital One NYC — https://www.capitalone.com
+2026-03-01 21:22:53,275 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:22:53,299 INFO    [1310/1814] Fifth Third Bank — https://www.53.com
+2026-03-01 21:23:03,168 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:23:03,190 INFO    [1311/1814] KeyCorp (KeyBank) — https://www.key.com
+2026-03-01 21:25:08,851 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:25:08,853 INFO    [1312/1814] M&T Bank — https://www.mtb.com
+2026-03-01 21:25:38,263 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:25:38,296 INFO    [1313/1814] Regions Financial Corporation — https://www.regions.com
+2026-03-01 21:25:49,384 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:25:49,420 INFO    [1314/1814] Huntington Bancshares — https://www.huntington.com
+2026-03-01 21:27:54,849 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:27:54,852 INFO    [1315/1814] Biogen Inc. — https://www.biogen.com
+2026-03-01 21:28:15,069 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:28:15,094 INFO    [1316/1814] Vertex Pharmaceuticals — https://www.vrtx.com
+2026-03-01 21:28:15,840 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:28:15,841 INFO    [1317/1814] Bio-Rad Laboratories — https://www.bio-rad.com
+2026-03-01 21:28:16,719 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:28:16,719 INFO    [1318/1814] Agilent Technologies — https://www.agilent.com
+2026-03-01 21:28:17,431 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:28:17,431 INFO    [1319/1814] Waters Corporation — https://www.waters.com
+2026-03-01 21:30:22,853 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:30:22,854 INFO    [1320/1814] Quest Diagnostics — https://www.questdiagnostics.com
+2026-03-01 21:30:52,588 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:30:52,606 INFO    [1321/1814] Laboratory Corporation of America (Labcorp) — https://www.labcorp.com
+2026-03-01 21:31:15,718 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:31:15,731 INFO    [1322/1814] Ohio State University — https://www.osu.edu
+2026-03-01 21:31:37,433 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:31:37,446 INFO    [1323/1814] Pennsylvania State University — https://www.psu.edu
+2026-03-01 21:32:03,041 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:32:03,054 INFO    [1324/1814] University of Florida — https://www.ufl.edu
+2026-03-01 21:32:31,325 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:32:31,355 INFO    [1325/1814] University of Wisconsin–Madison — https://www.wisc.edu
+2026-03-01 21:32:57,531 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:32:57,561 INFO    [1326/1814] University of Minnesota Twin Cities — https://twin-cities.umn.edu
+2026-03-01 21:33:24,071 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:33:24,083 INFO    [1327/1814] University of Illinois Urbana-Champaign — https://illinois.edu
+2026-03-01 21:33:56,600 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:33:56,618 INFO    [1328/1814] Purdue University — https://www.purdue.edu
+2026-03-01 21:34:18,464 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:34:18,484 INFO    [1329/1814] Michigan State University — https://msu.edu
+2026-03-01 21:34:43,559 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:34:43,573 INFO    [1330/1814] University of Maryland, College Park — https://www.umd.edu
+2026-03-01 21:35:11,736 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:35:11,762 INFO    [1331/1814] Smithsonian Institution — https://www.si.edu
+2026-03-01 21:35:12,640 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:35:12,641 INFO    [1332/1814] Metropolitan Museum of Art (The Met) — https://www.metmuseum.org
+2026-03-01 21:35:35,959 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:35:35,986 INFO    [1333/1814] American Museum of Natural History — https://www.amnh.org
+2026-03-01 21:35:36,791 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:35:36,792 INFO    [1334/1814] Art Institute of Chicago — https://www.artic.edu
+2026-03-01 21:36:02,219 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:36:02,235 INFO    [1335/1814] Mayo Clinic Health System — https://www.mayoclinichealthsystem.org
+2026-03-01 21:36:03,055 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:36:03,058 INFO    [1336/1814] Sierra Club — https://www.sierraclub.org
+2026-03-01 21:36:27,074 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:36:27,101 INFO    [1337/1814] DuPont de Nemours — https://www.dupont.com
+2026-03-01 21:36:48,380 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:36:48,413 INFO    [1338/1814] Dow Inc. — https://www.dow.com
+2026-03-01 21:36:50,309 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:36:50,309 INFO    [1339/1814] LyondellBasell — https://www.lyondellbasell.com
+2026-03-01 21:37:10,397 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:37:10,427 INFO    [1340/1814] PPG Industries — https://www.ppg.com
+2026-03-01 21:37:40,484 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:37:40,515 INFO    [1341/1814] Owens Corning — https://www.owenscorning.com
+2026-03-01 21:37:55,594 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:37:55,621 INFO    [1342/1814] Mohawk Industries — https://mohawkind.com
+2026-03-01 21:38:17,230 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:38:17,261 INFO    [1343/1814] Steelcase Inc. — https://www.steelcase.com
+2026-03-01 21:38:47,084 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:38:47,103 INFO    [1344/1814] Herman Miller (MillerKnoll) — https://www.hermanmiller.com
+2026-03-01 21:39:10,778 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:39:10,806 INFO    [1345/1814] ArentFox Schiff — https://www.afslaw.com
+2026-03-01 21:39:37,832 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:39:37,859 INFO    [1346/1814] Butler Snow LLP — https://www.butlersnow.com
+2026-03-01 21:40:07,758 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:40:07,792 INFO    [1347/1814] Cozen O’Connor Philadelphia — https://www.cozen.com
+2026-03-01 21:40:10,064 INFO      Scrape returned insufficient text (14 chars)
+2026-03-01 21:40:10,064 INFO    [1348/1814] Day Pitney LLP — https://www.daypitney.com
+2026-03-01 21:40:34,829 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:40:34,859 INFO    [1349/1814] Foley & Lardner — https://www.foley.com
+2026-03-01 21:41:05,093 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:41:05,129 INFO    [1350/1814] Gordon Rees Scully Mansukhani SF — https://www.grsm.com
+2026-03-01 21:41:29,199 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:41:29,226 INFO    [1351/1814] Haynes and Boone — https://www.haynesboone.com
+2026-03-01 21:41:49,510 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:41:49,529 INFO    [1352/1814] Kutak Rock LLP — https://www.kutakrock.com
+2026-03-01 21:42:15,955 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:42:15,974 INFO    [1353/1814] Lewis Brisbois Bisgaard & Smith — https://lewisbrisbois.com
+2026-03-01 21:42:40,888 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:42:40,925 INFO    [1354/1814] Michael Best & Friedrich LLP — https://www.michaelbest.com
+2026-03-01 21:42:41,765 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:42:41,766 INFO    [1355/1814] Polsinelli Chicago — https://www.polsinelli.com
+2026-03-01 21:42:42,422 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:42:42,422 INFO    [1356/1814] Armanino San Ramon — https://www.armaninollp.com
+2026-03-01 21:42:43,037 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:42:43,037 INFO    [1357/1814] BerryDunn Portland ME — https://www.berrydunn.com
+2026-03-01 21:42:53,528 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:42:53,540 INFO    [1358/1814] Citrin Cooperman NYC — https://www.citrincooperman.com
+2026-03-01 21:43:14,746 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:43:14,776 INFO    [1359/1814] EisnerAmper NYC — https://www.eisneramper.com
+2026-03-01 21:43:37,891 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:43:37,914 INFO    [1360/1814] Frank Rimerman Palo Alto — https://www.frankrimerman.com
+2026-03-01 21:44:03,153 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:44:03,178 INFO    [1361/1814] Moss Adams Seattle — https://www.mossadams.com
+2026-03-01 21:44:26,815 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:44:26,848 INFO    [1362/1814] Plante Moran Southfield — https://www.plantemoran.com
+2026-03-01 21:44:47,333 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:44:47,357 INFO    [1363/1814] Sensiba San Jose — https://www.sensiba.com
+2026-03-01 21:45:10,232 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:45:10,248 INFO    [1364/1814] Warren Averett Birmingham — https://www.warrenaverett.com
+2026-03-01 21:45:37,628 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:45:37,646 INFO    [1365/1814] Artisana Organics — https://artisanaorganics.com
+2026-03-01 21:45:38,977 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:45:38,978 INFO    [1366/1814] Ghirardelli Chocolate Company — https://www.ghirardelli.com
+2026-03-01 21:45:42,493 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:45:42,494 INFO    [1367/1814] O&Co. (Oliviers & Co) US — https://www.oliviersandco.com
+2026-03-01 21:45:43,279 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:45:43,279 INFO    [1368/1814] Vermont Creamery — https://www.vermontcreamery.com
+2026-03-01 21:46:02,533 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:46:02,568 INFO    [1369/1814] Wildfish Cannery — https://wildfishcannery.com
+2026-03-01 21:46:23,090 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:46:23,117 INFO    [1370/1814] Bookie’s New and Used Books Chicago — https://bookieschicago.com
+2026-03-01 21:46:25,776 INFO      Scrape returned insufficient text (8 chars)
+2026-03-01 21:46:25,776 INFO    [1371/1814] City Lit Books Chicago — https://www.citylitbooks.com
+2026-03-01 21:46:26,990 INFO      Scrape returned insufficient text (14 chars)
+2026-03-01 21:46:26,990 INFO    [1372/1814] Greenlight Bookstore Brooklyn — https://www.greenlightbookstore.com
+2026-03-01 21:46:48,540 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:46:48,573 INFO    [1373/1814] Housing Works Bookstore NYC — https://www.housingworks.org/locations/bookstore-cafe
+2026-03-01 21:47:13,390 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:47:13,419 INFO    [1374/1814] Magers & Quinn Booksellers Minneapolis — https://www.magersandquinn.com
+2026-03-01 21:47:14,305 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:47:14,305 INFO    [1375/1814] Skylight Books LA — https://www.skylightbooks.com
+2026-03-01 21:47:16,481 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:47:16,481 INFO    [1376/1814] Word Bookstore Brooklyn — https://www.wordbookstores.com
+2026-03-01 21:47:39,957 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:47:39,977 INFO    [1377/1814] Grimey’s New & Pre-Loved Music Nashville — https://www.grimeys.com
+2026-03-01 21:48:01,575 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:48:01,593 INFO    [1378/1814] Jackpot Records Portland — https://jackpotrecords.com
+2026-03-01 21:48:24,355 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:48:24,370 INFO    [1379/1814] Love Garden Sounds Lawrence KS — https://lovegardensounds.com
+2026-03-01 21:48:44,171 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:48:44,201 INFO    [1380/1814] Princeton Record Exchange — https://www.prex.com
+2026-03-01 21:49:11,989 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:49:12,011 INFO    [1381/1814] Bespoke Development — https://www.bespokedevelopment.com
+2026-03-01 21:49:12,160 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:49:12,161 INFO    [1382/1814] Distinctive Homes — https://www.distinctivehomes.com
+2026-03-01 21:49:12,341 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:49:12,341 INFO    [1383/1814] Echelon Custom Homes — https://www.echeloncustomhomes.com
+2026-03-01 21:49:13,384 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:49:13,385 INFO    [1384/1814] Fabuwood Cabinetry — https://www.fabuwood.com
+2026-03-01 21:49:14,236 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:49:14,237 INFO    [1385/1814] G.S. Fries Construction — https://www.gsfries.com
+2026-03-01 21:49:36,588 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:49:36,623 INFO    [1386/1814] PulteGroup — https://www.pultegroup.com
+2026-03-01 21:49:37,416 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:49:37,416 INFO    [1387/1814] Richmond American Homes — https://www.richmondamerican.com
+2026-03-01 21:49:57,813 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:49:57,825 INFO    [1388/1814] Winchester Homes — https://www.winchesterhomes.com
+2026-03-01 21:50:11,708 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:50:11,723 INFO    [1389/1814] City of Hope — https://www.cityofhope.org
+2026-03-01 21:50:12,469 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:50:12,470 INFO    [1390/1814] H. Lee Moffitt Cancer Center — https://www.moffitt.org
+2026-03-01 21:50:13,250 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:50:13,250 INFO    [1391/1814] Cleveland Clinic Florida — https://my.clevelandclinic.org/florida
+2026-03-01 21:50:42,201 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:50:42,235 INFO    [1392/1814] Northwell Health NYC — https://www.northwell.edu
+2026-03-01 21:51:06,637 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:51:06,664 INFO    [1393/1814] NYU Langone Health NYC — https://nyulangone.org
+2026-03-01 21:51:35,232 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:51:35,251 INFO    [1394/1814] SingleThread — https://singlethreadfarms.com
+2026-03-01 21:51:36,248 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:51:36,248 INFO    [1395/1814] Benu — https://www.benusf.com
+2026-03-01 21:51:37,922 INFO      Scrape returned insufficient text (4 chars)
+2026-03-01 21:51:37,922 INFO    [1396/1814] Alinea — https://www.alinearestaurant.com
+2026-03-01 21:51:59,561 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:51:59,581 INFO    [1397/1814] Jacobs Solutions Inc. — https://www.jacobs.com
+2026-03-01 21:52:20,926 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:52:20,957 INFO    [1398/1814] Bechtel Corporation — https://www.bechtel.com
+2026-03-01 21:52:46,500 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:52:46,526 INFO    [1399/1814] Fluor Corporation — https://www.fluor.com
+2026-03-01 21:53:09,591 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:53:09,614 INFO    [1400/1814] Parsons Corporation — https://www.parsons.com
+2026-03-01 21:53:27,766 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:53:27,797 INFO    [1401/1814] WSP USA — https://www.wsp.com
+2026-03-01 21:53:28,572 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:53:28,577 INFO    [1402/1814] Burns & McDonnell — https://www.burnsmcd.com
+2026-03-01 21:54:01,047 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:54:01,085 INFO    [1403/1814] Black & Veatch — https://www.bv.com
+2026-03-01 21:54:27,929 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:54:27,951 INFO    [1404/1814] The Post Ranch Inn — https://www.postranchinn.com
+2026-03-01 21:55:08,753 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:55:08,777 INFO    [1405/1814] Auberge du Soleil — https://aubergeresorts.com/aubergedusoleil/
+2026-03-01 21:55:11,404 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:55:11,405 INFO    [1406/1814] The Greenwich Hotel NYC — https://www.thegreenwichhotel.com
+2026-03-01 21:55:32,200 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:55:32,236 INFO    [1407/1814] The Lowell NYC — https://www.lowellhotel.com
+2026-03-01 21:55:38,320 INFO      Scrape returned insufficient text (70 chars)
+2026-03-01 21:55:38,322 INFO    [1408/1814] Hotel Jerome Aspen — https://aubergeresorts.com/hoteljerome/
+2026-03-01 21:55:40,546 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:55:40,546 INFO    [1409/1814] The Allison Inn & Spa — https://www.theallison.com
+2026-03-01 21:56:14,270 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:56:14,309 INFO    [1410/1814] San Ysidro Ranch — https://www.sanysidroranch.com
+2026-03-01 21:56:31,935 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:56:31,973 INFO    [1411/1814] The Little Nell — https://www.thelittlenell.com
+2026-03-01 21:56:53,901 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:56:53,938 INFO    [1412/1814] Ocean House Rhode Island — https://www.oceanhouseri.com
+2026-03-01 21:57:24,375 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:57:24,412 INFO    [1413/1814] Bergdorf Goodman — https://www.bergdorfgoodman.com
+2026-03-01 21:57:25,007 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:57:25,007 INFO    [1414/1814] Barneys New York — https://www.barneys.com
+2026-03-01 21:57:26,665 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:57:26,665 INFO    [1415/1814] Kirna Zabête — https://www.kirnazabete.com
+2026-03-01 21:57:52,904 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:57:52,930 INFO    [1416/1814] A’maree’s — https://www.amarees.com
+2026-03-01 21:58:11,458 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:58:11,487 INFO    [1417/1814] The Webster — https://thewebster.us
+2026-03-01 21:58:48,811 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:58:48,853 INFO    [1418/1814] Capitol Charlotte — https://www.shop-capitol.com
+2026-03-01 21:59:09,158 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:59:09,195 INFO    [1419/1814] Elyse Walker — https://elysewalker.com
+2026-03-01 21:59:27,984 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:59:28,007 INFO    [1420/1814] Permira US — https://www.permira.com
+2026-03-01 21:59:46,896 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 21:59:46,914 INFO    [1421/1814] Carlyle NYC — https://www.carlyle.com
+2026-03-01 21:59:47,585 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 21:59:47,585 INFO    [1422/1814] Blackstone Real Estate — https://www.blackstone.com/our-businesses/real-estate/
+2026-03-01 22:00:13,558 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:00:13,597 INFO    [1423/1814] Starwood Capital Group — https://www.starwoodcapital.com
+2026-03-01 22:00:31,969 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:00:32,000 INFO    [1424/1814] Lone Star Funds — https://www.lonestarfunds.com
+2026-03-01 22:01:00,413 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:01:00,444 INFO    [1425/1814] General Atlantic NYC — https://www.generalatlantic.com
+2026-03-01 22:01:18,504 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:01:18,536 INFO    [1426/1814] Tiger Global Management — https://www.tigerglobal.com
+2026-03-01 22:01:20,504 INFO      Scrape returned insufficient text (28 chars)
+2026-03-01 22:01:20,504 INFO    [1427/1814] The Atlantic — https://www.theatlantic.com
+2026-03-01 22:01:41,077 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:01:41,090 INFO    [1428/1814] The New Yorker — https://www.newyorker.com
+2026-03-01 22:02:02,120 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:02:02,146 INFO    [1429/1814] New York Magazine — https://nymag.com
+2026-03-01 22:02:21,959 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:02:21,990 INFO    [1430/1814] Texas Monthly — https://www.texasmonthly.com
+2026-03-01 22:02:23,318 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:02:23,319 INFO    [1431/1814] San Francisco Chronicle — https://www.sfchronicle.com
+2026-03-01 22:02:24,270 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:02:24,270 INFO    [1432/1814] The Miami Herald — https://www.miamiherald.com
+2026-03-01 22:04:29,849 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:04:29,852 INFO    [1433/1814] Lincoln Center for the Performing Arts — https://www.lincolncenter.org
+2026-03-01 22:04:31,481 INFO      Scrape returned insufficient text (28 chars)
+2026-03-01 22:04:31,481 INFO    [1434/1814] The Kennedy Center — https://www.kennedy-center.org
+2026-03-01 22:04:32,246 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:04:32,246 INFO    [1435/1814] Carnegie Hall — https://www.carnegiehall.org
+2026-03-01 22:04:32,982 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:04:32,982 INFO    [1436/1814] Whitney Museum of American Art — https://whitney.org
+2026-03-01 22:05:26,065 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:05:26,085 INFO    [1437/1814] The Huntington Library, Art Museum, and Botanical Gardens — https://www.huntington.org
+2026-03-01 22:05:27,265 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:05:27,265 INFO    [1438/1814] National Gallery of Art — https://www.nga.gov
+2026-03-01 22:05:28,389 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:05:28,390 INFO    [1439/1814] The Oregonian — https://www.oregonlive.com
+2026-03-01 22:05:32,231 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:05:32,232 INFO    [1440/1814] The Star-Ledger — https://www.nj.com/starledger/
+2026-03-01 22:05:35,615 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:05:35,615 INFO    [1441/1814] The Plain Dealer — https://www.cleveland.com/plaindealer/
+2026-03-01 22:05:39,476 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:05:39,477 INFO    [1442/1814] The Charlotte Observer — https://www.charlotteobserver.com
+2026-03-01 22:07:44,849 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:07:44,851 INFO    [1443/1814] The Kansas City Star — https://www.kansascity.com
+2026-03-01 22:09:50,849 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:09:50,852 INFO    [1444/1814] The Des Moines Register — https://www.desmoinesregister.com
+2026-03-01 22:10:08,221 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:10:08,249 INFO    [1445/1814] Aurora Health Care — https://www.aurorahealthcare.org
+2026-03-01 22:10:28,221 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:10:28,239 INFO    [1446/1814] Banner Health — https://www.bannerhealth.com
+2026-03-01 22:10:29,025 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:10:29,025 INFO    [1447/1814] Intermountain Health — https://intermountainhealthcare.org
+2026-03-01 22:11:05,222 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:11:05,253 INFO    [1448/1814] Providence Health & Services — https://www.providence.org
+2026-03-01 22:12:00,740 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:12:00,751 WARNING Ollama LLM extract failed for Providence Health & Services: Unterminated string starting at: line 193 column 7 (char 6339)
+2026-03-01 22:12:00,751 INFO      Failed to extract JSON from LLM
+2026-03-01 22:12:00,752 INFO    [1449/1814] Philadelphia Museum of Art — https://www.philamuseum.org
+2026-03-01 22:12:28,229 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:12:28,267 INFO    [1450/1814] Cleveland Museum of Art — https://www.clevelandart.org
+2026-03-01 22:12:54,695 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:12:54,712 INFO    [1451/1814] Nelson-Atkins Museum of Art — https://www.nelson-atkins.org
+2026-03-01 22:13:20,888 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:13:20,918 INFO    [1452/1814] Minneapolis Institute of Art — https://new.artsmia.org
+2026-03-01 22:13:21,714 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:13:21,716 INFO    [1453/1814] Virginia Museum of Fine Arts — https://www.vmfa.museum
+2026-03-01 22:13:58,850 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:13:58,885 INFO    [1454/1814] Trimble Inc. — https://www.trimble.com
+2026-03-01 22:14:26,080 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:14:26,094 INFO    [1455/1814] Zebra Technologies — https://www.zebra.com
+2026-03-01 22:14:56,727 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:14:56,760 INFO    [1456/1814] Cognex Corporation — https://www.cognex.com
+2026-03-01 22:14:57,607 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:14:57,607 INFO    [1457/1814] Teradyne — https://www.teradyne.com
+2026-03-01 22:14:59,186 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:14:59,187 INFO    [1458/1814] Coherent Corp. — https://www.coherent.com
+2026-03-01 22:15:32,157 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:15:32,201 INFO    [1459/1814] Keysight Technologies — https://www.keysight.com
+2026-03-01 22:15:32,794 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:15:32,795 INFO    [1460/1814] Amphenol Corporation — https://www.amphenol.com
+2026-03-01 22:16:06,314 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:16:06,335 INFO    [1461/1814] Molex — https://www.molex.com
+2026-03-01 22:18:11,853 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:18:11,853 INFO    [1462/1814] TE Connectivity US — https://www.te.com
+2026-03-01 22:20:17,849 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:20:17,850 INFO    [1463/1814] Corning Incorporated — https://www.corning.com
+2026-03-01 22:20:18,879 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:20:18,880 INFO    [1464/1814] Publix Super Markets — https://www.publix.com
+2026-03-01 22:20:50,163 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:20:50,232 INFO    [1465/1814] H-E-B Grocery Company — https://www.heb.com
+2026-03-01 22:20:51,609 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:20:51,610 INFO    [1466/1814] Meijer — https://www.meijer.com
+2026-03-01 22:20:52,602 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:20:52,602 INFO    [1467/1814] Hy-Vee Inc. — https://www.hy-vee.com
+2026-03-01 22:20:55,887 INFO      Scrape returned insufficient text (73 chars)
+2026-03-01 22:20:55,887 INFO    [1468/1814] Harris Teeter — https://www.harristeeter.com
+2026-03-01 22:23:01,850 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:23:01,850 INFO    [1469/1814] Giant Eagle — https://www.gianteagle.com
+2026-03-01 22:23:03,912 INFO      Scrape returned insufficient text (59 chars)
+2026-03-01 22:23:03,912 INFO    [1470/1814] Stop & Shop — https://stopandshop.com
+2026-03-01 22:23:05,416 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:23:05,417 INFO    [1471/1814] ShopRite Supermarkets — https://www.shoprite.com
+2026-03-01 22:23:06,141 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:23:06,142 INFO    [1472/1814] Ashe Leandro — https://www.asheleandro.com
+2026-03-01 22:23:25,184 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:23:25,214 INFO    [1473/1814] Billy Cotton — https://www.billycotton.com
+2026-03-01 22:23:42,064 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:23:42,084 INFO    [1474/1814] Carrier and Company — https://www.carrierandcompany.com
+2026-03-01 22:23:44,374 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:23:44,374 INFO    [1475/1814] Commune Design — https://www.communedesign.com
+2026-03-01 22:24:01,087 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:24:01,107 INFO    [1476/1814] Dan Fink Studio — https://www.danfinkstudio.com
+2026-03-01 22:24:05,431 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:24:05,433 INFO    [1477/1814] Gachot Studios — https://www.gachotstudios.com
+2026-03-01 22:24:15,131 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:24:15,148 INFO    [1478/1814] Nicole Hollis — https://www.nicolehollis.com
+2026-03-01 22:24:32,554 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:24:32,571 INFO    [1479/1814] Olson Kundig NYC — https://www.olsonkundig.com
+2026-03-01 22:24:58,216 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:24:58,238 INFO    [1480/1814] Sawyer | Berson Architecture & Landscape — https://www.sawyerberson.com
+2026-03-01 22:24:59,761 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:24:59,762 INFO    [1481/1814] Intelligentsia Coffee LA — https://www.intelligentsia.com/locations/los-angeles
+2026-03-01 22:25:20,039 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:25:20,058 INFO    [1482/1814] Blue Bottle Coffee SF — https://www.bluebottlecoffee.com/cafes/san-francisco
+2026-03-01 22:25:20,647 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:25:20,647 INFO    [1483/1814] Counter Culture Coffee US — https://counterculturecoffee.com
+2026-03-01 22:25:48,154 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:25:48,164 INFO    [1484/1814] La Colombe Coffee Roasters Philadelphia — https://www.lacolombe.com
+2026-03-01 22:26:09,991 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:26:10,008 INFO    [1485/1814] Methodical Coffee — https://methodicalcoffee.com
+2026-03-01 22:26:36,543 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:26:36,557 INFO    [1486/1814] Verve Coffee Roasters — https://www.vervecoffee.com
+2026-03-01 22:27:11,226 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:27:11,246 INFO    [1487/1814] Sightglass Coffee — https://sightglasscoffee.com
+2026-03-01 22:27:35,471 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:27:35,499 INFO    [1488/1814] Ritual Coffee Roasters — https://www.ritualcoffee.com
+2026-03-01 22:28:03,963 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:28:03,998 INFO    [1489/1814] PJT Partners — https://pjtpartners.com
+2026-03-01 22:28:21,043 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:28:21,064 INFO    [1490/1814] Houlihan Lokey — https://hl.com
+2026-03-01 22:28:21,831 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:28:21,831 INFO    [1491/1814] Guggenheim Partners — https://www.guggenheimpartners.com
+2026-03-01 22:28:26,037 INFO      Scrape returned insufficient text (60 chars)
+2026-03-01 22:28:26,037 INFO    [1492/1814] Jefferies Financial Group — https://www.jefferies.com
+2026-03-01 22:28:47,342 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:28:47,361 INFO    [1493/1814] Perella Weinberg Partners — https://pwpartners.com
+2026-03-01 22:29:09,424 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:29:09,458 INFO    [1494/1814] Vertex Pharmaceuticals Boston — https://www.vrtx.com
+2026-03-01 22:29:10,374 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:29:10,375 INFO    [1495/1814] Gilead Sciences Foster City — https://www.gilead.com
+2026-03-01 22:29:27,978 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:29:28,000 INFO    [1496/1814] Regeneron Tarrytown — https://www.regeneron.com
+2026-03-01 22:29:46,485 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:29:46,514 INFO    [1497/1814] Illumina San Diego — https://www.illumina.com
+2026-03-01 22:30:15,213 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:30:15,227 INFO    [1498/1814] Intuitive Surgical — https://www.intuitive.com
+2026-03-01 22:30:16,049 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:30:16,050 INFO    [1499/1814] Agilent Santa Clara — https://www.agilent.com
+2026-03-01 22:30:16,687 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:30:16,689 INFO    [1500/1814] Thermo Fisher Waltham — https://www.thermofisher.com
+2026-03-01 22:30:36,448 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:30:36,465 INFO    [1501/1814] Becton Dickinson Franklin Lakes — https://www.bd.com
+2026-03-01 22:30:50,868 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:30:50,886 INFO    [1502/1814] Balch & Bingham — https://www.balch.com
+2026-03-01 22:31:22,473 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:31:22,492 INFO    [1503/1814] Bass, Berry & Sims — https://www.bassberry.com
+2026-03-01 22:31:52,553 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:31:52,569 INFO    [1504/1814] Bradley Arant Boult Cummings — https://www.bradley.com
+2026-03-01 22:32:15,145 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:32:15,162 INFO    [1505/1814] Carlton Fields — https://www.carltonfields.com
+2026-03-01 22:32:15,774 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:32:15,775 INFO    [1506/1814] Epstein Becker & Green — https://www.ebglaw.com
+2026-03-01 22:32:44,390 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:32:44,409 INFO    [1507/1814] Deborah Berke Partners — https://www.dberke.com
+2026-03-01 22:33:09,704 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:33:09,728 INFO    [1508/1814] Pelli Clarke & Partners — https://pcparch.com
+2026-03-01 22:33:28,348 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:33:28,370 INFO    [1509/1814] Pentagram NYC — https://www.pentagram.com
+2026-03-01 22:33:53,294 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:33:53,313 INFO    [1510/1814] Frog Design US — https://www.frogdesign.com
+2026-03-01 22:34:23,698 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:34:23,716 INFO    [1511/1814] IDEO US — https://www.ideo.com
+2026-03-01 22:34:44,358 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:34:44,390 INFO    [1512/1814] CallisonRTKL US — https://www.callisonrtkl.com
+2026-03-01 22:35:21,606 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:35:21,694 INFO    [1513/1814] Leo A Daly US — https://www.leoadaly.com
+2026-03-01 22:35:46,210 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:35:46,237 INFO    [1514/1814] SmithGroup US — https://www.smithgroup.com
+2026-03-01 22:36:12,149 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:36:12,170 INFO    [1515/1814] ZGF Architects US — https://www.zgf.com
+2026-03-01 22:36:29,424 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:36:29,452 INFO    [1516/1814] Goop — https://goop.com
+2026-03-01 22:36:30,241 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:36:30,241 INFO    [1517/1814] Outdoor Voices US — https://www.outdoorvoices.com
+2026-03-01 22:36:50,653 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:36:50,688 INFO    [1518/1814] Glossier NYC — https://www.glossier.com
+2026-03-01 22:37:10,423 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:37:10,462 INFO    [1519/1814] Everlane SF — https://www.everlane.com
+2026-03-01 22:37:37,569 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:37:37,597 INFO    [1520/1814] Maker's Mark Distillery — https://www.makersmark.com
+2026-03-01 22:37:38,502 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:37:38,503 INFO    [1521/1814] Old Forester Distillery — https://www.oldforester.com
+2026-03-01 22:38:08,618 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:38:08,639 INFO    [1522/1814] Jim Beam Distillery — https://www.jimbeam.com
+2026-03-01 22:38:09,433 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:38:09,434 INFO    [1523/1814] SpaceX — https://www.spacex.com
+2026-03-01 22:38:10,261 INFO      Scrape returned insufficient text (6 chars)
+2026-03-01 22:38:10,262 INFO    [1524/1814] Stripe US — https://stripe.com
+2026-03-01 22:38:38,856 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:38:38,890 INFO    [1525/1814] Databricks — https://databricks.com
+2026-03-01 22:39:00,478 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:39:00,501 INFO    [1526/1814] Canva US — https://www.canva.com
+2026-03-01 22:39:01,312 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:39:01,312 INFO    [1527/1814] Epic Games US — https://www.epicgames.com
+2026-03-01 22:39:02,003 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:39:02,004 INFO    [1528/1814] Chime — https://www.chime.com
+2026-03-01 22:39:02,883 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:39:02,883 INFO    [1529/1814] Grammarly US — https://www.grammarly.com
+2026-03-01 22:39:36,719 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:39:36,743 INFO    [1530/1814] Discord US — https://discord.com
+2026-03-01 22:39:55,156 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:39:55,177 INFO    [1531/1814] Figma US — https://www.figma.com
+2026-03-01 22:40:28,900 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:40:28,925 INFO    [1532/1814] Notion Labs US — https://www.notion.so
+2026-03-01 22:40:29,875 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:40:29,875 INFO    [1533/1814] The Walt Disney Company Burbank — https://www.disney.com
+2026-03-01 22:40:30,606 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:40:30,606 INFO    [1534/1814] Comcast NBCUniversal Philadelphia — https://www.comcast.com
+2026-03-01 22:40:34,450 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:40:34,450 INFO    [1535/1814] Paramount Global NYC — https://www.paramount.com
+2026-03-01 22:40:35,511 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:40:35,511 INFO    [1536/1814] Fox Corporation NYC — https://www.foxcorporation.com
+2026-03-01 22:40:56,967 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:40:56,983 INFO    [1537/1814] The Hearst Corporation — https://www.hearst.com
+2026-03-01 22:41:15,532 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:41:15,553 INFO    [1538/1814] Fred Meyer — https://www.fredmeyer.com
+2026-03-01 22:43:20,848 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:43:20,849 INFO    [1539/1814] Ralphs — https://www.ralphs.com
+2026-03-01 22:45:26,848 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:45:26,852 INFO    [1540/1814] Kroger Co. — https://www.kroger.com
+2026-03-01 22:47:32,848 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:47:32,851 INFO    [1541/1814] WinCo Foods — https://www.wincofoods.com
+2026-03-01 22:47:33,735 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:47:33,736 INFO    [1542/1814] Stater Bros. Markets — https://www.staterbros.com
+2026-03-01 22:48:33,744 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:48:33,784 INFO    [1543/1814] Smart & Final — https://www.smartandfinal.com
+2026-03-01 22:48:56,158 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:48:56,170 INFO    [1544/1814] Sprouts Farmers Market — https://www.sprouts.com
+2026-03-01 22:49:39,902 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:49:39,923 INFO    [1545/1814] Synovus Financial Corp. — https://www.synovus.com
+2026-03-01 22:50:08,100 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:50:08,119 INFO    [1546/1814] SouthState Bank — https://www.southstatebank.com
+2026-03-01 22:50:08,951 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:50:08,952 INFO    [1547/1814] Zions Bancorporation — https://www.zionsbancorp.com
+2026-03-01 22:50:09,915 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:50:09,915 INFO    [1548/1814] BOK Financial Corporation — https://www.bokfinancial.com
+2026-03-01 22:50:34,781 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:50:34,808 INFO    [1549/1814] First Citizens Bank — https://www.firstcitizens.com
+2026-03-01 22:51:04,267 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:51:04,297 INFO    [1550/1814] Illinois Tool Works (ITW) — https://www.itw.com
+2026-03-01 22:51:22,040 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:51:22,058 INFO    [1551/1814] Ingersoll Rand — https://www.irco.com
+2026-03-01 22:51:22,773 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:51:22,774 INFO    [1552/1814] Dover Corporation — https://www.dovercorporation.com
+2026-03-01 22:51:23,662 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:51:23,662 INFO    [1553/1814] Stanley Black & Decker — https://www.stanleyblackanddecker.com
+2026-03-01 22:53:28,848 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:53:28,851 INFO    [1554/1814] Snap-on Incorporated — https://www.snapon.com
+2026-03-01 22:53:32,309 INFO      Scrape returned insufficient text (20 chars)
+2026-03-01 22:53:32,310 INFO    [1555/1814] McClure’s Pickles — https://mcclures.com
+2026-03-01 22:53:33,966 INFO      Scrape returned insufficient text (88 chars)
+2026-03-01 22:53:33,968 INFO    [1556/1814] Fat Toad Farm — https://fattoadfarm.com
+2026-03-01 22:53:58,017 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:53:58,034 INFO    [1557/1814] Benton’s Country Hams — https://bentonscountryham2.com
+2026-03-01 22:53:58,095 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:53:58,095 INFO    [1558/1814] Central Milling Company — https://centralmilling.com
+2026-03-01 22:54:30,074 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:54:30,091 INFO    [1559/1814] Cowgirl Creamery SF — https://www.cowgirlcreamery.com
+2026-03-01 22:54:56,948 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:54:56,969 INFO    [1560/1814] Jasper Hill Farm VT — https://www.jasperhillfarm.com
+2026-03-01 22:55:23,745 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:55:23,769 INFO    [1561/1814] Container Store — https://www.containerstore.com
+2026-03-01 22:55:24,769 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:55:24,769 INFO    [1562/1814] Paper Source — https://www.papersource.com
+2026-03-01 22:55:44,454 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:55:44,471 INFO    [1563/1814] Sweetwater Sound — https://www.sweetwater.com
+2026-03-01 22:55:45,588 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:55:45,588 INFO    [1564/1814] REI (Recreational Equipment, Inc.) — https://www.rei.com
+2026-03-01 22:57:50,847 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:57:50,850 INFO    [1565/1814] YETI Coolers — https://www.yeti.com
+2026-03-01 22:57:51,869 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:57:51,869 INFO    [1566/1814] Black Diamond Equipment — https://www.blackdiamondequipment.com
+2026-03-01 22:58:13,691 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:58:13,711 INFO    [1567/1814] Edelman US — https://www.edelman.com
+2026-03-01 22:58:14,506 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 22:58:14,507 INFO    [1568/1814] Weber Shandwick US — https://www.webershandwick.com
+2026-03-01 22:58:36,444 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:58:36,455 INFO    [1569/1814] FleishmanHillard US — https://fleishmanhillard.com
+2026-03-01 22:58:52,903 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:58:52,917 INFO    [1570/1814] Burson US — https://www.bursonglobal.com
+2026-03-01 22:59:16,055 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:59:16,076 INFO    [1571/1814] Ketchum US — https://www.ketchum.com
+2026-03-01 22:59:42,585 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 22:59:42,605 INFO    [1572/1814] Leo Burnett US — https://leoburnett.com
+2026-03-01 23:00:13,853 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:00:13,876 INFO    [1573/1814] Wieden+Kennedy US — https://www.wk.com
+2026-03-01 23:00:38,543 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:00:38,577 INFO    [1574/1814] Washington State University — https://wsu.edu
+2026-03-01 23:01:01,812 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:01:01,833 INFO    [1575/1814] University of Nebraska–Lincoln — https://www.unl.edu
+2026-03-01 23:01:29,464 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:01:29,502 INFO    [1576/1814] Kansas State University — https://www.k-state.edu
+2026-03-01 23:01:59,744 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:01:59,761 INFO    [1577/1814] University of Alabama — https://www.ua.edu
+2026-03-01 23:02:19,496 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:02:19,506 INFO    [1578/1814] Auburn University — https://www.auburn.edu
+2026-03-01 23:02:46,425 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:02:46,460 INFO    [1579/1814] University of Iowa — https://uiowa.edu
+2026-03-01 23:03:08,591 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:03:08,619 INFO    [1580/1814] University of Kentucky — https://www.uky.edu
+2026-03-01 23:03:31,608 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:03:31,635 INFO    [1581/1814] Louisiana State University (LSU) — https://www.lsu.edu
+2026-03-01 23:03:54,500 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:03:54,513 INFO    [1582/1814] University of Maine — https://umaine.edu
+2026-03-01 23:04:19,772 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:04:19,789 INFO    [1583/1814] University of Missouri — https://missouri.edu
+2026-03-01 23:04:46,139 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:04:46,153 INFO    [1584/1814] University of Montana — https://www.umt.edu
+2026-03-01 23:05:13,007 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:05:13,027 INFO    [1585/1814] University of Oklahoma — https://www.ou.edu
+2026-03-01 23:05:39,697 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:05:39,721 INFO    [1586/1814] CommonSpirit Health — https://www.commonspirit.org
+2026-03-01 23:05:59,924 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:05:59,952 INFO    [1587/1814] Providence St. Joseph Health — https://www.providence.org
+2026-03-01 23:06:42,885 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:06:42,919 INFO    [1588/1814] Advocate Health — https://www.advocatehealth.org
+2026-03-01 23:07:04,021 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:07:04,044 INFO    [1589/1814] Atrium Health — https://atriumhealth.org
+2026-03-01 23:07:29,578 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:07:29,606 INFO    [1590/1814] Cleveland Clinic London US — https://my.clevelandclinic.org/locations/london
+2026-03-01 23:08:00,855 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:08:00,885 INFO    [1591/1814] Piedmont Healthcare — https://www.piedmont.org
+2026-03-01 23:08:04,965 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:08:04,966 INFO    [1592/1814] Scripps Health — https://www.scripps.org
+2026-03-01 23:08:29,110 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:08:29,141 INFO    [1593/1814] Temple Health — https://www.templehealth.org
+2026-03-01 23:08:54,353 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:08:54,386 INFO    [1594/1814] Texas Health Resources — https://www.texashealth.org
+2026-03-01 23:09:29,670 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:09:29,709 INFO    [1595/1814] UC San Diego Health — https://health.ucsd.edu
+2026-03-01 23:09:53,000 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:09:53,035 INFO    [1596/1814] WakeMed Health & Hospitals — https://www.wakemed.org
+2026-03-01 23:10:25,437 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:10:25,450 INFO    [1597/1814] Burr & Forman LLP — https://www.burr.com
+2026-03-01 23:10:46,140 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:10:46,156 INFO    [1598/1814] Ice Miller — https://www.icemiller.com
+2026-03-01 23:10:46,899 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:10:46,900 INFO    [1599/1814] Roetzel & Andress — https://www.ralaw.com
+2026-03-01 23:10:47,673 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:10:47,673 INFO    [1600/1814] Shipman & Goodwin LLP — https://www.shipmangoodwin.com
+2026-03-01 23:11:08,815 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:11:08,832 INFO    [1601/1814] Stoel Rives LLP — https://www.stoel.com
+2026-03-01 23:11:31,598 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:11:31,619 INFO    [1602/1814] Vorys, Sater, Seymour and Pease — https://www.vorys.com
+2026-03-01 23:12:10,859 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:12:10,888 INFO    [1603/1814] Wiggin and Dana LLP — https://www.wiggin.com
+2026-03-01 23:12:46,692 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:12:46,715 INFO    [1604/1814] Bass Pro Shops — https://www.basspro.com
+2026-03-01 23:12:47,835 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:12:47,835 INFO    [1605/1814] Cabela's — https://www.cabelas.com
+2026-03-01 23:12:48,714 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:12:48,715 INFO    [1606/1814] Dick's Sporting Goods — https://www.dickssportinggoods.com
+2026-03-01 23:12:49,984 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:12:49,984 INFO    [1607/1814] Orvis — https://www.orvis.com
+2026-03-01 23:13:14,579 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:13:14,594 INFO    [1608/1814] Scheels — https://www.scheels.com
+2026-03-01 23:13:15,231 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:13:15,232 INFO    [1609/1814] West Marine — https://www.westmarine.com
+2026-03-01 23:13:23,969 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:13:23,997 INFO    [1610/1814] Hibbett Sports — https://www.hibbett.com
+2026-03-01 23:13:25,164 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:13:25,164 INFO    [1611/1814] Big 5 Sporting Goods — https://www.big5sportinggoods.com
+2026-03-01 23:13:25,717 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:13:25,718 INFO    [1612/1814] Modell's Sporting Goods — https://www.modells.com
+2026-03-01 23:13:57,868 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:13:57,900 INFO    [1613/1814] Title Nine — https://www.titlenine.com
+2026-03-01 23:14:23,905 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:14:23,923 INFO    [1614/1814] Athleta — https://athleta.gap.com
+2026-03-01 23:14:41,491 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:14:41,522 INFO    [1615/1814] Evo Seattle — https://www.evo.com
+2026-03-01 23:15:04,321 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:15:04,349 INFO    [1616/1814] Backcountry.com — https://www.backcountry.com
+2026-03-01 23:15:04,883 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:15:04,883 INFO    [1617/1814] Moosejaw — https://www.moosejaw.com
+2026-03-01 23:15:06,747 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:15:06,747 INFO    [1618/1814] Box Inc. — https://www.box.com
+2026-03-01 23:15:26,261 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:15:26,287 INFO    [1619/1814] Smartsheet Inc. — https://www.smartsheet.com
+2026-03-01 23:15:53,051 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:15:53,082 INFO    [1620/1814] Splunk Inc. — https://www.splunk.com
+2026-03-01 23:16:23,071 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:16:23,102 INFO    [1621/1814] AppDynamics — https://www.appdynamics.com
+2026-03-01 23:16:52,899 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:16:52,930 INFO    [1622/1814] PagerDuty — https://www.pagerduty.com
+2026-03-01 23:17:18,478 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:17:18,504 INFO    [1623/1814] HashiCorp — https://www.hashicorp.com
+2026-03-01 23:17:19,652 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:17:19,652 INFO    [1624/1814] Docusign — https://www.docusign.com
+2026-03-01 23:17:23,419 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:17:23,419 INFO    [1625/1814] Zendesk US — https://www.zendesk.com
+2026-03-01 23:17:49,789 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:17:49,820 INFO    [1626/1814] Squarespace — https://www.squarespace.com
+2026-03-01 23:18:17,490 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:18:17,514 INFO    [1627/1814] Wix US — https://www.wix.com
+2026-03-01 23:18:48,709 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:18:48,730 INFO    [1628/1814] Golden State Warriors — https://www.nba.com/warriors
+2026-03-01 23:19:13,840 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:19:13,863 INFO    [1629/1814] San Francisco 49ers — https://www.49ers.com
+2026-03-01 23:19:37,160 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:19:37,187 INFO    [1630/1814] Green Bay Packers — https://www.packers.com
+2026-03-01 23:20:01,931 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:20:01,944 INFO    [1631/1814] Hartsfield-Jackson Atlanta International Airport — https://www.atl.com
+2026-03-01 23:20:02,675 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:20:02,676 INFO    [1632/1814] O'Hare International Airport — https://www.flychicago.com/ohare
+2026-03-01 23:20:04,529 INFO      Scrape returned insufficient text (47 chars)
+2026-03-01 23:20:04,529 INFO    [1633/1814] Denver International Airport (DEN) — https://www.flydenver.com
+2026-03-01 23:20:05,316 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:20:05,316 INFO    [1634/1814] John F. Kennedy International Airport (JFK) — https://www.jfkairport.com
+2026-03-01 23:20:06,813 INFO      Scrape returned insufficient text (8 chars)
+2026-03-01 23:20:06,813 INFO    [1635/1814] San Francisco International Airport (SFO) — https://www.flysfo.com
+2026-03-01 23:20:35,422 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:20:35,439 INFO    [1636/1814] Public Service Enterprise Group (PSEG) — https://www.pseg.com
+2026-03-01 23:21:02,082 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:21:02,142 INFO    [1637/1814] Xcel Energy — https://www.xcelenergy.com
+2026-03-01 23:21:04,738 INFO      Scrape returned insufficient text (58 chars)
+2026-03-01 23:21:04,738 INFO    [1638/1814] Entergy Corporation — https://www.entergy.com
+2026-03-01 23:21:36,148 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:21:36,182 INFO    [1639/1814] University of Georgia Athens — https://www.uga.edu
+2026-03-01 23:22:01,501 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:22:01,515 INFO    [1640/1814] University of Kentucky Lexington — https://www.uky.edu
+2026-03-01 23:22:24,384 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:22:24,405 INFO    [1641/1814] University of South Carolina Columbia — https://www.sc.edu
+2026-03-01 23:22:45,303 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:22:45,320 INFO    [1642/1814] University of Tennessee Knoxville — https://www.utk.edu
+2026-03-01 23:23:11,176 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:23:11,207 INFO    [1643/1814] University of Missouri Columbia — https://missouri.edu
+2026-03-01 23:23:34,630 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:23:34,646 INFO    [1644/1814] University of Colorado Boulder CO — https://www.colorado.edu
+2026-03-01 23:23:59,714 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:23:59,732 INFO    [1645/1814] University of Utah SLC — https://www.utah.edu
+2026-03-01 23:24:21,531 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:24:21,563 INFO    [1646/1814] University of Oregon Eugene — https://www.uoregon.edu
+2026-03-01 23:24:50,306 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:24:50,335 INFO    [1647/1814] Hunton Andrews Kurth Richmond — https://www.huntonak.com
+2026-03-01 23:25:11,276 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:25:11,292 INFO    [1648/1814] McGuireWoods Richmond — https://www.mcguirewoods.com
+2026-03-01 23:25:54,910 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:25:54,936 INFO    [1649/1814] Troutman Pepper Atlanta GA — https://www.troutman.com
+2026-03-01 23:26:16,384 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:26:16,400 INFO    [1650/1814] Alston & Bird Atlanta — https://www.alston.com
+2026-03-01 23:26:53,003 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:26:53,027 INFO    [1651/1814] Kilpatrick Townsend Atlanta — https://www.kilpatricktownsend.com
+2026-03-01 23:26:54,182 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:26:54,183 INFO    [1652/1814] Smith, Gambrell & Russell — https://www.sgrlaw.com
+2026-03-01 23:27:35,019 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:27:35,047 INFO    [1653/1814] Vermont Coffee Company — https://vermontcoffeecompany.com
+2026-03-01 23:27:39,463 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:27:39,463 INFO    [1654/1814] Caribou Coffee — https://www.cariboucoffee.com
+2026-03-01 23:27:40,171 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:27:40,171 INFO    [1655/1814] Philz Coffee — https://www.philzcoffee.com
+2026-03-01 23:28:03,001 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:28:03,027 INFO    [1656/1814] Coffee Bean & Tea Leaf — https://www.coffeebean.com
+2026-03-01 23:28:21,187 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:28:21,217 INFO    [1657/1814] La Colombe NYC — https://www.lacolombe.com
+2026-03-01 23:28:45,002 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:28:45,020 INFO    [1658/1814] Cullman & Kravis — https://cullmankravis.com
+2026-03-01 23:28:46,499 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:28:46,500 INFO    [1659/1814] Ellie Cullman — https://cullmankravis.com
+2026-03-01 23:28:47,921 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:28:47,921 INFO    [1660/1814] Jamie Drake — https://drakeanderson.com
+2026-03-01 23:28:58,480 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:28:58,496 INFO    [1661/1814] Jeffrey Bilhuber — https://bilhuber.com
+2026-03-01 23:28:58,685 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:28:58,685 INFO    [1662/1814] Mario Buatta — https://www.mariobuatta.com
+2026-03-01 23:28:58,906 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:28:58,906 INFO    [1663/1814] The Beverly Hills Hotel — https://www.dorchestercollection.com/en/los-angeles/the-beverly-hills-hotel/
+2026-03-01 23:28:59,714 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:28:59,714 INFO    [1664/1814] Hotel Bel-Air — https://www.dorchestercollection.com/en/los-angeles/hotel-bel-air/
+2026-03-01 23:29:00,363 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:29:00,363 INFO    [1665/1814] The Knickerbocker NYC — https://theknickerbocker.com
+2026-03-01 23:29:36,523 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:29:36,551 INFO    [1666/1814] Science Applications International Corp (SAIC) — https://www.saic.com
+2026-03-01 23:29:56,528 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:29:56,546 INFO    [1667/1814] Leidos — https://www.leidos.com
+2026-03-01 23:30:15,226 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:30:15,239 INFO    [1668/1814] Perspecta — https://www.perspecta.com
+2026-03-01 23:30:27,909 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:30:27,941 INFO    [1669/1814] Guidehouse — https://guidehouse.com
+2026-03-01 23:30:52,832 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:30:52,852 INFO    [1670/1814] West Monroe Partners — https://www.westmonroe.com
+2026-03-01 23:31:13,565 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:31:13,596 INFO    [1671/1814] North Highland — https://www.northhighland.com
+2026-03-01 23:31:36,399 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:31:36,411 INFO    [1672/1814] California State University System — https://www.calstate.edu
+2026-03-01 23:31:37,720 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:31:37,720 INFO    [1673/1814] State University of New York (SUNY) — https://www.suny.edu
+2026-03-01 23:31:38,513 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:31:38,513 INFO    [1674/1814] Texas State University System — https://www.tsus.edu
+2026-03-01 23:31:55,632 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:31:55,651 INFO    [1675/1814] University of Wisconsin System — https://www.wisconsin.edu
+2026-03-01 23:32:18,209 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:32:18,236 INFO    [1676/1814] University System of Georgia — https://www.usg.edu
+2026-03-01 23:32:53,506 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:32:53,534 INFO    [1677/1814] University of North Carolina System — https://www.northcarolina.edu
+2026-03-01 23:33:47,579 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:33:47,607 INFO    [1678/1814] University of Maryland Medical System — https://www.umms.org
+2026-03-01 23:34:15,844 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:34:15,882 INFO    [1679/1814] Indiana University Health — https://iuhealth.org
+2026-03-01 23:36:21,846 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:36:21,846 INFO    [1680/1814] University of Kansas Health System — https://www.kansashealthsystem.com
+2026-03-01 23:36:54,964 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:36:54,982 INFO    [1681/1814] Rocky Mountain National Park — https://www.nps.gov/romo/
+2026-03-01 23:37:13,134 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:37:13,162 INFO    [1682/1814] Acadia National Park — https://www.nps.gov/acad/
+2026-03-01 23:37:35,310 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:37:35,342 INFO    [1683/1814] HEB Digital — https://www.heb.com
+2026-03-01 23:37:36,527 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:37:36,527 INFO    [1684/1814] Bi-Rite Market — https://biritemarket.com
+2026-03-01 23:38:04,425 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:38:04,461 INFO    [1685/1814] Zabar's Deli NYC — https://www.zabars.com
+2026-03-01 23:38:31,482 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:38:31,507 INFO    [1686/1814] Murray's Cheese Greenwich Village — https://www.murrayscheese.com
+2026-03-01 23:38:32,172 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:38:32,172 INFO    [1687/1814] Katz's Delicatessen NYC — https://katzsdelicatessen.com
+2026-03-01 23:38:36,811 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:38:36,812 INFO    [1688/1814] Fairway Market NYC — https://www.fairwaymarket.com
+2026-03-01 23:38:56,390 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:38:56,415 INFO    [1689/1814] Scale AI — https://scale.com
+2026-03-01 23:38:57,373 INFO      Scrape returned insufficient text (71 chars)
+2026-03-01 23:38:57,373 INFO    [1690/1814] OpenAI US — https://openai.com
+2026-03-01 23:38:57,986 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:38:57,986 INFO    [1691/1814] Cohere US — https://cohere.com
+2026-03-01 23:39:22,892 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:39:22,909 INFO    [1692/1814] Hugging Face US — https://huggingface.co
+2026-03-01 23:39:54,738 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:39:54,767 INFO    [1693/1814] Anduril Industries — https://www.anduril.com
+2026-03-01 23:39:56,178 INFO      Scrape returned insufficient text (73 chars)
+2026-03-01 23:39:56,178 INFO    [1694/1814] Flexport — https://www.flexport.com
+2026-03-01 23:39:58,409 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:39:58,409 INFO    [1695/1814] Deel — https://www.deel.com
+2026-03-01 23:40:30,339 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:40:30,360 INFO    [1696/1814] Parthenon-EY — https://www.ey.com/en_gl/parthenon
+2026-03-01 23:40:49,405 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:40:49,434 INFO    [1697/1814] Deloitte Consulting US — https://www2.deloitte.com/us/en/services/consulting.html
+2026-03-01 23:41:17,150 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:41:17,171 INFO    [1698/1814] Aon US — https://www.aon.com/en/countries/united-states
+2026-03-01 23:41:19,851 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:41:19,851 INFO    [1699/1814] Roland Berger US — https://www.rolandberger.com/en/United-States.html
+2026-03-01 23:41:23,710 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:41:23,710 INFO    [1700/1814] Dykema Detroit — https://www.dykema.com
+2026-03-01 23:41:58,335 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:41:58,348 INFO    [1701/1814] Fox Rothschild Philadelphia — https://www.foxrothschild.com
+2026-03-01 23:41:59,009 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:41:59,009 INFO    [1702/1814] Hinshaw Chicago — https://www.hinshawlaw.com
+2026-03-01 23:42:37,472 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:42:37,490 INFO    [1703/1814] Ice Miller Indianapolis — https://www.icemiller.com
+2026-03-01 23:42:38,235 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:42:38,235 INFO    [1704/1814] Nelson Mullins Columbia — https://www.nelsonmullins.com
+2026-03-01 23:43:01,266 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:43:01,293 INFO    [1705/1814] Vox Media — https://www.voxmedia.com
+2026-03-01 23:43:21,888 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:43:21,925 INFO    [1706/1814] Politico US — https://www.politico.com
+2026-03-01 23:43:22,538 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:43:22,538 INFO    [1707/1814] Axios Media — https://www.axios.com
+2026-03-01 23:43:23,172 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:43:23,173 INFO    [1708/1814] ProPublica — https://www.propublica.org
+2026-03-01 23:43:48,355 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:43:48,388 INFO    [1709/1814] The Intercept US — https://theintercept.com
+2026-03-01 23:44:14,767 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:44:14,804 INFO    [1710/1814] Moffitt Cancer Center Tampa — https://www.moffitt.org
+2026-03-01 23:44:15,588 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:44:15,589 INFO    [1711/1814] City of Hope Duarte — https://www.cityofhope.org
+2026-03-01 23:44:16,323 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:44:16,323 INFO    [1712/1814] Huntsman Cancer Institute — https://healthcare.utah.edu/huntsmancancerinstitute/
+2026-03-01 23:44:44,592 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:44:44,622 INFO    [1713/1814] Fox Chase Cancer Center — https://www.foxchase.org
+2026-03-01 23:45:18,552 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:45:18,584 INFO    [1714/1814] Winship Cancer Institute — https://winshipcancer.emory.edu
+2026-03-01 23:45:39,730 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:45:39,756 INFO    [1715/1814] Stephenson Cancer Center — https://www.ouhealth.com/stephenson-cancer-center/
+2026-03-01 23:46:05,982 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:46:06,011 INFO    [1716/1814] Holden Comprehensive Cancer Center — https://uihc.org/holden-comprehensive-cancer-center
+2026-03-01 23:46:27,897 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:46:27,923 INFO    [1717/1814] Miami Heat — https://www.nba.com/heat
+2026-03-01 23:46:57,574 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:46:57,597 INFO    [1718/1814] New England Patriots — https://www.patriots.com
+2026-03-01 23:47:18,367 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:47:18,387 INFO    [1719/1814] Philadelphia Eagles — https://www.philadelphiaeagles.com
+2026-03-01 23:47:39,917 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:47:39,954 INFO    [1720/1814] Atlanta Braves — https://www.mlb.com/braves
+2026-03-01 23:48:04,424 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:48:04,457 INFO    [1721/1814] Boston Celtics — https://www.nba.com/celtics
+2026-03-01 23:48:26,530 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:48:26,547 INFO    [1722/1814] University of Minnesota — https://twin-cities.umn.edu
+2026-03-01 23:48:52,074 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:48:52,109 INFO    [1723/1814] University of Utah Health — https://healthcare.utah.edu
+2026-03-01 23:49:15,672 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:49:15,700 INFO    [1724/1814] University of Colorado Hospital — https://www.uchealth.org/locations/uchealth-university-of-colorado-hospital/
+2026-03-01 23:49:47,218 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:49:47,255 INFO    [1725/1814] University of Virginia Health System — https://uvahealth.com
+2026-03-01 23:50:14,650 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:50:14,678 INFO    [1726/1814] University of North Carolina Health — https://www.unchealthcare.org
+2026-03-01 23:50:15,739 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:50:15,740 INFO    [1727/1814] University of Iowa Health Care — https://uihc.org
+2026-03-01 23:50:38,748 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:50:38,776 INFO    [1728/1814] University of Kansas Health — https://www.kansashealthsystem.com
+2026-03-01 23:51:05,097 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:51:05,125 INFO    [1729/1814] University of Kentucky HealthCare — https://ukhealthcare.uky.edu
+2026-03-01 23:51:30,432 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:51:30,470 INFO    [1730/1814] University of Arkansas for Medical Sciences (UAMS) — https://www.uams.edu
+2026-03-01 23:51:50,254 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:51:50,283 INFO    [1731/1814] Lowes Foods — https://www.lowesfoods.com
+2026-03-01 23:52:11,837 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:52:11,859 INFO    [1732/1814] Food Lion — https://www.foodlion.com
+2026-03-01 23:52:12,957 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:52:12,957 INFO    [1733/1814] Giant Food — https://giantfood.com
+2026-03-01 23:52:14,079 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:52:14,079 INFO    [1734/1814] Hannaford Supermarkets — https://www.hannaford.com
+2026-03-01 23:52:15,559 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:52:15,559 INFO    [1735/1814] Price Chopper Supermarkets — https://www.pricechopper.com
+2026-03-01 23:52:37,629 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:52:37,643 INFO    [1736/1814] Big Y World Class Market — https://www.bigy.com
+2026-03-01 23:52:38,327 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:52:38,327 INFO    [1737/1814] Market Basket US — https://www.shopmarketbasket.com
+2026-03-01 23:52:57,572 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:52:57,606 INFO    [1738/1814] Stew Leonard's — https://www.stewleonards.com
+2026-03-01 23:53:21,801 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:53:21,824 INFO    [1739/1814] Pendo — https://www.pendo.io
+2026-03-01 23:53:58,299 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:53:58,316 INFO    [1740/1814] Amplitude US — https://amplitude.com
+2026-03-01 23:54:30,564 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:54:30,594 INFO    [1741/1814] Mixpanel US — https://mixpanel.com
+2026-03-01 23:54:31,891 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:54:31,892 INFO    [1742/1814] New Relic SF — https://newrelic.com
+2026-03-01 23:55:05,626 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:55:05,659 INFO    [1743/1814] AppDynamics SF — https://www.appdynamics.com
+2026-03-01 23:55:28,284 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:55:28,301 INFO    [1744/1814] MongoDB NYC — https://www.mongodb.com
+2026-03-01 23:55:55,329 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:55:55,357 INFO    [1745/1814] UiPath NYC — https://www.uipath.com
+2026-03-01 23:56:23,226 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:56:23,256 INFO    [1746/1814] Brooklyn Bedding — https://brooklynbedding.com
+2026-03-01 23:56:51,787 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:56:51,821 INFO    [1747/1814] Portland Outdoor — https://www.portlandoutdoor.com
+2026-03-01 23:56:51,973 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:56:51,973 INFO    [1748/1814] Austin Custom Furniture — https://www.austincustomfurniture.com
+2026-03-01 23:56:53,092 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:56:53,092 INFO    [1749/1814] Seattle Glassblowing Studio — https://seattleglassblowing.com
+2026-03-01 23:57:13,175 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:57:13,194 INFO    [1750/1814] Chicago Custom Cabinetry — https://www.chicagocustomcabinetry.com
+2026-03-01 23:57:13,331 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:57:13,331 INFO    [1751/1814] New York Custom Interior Millwork — https://www.nycim.com
+2026-03-01 23:57:14,055 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:57:14,055 INFO    [1752/1814] Denver Custom Homes — https://www.denvercustomhomes.com
+2026-03-01 23:57:15,175 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:57:15,175 INFO    [1753/1814] Miami Custom Pools — https://www.miamicustompools.com
+2026-03-01 23:58:08,844 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:58:08,845 INFO    [1754/1814] Atlanta Custom Closets — https://www.atlantacustomclosets.com
+2026-03-01 23:58:10,001 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:58:10,001 INFO    [1755/1814] Nashville Custom Guitars — https://www.nashvillecustomguitars.com
+2026-03-01 23:58:10,089 INFO      Scrape returned insufficient text (0 chars)
+2026-03-01 23:58:10,090 INFO    [1756/1814] Scripps Networks NYC — https://www.scripps.com
+2026-03-01 23:58:24,539 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:58:24,559 INFO    [1757/1814] Nexstar Media Group Irving — https://www.nexstar.tv
+2026-03-01 23:58:45,736 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:58:45,774 INFO    [1758/1814] Sinclair Broadcast Group Hunt Valley — https://sbgi.net
+2026-03-01 23:59:16,070 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:59:16,097 INFO    [1759/1814] Gray Television Atlanta — https://www.gray.tv
+2026-03-01 23:59:41,456 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:59:41,475 INFO    [1760/1814] Tegna Inc. Tysons — https://www.tegna.com
+2026-03-01 23:59:58,845 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-01 23:59:58,875 INFO    [1761/1814] Cumulus Media Atlanta — https://www.cumulusmedia.com
+2026-03-02 00:00:23,355 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:00:23,375 INFO    [1762/1814] The E.W. Scripps Company Cincinnati — https://www.scripps.com
+2026-03-02 00:00:35,875 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:00:35,884 INFO    [1763/1814] Graham Media Group Chicago — https://www.grahammedia.com
+2026-03-02 00:00:57,344 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:00:57,364 INFO    [1764/1814] California Department of Transportation (Caltrans) — https://dot.ca.gov
+2026-03-02 00:01:18,865 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:01:18,889 INFO    [1765/1814] Texas Department of Transportation (TxDOT) — https://www.txdot.gov
+2026-03-02 00:01:44,528 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:01:44,557 INFO    [1766/1814] Florida Department of Transportation (FDOT) — https://www.fdot.gov
+2026-03-02 00:02:05,427 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:02:05,446 INFO    [1767/1814] New York State Department of Transportation (NYSDOT) — https://www.dot.ny.gov
+2026-03-02 00:02:07,993 INFO      Scrape returned insufficient text (87 chars)
+2026-03-02 00:02:07,994 INFO    [1768/1814] Georgia Department of Transportation (GDOT) — https://www.dot.ga.gov
+2026-03-02 00:02:11,034 INFO      Scrape returned insufficient text (61 chars)
+2026-03-02 00:02:11,035 INFO    [1769/1814] Illinois Department of Transportation (IDOT) — https://www.idot.illinois.gov
+2026-03-02 00:02:34,644 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:02:34,671 INFO    [1770/1814] Ohio Department of Transportation (ODOT) — https://www.dot.state.oh.us
+2026-03-02 00:02:37,777 INFO      Scrape returned insufficient text (33 chars)
+2026-03-02 00:02:37,778 INFO    [1771/1814] Michigan Department of Transportation (MDOT) — https://www.michigan.gov/mdot
+2026-03-02 00:03:02,395 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:03:02,410 INFO    [1772/1814] North Carolina Department of Transportation (NCDOT) — https://www.ncdot.gov
+2026-03-02 00:03:06,401 INFO      Scrape returned insufficient text (33 chars)
+2026-03-02 00:03:06,401 INFO    [1773/1814] San Francisco Museum of Modern Art (SFMOMA) — https://www.sfmoma.org
+2026-03-02 00:03:33,657 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:03:33,690 INFO    [1774/1814] Fine Arts Museums of San Francisco (de Young & Legion of Honor) — https://www.famsf.org
+2026-03-02 00:04:01,013 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:04:01,041 INFO    [1775/1814] Museum of Science, Boston — https://www.mos.org
+2026-03-02 00:04:28,610 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:04:28,631 INFO    [1776/1814] The Henry Ford — https://www.thehenryford.org
+2026-03-02 00:04:58,620 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:04:58,635 INFO    [1777/1814] National World War II Museum — https://www.nationalww2museum.org
+2026-03-02 00:05:26,475 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:05:26,496 INFO    [1778/1814] Corning Museum of Glass — https://www.cmog.org
+2026-03-02 00:05:27,220 INFO      Scrape returned insufficient text (0 chars)
+2026-03-02 00:05:27,220 INFO    [1779/1814] United States Holocaust Memorial Museum — https://www.ushmm.org
+2026-03-02 00:05:56,445 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:05:56,472 INFO    [1780/1814] The Broad — https://www.thebroad.org
+2026-03-02 00:06:20,494 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:06:20,525 INFO    [1781/1814] Death Valley National Park — https://www.nps.gov/deva/
+2026-03-02 00:06:40,346 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:06:40,379 INFO    [1782/1814] Sequoia & Kings Canyon National Parks — https://www.nps.gov/seki/
+2026-03-02 00:07:10,910 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:07:10,944 INFO    [1783/1814] Bryce Canyon National Park — https://www.nps.gov/brca/
+2026-03-02 00:07:32,220 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:07:32,235 INFO    [1784/1814] Shenandoah National Park — https://www.nps.gov/shen/
+2026-03-02 00:07:48,675 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:07:48,705 INFO    [1785/1814] Mount Rainier National Park — https://www.nps.gov/mora/
+2026-03-02 00:08:08,092 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:08:08,114 INFO    [1786/1814] Saguaro National Park — https://www.nps.gov/sagu/
+2026-03-02 00:08:24,802 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:08:24,832 INFO    [1787/1814] Rivian Automotive — https://rivian.com
+2026-03-02 00:08:52,325 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:08:52,355 INFO    [1788/1814] Lucid Motors — https://www.lucidmotors.com
+2026-03-02 00:09:23,819 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:09:23,854 INFO    [1789/1814] Waymo — https://waymo.com
+2026-03-02 00:09:51,129 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:09:51,156 INFO    [1790/1814] Zoox — https://zoox.com
+2026-03-02 00:09:54,572 INFO      Scrape returned insufficient text (85 chars)
+2026-03-02 00:09:54,572 INFO    [1791/1814] Aurora Innovation — https://aurora.tech
+2026-03-02 00:10:14,640 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:10:14,664 INFO    [1792/1814] SpaceX Starlink — https://www.starlink.com
+2026-03-02 00:10:16,057 INFO      Scrape returned insufficient text (8 chars)
+2026-03-02 00:10:16,057 INFO    [1793/1814] Blue Origin US — https://www.blueorigin.com
+2026-03-02 00:10:16,905 INFO      Scrape returned insufficient text (0 chars)
+2026-03-02 00:10:16,906 INFO    [1794/1814] Virgin Galactic US — https://www.virgingalactic.com
+2026-03-02 00:10:17,814 INFO      Scrape returned insufficient text (15 chars)
+2026-03-02 00:10:17,815 INFO    [1795/1814] Powell's Books on Hawthorne — https://www.powells.com/locations/powells-books-on-hawthorne
+2026-03-02 00:10:18,494 INFO      Scrape returned insufficient text (0 chars)
+2026-03-02 00:10:18,495 INFO    [1796/1814] Book People Austin Texas — https://www.bookpeople.com
+2026-03-02 00:10:57,776 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:10:57,797 INFO    [1797/1814] City Lights SF — https://www.citylights.com
+2026-03-02 00:10:58,586 INFO      Scrape returned insufficient text (0 chars)
+2026-03-02 00:10:58,587 INFO    [1798/1814] Politics and Prose D.C. — https://www.politics-prose.com
+2026-03-02 00:11:30,594 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:11:30,629 INFO    [1799/1814] Amoeba Music Sunset — https://www.amoeba.com
+2026-03-02 00:11:59,256 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:11:59,286 INFO    [1800/1814] Waterloo Records Austin TX — https://www.waterloorecords.com
+2026-03-02 00:12:20,896 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:12:20,929 INFO    [1801/1814] Jackpot Records Portland OR — https://jackpotrecords.com
+2026-03-02 00:12:43,659 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:12:43,688 INFO    [1802/1814] The Commodore Perry Estate — https://aubergeresorts.com/commodoreperry/
+2026-03-02 00:12:46,066 INFO      Scrape returned insufficient text (0 chars)
+2026-03-02 00:12:46,067 INFO    [1803/1814] Hotel Saint Cecilia — https://www.hotelsaintcecilia.com
+2026-03-02 00:12:49,278 INFO      Scrape returned insufficient text (0 chars)
+2026-03-02 00:12:49,278 INFO    [1804/1814] The South Congress Hotel — https://southcongresshotel.com
+2026-03-02 00:13:27,537 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:13:27,553 INFO    [1805/1814] The Austin Proper Hotel — https://www.properhotel.com/austin/
+2026-03-02 00:13:57,471 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:13:57,486 INFO    [1806/1814] NetJets — https://www.netjets.com
+2026-03-02 00:14:19,981 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:14:20,013 INFO    [1807/1814] Wheels Up — https://wheelsup.com
+2026-03-02 00:14:21,819 INFO      Scrape returned insufficient text (9 chars)
+2026-03-02 00:14:21,819 INFO    [1808/1814] XO — https://flyxo.com
+2026-03-02 00:14:47,751 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:14:47,785 INFO    [1809/1814] Flexjet — https://www.flexjet.com
+2026-03-02 00:15:11,161 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:15:11,195 INFO    [1810/1814] PrivateFly — https://www.privatefly.com
+2026-03-02 00:15:42,573 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:15:42,607 INFO    [1811/1814] Jettly — https://jettly.com
+2026-03-02 00:15:43,248 INFO      Scrape returned insufficient text (0 chars)
+2026-03-02 00:15:43,250 INFO    [1812/1814] Victor — https://www.flyvictor.com
+2026-03-02 00:15:43,971 INFO      Scrape returned insufficient text (0 chars)
+2026-03-02 00:15:43,972 INFO    [1813/1814] VistaJet — https://www.vistajet.com
+2026-03-02 00:16:12,891 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:16:12,919 INFO    [1814/1814] Peak Aviation Solutions — https://flypeak.com
+2026-03-02 00:16:39,245 INFO    HTTP Request: POST http://localhost:11434/api/chat "HTTP/1.1 200 OK"
+2026-03-02 00:16:39,258 INFO    DONE. enriched=1138 errors=676

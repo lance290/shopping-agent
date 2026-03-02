@@ -1,21 +1,20 @@
 import asyncio
+from sqlalchemy.orm import sessionmaker
+from sqlmodel.ext.asyncio.session import AsyncSession
+from database import engine
 from sqlmodel import select
-import sys
-import os
-
-# Ensure backend is in pythonpath
-sys.path.append(os.path.dirname(__file__))
-
-from database import get_session
-from models.coupons import PopSwap
-import contextlib
+from models import Row
 
 async def main():
-    async for session in get_session():
-        result = await session.execute(select(PopSwap))
-        swaps = result.scalars().all()
-        for s in swaps:
-            print(f"ID: {s.id}, Title: {s.swap_product_name}, Img: {s.swap_product_image}, Savings: {s.savings_cents}, Provider: {s.provider}, Target: {s.target_product}")
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with async_session() as session:
+        result = await session.exec(select(Row).order_by(Row.created_at.desc()).limit(5))
+        for row in result.all():
+            print(f"Row {row.id}: {row.title}")
+            print(f"  choice_answers: {row.choice_answers}")
+            print(f"  provider_query: {row.provider_query}")
+            from routes.rows_search import _extract_filters
+            filters = _extract_filters(row, None)
+            print(f"  extracted filters: {filters}")
 
-if __name__ == "__main__":
-    asyncio.run(main())
+asyncio.run(main())

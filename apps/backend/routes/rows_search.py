@@ -125,7 +125,7 @@ def _extract_filters(row: Row, spec: Optional[RequestSpec]) -> tuple[Optional[fl
     # Check for price constraints in choice_answers
     if row.choice_answers:
         answers_obj = safe_json_loads(row.choice_answers, {})
-        if answers_obj:
+        if isinstance(answers_obj, dict):
             min_price = _parse_price_value(answers_obj.get("min_price"))
             max_price = _parse_price_value(answers_obj.get("max_price"))
 
