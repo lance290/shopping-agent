@@ -103,7 +103,7 @@ describe('mapBidToOffer', () => {
 
     const offer = mapBidToOffer(bid);
     expect(offer.url).toBe('#');
-    expect(offer.click_url).toBe('/api/clickout?url=');
+    expect(offer.click_url).toBe('/api/clickout?url=&bid_id=7&source=test');
   });
 
   test('generates click_url from item_url', () => {
@@ -115,7 +115,7 @@ describe('mapBidToOffer', () => {
     };
 
     const offer = mapBidToOffer(bid);
-    expect(offer.click_url).toBe('/api/clickout?url=https%3A%2F%2Fshop.com%2Fitem');
+    expect(offer.click_url).toBe('/api/clickout?url=https%3A%2F%2Fshop.com%2Fitem&bid_id=8&source=test');
   });
 });
 
