@@ -58,6 +58,11 @@ class CheckoutCreateResponse(BaseModel):
     session_id: str
 
 
+class TipJarCreateRequest(BaseModel):
+    success_url: str = ""
+    cancel_url: str = ""
+
+
 # ── Create Checkout Session ──────────────────────────────────────────────
 
 
@@ -187,6 +192,38 @@ async def create_checkout_alias(
 ):
     """Alias for /api/checkout/create-session to match frontend expectations."""
     return await create_checkout_session(body, authorization, session)
+
+
+@router.post("/api/tip-jar", response_model=CheckoutCreateResponse)
+async def create_tip_jar_session(body: TipJarCreateRequest):
+    """Create a Stripe Checkout Session for the tip jar price."""
+    stripe = _get_stripe()
+    price_id = os.getenv("STRIPE_TIP_JAR_PRICE_ID", "")
+    if not price_id:
+        raise HTTPException(status_code=503, detail="STRIPE_TIP_JAR_PRICE_ID not configured")
+
+    app_base = os.getenv("APP_BASE_URL", "http://localhost:3003")
+    success_url = body.success_url or f"{app_base}/?tip=success&session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = body.cancel_url or f"{app_base}/?tip=cancel"
+
+    session_params = {
+        "mode": "payment",
+        "line_items": [{"price": price_id, "quantity": 1}],
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "metadata": {"purpose": "tip_jar"},
+    }
+
+    try:
+        checkout_session = stripe.checkout.Session.create(**session_params)
+    except Exception as e:
+        logger.error(f"[TIP JAR] Stripe session creation failed: {e}")
+        raise HTTPException(status_code=502, detail="Failed to create tip jar session")
+
+    return CheckoutCreateResponse(
+        checkout_url=checkout_session.url,
+        session_id=checkout_session.id,
+    )
 
 
 # ── Multi-Vendor Batch Checkout (PRD 05) ────────────────────────────────

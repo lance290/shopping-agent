@@ -29,6 +29,7 @@ export function AppView({ children }: AppViewProps) {
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
   const [collapsedProjects, setCollapsedProjects] = useState<Record<number | string, boolean>>({});
   const [isProd, setIsProd] = useState(true);
+  const [isTipJarLoading, setIsTipJarLoading] = useState(false);
 
   // Check environment on mount
   useEffect(() => {
@@ -132,18 +133,32 @@ export function AppView({ children }: AppViewProps) {
               Your List
             </h2>
             <div className="flex items-center gap-2">
-              {process.env.NEXT_PUBLIC_STRIPE_TIP_JAR_URL && (
-                <a
-                  href={process.env.NEXT_PUBLIC_STRIPE_TIP_JAR_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors"
-                  title="Support our team"
-                >
-                  <span>☕️</span>
-                  Tip Jar
-                </a>
-              )}
+              <button
+                onClick={async () => {
+                  if (isTipJarLoading) return;
+                  setIsTipJarLoading(true);
+                  try {
+                    const res = await fetch('/api/tip-jar', { method: 'POST' });
+                    const data = await res.json();
+                    if (!res.ok) {
+                      throw new Error(data?.detail || 'Failed to create tip jar session');
+                    }
+                    if (data?.checkout_url) {
+                      window.location.href = data.checkout_url;
+                    }
+                  } catch (error) {
+                    console.error('[tip-jar] failed to create session', error);
+                  } finally {
+                    setIsTipJarLoading(false);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors disabled:opacity-60"
+                title="Support our team"
+                disabled={isTipJarLoading}
+              >
+                <span>☕️</span>
+                {isTipJarLoading ? 'Opening…' : 'Tip Jar'}
+              </button>
               <button
                 onClick={handleCreateProject}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"

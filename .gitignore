@@ -62,3 +62,10 @@ uploads/
 # Runtime / temp
 .logs/
 *.pyc
+
+# Root-level scratch / debug / one-off scripts
+/debug_*.py
+/fix_*.py
+/patch_*.py
+/test_*.py
+/check_*.py
