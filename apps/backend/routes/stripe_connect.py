@@ -8,7 +8,7 @@ import logging
 import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -52,6 +52,7 @@ class EarningsSummary(BaseModel):
 
 @router.post("/onboard", response_model=OnboardingResponse)
 async def start_onboarding(
+    request: Request,
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
@@ -75,7 +76,8 @@ async def start_onboarding(
         )
 
     stripe = _get_stripe()
-    app_base = os.getenv("APP_BASE_URL", "http://localhost:3003")
+    from routes.checkout import _get_app_base
+    app_base = _get_app_base(request)
 
     # Create or reuse Stripe Connected Account
     if not merchant.stripe_account_id:

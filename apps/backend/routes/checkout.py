@@ -18,6 +18,21 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["checkout"])
 
+
+def _get_app_base(request: Request) -> str:
+    """Derive the frontend base URL from the request Origin/Referer, falling
+    back to the APP_BASE_URL env var.  This lets the same backend serve
+    multiple domains (buy-anything.com, popsavings.com, etc.)."""
+    origin = request.headers.get("origin")
+    if origin:
+        return origin.rstrip("/")
+    referer = request.headers.get("referer")
+    if referer:
+        from urllib.parse import urlparse
+        p = urlparse(referer)
+        return f"{p.scheme}://{p.netloc}"
+    return os.getenv("APP_BASE_URL", "http://localhost:3003")
+
 # Lazy-init Stripe to avoid import errors when key isn't set
 _stripe = None
 
@@ -68,6 +83,7 @@ class TipJarCreateRequest(BaseModel):
 
 @router.post("/api/checkout/create-session", response_model=CheckoutCreateResponse)
 async def create_checkout_session(
+    request: Request,
     body: CheckoutCreateRequest,
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
@@ -119,8 +135,8 @@ async def create_checkout_session(
     if bid.image_url:
         line_item["price_data"]["product_data"]["images"] = [bid.image_url]
 
-    # Default URLs
-    app_base = os.getenv("APP_BASE_URL", "http://localhost:3003")
+    # Default URLs — derive from request origin so multi-domain works
+    app_base = _get_app_base(request)
     success_url = body.success_url or f"{app_base}/?checkout=success&session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = body.cancel_url or f"{app_base}/?checkout=cancel"
 
@@ -186,23 +202,24 @@ async def create_checkout_session(
 
 @router.post("/api/checkout", response_model=CheckoutCreateResponse)
 async def create_checkout_alias(
+    request: Request,
     body: CheckoutCreateRequest,
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
     """Alias for /api/checkout/create-session to match frontend expectations."""
-    return await create_checkout_session(body, authorization, session)
+    return await create_checkout_session(request, body, authorization, session)
 
 
 @router.post("/api/tip-jar", response_model=CheckoutCreateResponse)
-async def create_tip_jar_session(body: TipJarCreateRequest = None):
+async def create_tip_jar_session(request: Request, body: TipJarCreateRequest = None):
     """Create a Stripe Checkout Session for the tip jar price."""
     stripe = _get_stripe()
     price_id = os.getenv("STRIPE_TIP_JAR_PRICE_ID", "")
     if not price_id:
         raise HTTPException(status_code=503, detail="STRIPE_TIP_JAR_PRICE_ID not configured")
 
-    app_base = os.getenv("APP_BASE_URL", "http://localhost:3003")
+    app_base = _get_app_base(request)
     success_url = (body.success_url if body else "") or f"{app_base}/?tip=success&session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = (body.cancel_url if body else "") or f"{app_base}/?tip=cancel"
 
@@ -244,6 +261,7 @@ class BatchCheckoutResponse(BaseModel):
 
 @router.post("/api/checkout/batch", response_model=BatchCheckoutResponse)
 async def batch_checkout(
+    request: Request,
     body: BatchCheckoutRequest,
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
@@ -289,7 +307,7 @@ async def batch_checkout(
             cancel_url=body.cancel_url,
         )
         try:
-            result = await create_checkout_session(single_req, authorization, session)
+            result = await create_checkout_session(request, single_req, authorization, session)
             sessions_created.append({
                 "bid_id": bid_id,
                 "checkout_url": result.checkout_url,
