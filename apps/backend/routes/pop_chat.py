@@ -51,6 +51,19 @@ _GUEST_SESSION_SECRET = os.getenv("GUEST_SESSION_SECRET", "pop-guest-session-def
 
 async def _trigger_search_local(session: AsyncSession, row: Row, query: str):
     try:
+        # Soft-delete existing bids that are not liked or selected
+        from sqlalchemy import update as sql_update
+        from models import Bid
+        from datetime import datetime
+        await session.exec(
+            sql_update(Bid).where(
+                Bid.row_id == row.id,
+                Bid.is_liked == False,
+                Bid.is_selected == False,
+                Bid.is_superseded == False,
+            ).values(is_superseded=True, superseded_at=datetime.utcnow())
+        )
+
         row.status = "bids_arriving"
         session.add(row)
         await session.commit()

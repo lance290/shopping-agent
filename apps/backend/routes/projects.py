@@ -98,6 +98,9 @@ async def duplicate_project(
 
     await session.commit()
     return new_project
+
+
+@router.delete("/projects/{project_id}")
 async def delete_project(
     project_id: int,
     authorization: Optional[str] = Header(None),

@@ -102,7 +102,7 @@ interface PendingRowDelete {
 }
 
 // Helper to convert DB Bid to Offer
-export function mapBidToOffer(bid: Bid): Offer {
+export function mapBidToOffer(bid: Bid, rowId?: number): Offer {
   const contactEmail = bid.contact_email ?? undefined;
   const itemEmail = bid.item_url?.startsWith('mailto:')
     ? bid.item_url.replace('mailto:', '')
@@ -115,6 +115,10 @@ export function mapBidToOffer(bid: Bid): Offer {
       parsedProvenance = JSON.parse((bid as any).provenance);
     } catch { }
   }
+  
+  let clickUrl = `/api/clickout?url=${encodeURIComponent(bid.item_url || '')}&bid_id=${bid.id}`;
+  if (rowId) clickUrl += `&row_id=${rowId}`;
+  if (bid.source) clickUrl += `&source=${encodeURIComponent(bid.source)}`;
 
   return {
     // Extract contact name if stored in title, and clean up the displayed title
@@ -129,7 +133,7 @@ export function mapBidToOffer(bid: Bid): Offer {
     shipping_info: null,
     source: bid.source,
     merchant_domain: bid.seller?.domain || undefined,
-    click_url: `/api/clickout?url=${encodeURIComponent(bid.item_url || '')}`,
+    click_url: clickUrl,
     match_score: typeof bid.combined_score === 'number' ? bid.combined_score : undefined,
     bid_id: bid.id,
     is_selected: bid.is_selected,
@@ -474,7 +478,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     ) as Record<number, ProviderStatusSnapshot[]>;
     orderedRows.forEach(row => {
       if (row.bids && row.bids.length > 0) {
-        const bidsAsOffers = row.bids.map(mapBidToOffer);
+        const bidsAsOffers = row.bids.map(b => mapBidToOffer(b, row.id));
         const existingResults = newRowResults[row.id] || [];
 
         // Create a map of existing offers by bid_id for deduplication
@@ -521,7 +525,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     // even if the search response was empty (e.g. after error recovery or page reload)
     const updatedRow = newRows.find((r) => r.id === id);
     if (updatedRow?.bids && updatedRow.bids.length > 0) {
-      const bidsAsOffers = updatedRow.bids.map(mapBidToOffer);
+      const bidsAsOffers = updatedRow.bids.map(b => mapBidToOffer(b, updatedRow.id));
       const existingResults = state.rowResults[id] || [];
 
       // Merge: update existing by bid_id, add new ones

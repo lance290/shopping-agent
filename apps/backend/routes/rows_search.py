@@ -248,6 +248,19 @@ async def search_row_listings(
         session.add(row)
         await session.commit()
 
+    # Soft-delete existing bids that are not liked or selected to ensure new results overwrite old ones
+    from sqlalchemy import update as sql_update
+    from models import Bid
+    await session.exec(
+        sql_update(Bid).where(
+            Bid.row_id == row_id,
+            Bid.is_liked == False,
+            Bid.is_selected == False,
+            Bid.is_superseded == False,
+        ).values(is_superseded=True, superseded_at=datetime.utcnow())
+    )
+    await session.commit()
+
     # Initialize SourcingService
     sourcing_service = SourcingService(session, get_sourcing_repo())
 
@@ -398,6 +411,18 @@ async def search_row_listings_stream(
 
     sourcing_repo = get_sourcing_repo()
     sourcing_service = SourcingService(session, sourcing_repo)
+
+    # Soft-delete existing bids that are not liked or selected to ensure new results overwrite old ones
+    from sqlalchemy import update as sql_update
+    from models import Bid
+    await session.exec(
+        sql_update(Bid).where(
+            Bid.row_id == row_id,
+            Bid.is_liked == False,
+            Bid.is_selected == False,
+            Bid.is_superseded == False,
+        ).values(is_superseded=True, superseded_at=datetime.utcnow())
+    )
 
     row.status = "bids_arriving"
     row.updated_at = datetime.utcnow()

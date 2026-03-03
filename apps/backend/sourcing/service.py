@@ -181,17 +181,19 @@ class SourcingService:
         min_price, max_price = self._extract_price_constraints(row) if row else (None, None)
 
         if row and max_price is not None:
-            # Only hard-delete bids that exceed the budget ceiling (max_price).
+            # Instead of hard-deleting, we supersede bids that exceed the budget ceiling (max_price).
             # Keep bids with no price and bids below min_price — scorer ranks them.
             # Protect liked/selected bids and service providers.
+            from sqlalchemy import update as sql_update
             await self.session.exec(
-                delete(Bid).where(
+                sql_update(Bid).where(
                     Bid.row_id == row_id,
                     Bid.price > max_price,
                     Bid.source != "vendor_directory",
                     Bid.is_liked == False,
                     Bid.is_selected == False,
-                )
+                    Bid.is_superseded == False,
+                ).values(is_superseded=True, superseded_at=datetime.utcnow())
             )
             await self.session.commit()
 
@@ -547,6 +549,8 @@ class SourcingService:
                 existing_bid.quality_score = quality_score_val
                 existing_bid.diversity_bonus = diversity_bonus_val
                 existing_bid.source_tier = source_tier
+                existing_bid.is_superseded = False
+                existing_bid.superseded_at = None
                 
                 self.session.add(existing_bid)
                 updated_bids_count += 1
@@ -585,7 +589,7 @@ class SourcingService:
         # Never rely on in-memory object IDs which may be expired after async commit.
         stmt = (
             select(Bid)
-            .where(Bid.row_id == row_id)
+            .where(Bid.row_id == row_id, Bid.is_superseded == False)
             .options(selectinload(Bid.seller))
             .order_by(Bid.combined_score.desc().nullslast(), Bid.id)
         )

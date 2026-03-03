@@ -208,6 +208,7 @@ async def read_rows(
     
     # Apply price filters from choice_answers to each row's bids
     for row in rows:
+        row.bids = [b for b in row.bids if not b.is_superseded]
         row.bids = filter_bids_by_price(row)
     
     return rows
@@ -241,6 +242,7 @@ async def read_row(
         raise HTTPException(status_code=404, detail="Row not found")
     
     # Apply price filter from choice_answers
+    row.bids = [b for b in row.bids if not b.is_superseded]
     row.bids = filter_bids_by_price(row)
     
     return row
@@ -302,7 +304,7 @@ async def update_row(
     reset_bids = row_data.pop("reset_bids", None)
 
     if selected_bid_id is not None:
-        bids_result = await session.exec(select(Bid).where(Bid.row_id == row_id))
+        bids_result = await session.exec(select(Bid).where(Bid.row_id == row_id, Bid.is_superseded == False))
         bids = bids_result.all()
         found = False
         for row_bid in bids:
@@ -317,7 +319,13 @@ async def update_row(
         row.status = "closed"
 
     if reset_bids:
-        await session.exec(delete(Bid).where(Bid.row_id == row_id))
+        from sqlalchemy import update as sql_update
+        await session.exec(
+            sql_update(Bid).where(
+                Bid.row_id == row_id,
+                Bid.is_superseded == False,
+            ).values(is_superseded=True, superseded_at=datetime.utcnow())
+        )
 
     # JSONB columns need native dicts/lists, not JSON strings
     jsonb_fields = {"choice_factors", "choice_answers", "search_intent", "provider_query_map", "chat_history"}
