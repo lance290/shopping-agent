@@ -132,16 +132,18 @@ export function AppView({ children }: AppViewProps) {
               Your List
             </h2>
             <div className="flex items-center gap-2">
-              <a
-                href={process.env.NEXT_PUBLIC_STRIPE_TIP_JAR_URL || "https://buy.stripe.com/test_9B628q83Z3Otb6gbRn4Ja00"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors"
-                title="Support our team"
-              >
-                <span>☕️</span>
-                Tip Jar
-              </a>
+              {process.env.NEXT_PUBLIC_STRIPE_TIP_JAR_URL && (
+                <a
+                  href={process.env.NEXT_PUBLIC_STRIPE_TIP_JAR_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors"
+                  title="Support our team"
+                >
+                  <span>☕️</span>
+                  Tip Jar
+                </a>
+              )}
               <button
                 onClick={handleCreateProject}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
