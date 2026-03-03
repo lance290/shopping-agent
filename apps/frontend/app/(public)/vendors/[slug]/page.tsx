@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { Store, ExternalLink, MapPin, Tag, ArrowLeft } from 'lucide-react';
+import { Store, ExternalLink, Tag, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -20,7 +20,6 @@ interface VendorDetail {
   description?: string | null;
   category?: string | null;
   specialties?: string | null;
-  service_areas?: unknown;
   website?: string | null;
   image_url?: string | null;
   is_verified: boolean;
@@ -80,7 +79,6 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ s
   }
 
   const specialties = normalizeToStringArray(vendor.specialties);
-  const serviceAreas = normalizeToStringArray(vendor.service_areas);
   const seo: VendorSeoContent = vendor.seo_content || {};
   const schemaMarkup = vendor.schema_markup || null;
 
@@ -164,19 +162,6 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ s
                 {specialties.map((s, i) => (
                   <span key={i} className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full">
                     <Tag size={12} /> {s}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {serviceAreas.length > 0 && (
-            <div>
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Service Areas</h2>
-              <div className="flex flex-wrap gap-2">
-                {serviceAreas.map((area, i) => (
-                  <span key={i} className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full">
-                    <MapPin size={12} /> {area}
                   </span>
                 ))}
               </div>

@@ -384,7 +384,6 @@ Return ONLY valid JSON, no markdown fences:
   "description": "2-3 sentence description of what this business does, their specialty, and value proposition",
   "tagline": "their tagline/slogan if visible, else null",
   "specialties": "comma-separated list of specific services or product specialties",
-  "service_areas": "comma-separated list of cities, states, regions, or countries they serve. Include headquarters location if mentioned.",
   "location_hq": "city, state/country of headquarters or primary office",
   "phone": "primary phone number if found, else null",
   "email": "primary contact email if found, else null",
@@ -468,10 +467,6 @@ def build_profile_text(vendor: Vendor, extracted: Optional[Dict]) -> str:
     if specs:
         parts.append(f"Specialties: {specs}.")
 
-    areas = (extracted or {}).get("service_areas")
-    if areas:
-        parts.append(f"Service areas: {areas}.")
-
     hq = (extracted or {}).get("location_hq")
     if hq:
         parts.append(f"Headquarters: {hq}.")
@@ -550,8 +545,6 @@ async def enrich_and_embed(limit: Optional[int], dry_run: bool):
                             db_vendor.tagline = extracted["tagline"]
                         if extracted.get("specialties"):
                             db_vendor.specialties = extracted["specialties"]
-                        if extracted.get("service_areas"):
-                            db_vendor.service_areas = extracted["service_areas"]
                         if extracted.get("phone") and not db_vendor.phone:
                             db_vendor.phone = extracted["phone"]
                         if extracted.get("email") and not db_vendor.email:

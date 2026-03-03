@@ -2,7 +2,6 @@
 Merchant Registry API routes.
 Self-registration for preferred seller network.
 """
-import json
 import logging
 import os
 from typing import Optional
@@ -13,7 +12,6 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models import Vendor
-from utils.json_utils import safe_json_loads
 
 # Merchant is now an alias for Vendor
 Merchant = Vendor
@@ -32,7 +30,6 @@ class MerchantRegistration(BaseModel):
     phone: Optional[str] = None
     website: Optional[str] = None
     categories: list[str] = []
-    service_areas: list[str] = []
 
 
 class MerchantResponse(BaseModel):
@@ -43,7 +40,6 @@ class MerchantResponse(BaseModel):
     phone: Optional[str]
     website: Optional[str]
     categories: list[str]
-    service_areas: list[str]
     status: str
     created_at: str
 
@@ -92,7 +88,6 @@ async def register_merchant(
         website=registration.website,
         domain=registration.website or None,
         category=registration.categories[0] if registration.categories else None,
-        service_areas=json.dumps(registration.service_areas) if registration.service_areas else None,
         user_id=auth_session.user_id,
         status="pending",
     )
@@ -125,7 +120,6 @@ async def get_my_merchant_profile(
         raise HTTPException(status_code=404, detail="No merchant profile found")
 
     categories = [vendor.category] if vendor.category else []
-    service_areas = safe_json_loads(vendor.service_areas, [])
 
     return MerchantResponse(
         id=vendor.id,
@@ -135,7 +129,6 @@ async def get_my_merchant_profile(
         phone=vendor.phone,
         website=vendor.website,
         categories=categories,
-        service_areas=service_areas,
         status=vendor.status,
         created_at=vendor.created_at.isoformat(),
     )
@@ -144,29 +137,22 @@ async def get_my_merchant_profile(
 @router.get("/search")
 async def search_merchants(
     category: Optional[str] = None,
-    area: Optional[str] = None,
     session: AsyncSession = Depends(get_session),
 ):
     """
-    Search verified merchants by category and/or service area.
+    Search verified merchants by category.
     Used by the matching algorithm to prioritize registered merchants.
     """
-    # TODO: Push category/area filtering to DB query (e.g. JSON contains or
-    # a categories join table) once merchant volume justifies it.
     query = select(Vendor).where(Vendor.status == "verified")
 
     result = await session.execute(query)
     vendors = result.scalars().all()
 
-    # Filter by category and area in Python
     matched = []
     for v in vendors:
         cats = [v.category] if v.category else []
-        areas = safe_json_loads(v.service_areas, [])
 
         if category and category not in cats:
-            continue
-        if area and area not in areas and "nationwide" not in areas:
             continue
 
         matched.append({
@@ -175,7 +161,6 @@ async def search_merchants(
             "contact_name": v.contact_name,
             "website": v.website,
             "categories": cats,
-            "service_areas": areas,
         })
 
     return {"merchants": matched, "count": len(matched)}

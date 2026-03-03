@@ -27,7 +27,6 @@ async def test_merchant_register_success(client, auth_user_and_token):
             "phone": "+1-555-0100",
             "website": "https://testmerchant.com",
             "categories": ["electronics", "automotive"],
-            "service_areas": ["US-CA", "US-NY"],
         },
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -161,7 +160,6 @@ def test_merchant_model():
         contact_name="John",
         email="john@test.com",
         category="electronics",
-        service_areas=json.dumps(["nationwide"]),
         status="pending",
     )
     assert merchant.name == "Test Corp"

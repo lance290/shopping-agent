@@ -63,7 +63,6 @@ async def restore_vendors_logic(session: AsyncSession):
     print(f"Model Columns: {valid_columns}")
     
     # Identify text fields that need stringification if they contain dicts/lists
-    # NOTE: service_areas is sa.JSON (jsonb) in DB — do NOT stringify it
     text_fields = ["specialties", "provenance"]
 
     # Let's clean data for insertion
@@ -76,10 +75,8 @@ async def restore_vendors_logic(session: AsyncSession):
             if key in valid_columns:
                 clean_v[key] = val
         
-        # service_areas is dead weight and causing JSONB vs VARCHAR cast issues
-        # Clear it to None
-        if "service_areas" in clean_v:
-            clean_v["service_areas"] = None
+        # Drop service_areas — column removed
+        clean_v.pop("service_areas", None)
         
         # Fix datetimes
         for field in ["created_at", "updated_at", "embedded_at"]:

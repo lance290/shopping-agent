@@ -120,7 +120,6 @@ async def fix_schema(conn):
                 phone VARCHAR,
                 website VARCHAR,
                 category VARCHAR,
-                service_areas JSONB,
                 specialties VARCHAR,
                 description TEXT,
                 tagline VARCHAR,

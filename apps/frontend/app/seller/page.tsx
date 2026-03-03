@@ -34,7 +34,6 @@ interface MerchantProfile {
   email?: string;
   phone?: string;
   categories?: string;
-  service_areas?: string;
   website?: string;
 }
 
@@ -265,10 +264,6 @@ export default function SellerDashboard() {
                 <div>
                   <label className="text-xs font-medium text-onyx-muted uppercase">Categories</label>
                   <p className="text-onyx">{profile.categories || '—'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-onyx-muted uppercase">Service Areas</label>
-                  <p className="text-onyx">{profile.service_areas || '—'}</p>
                 </div>
                 <div className="col-span-2">
                   <label className="text-xs font-medium text-onyx-muted uppercase">Website</label>

@@ -491,7 +491,6 @@ Required JSON:
   "tagline": "Their tagline/slogan if visible, else null",
   "category": "{category}",
   "specialties": "comma-separated list of specific services or specialties",
-  "service_areas": "comma-separated list of locations/regions they serve",
   "phone": "primary phone if found, else null",
   "email": "primary email if found, else null",
   "contact_name": "owner/principal name if found, else null",
@@ -588,8 +587,6 @@ def build_profile_text(profile: Dict[str, Any]) -> str:
         parts.append(f"Category: {profile['category']}.")
     if profile.get("specialties"):
         parts.append(f"Specialties: {profile['specialties']}.")
-    if profile.get("service_areas"):
-        parts.append(f"Service areas: {profile['service_areas']}.")
     if profile.get("tagline"):
         parts.append(f'Tagline: "{profile["tagline"]}".')
     seo = profile.get("seo_content") or {}
@@ -695,7 +692,6 @@ async def run_discovery(
                     phone=profile.get("phone"),
                     website=url,
                     category=profile.get("category", category),
-                    service_areas=profile.get("service_areas"),
                     specialties=profile.get("specialties"),
                     description=profile.get("description"),
                     tagline=profile.get("tagline"),

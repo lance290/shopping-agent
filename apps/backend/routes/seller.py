@@ -60,7 +60,6 @@ class MerchantProfile(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     category: Optional[str] = None
-    service_areas: Optional[str] = None
     website: Optional[str] = None
 
 
@@ -69,7 +68,6 @@ class MerchantProfileUpdate(BaseModel):
     contact_name: Optional[str] = None
     phone: Optional[str] = None
     categories: Optional[str] = None
-    service_areas: Optional[str] = None
     website: Optional[str] = None
 
 
@@ -342,7 +340,6 @@ async def get_profile(
         email=merchant.email,
         phone=merchant.phone,
         category=merchant.category,
-        service_areas=merchant.service_areas,
         website=merchant.website,
     )
 
@@ -375,7 +372,6 @@ async def update_profile(
         email=merchant.email,
         phone=merchant.phone,
         category=merchant.category,
-        service_areas=merchant.service_areas,
         website=merchant.website,
     )
 

@@ -847,7 +847,6 @@ async def get_vendor_detail_endpoint(
         "website": vp.website,
         "contact_email": vp.email,
         "contact_phone": vp.phone,
-        "service_areas": vp.service_areas,
         "specialties": vp.specialties,
         "description": vp.description,
         "tagline": vp.tagline,

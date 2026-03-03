@@ -62,7 +62,6 @@ export default function MerchantRegisterPage() {
           phone: phone || null,
           website: website || null,
           categories: selectedCategories,
-          service_areas: ['nationwide'],
         }),
       });
 

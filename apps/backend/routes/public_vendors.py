@@ -59,7 +59,6 @@ def _vendor_to_public(v: Vendor) -> Dict[str, Any]:
         "description": v.description,
         "category": v.category,
         "specialties": v.specialties,
-        "service_areas": v.service_areas,
         "website": v.website,
         "image_url": v.image_url,
         "is_verified": v.is_verified,

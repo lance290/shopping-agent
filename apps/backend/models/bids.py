@@ -25,7 +25,6 @@ class Vendor(SQLModel, table=True):
     website: Optional[str] = None
     # Classification
     category: Optional[str] = Field(default=None, index=True)
-    service_areas: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))  # TODO: drop this column — dead weight, never queried
     specialties: Optional[str] = None
     description: Optional[str] = None
     tagline: Optional[str] = None
