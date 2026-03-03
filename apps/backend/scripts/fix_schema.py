@@ -105,6 +105,60 @@ EXPECTED_COLS = [
     ("user", "trust_level", "VARCHAR", "'standard'"),
     ("user", "wallet_balance_cents", "INTEGER", "0"),
     ("user", "ref_code", "VARCHAR", None),
+
+    # AuditLog — extended fields
+    ("audit_log", "timestamp", "TIMESTAMP", "NOW()"),
+    ("audit_log", "session_id", "INTEGER", None),
+    ("audit_log", "user_agent", "VARCHAR", None),
+    ("audit_log", "resource_type", "VARCHAR", None),
+    ("audit_log", "resource_id", "VARCHAR", None),
+    ("audit_log", "success", "BOOLEAN", "true"),
+    ("audit_log", "error_message", "VARCHAR", None),
+
+    # OutreachCampaign — campaign v2 fields
+    ("outreach_campaign", "user_id", "INTEGER", None),
+    ("outreach_campaign", "request_summary", "VARCHAR", None),
+    ("outreach_campaign", "structured_constraints", "VARCHAR", None),
+    ("outreach_campaign", "action_budget", "INTEGER", "20"),
+    ("outreach_campaign", "actions_used", "INTEGER", "0"),
+
+    # OutreachMessage — full message fields
+    ("outreach_message", "body_html", "VARCHAR", None),
+    ("outreach_message", "from_address", "VARCHAR", None),
+    ("outreach_message", "to_address", "VARCHAR", None),
+    ("outreach_message", "reply_to_address", "VARCHAR", None),
+    ("outreach_message", "sent_at", "TIMESTAMP", None),
+    ("outreach_message", "opened_at", "TIMESTAMP", None),
+    ("outreach_message", "replied_at", "TIMESTAMP", None),
+    ("outreach_message", "metadata_json", "VARCHAR", None),
+
+    # OutreachQuote — quote v2 fields
+    ("outreach_quote", "entry_method", "VARCHAR", None),
+    ("outreach_quote", "availability", "VARCHAR", None),
+    ("outreach_quote", "terms", "VARCHAR", None),
+    ("outreach_quote", "expiration_date", "VARCHAR", None),
+    ("outreach_quote", "structured_data", "VARCHAR", None),
+    ("outreach_quote", "confidence", "FLOAT", None),
+    ("outreach_quote", "is_finalist", "BOOLEAN", "false"),
+
+    # PopSwap — full coupon/swap fields
+    ("pop_swap", "target_product", "VARCHAR", None),
+    ("pop_swap", "swap_product_name", "VARCHAR", None),
+    ("pop_swap", "swap_product_image", "VARCHAR", None),
+    ("pop_swap", "swap_product_url", "VARCHAR", None),
+    ("pop_swap", "offer_type", "VARCHAR", "'coupon'"),
+    ("pop_swap", "discount_percent", "FLOAT", None),
+    ("pop_swap", "offer_description", "VARCHAR", None),
+    ("pop_swap", "brand_user_id", "INTEGER", None),
+    ("pop_swap", "brand_contact_email", "VARCHAR", None),
+    ("pop_swap", "provider_payout_cents", "INTEGER", None),
+    ("pop_swap", "max_redemptions", "INTEGER", None),
+    ("pop_swap", "current_redemptions", "INTEGER", "0"),
+    ("pop_swap", "updated_at", "TIMESTAMP", None),
+
+    # PopSwapClaim — verification + payment timestamps
+    ("pop_swap_claim", "verified_at", "TIMESTAMP", None),
+    ("pop_swap_claim", "paid_at", "TIMESTAMP", None),
 ]
 
 # Tables to migrate (order matters for FK constraints)
