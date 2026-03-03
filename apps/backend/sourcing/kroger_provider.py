@@ -17,6 +17,7 @@ from __future__ import annotations
 import base64
 import logging
 import os
+import re
 import time
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
@@ -64,6 +65,13 @@ class KrogerProvider(SourcingProvider):
         self._token_expires_at: float = 0.0
         # Cache: zip_code -> locationId (avoids repeated location lookups)
         self._zip_to_location: Dict[str, str] = {}
+
+    @staticmethod
+    def _build_product_url(title: str, product_id: str) -> str:
+        slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')[:80]
+        if not slug:
+            slug = "product"
+        return f"https://www.kroger.com/p/{slug}/{product_id}"
 
     # ------------------------------------------------------------------
     # OAuth2 client-credentials flow
@@ -231,8 +239,8 @@ class KrogerProvider(SourcingProvider):
                     if image_url:
                         break
 
-                # Build Kroger product URL
-                url = f"https://www.kroger.com/p/{product_id}"
+                # Build Kroger product URL (requires /p/{slug}/{id} format)
+                url = self._build_product_url(title, product_id)
 
                 # Shipping info: show size and promo status
                 shipping_parts = []
