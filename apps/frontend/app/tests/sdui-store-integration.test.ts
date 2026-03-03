@@ -87,8 +87,8 @@ describe('mapBidToOffer SDUI compatibility', () => {
       item_url: 'https://amazon.com/shoes', image_url: null, source: 'rainforest', is_selected: false,
     };
     const offer = mapBidToOffer(bid);
-    // click_url uses /api/clickout which maps to /api/out (the backend affiliate redirect)
-    expect(offer.click_url).toContain('/api/clickout');
+    // click_url uses /api/out which maps to /api/out (the backend affiliate redirect)
+    expect(offer.click_url).toContain('/api/out');
     expect(offer.click_url).toContain(encodeURIComponent('https://amazon.com/shoes'));
     expect(offer.bid_id).toBe(1);
   });

@@ -116,7 +116,7 @@ export function mapBidToOffer(bid: Bid, rowId?: number): Offer {
     } catch { }
   }
   
-  let clickUrl = `/api/clickout?url=${encodeURIComponent(bid.item_url || '')}&bid_id=${bid.id}`;
+  let clickUrl = `/api/out?url=${encodeURIComponent(bid.item_url || '')}&bid_id=${bid.id}`;
   if (rowId) clickUrl += `&row_id=${rowId}`;
   if (bid.source) clickUrl += `&source=${encodeURIComponent(bid.source)}`;
 
