@@ -141,6 +141,7 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         "/pop/",      # Pop API endpoints (chat, receipt scanning) handle their own auth
         "/rows/",     # Row search endpoints — use own auth via _resolve_user_id
         "/admin/",    # Admin ops use their own key-based auth (X-Restore-Key etc.)
+        "/api/tip-jar",  # Public endpoint — no auth or CSRF needed
     ]
 
     async def dispatch(self, request: Request, call_next):
