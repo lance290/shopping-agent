@@ -71,8 +71,12 @@ async def audit_log(
         )
         
         session.add(log_entry)
-        await session.commit()
+        await session.flush()
         
     except Exception as e:
         # Never let audit logging break the main flow
         print(f"[AUDIT ERROR] Failed to log {action}: {e}")
+        try:
+            await session.rollback()
+        except Exception:
+            pass
