@@ -133,7 +133,7 @@ export function AppView({ children }: AppViewProps) {
             </h2>
             <div className="flex items-center gap-2">
               <a
-                href="https://buy.stripe.com/test_dRm5kEcSC6lWc0NeUh1ck00"
+                href={process.env.NEXT_PUBLIC_STRIPE_TIP_JAR_URL || "https://buy.stripe.com/test_9B628q83Z3Otb6gbRn4Ja00"}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors"
