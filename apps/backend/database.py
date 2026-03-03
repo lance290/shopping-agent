@@ -90,6 +90,14 @@ else:
 
 engine = create_async_engine(DATABASE_URL, **engine_kwargs)
 
+# Compatibility: SQLAlchemy AsyncSession lacks `exec` (SQLModel convenience).
+# Add a minimal shim if it's missing so call sites using `exec` still work.
+if not hasattr(AsyncSession, "exec"):
+    async def _exec(self, statement):
+        return await self.execute(statement)
+
+    AsyncSession.exec = _exec  # type: ignore[attr-defined]
+
 # Query Performance Monitoring
 # Logs slow queries for performance analysis (development only)
 SLOW_QUERY_THRESHOLD = float(os.getenv("DB_SLOW_QUERY_THRESHOLD", "1.0"))  # seconds
