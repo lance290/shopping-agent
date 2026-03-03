@@ -61,6 +61,50 @@ EXPECTED_COLS = [
     ("vendor", "tier_affinity", "VARCHAR(20)", None),
     ("vendor", "price_range_min", "FLOAT", None),
     ("vendor", "price_range_max", "FLOAT", None),
+    ("vendor", "slug", "VARCHAR", None),
+
+    # ClickoutEvent — Phase 4 anti-fraud + SDUI attribution (ROOT CAUSE of prod 502)
+    ("clickout_event", "bid_id", "INTEGER", None),
+    ("clickout_event", "is_suspicious", "BOOLEAN", "false"),
+    ("clickout_event", "ip_address", "VARCHAR", None),
+    ("clickout_event", "user_agent", "VARCHAR", None),
+
+    # Bid — Phase 4 scoring dimensions
+    ("bid", "combined_score", "FLOAT", None),
+    ("bid", "relevance_score", "FLOAT", None),
+    ("bid", "price_score", "FLOAT", None),
+    ("bid", "quality_score", "FLOAT", None),
+    ("bid", "diversity_bonus", "FLOAT", None),
+    ("bid", "source_tier", "VARCHAR", None),
+    # Bid — closing layer
+    ("bid", "closing_status", "VARCHAR", None),
+    ("bid", "contact_name", "VARCHAR", None),
+    ("bid", "contact_email", "VARCHAR", None),
+    ("bid", "contact_phone", "VARCHAR", None),
+    # Bid — SDUI
+    ("bid", "ui_schema_version", "INTEGER", "0"),
+
+    # Row — SDUI + provider selection
+    ("row", "selected_providers", "VARCHAR", None),
+    ("row", "ui_schema_version", "INTEGER", "0"),
+
+    # Project — SDUI
+    ("project", "ui_schema_version", "INTEGER", "0"),
+
+    # ShareLink — engagement metrics + permissions
+    ("share_link", "permission", "VARCHAR", "'view_only'"),
+    ("share_link", "access_count", "INTEGER", "0"),
+    ("share_link", "unique_visitors", "INTEGER", "0"),
+    ("share_link", "search_initiated_count", "INTEGER", "0"),
+    ("share_link", "search_success_count", "INTEGER", "0"),
+    ("share_link", "signup_conversion_count", "INTEGER", "0"),
+
+    # User — referral + wallet + trust
+    ("user", "referral_share_token", "VARCHAR", None),
+    ("user", "signup_source", "VARCHAR", None),
+    ("user", "trust_level", "VARCHAR", "'standard'"),
+    ("user", "wallet_balance_cents", "INTEGER", "0"),
+    ("user", "ref_code", "VARCHAR", None),
 ]
 
 # Tables to migrate (order matters for FK constraints)
@@ -204,6 +248,35 @@ async def fix_schema(conn):
             try:
                 await conn.execute(text(
                     f'ALTER TABLE "{table}" ADD COLUMN "{col}" {pgtype}{defstr}'
+                ))
+                print(f"[SCHEMA-FIX] + {table}.{col} ({pgtype})")
+                added += 1
+            except Exception as e:
+                print(f"[SCHEMA-FIX] WARNING: Could not add {table}.{col}: {e}")
+
+    # ── Add JSON/JSONB columns that need special type ──────────────────
+    JSON_COLS = [
+        ("row", "ui_schema", "JSONB"),
+        ("project", "ui_schema", "JSONB"),
+        ("bid", "bid_ui_schema", "JSONB"),       # model: ui_schema, sa_column name: bid_ui_schema
+        ("bid", "provenance", "JSONB"),
+        ("vendor", "seo_content", "JSONB"),
+        ("vendor", "schema_markup", "JSONB"),
+    ]
+    for table, col, pgtype in JSON_COLS:
+        tbl_check = await conn.execute(text(
+            "SELECT 1 FROM information_schema.tables WHERE table_name = :t"
+        ), {"t": table})
+        if tbl_check.first() is None:
+            continue
+        row = await conn.execute(text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = :t AND column_name = :c"
+        ), {"t": table, "c": col})
+        if row.first() is None:
+            try:
+                await conn.execute(text(
+                    f'ALTER TABLE "{table}" ADD COLUMN "{col}" {pgtype}'
                 ))
                 print(f"[SCHEMA-FIX] + {table}.{col} ({pgtype})")
                 added += 1
