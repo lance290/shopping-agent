@@ -195,7 +195,7 @@ async def create_checkout_alias(
 
 
 @router.post("/api/tip-jar", response_model=CheckoutCreateResponse)
-async def create_tip_jar_session(body: TipJarCreateRequest):
+async def create_tip_jar_session(body: TipJarCreateRequest = None):
     """Create a Stripe Checkout Session for the tip jar price."""
     stripe = _get_stripe()
     price_id = os.getenv("STRIPE_TIP_JAR_PRICE_ID", "")
@@ -203,8 +203,8 @@ async def create_tip_jar_session(body: TipJarCreateRequest):
         raise HTTPException(status_code=503, detail="STRIPE_TIP_JAR_PRICE_ID not configured")
 
     app_base = os.getenv("APP_BASE_URL", "http://localhost:3003")
-    success_url = body.success_url or f"{app_base}/?tip=success&session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = body.cancel_url or f"{app_base}/?tip=cancel"
+    success_url = (body.success_url if body else "") or f"{app_base}/?tip=success&session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = (body.cancel_url if body else "") or f"{app_base}/?tip=cancel"
 
     session_params = {
         "mode": "payment",
