@@ -331,6 +331,13 @@ async def startup_event():
             await conn.execute(text("""
                 CREATE UNIQUE INDEX IF NOT EXISTS vendor_slug_idx ON vendor (slug);
             """))
+            # Drop dead service_areas column (Railway doesn't run Alembic)
+            result = await conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'vendor' AND column_name = 'service_areas'"
+            ))
+            if result.first() is not None:
+                await conn.execute(text("ALTER TABLE vendor DROP COLUMN service_areas;"))
             # SDUI schema columns (Phase 0.2)
             await conn.execute(text("""
                 ALTER TABLE project ADD COLUMN IF NOT EXISTS ui_schema JSONB;
