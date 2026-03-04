@@ -26,6 +26,7 @@ list_router = APIRouter()
 from routes.pop_offers import _classify_swaps_llm  # noqa: F401 — re-exported for backward compat
 
 
+@list_router.get("/list/{project_id}")
 async def get_pop_list(
     project_id: int,
     request: Request,
