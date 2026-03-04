@@ -96,5 +96,10 @@ export function parseChoiceAnswers(row: Row): Record<string, any> {
     if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
       return parsed;
     }
-    return {};
+  } catch (e) {
+    // Ignore parse errors
+  }
+  return {};
+}
+
 export { useShoppingStore } from './store-state';
