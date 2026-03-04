@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useShoppingStore, mapBidToOffer } from '../../store';
 import type { Row, Offer } from '../../store';
 import { createProjectInDb, duplicateProjectInDb, runSearchApiWithStatus } from '../../utils/api';
@@ -8,10 +9,29 @@ import { Bug, FolderPlus, Trash2, RotateCw, Copy } from 'lucide-react';
 import { DynamicRenderer } from './DynamicRenderer';
 import { validateUISchema } from '../../sdui/types';
 import VendorContactModal from '../VendorContactModal';
+import { getMe } from '../../utils/auth';
 
 interface AppViewProps {
   children?: React.ReactNode;
 }
+
+const TRENDING_SEARCHES = [
+  'Robot lawn mowers',
+  'Standing desks under $600',
+  'Air purifiers for wildfire smoke',
+  'Portable power stations',
+  'Private jet charter',
+  'Luxury yacht charter',
+  'Bespoke menswear',
+  'Executive relocation concierge',
+];
+
+const GUIDE_LINKS = [
+  { title: 'Private aviation: charter vs. fractional vs. jet card', slug: 'private-aviation' },
+  { title: 'Sourcing bespoke menswear in 2025', slug: 'bespoke-menswear' },
+  { title: 'Art acquisition for new collectors', slug: 'art-acquisition' },
+  { title: 'Executive relocation: vendor vetting checklist', slug: 'executive-relocation' },
+];
 
 export function AppView({ children }: AppViewProps) {
   const rows = useShoppingStore((s) => s.rows);
@@ -24,13 +44,11 @@ export function AppView({ children }: AppViewProps) {
   const setReportBugModalOpen = useShoppingStore((s) => s.setReportBugModalOpen);
   const pendingRowDelete = useShoppingStore((s) => s.pendingRowDelete);
   const undoDeleteRow = useShoppingStore((s) => s.undoDeleteRow);
-  const requestDeleteRow = useShoppingStore((s) => s.requestDeleteRow);
-  const setIsSearching = useShoppingStore((s) => s.setIsSearching);
-  const setRowResults = useShoppingStore((s) => s.setRowResults);
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
   const [collapsedProjects, setCollapsedProjects] = useState<Record<number | string, boolean>>({});
   const [isProd, setIsProd] = useState(true);
   const [isTipJarLoading, setIsTipJarLoading] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   // Check environment on mount
   useEffect(() => {
@@ -46,6 +64,22 @@ export function AppView({ children }: AppViewProps) {
     } else {
       setIsProd(true);
     }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    getMe()
+      .then((me) => {
+        if (!mounted) return;
+        setIsAuthenticated(Boolean(me?.authenticated));
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setIsAuthenticated(false);
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const targetProjectId = useShoppingStore((s) => s.targetProjectId);
@@ -128,6 +162,69 @@ export function AppView({ children }: AppViewProps) {
 
       {/* List Pane */}
       <div className="flex-1 min-w-0 overflow-y-auto bg-gray-50/50">
+        {isAuthenticated !== true ? (
+          <div className="p-6 space-y-8">
+            <section className="rounded-2xl border border-white/10 bg-white p-6 shadow-sm">
+              <p className="text-xs uppercase tracking-[0.3em] text-gray-400 mb-2">BuyAnything</p>
+              <h2 className="text-2xl font-semibold text-gray-900">Every purchase decision, handled.</h2>
+              <p className="mt-3 text-sm text-gray-600 max-w-2xl">
+                Search anonymously across products and premium services. Sign in only if you want
+                to save rows, history, and collaboration.
+              </p>
+              <form action="/search" method="get" className="mt-5 max-w-2xl">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    name="q"
+                    required
+                    placeholder="Search anything (e.g., laptop under $1200, private jet charter)"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                  />
+                  <button type="submit" className="btn-primary whitespace-nowrap">
+                    Search
+                  </button>
+                </div>
+              </form>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link className="btn-secondary" href="/guides">Browse guides</Link>
+                <Link className="btn-secondary" href="/vendors">Explore vendors</Link>
+              </div>
+            </section>
+
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Trending searches</h3>
+                <span className="text-xs text-gray-400 uppercase tracking-widest">Updated weekly</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {TRENDING_SEARCHES.map((label) => (
+                  <Link
+                    key={label}
+                    href={`/search?q=${encodeURIComponent(label)}`}
+                    className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 hover:border-gray-300 hover:bg-gray-50"
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">Editorial guides</h3>
+              <div className="grid gap-3 md:grid-cols-2">
+                {GUIDE_LINKS.map((guide) => (
+                  <Link
+                    key={guide.slug}
+                    href={`/guides/${guide.slug}`}
+                    className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-800 hover:border-gray-300 hover:bg-gray-50"
+                  >
+                    {guide.title}
+                  </Link>
+                ))}
+              </div>
+            </section>
+          </div>
+        ) : (
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
@@ -273,6 +370,7 @@ export function AppView({ children }: AppViewProps) {
             );
           })()}
         </div>
+        )}
       </div>
     </div>
   );
