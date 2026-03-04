@@ -201,7 +201,3 @@ async def test_reset_bids_clears_existing_bids(client: AsyncClient, session):
     )
     assert refreshed.status_code == 200
     assert refreshed.json().get("bids") == []
-
-
-
-
