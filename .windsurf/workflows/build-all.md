@@ -319,6 +319,8 @@ Run `/plan` workflow logic:
    - Check: Are technical choices consistent with existing architecture?
    - Check: Are there missing integration points?
    - Check: Is the plan DRY across what's already been built?
+   - Check: Does the plan include comprehensive test suites (unit, integration, e2e, scenario)?
+   - Check: Does the architecture break down files to strictly respect the 450 lines of code limit?
    - Fill gaps
 
 4. **Second gap review**:
@@ -344,7 +346,8 @@ Run `/task` workflow logic:
 
 4. **Second gap review**:
    - Re-read all tasks fresh
-   - Check: Are test requirements specified per task?
+   - Check: Are full test requirements (unit, integration, e2e, scenario) specified per task?
+   - Check: Do tasks enforce breaking down files to stay under the 450 lines of code limit?
    - Check: File lists accurate (check if files exist already)?
    - Check: Are shared component references correct?
    - Fill gaps
@@ -596,10 +599,12 @@ When `/build-all` is invoked and a previous run exists:
 4. **Skip completed work** — check traceability matrix status before processing
 5. **DRY across efforts** — identify and extract shared code early
 6. **Double-review everything** — plans get two gap reviews, tasks get two gap reviews
-7. **Log all decisions** — every autonomous choice goes in DECISIONS.md with confidence
-8. **Fail forward** — blocked tasks/efforts don't halt the entire build
-9. **Checkpoint often** — commit after each effort completes
-10. **Preserve git integrity** — never use `--no-verify`
-11. **Ask before destructive actions** — `git reset --hard`, deleting volumes, removing `node_modules`
-12. **File/directory creation is authorized** — `/build-all` grants permission to create required files/dirs without asking
-13. **Root Cause Protocol enforced** — max 2 fix attempts per issue before diagnostic pause, max 4 review-loop iterations, never suppress errors with band-aids
+7. **Comprehensive Testing** — Every effort must include full test suites (unit, integration, e2e, and scenario testing)
+8. **File Size Limits** — Strictly enforce the 450 lines of code limit per file. Break large files into smaller modules or components early
+9. **Log all decisions** — every autonomous choice goes in DECISIONS.md with confidence
+10. **Fail forward** — blocked tasks/efforts don't halt the entire build
+11. **Checkpoint often** — commit after each effort completes
+12. **Preserve git integrity** — never use `--no-verify`
+13. **Ask before destructive actions** — `git reset --hard`, deleting volumes, removing `node_modules`
+14. **File/directory creation is authorized** — `/build-all` grants permission to create required files/dirs without asking
+15. **Root Cause Protocol enforced** — max 2 fix attempts per issue before diagnostic pause, max 4 review-loop iterations, never suppress errors with band-aids
