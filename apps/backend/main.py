@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
+import asyncio
 import os
 import traceback
 from pathlib import Path
@@ -283,8 +284,10 @@ async def startup_event():
         await init_db()
 
     # Always run lightweight migrations for new columns
+    # Wrapped in timeout so DB issues don't block health endpoint
     from database import engine
     try:
+      async with asyncio.timeout(15):
         async with engine.begin() as conn:
             # Add chat_history column if it doesn't exist (safe idempotent migration)
             await conn.execute(text("""
@@ -517,12 +520,13 @@ async def startup_event():
                 END $$;
             """))
             print("Migration check: row + user + deal_handoff + vendor SEO + deal pipeline + pop sharing + pop swap + user zip_code ensured")
-    except Exception as e:
-        print(f"Migration check skipped (table may not exist yet, Alembic will create it): {e}")
+    except (TimeoutError, Exception) as e:
+        print(f"Migration check skipped (DB timeout or error): {type(e).__name__}: {e}")
 
     # ── Data integrity check — warn if vendor/user data is missing ──
-    async with engine.begin() as conn:
-        try:
+    try:
+     async with asyncio.timeout(10):
+      async with engine.begin() as conn:
             vendor_exists = (
                 await conn.execute(
                     text(
@@ -558,8 +562,8 @@ async def startup_event():
                 print("   Run: python scripts/seed_vendors.py to restore vendor records.")
             else:
                 print(f"✓  Data check: {vendor_count} vendors, {user_count} users in DB")
-        except Exception as e:
-            print(f"⚠️  Data integrity check skipped (table may not exist yet): {e}")
+    except (TimeoutError, Exception) as e:
+        print(f"⚠️  Data integrity check skipped ({type(e).__name__}): {e}")
 
     if is_production:
         return
