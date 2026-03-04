@@ -2,200 +2,43 @@
 LLM service — unified decision engine, choice factor generation, provider query triage.
 
 Ported from apps/bff/src/llm.ts as part of PRD-02 (Kill BFF).
-Uses httpx to call the Gemini REST API directly.
+Implementations split across llm_core.py (API calls), llm_models.py (data models),
+and llm_pop.py (Pop grocery engine). This file keeps make_unified_decision,
+choice factors, provider triage, outreach email, and re-exports everything.
 """
 
 import json
 import logging
-import os
 import re
 from typing import Any, Dict, List, Optional
 
-import httpx
-from pydantic import BaseModel
-
 logger = logging.getLogger(__name__)
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")  # Direct Gemini REST API fallback
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-3-flash-preview")  # Primary LLM path
+# Re-export core LLM functions for backward compatibility
+from services.llm_core import (  # noqa: E402, F401
+    call_gemini,
+    _extract_json,
+    _extract_json_array,
+    _get_gemini_api_key,
+    _get_openrouter_api_key,
+    GEMINI_MODEL,
+    OPENROUTER_MODEL,
+)
 
+# Re-export data models for backward compatibility
+from services.llm_models import (  # noqa: E402, F401
+    DESIRE_TIERS,
+    UserIntent,
+    ClarificationAction,
+    DisambiguateOption,
+    DisambiguateAction,
+    SimpleAction,
+    UnifiedDecision,
+    ChatContext,
+)
 
-def _get_gemini_api_key() -> str:
-    return os.getenv("GOOGLE_GENERATIVE_AI_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
-
-
-def _get_openrouter_api_key() -> str:
-    return os.getenv("OPENROUTER_API_KEY") or ""
-
-
-async def _call_gemini_direct(prompt: str, timeout: float = 30.0) -> str:
-    """Call Gemini REST API directly."""
-    api_key = _get_gemini_api_key()
-    if not api_key:
-        raise ValueError("No Gemini API key")
-
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
-
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": 0.2,
-            "maxOutputTokens": 4096,
-        },
-    }
-
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            url,
-            params={"key": api_key},
-            json=payload,
-            timeout=timeout,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-    candidates = data.get("candidates", [])
-    if not candidates:
-        raise ValueError("Gemini returned no candidates")
-    parts = candidates[0].get("content", {}).get("parts", [])
-    if not parts:
-        raise ValueError("Gemini returned no content parts")
-    return parts[0].get("text", "")
-
-
-async def _call_openrouter(prompt: str, timeout: float = 30.0) -> str:
-    """Call OpenRouter API (OpenAI-compatible)."""
-    api_key = _get_openrouter_api_key()
-    if not api_key:
-        raise ValueError("No OpenRouter API key (OPENROUTER_API_KEY)")
-
-    url = "https://openrouter.ai/api/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "model": OPENROUTER_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.2,
-        "max_tokens": 4096,
-    }
-
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(url, headers=headers, json=payload, timeout=timeout)
-        resp.raise_for_status()
-        data = resp.json()
-
-    choices = data.get("choices", [])
-    if not choices:
-        raise ValueError("OpenRouter returned no choices")
-    return choices[0].get("message", {}).get("content", "")
-
-
-async def call_gemini(prompt: str, timeout: float = 30.0) -> str:
-    """Call LLM: try OpenRouter first (gemini-3-flash-preview), fall back to Gemini direct."""
-    # Primary: OpenRouter (supports gemini-3-flash-preview)
-    if _get_openrouter_api_key():
-        try:
-            return await _call_openrouter(prompt, timeout)
-        except Exception as e:
-            logger.warning(f"OpenRouter failed, trying Gemini direct: {e}")
-
-    # Fallback: Gemini direct API
-    if _get_gemini_api_key():
-        try:
-            return await _call_gemini_direct(prompt, timeout)
-        except Exception as e:
-            logger.error(f"Gemini direct also failed: {e}")
-            raise
-
-    raise ValueError("No LLM API key configured (OPENROUTER_API_KEY, GEMINI_API_KEY, or GOOGLE_GENERATIVE_AI_API_KEY)")
-
-
-def _extract_json(text: str) -> dict:
-    """Extract JSON object from LLM response, handling markdown fences and prose."""
-    cleaned = re.sub(r"```(?:json)?\s*\n?", "", text)
-    cleaned = re.sub(r"\n?```", "", cleaned)
-    first_brace = cleaned.find("{")
-    last_brace = cleaned.rfind("}")
-    if first_brace != -1 and last_brace > first_brace:
-        cleaned = cleaned[first_brace : last_brace + 1]
-    return json.loads(cleaned)
-
-
-def _extract_json_array(text: str) -> list:
-    """Extract JSON array from LLM response."""
-    cleaned = re.sub(r"```(?:json)?\s*\n?", "", text)
-    cleaned = re.sub(r"\n?```", "", cleaned)
-    first_bracket = cleaned.find("[")
-    last_bracket = cleaned.rfind("]")
-    if first_bracket != -1 and last_bracket > first_bracket:
-        cleaned = cleaned[first_bracket : last_bracket + 1]
-    return json.loads(cleaned)
-
-
-# =============================================================================
-# DATA MODELS
-# =============================================================================
-
-# Valid desire tiers — drives downstream routing
-DESIRE_TIERS = ("commodity", "considered", "service", "bespoke", "high_value", "advisory")
-
-
-class UserIntent(BaseModel):
-    what: str
-    category: str = "request"
-    service_type: Optional[str] = None  # vendor_category hint (e.g. "private_aviation")
-    search_query: Optional[str] = None
-    constraints: Dict[str, Any] = {}
-    desire_tier: str = "commodity"  # one of DESIRE_TIERS
-    desire_confidence: float = 0.8  # 0.0-1.0
-
-
-class ClarificationAction(BaseModel):
-    type: str = "ask_clarification"
-    missing_fields: List[str] = []
-
-
-class DisambiguateOption(BaseModel):
-    label: str
-    search_query: str
-    category: str
-
-
-class DisambiguateAction(BaseModel):
-    type: str = "disambiguate"
-    options: List[DisambiguateOption] = []
-
-
-class SimpleAction(BaseModel):
-    type: str  # create_row, update_row, context_switch, search, vendor_outreach
-
-
-class UnifiedDecision(BaseModel):
-    message: str
-    intent: UserIntent
-    action: Dict[str, Any]  # flexible to handle all action types
-    items: Optional[List[Dict[str, str]]] = None  # multi-item responses
-    project_title: Optional[str] = None  # Name for a group of items
-    ui_hint: Optional[Dict[str, Any]] = None  # SDUI layout hint from LLM
-
-    @property
-    def desire_tier(self) -> str:
-        return self.intent.desire_tier if self.intent.desire_tier in DESIRE_TIERS else "commodity"
-
-    @property
-    def skip_web_search(self) -> bool:
-        """Service/bespoke/high-value/advisory tiers skip web search — it can't help."""
-        return self.desire_tier in ("service", "bespoke", "high_value", "advisory")
-
-
-class ChatContext(BaseModel):
-    user_message: str
-    conversation_history: List[Dict[str, str]]
-    active_row: Optional[Dict[str, Any]] = None
-    active_project: Optional[Dict[str, Any]] = None
-    pending_clarification: Optional[Dict[str, Any]] = None
+# Re-export Pop decision engine for backward compatibility
+from services.llm_pop import make_pop_decision  # noqa: E402, F401
 
 
 # =============================================================================
@@ -414,142 +257,7 @@ Return ONLY valid JSON:
         )
 
 
-async def make_pop_decision(ctx: ChatContext) -> UnifiedDecision:
-    """
-    Pop-specific decision engine for grocery list management.
-    Much simpler than the main Shopping Agent — focused on quick adds,
-    minimal questions, and grocery-aware behavior.
-    """
-    active_row_json = json.dumps({
-        "id": ctx.active_row["id"],
-        "title": ctx.active_row.get("title", ""),
-        "constraints": ctx.active_row.get("constraints", {}),
-    }) if ctx.active_row else "none"
-
-    active_project_json = json.dumps({
-        "id": ctx.active_project["id"],
-        "title": ctx.active_project.get("title", ""),
-    }) if ctx.active_project else "none"
-
-    recent = ctx.conversation_history[-6:] if ctx.conversation_history else []
-    recent_text = "\n".join(f"  {m['role']}: {m['content']}" for m in recent)
-
-    prompt = f"""You are Pop, a fast and friendly grocery savings assistant. Your job is to help users build their grocery shopping list and find the best deals.
-
-INPUTS:
-- User message: "{ctx.user_message}"
-- Active list item (the one the user is currently talking about or just added): {active_row_json}
-- Shopping list: {active_project_json}
-- Recent conversation:
-{recent_text}
-
-YOUR PERSONALITY:
-- Friendly, casual, efficient — like a helpful friend at the grocery store
-- FAST: add items immediately, don't interrogate the user
-- Brief responses: 1-2 sentences max
-
-GOLDEN RULES:
-1. **ADD FIRST, ASK LATER.** When a user says "steak" — add "Steak" to the list and search for deals. Do NOT ask what cut, grade, or brand. The user will specify if they care.
-2. **NEVER ask more than 1 question per turn.** And only ask if truly ambiguous.
-3. **Stay in grocery land.** You help with groceries, household items, and everyday store purchases.
-4. **Quantity is implicit.** "eggs" means a carton. Don't ask unless the user specifies a weird amount.
-5. **Simple item names.** Use normal grocery names: "Steak", "Eggs", "Milk".
-6. **SPLIT MULTIPLE ITEMS.** If user says "milk, eggs, and bread" — return ALL items in the "items" array.
-7. **BE SMART ABOUT MODIFICATIONS.** Read the recent conversation. If the user says "no, remove that" or "I meant Roquefort cheese", understand the *spirit* of their request:
-   - If they want to CHANGE the active item entirely: use "update_row" with the new name.
-   - If they want to DELETE the active item: use "delete_row".
-   - If they are clarifying details of the active item (e.g. "organic"): use "update_row" with new constraints.
-
-HANDLING USER MESSAGES:
-- "hi" / "hello" / "hey" → GREET BACK. Message: "Hey! What do you need from the store today?" Action: "ask_clarification".
-- "thanks" / "ok" → Acknowledge briefly. Action: "ask_clarification".
-- "steak" → Add "Steak". Action: "create_row".
-- "ice cream, cookies, and wine" → THREE separate items in "items" array. Action: "create_row".
-- "prime, fresh" → User is adding details to the active item. Action: "update_row".
-- "actually make it ground beef instead" → User is replacing the active item. Action: "update_row" with "what" = "Ground Beef".
-- "remove steak" / "delete that" / "nevermind" → Remove the active item. Action: "delete_row".
-- "laptop" → Decline politely. Action: "ask_clarification".
-
-ACTION TYPES:
-1. "create_row" — Add new item(s) to the grocery list
-2. "update_row" — Update the ACTIVE item (change its name, add preferences, etc.)
-3. "delete_row" — Remove the ACTIVE item from the list
-4. "context_switch" — User mentions a new grocery item while one is active, and they DON'T want to modify the active one.
-5. "ask_clarification" — RARELY used. Only for chitchat, non-grocery requests, or true ambiguity.
-6. "search" — Re-search for deals on current item
-
-Return ONLY valid JSON. 
-
-For MULTIPLE new items (create_row / context_switch), use the "items" array AND provide a default fallback intent:
-{{
-  "message": "Brief friendly response",
-  "items": [
-    {{ "what": "Ice Cream", "search_query": "ice cream grocery deals" }},
-    {{ "what": "Cookies", "search_query": "cookies grocery deals" }}
-  ],
-  "intent": {{
-    "what": "Multiple items",
-    "category": "product",
-    "search_query": "grocery deals",
-    "constraints": {{}},
-    "desire_tier": "commodity",
-    "desire_confidence": 0.95
-  }},
-  "action": {{ "type": "create_row" }}
-}}
-
-For a SINGLE item (create_row, update_row, delete_row, etc.), you MUST provide the "intent" block containing the item details:
-{{
-  "message": "Brief friendly response",
-  "intent": {{
-    "what": "Simple grocery item name",
-    "category": "product",
-    "service_type": null,
-    "search_query": "grocery search query for deals",
-    "constraints": {{}},
-    "desire_tier": "commodity",
-    "desire_confidence": 0.95
-  }},
-  "action": {{ "type": "update_row" }}
-}}"""
-
-    try:
-        text = await call_gemini(prompt, timeout=20.0)
-        parsed = _extract_json(text)
-
-        # Handle multi-item responses: LLM returns "items" array instead of "intent"
-        items_list = parsed.pop("items", None)
-        if items_list and isinstance(items_list, list) and len(items_list) > 0:
-            first = items_list[0]
-            if "intent" not in parsed:
-                parsed["intent"] = {
-                    "what": first.get("what", ""),
-                    "category": "product",
-                    "search_query": first.get("search_query", f"{first.get('what', '')} grocery deals"),
-                    "constraints": {},
-                    "desire_tier": "commodity",
-                    "desire_confidence": 0.95,
-                }
-            decision = UnifiedDecision(**parsed)
-            decision.items = items_list
-            return decision
-
-        return UnifiedDecision(**parsed)
-    except Exception as e:
-        logger.error(f"[Pop] Failed to parse LLM decision: {e}")
-        # Don't blindly add non-grocery messages as items
-        return UnifiedDecision(
-            message="Hey! What do you need from the store today?",
-            intent=UserIntent(
-                what="",
-                category="product",
-                search_query="",
-                constraints={},
-                desire_tier="commodity",
-                desire_confidence=0.0,
-            ),
-            action={"type": "ask_clarification"},
-        )
+# make_pop_decision extracted to services/llm_pop.py (re-exported above)
 
 
 # =============================================================================

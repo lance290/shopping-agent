@@ -27,6 +27,7 @@ from audit import audit_log
 
 # Import routers
 from routes.auth import router as auth_router
+from routes.auth_profile import router as auth_profile_router
 from routes.rows import router as rows_router
 from routes.bids import router as bids_router
 from routes.projects import router as projects_router
@@ -142,6 +143,7 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_ROOT)), name="uploads")
 
 # Include routers
 app.include_router(auth_router)
+app.include_router(auth_profile_router)
 app.include_router(rows_router)
 app.include_router(bids_router)
 app.include_router(projects_router)
