@@ -573,12 +573,31 @@ async def reset_vendor_sequence():
 
 async def main():
     from database import engine
-    async with engine.begin() as conn:
-        await fix_schema(conn)
-    await reset_vendor_sequence()
-    await migrate_data()
+    # Fast-fail: try to connect with a short timeout so we don't block startup
+    import asyncio as _aio
+    try:
+        async with _aio.timeout(30):
+            async with engine.begin() as conn:
+                await fix_schema(conn)
+    except (TimeoutError, Exception) as e:
+        print(f"[SCHEMA-FIX] ERROR: DB connection failed ({type(e).__name__}: {e}). Skipping schema fix.")
+        return
+    try:
+        async with _aio.timeout(15):
+            await reset_vendor_sequence()
+    except Exception as e:
+        print(f"[SCHEMA-FIX] WARNING: vendor sequence reset failed: {e}")
+    try:
+        async with _aio.timeout(15):
+            await migrate_data()
+    except Exception as e:
+        print(f"[SCHEMA-FIX] WARNING: data migration failed: {e}")
     if RUN_USER_PHONE_MERGE:
-        await merge_phone_to_user1()
+        try:
+            async with _aio.timeout(15):
+                await merge_phone_to_user1()
+        except Exception as e:
+            print(f"[SCHEMA-FIX] WARNING: phone merge failed: {e}")
     else:
         print("[MERGE] RUN_USER_PHONE_MERGE is disabled, skipping phone merge step.")
 

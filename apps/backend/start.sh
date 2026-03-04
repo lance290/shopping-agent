@@ -10,24 +10,51 @@ if [ -d "/data" ]; then
     chown -R 1001:1001 /data/uploads || true
 fi
 
-# Patch missing tables/columns and ensure pgvector exists FIRST
-echo "[STARTUP] Running schema fix (pre-migration)..."
-if ! su fastapi -s /bin/sh -c "python scripts/fix_schema.py"; then
-    echo "[STARTUP] WARNING: Schema fix failed, but continuing startup."
-fi
+# Wait for DB to be reachable before running any startup scripts
+echo "[STARTUP] Waiting for database to be reachable..."
+DB_READY=0
+for i in 1 2 3 4 5 6 7 8 9 10; do
+    if su fastapi -s /bin/sh -c "python -c \"
+import asyncio, sys
+async def check():
+    from database import engine
+    async with engine.connect() as conn:
+        from sqlalchemy import text
+        await conn.execute(text('SELECT 1'))
+try:
+    asyncio.run(asyncio.wait_for(check(), timeout=5))
+    sys.exit(0)
+except:
+    sys.exit(1)
+\"" 2>/dev/null; then
+        echo "[STARTUP] Database is reachable (attempt $i)."
+        DB_READY=1
+        break
+    else
+        echo "[STARTUP] Database not ready (attempt $i/10), waiting 3s..."
+        sleep 3
+    fi
+done
 
-# Create base SQLModel tables if they don't exist (idempotent)
-# This is critical for fresh DBs where init_db() doesn't run in production
-echo "[STARTUP] Ensuring base tables exist (SQLModel create_all)..."
-if ! su fastapi -s /bin/sh -c "python -c 'from database import init_db; import asyncio; asyncio.run(init_db())'"; then
-    echo "[STARTUP] WARNING: Base table creation failed, but continuing startup."
-fi
+if [ "$DB_READY" = "0" ]; then
+    echo "[STARTUP] WARNING: Database not reachable after 10 attempts. Skipping all DB steps, starting app directly."
+else
+    # ── DB is reachable — run startup scripts ──────────────────────
+    # Patch missing tables/columns and ensure pgvector exists FIRST
+    echo "[STARTUP] Running schema fix (pre-migration)..."
+    if ! su fastapi -s /bin/sh -c "python scripts/fix_schema.py"; then
+        echo "[STARTUP] WARNING: Schema fix failed, but continuing startup."
+    fi
 
-# Determine if DB is fresh (no alembic_version rows) or existing
-# Fresh DB: init_db already created all tables with current schema, so stamp heads
-# Existing DB: run upgrade heads to apply pending migrations
-echo "[STARTUP] Running database migrations..."
-ALEMBIC_ROWS=$(su fastapi -s /bin/sh -c "python -c \"
+    # Create base SQLModel tables if they don't exist (idempotent)
+    echo "[STARTUP] Ensuring base tables exist (SQLModel create_all)..."
+    if ! su fastapi -s /bin/sh -c "python -c 'from database import init_db; import asyncio; asyncio.run(init_db())'"; then
+        echo "[STARTUP] WARNING: Base table creation failed, but continuing startup."
+    fi
+
+    # Determine if DB is fresh or existing for Alembic
+    echo "[STARTUP] Running database migrations..."
+    ALEMBIC_ROWS=$(su fastapi -s /bin/sh -c "python -c \"
 import asyncio
 from database import engine
 from sqlalchemy import text
@@ -41,48 +68,41 @@ async def check():
 print(asyncio.run(check()))
 \"" 2>/dev/null | tail -n 1 || echo "0")
 
-echo "[STARTUP] Alembic version rows: $ALEMBIC_ROWS"
+    echo "[STARTUP] Alembic version rows: $ALEMBIC_ROWS"
 
-if [ "$ALEMBIC_ROWS" = "0" ]; then
-    echo "[STARTUP] Fresh DB detected — stamping Alembic heads (tables already created by init_db)..."
-    if su fastapi -s /bin/sh -c "alembic stamp heads 2>&1"; then
-        echo "[STARTUP] Alembic heads stamped successfully."
-    else
-        echo "[STARTUP] WARNING: Alembic stamp failed, but continuing startup."
-    fi
-else
-    echo "[STARTUP] Existing DB — running Alembic upgrade..."
-    if su fastapi -s /bin/sh -c "alembic upgrade heads 2>&1"; then
-        echo "[STARTUP] Migrations completed successfully."
-    else
-        echo "[STARTUP] WARNING: Migrations returned non-zero. Checking if DB is usable..."
-        su fastapi -s /bin/sh -c "alembic current 2>&1" || true
-        if su fastapi -s /bin/sh -c "python -c \"from database import engine; import asyncio; asyncio.run(engine.dispose())\"" 2>/dev/null; then
-            echo "[STARTUP] DB connection OK — continuing despite migration warning."
+    if [ "$ALEMBIC_ROWS" = "0" ]; then
+        echo "[STARTUP] Fresh DB detected — stamping Alembic heads..."
+        if su fastapi -s /bin/sh -c "alembic stamp heads 2>&1"; then
+            echo "[STARTUP] Alembic heads stamped successfully."
         else
-            echo "[STARTUP] ERROR: DB connection failed. Exiting."
-            exit 1
+            echo "[STARTUP] WARNING: Alembic stamp failed, but continuing startup."
+        fi
+    else
+        echo "[STARTUP] Existing DB — running Alembic upgrade..."
+        if su fastapi -s /bin/sh -c "alembic upgrade heads 2>&1"; then
+            echo "[STARTUP] Migrations completed successfully."
+        else
+            echo "[STARTUP] WARNING: Migrations returned non-zero. Continuing anyway."
         fi
     fi
-fi
 
-# Run schema fix again AFTER migrations (catch anything migrations missed)
-echo "[STARTUP] Running schema fix (post-migration)..."
-if ! su fastapi -s /bin/sh -c "python scripts/fix_schema.py"; then
-    echo "[STARTUP] WARNING: Post-migration schema fix failed, but continuing startup."
-fi
-
-# Restore vendor backup if dump file exists (upsert — safe to run repeatedly)
-if [ -f "data/vendors_prod_dump.json" ] || [ -f "data/vendors_prod_dump.json.gz" ]; then
-    echo "[STARTUP] Restoring vendor backup from data/vendors_prod_dump.json..."
-    if ! su fastapi -s /bin/sh -c "python scripts/restore_vendors.py"; then
-        echo "[STARTUP] WARNING: Vendor restore failed, but continuing startup."
+    # Run schema fix again AFTER migrations (catch anything migrations missed)
+    echo "[STARTUP] Running schema fix (post-migration)..."
+    if ! su fastapi -s /bin/sh -c "python scripts/fix_schema.py"; then
+        echo "[STARTUP] WARNING: Post-migration schema fix failed, but continuing startup."
     fi
-fi
 
-# Reset vendor id sequence to avoid UniqueViolationError after restore
-echo "[STARTUP] Resetting vendor id sequence..."
-su fastapi -s /bin/sh -c "python -c \"
+    # Restore vendor backup if dump file exists
+    if [ -f "data/vendors_prod_dump.json" ] || [ -f "data/vendors_prod_dump.json.gz" ]; then
+        echo "[STARTUP] Restoring vendor backup from data/vendors_prod_dump.json..."
+        if ! su fastapi -s /bin/sh -c "python scripts/restore_vendors.py"; then
+            echo "[STARTUP] WARNING: Vendor restore failed, but continuing startup."
+        fi
+    fi
+
+    # Reset vendor id sequence
+    echo "[STARTUP] Resetting vendor id sequence..."
+    su fastapi -s /bin/sh -c "python -c \"
 import asyncio
 from database import engine
 from sqlalchemy import text
@@ -93,26 +113,27 @@ asyncio.run(fix())
 print('Sequence reset OK')
 \"" || echo "[STARTUP] WARNING: Sequence reset failed, continuing."
 
-# Run seed script (early-adopter vendors from vendors.py)
-echo "[STARTUP] Seeding vendor data..."
-if ! su fastapi -s /bin/sh -c "python scripts/seed_vendors.py"; then
-    echo "[STARTUP] WARNING: Vendor seeding failed, but continuing startup."
-fi
-
-# Run research seed script (full vendor directory from vendor-research.md)
-echo "[STARTUP] Seeding research vendor data..."
-if ! su fastapi -s /bin/sh -c "python scripts/seed_from_research.py"; then
-    echo "[STARTUP] WARNING: Research vendor seeding failed, but continuing startup."
-fi
-
-# Generate vendor embeddings (incremental — only missing ones)
-if [ -n "$OPENROUTER_API_KEY" ]; then
-    echo "[STARTUP] Generating vendor embeddings (incremental)..."
-    if ! su fastapi -s /bin/sh -c "python scripts/generate_embeddings.py"; then
-        echo "[STARTUP] WARNING: Embedding generation failed, but continuing startup."
+    # Run seed script (early-adopter vendors)
+    echo "[STARTUP] Seeding vendor data..."
+    if ! su fastapi -s /bin/sh -c "python scripts/seed_vendors.py"; then
+        echo "[STARTUP] WARNING: Vendor seeding failed, but continuing startup."
     fi
-else
-    echo "[STARTUP] OPENROUTER_API_KEY not set — skipping embedding generation."
+
+    # Run research seed script
+    echo "[STARTUP] Seeding research vendor data..."
+    if ! su fastapi -s /bin/sh -c "python scripts/seed_from_research.py"; then
+        echo "[STARTUP] WARNING: Research vendor seeding failed, but continuing startup."
+    fi
+
+    # Generate vendor embeddings (incremental)
+    if [ -n "$OPENROUTER_API_KEY" ]; then
+        echo "[STARTUP] Generating vendor embeddings (incremental)..."
+        if ! su fastapi -s /bin/sh -c "python scripts/generate_embeddings.py"; then
+            echo "[STARTUP] WARNING: Embedding generation failed, but continuing startup."
+        fi
+    else
+        echo "[STARTUP] OPENROUTER_API_KEY not set — skipping embedding generation."
+    fi
 fi
 
 # Start application
