@@ -367,6 +367,12 @@ async def startup_event():
             await conn.execute(text("""
                 CREATE INDEX IF NOT EXISTS vendor_name_trgm_idx ON vendor USING gin (name gin_trgm_ops);
             """))
+            # HNSW index for fast vector similarity search on vendor embeddings
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS vendor_embedding_hnsw_idx
+                ON vendor USING hnsw (embedding vector_cosine_ops)
+                WITH (m = 16, ef_construction = 64);
+            """))
             # Deal Pipeline tables (proxy messaging + escrow)
             await conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS deal (

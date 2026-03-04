@@ -10,6 +10,7 @@ with web search results in the sourcing pipeline.
 import math
 import os
 import logging
+import time
 from typing import List, Optional
 
 import httpx
@@ -92,6 +93,7 @@ class VendorDirectoryProvider(SourcingProvider):
         This keeps intent dominant while still boosting vendors that match context.
         """
         context_query = kwargs.get("context_query")
+        t0 = time.monotonic()
 
         # 1. Embed — batched if we have both intent + context
         if context_query and context_query.strip().lower() != query.strip().lower():
@@ -108,9 +110,12 @@ class VendorDirectoryProvider(SourcingProvider):
                 return []
             embedding = vecs[0]
 
+        t_embed = time.monotonic()
+        logger.info(f"[VendorProvider] Embedding took {t_embed - t0:.2f}s")
+
         vec_str = "[" + ",".join(str(f) for f in embedding) + "]"
 
-        # 2. Query vendor table with cosine similarity
+        # 2. Query vendor table with cosine similarity (uses HNSW index)
         try:
             async with self._engine.connect() as conn:
                 result = await conn.execute(
@@ -126,6 +131,8 @@ class VendorDirectoryProvider(SourcingProvider):
                     {"qvec": vec_str, "lim": kwargs.get("limit", 15)},
                 )
                 rows = result.mappings().all()
+                t_db = time.monotonic()
+                logger.info(f"[VendorProvider] DB query took {t_db - t_embed:.2f}s, {len(rows)} rows")
         except Exception as e:
             logger.warning(f"[VendorProvider] DB query failed: {e}")
             return []
