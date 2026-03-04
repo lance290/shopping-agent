@@ -2,7 +2,7 @@ name: AI Bug Fixer
 
 on:
   issues:
-    types: [labeled]
+    types: [opened, reopened, labeled]
 
 permissions:
   contents: write
@@ -11,10 +11,13 @@ permissions:
 
 jobs:
   fix-bug:
-    if: github.event.label.name == 'ai-fix'
+    if: |
+      (github.event.action == 'labeled' && github.event.label.name == 'ai-fix') ||
+      ((github.event.action == 'opened' || github.event.action == 'reopened') &&
+       contains(github.event.issue.labels.*.name, 'ai-fix'))
     runs-on: ubuntu-latest
     concurrency:
-      group: ai-bug-fixer-${{ github.event.issue.number }}-${{ github.event.label.name }}
+      group: ai-bug-fixer-${{ github.event.issue.number }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
