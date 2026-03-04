@@ -492,6 +492,22 @@ async def search_row_listings_stream(
         # Determine user_message based on results and statuses
         user_message = determine_search_user_message(all_results, all_statuses)
 
+        # Update row status to reflect search completion
+        try:
+            from services.sdui_builder import build_ui_schema, build_zero_results_schema
+            await session.refresh(row)
+            if len(all_results) == 0:
+                row.status = "sourcing"
+                row.ui_schema = build_zero_results_schema(row)
+                row.ui_schema_version = (row.ui_schema_version or 0) + 1
+            else:
+                row.status = "bids_arriving"
+            row.updated_at = datetime.utcnow()
+            session.add(row)
+            await session.commit()
+        except Exception as e:
+            logger.error(f"[SEARCH STREAM] Failed to update row status after completion: {e}")
+
         # Final event with complete status
         final_event = {
             "event": "complete",

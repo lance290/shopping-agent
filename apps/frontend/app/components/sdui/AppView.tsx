@@ -389,6 +389,23 @@ function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, onToggle
   );
 }
 
+const SOURCE_DISPLAY_NAMES: Record<string, string> = {
+  rainforest_amazon: 'Amazon',
+  amazon: 'Amazon',
+  ebay_browse: 'eBay',
+  ebay: 'eBay',
+  serpapi: 'Google',
+  google_cse: 'Google',
+  kroger: 'Kroger',
+  vendor_directory: 'Vendor',
+  seller_quote: 'Quote',
+  registered_merchant: 'Merchant',
+};
+
+function friendlySource(source: string): string {
+  return SOURCE_DISPLAY_NAMES[source] || source.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function BidCard({ offer, row }: { offer: Offer; row: Row }) {
   const [showContactModal, setShowContactModal] = useState(false);
   const priceStr = offer.price !== null && offer.price !== undefined
@@ -413,7 +430,7 @@ function BidCard({ offer, row }: { offer: Offer; row: Row }) {
         <p className="text-sm text-gray-800 truncate">{offer.title}</p>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-sm font-semibold text-gray-900">{priceStr}</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">{offer.source}</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">{friendlySource(offer.source)}</span>
           {offer.merchant && offer.merchant !== 'Unknown' && (
             <span className="text-[10px] text-gray-400">{offer.merchant}</span>
           )}
