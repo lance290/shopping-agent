@@ -119,7 +119,7 @@ async def create_github_issue_task(bug_id: int):
                 return
 
             # Skip test data to prevent test bug reports from creating issues
-            test_markers = ["[TEST DATA]", "Verification Test Bug", "DO NOT CREATE GITHUB ISSUE", "test bug to verify"]
+            test_markers = ["[TEST DATA]", "Verification Test Bug", "DO NOT CREATE GITHUB ISSUE"]
             if bug.notes and any(marker.lower() in bug.notes.lower() for marker in test_markers):
                 print(f"[BUG] Skipping GitHub issue creation for test bug report {bug_id}")
                 return
@@ -198,18 +198,17 @@ async def create_github_issue_task(bug_id: int):
 
             body += "\n\n<!-- CLAUDE-INSTRUCTION: Fix this bug. Use the provided context and diagnostics. -->"
 
+            labels = ["ai-fix"]
             if is_feature_request:
+                labels = ["feature-request"]
                 bug.status = "feature_request"
-                session.add(bug)
-                await session.commit()
-                print(f"[BUG] Report {bug_id} classified as feature request")
-                return
+                print(f"[BUG] Report {bug_id} classified as feature request; creating GitHub issue without ai-fix label")
 
             print(f"[BUG] Creating GitHub issue for report {bug_id}...")
             issue = await github_client.create_issue(
                 title=f"[Bug] {bug.notes[:50]}...",
                 body=body,
-                labels=["ai-fix"]
+                labels=labels
             )
 
             if issue and issue.get("html_url"):
@@ -231,6 +230,7 @@ async def create_github_issue_task(bug_id: int):
 
 @router.post("/api/bugs", response_model=BugReportRead, status_code=201)
 async def create_bug_report(
+    background_tasks: BackgroundTasks,
     notes: str = Form(...),
     severity: str = Form("low"),
     category: str = Form("ui"),
@@ -240,7 +240,6 @@ async def create_bug_report(
     diagnostics: Optional[str] = Form(None),
     attachments: List[UploadFile] = File(None),
     authorization: Optional[str] = Header(None),
-    background_tasks: BackgroundTasks = BackgroundTasks(),
     session: AsyncSession = Depends(get_session)
 ):
     """Submit a bug report with optional file attachments."""
@@ -283,6 +282,9 @@ async def create_bug_report(
     
     print(f"[BUG] Report {bug.id} saved. Queuing GitHub issue creation...")
     background_tasks.add_task(create_github_issue_task, bug.id)
+    # Also run inline so issue creation does not depend solely on background task execution.
+    # Background task remains as a fallback/retry path.
+    await create_github_issue_task(bug.id)
     
     return BugReportRead(
         id=bug.id,

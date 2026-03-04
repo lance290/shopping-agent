@@ -14,11 +14,11 @@ class GitHubClient:
 
     @property
     def token(self) -> Optional[str]:
-        return self._token_override or os.getenv("GITHUB_TOKEN")
+        return self._token_override or os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
 
     @property
     def repo(self) -> Optional[str]:
-        return self._repo_override or os.getenv("GITHUB_REPO")
+        return self._repo_override or os.getenv("GITHUB_REPO") or os.getenv("GITHUB_REPOSITORY")
 
     def _get_headers(self) -> Dict[str, str]:
         return {

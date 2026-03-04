@@ -66,7 +66,7 @@ async def test_triage_high_confidence_bug(session, test_user):
 @pytest.mark.asyncio
 async def test_triage_high_confidence_feature_request(session, test_user):
     """
-    Test that a high-confidence feature request sends an email and does NOT create a GitHub issue.
+    Test that a high-confidence feature request sends an email and still creates a GitHub issue.
     """
     # Setup
     bug = BugReport(
@@ -86,6 +86,7 @@ async def test_triage_high_confidence_feature_request(session, test_user):
     })
     
     mock_github = AsyncMock()
+    mock_github.create_issue.return_value = {"html_url": "https://github.com/owner/repo/issues/feature-1"}
     mock_email = AsyncMock()
 
     with patch("routes.bugs.classify_report", mock_classify), \
@@ -99,11 +100,12 @@ async def test_triage_high_confidence_feature_request(session, test_user):
         await session.refresh(bug)
         assert bug.classification == "feature_request"
         assert bug.classification_confidence == 0.90
-        assert bug.github_issue_url is None
-        assert bug.status == "feature_request"
+        assert bug.github_issue_url == "https://github.com/owner/repo/issues/feature-1"
+        assert bug.status == "sent"
 
-        # Verify GitHub NOT called
-        mock_github.create_issue.assert_not_called()
+        # Verify GitHub called with feature-request label (not ai-fix)
+        mock_github.create_issue.assert_called_once()
+        assert mock_github.create_issue.call_args.kwargs["labels"] == ["feature-request"]
 
         # Verify Email called
         mock_email.assert_called_once()
