@@ -428,7 +428,7 @@ function BidCard({ offer, row }: { offer: Offer; row: Row }) {
         </button>
       ) : offer.url && offer.url !== '#' ? (
         <a
-          href={offer.click_url || `/api/out?url=${encodeURIComponent(offer.url)}&bid_id=${offer.bid_id || ''}&row_id=${row.id}&source=${offer.source}`}
+          href={offer.click_url || `/api/out?url=${encodeURIComponent(offer.url)}${offer.bid_id ? `&bid_id=${offer.bid_id}` : ''}&row_id=${row.id}&source=${offer.source}`}
           target="_blank"
           rel="noopener noreferrer"
           className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0"

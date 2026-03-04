@@ -41,7 +41,7 @@ from sourcing import (
     build_provider_query_map,
     available_provider_ids,
 )
-from sourcing.normalizers import normalize_results_for_provider
+from sourcing.normalizers import normalize_results_for_provider, normalize_generic_results
 from sourcing.service import SourcingService
 from sourcing.choice_filter import should_exclude_by_choices, extract_choice_constraints
 from sourcing.messaging import determine_search_user_message
@@ -469,7 +469,7 @@ async def search_row_listings_stream(
             
             if filtered_batch:
                 try:
-                    normalized_batch = normalize_results_for_provider(provider_name, filtered_batch)
+                    normalized_batch = normalize_generic_results(filtered_batch, provider_name)
                     if normalized_batch:
                         await sourcing_service._persist_results(row_id, normalized_batch)
                 except Exception as err:
