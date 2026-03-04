@@ -25,7 +25,10 @@ print(f"DEBUG: DATABASE_URL starts with: {DATABASE_URL[:15]}...") # Debug log (s
 # Configure connection args for production (Railway) to handle SSL correctly
 # Set DB_SSL=false to disable SSL (e.g. when using a custom Postgres container
 # on Railway's private network that doesn't have SSL configured).
-connect_args = {}
+connect_args = {
+    "timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "10")),
+    "command_timeout": int(os.getenv("DB_COMMAND_TIMEOUT", "30")),
+}
 if os.getenv("DB_SSL", "true").lower() != "false" and os.getenv("RAILWAY_ENVIRONMENT"):
     ssl_context = ssl.create_default_context()
     # Only weaken SSL verification if explicitly opted in (e.g. self-signed certs)
