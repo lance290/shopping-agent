@@ -37,6 +37,8 @@ from routes.bugs import router as bugs_router
 from routes.webhooks import router as webhooks_router
 from routes.clickout import router as clickout_router
 from routes.admin import router as admin_router
+from routes.admin_ops import router as admin_ops_router
+from routes.admin_metrics import router as admin_metrics_router
 from routes.shares import router as shares_router
 from routes.outreach import router as outreach_router
 from routes.quotes import router as quotes_router
@@ -153,6 +155,8 @@ app.include_router(bugs_router)
 app.include_router(webhooks_router)
 app.include_router(clickout_router)
 app.include_router(admin_router)
+app.include_router(admin_ops_router)
+app.include_router(admin_metrics_router)
 app.include_router(shares_router)
 app.include_router(outreach_router)
 app.include_router(quotes_router)
