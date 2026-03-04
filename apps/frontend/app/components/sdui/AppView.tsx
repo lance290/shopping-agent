@@ -27,10 +27,26 @@ const TRENDING_SEARCHES = [
 ];
 
 const GUIDE_LINKS = [
-  { title: 'Private aviation: charter vs. fractional vs. jet card', slug: 'private-aviation' },
-  { title: 'Sourcing bespoke menswear in 2025', slug: 'bespoke-menswear' },
-  { title: 'Art acquisition for new collectors', slug: 'art-acquisition' },
-  { title: 'Executive relocation: vendor vetting checklist', slug: 'executive-relocation' },
+  {
+    title: 'Private aviation: charter vs. fractional vs. jet card',
+    slug: 'private-aviation',
+    image: 'https://images.unsplash.com/photo-1540962351504-03099e0a754b?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'Sourcing bespoke menswear in 2025',
+    slug: 'bespoke-menswear',
+    image: 'https://images.unsplash.com/photo-1593030103066-0093718efeb9?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'Art acquisition for new collectors',
+    slug: 'art-acquisition',
+    image: 'https://images.unsplash.com/photo-1544413158-b64db6e64ec6?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'Executive relocation: vendor vetting checklist',
+    slug: 'executive-relocation',
+    image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80',
+  },
 ];
 
 export function AppView({ children }: AppViewProps) {
@@ -40,6 +56,7 @@ export function AppView({ children }: AppViewProps) {
   const setActiveRowId = useShoppingStore((s) => s.setActiveRowId);
   const rowResults = useShoppingStore((s) => s.rowResults);
   const addProject = useShoppingStore((s) => s.addProject);
+  const setCardClickQuery = useShoppingStore((s) => s.setCardClickQuery);
   const setTargetProjectId = useShoppingStore((s) => s.setTargetProjectId);
   const setReportBugModalOpen = useShoppingStore((s) => s.setReportBugModalOpen);
   const pendingRowDelete = useShoppingStore((s) => s.pendingRowDelete);
@@ -138,6 +155,10 @@ export function AppView({ children }: AppViewProps) {
     />
   );
 
+  const handleIntentClick = (query: string) => {
+    setCardClickQuery(query);
+  };
+
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] w-full overflow-hidden relative">
       {/* Undo Toast */}
@@ -163,29 +184,29 @@ export function AppView({ children }: AppViewProps) {
       {/* List Pane */}
       <div className="flex-1 min-w-0 overflow-y-auto bg-gray-50/50">
         {isAuthenticated !== true ? (
-          <div className="p-6 space-y-8">
-            <section className="rounded-2xl border border-white/10 bg-white p-6 shadow-sm">
-              <p className="text-xs uppercase tracking-[0.3em] text-gray-400 mb-2">BuyAnything</p>
-              <h2 className="text-2xl font-semibold text-gray-900">Every purchase decision, handled.</h2>
-              <p className="mt-3 text-sm text-gray-600 max-w-2xl">
-                Search anonymously across products and premium services. Sign in only if you want
-                to save rows, history, and collaboration.
+          <div className="p-6 space-y-8 bg-gradient-to-b from-[#111827] via-[#1f2937] to-[#111827] text-slate-100 min-h-full">
+            <section className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm p-7 shadow-2xl">
+              <p className="text-xs uppercase tracking-[0.35em] text-slate-400 mb-3">BuyAnything</p>
+              <h2 className="text-3xl font-semibold text-white leading-tight">Every purchase decision, handled.</h2>
+              <p className="mt-3 text-sm text-slate-300 max-w-2xl">
+                Tell the chat what you need. We’ll infer intent, compare options, and keep your shortlist
+                tidy once you sign in.
               </p>
-              <form action="/search" method="get" className="mt-5 max-w-2xl">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    name="q"
-                    required
-                    placeholder="Search anything (e.g., laptop under $1200, private jet charter)"
-                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                  />
-                  <button type="submit" className="btn-primary whitespace-nowrap">
-                    Search
-                  </button>
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl bg-gradient-to-br from-sky-500/20 to-cyan-500/10 border border-sky-300/20 p-4">
+                  <p className="text-xs uppercase tracking-wider text-sky-200/80">Intent-first</p>
+                  <p className="mt-1 text-sm font-medium text-white">Natural language prompts</p>
                 </div>
-              </form>
-              <div className="mt-4 flex flex-wrap gap-3">
+                <div className="rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10 border border-violet-300/20 p-4">
+                  <p className="text-xs uppercase tracking-wider text-violet-200/80">Multi-source</p>
+                  <p className="mt-1 text-sm font-medium text-white">Retail + specialist vendors</p>
+                </div>
+                <div className="rounded-2xl bg-gradient-to-br from-emerald-500/20 to-green-500/10 border border-emerald-300/20 p-4">
+                  <p className="text-xs uppercase tracking-wider text-emerald-200/80">Anonymous-first</p>
+                  <p className="mt-1 text-sm font-medium text-white">Search now, save later</p>
+                </div>
+              </div>
+              <div className="mt-5 flex flex-wrap gap-3">
                 <Link className="btn-secondary" href="/guides">Browse guides</Link>
                 <Link className="btn-secondary" href="/vendors">Explore vendors</Link>
               </div>
@@ -193,33 +214,53 @@ export function AppView({ children }: AppViewProps) {
 
             <section>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Trending searches</h3>
-                <span className="text-xs text-gray-400 uppercase tracking-widest">Updated weekly</span>
+                <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Trending intents</h3>
+                <span className="text-xs text-slate-500 uppercase tracking-widest">Tap to ask chat</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {TRENDING_SEARCHES.map((label) => (
-                  <Link
+                  <button
                     key={label}
-                    href={`/search?q=${encodeURIComponent(label)}`}
-                    className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 hover:border-gray-300 hover:bg-gray-50"
+                    type="button"
+                    onClick={() => handleIntentClick(label)}
+                    className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-slate-100 hover:bg-white/20"
                   >
                     {label}
-                  </Link>
+                  </button>
                 ))}
               </div>
             </section>
 
             <section>
-              <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">Editorial guides</h3>
+              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Editorial guides</h3>
               <div className="grid gap-3 md:grid-cols-2">
                 {GUIDE_LINKS.map((guide) => (
-                  <Link
-                    key={guide.slug}
-                    href={`/guides/${guide.slug}`}
-                    className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-800 hover:border-gray-300 hover:bg-gray-50"
-                  >
-                    {guide.title}
-                  </Link>
+                  <div key={guide.slug} className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
+                    <div className="h-28 w-full bg-slate-800">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={guide.image} alt={guide.title} className="h-full w-full object-cover opacity-90" />
+                    </div>
+                    <div className="p-4">
+                    <Link
+                      href={`/guides/${guide.slug}`}
+                      className="block text-sm font-medium text-white hover:text-sky-200"
+                    >
+                      {guide.title}
+                    </Link>
+                    <div className="mt-3 flex items-center gap-3 text-xs">
+                      <Link href={`/guides/${guide.slug}`} className="text-sky-200 hover:text-sky-100">
+                        Read guide
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => handleIntentClick(guide.title)}
+                        className="text-slate-300 hover:text-white"
+                      >
+                        Ask chat →
+                      </button>
+                    </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             </section>
