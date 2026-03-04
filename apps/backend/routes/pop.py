@@ -13,6 +13,7 @@ from routes.pop_helpers import RESEND_WEBHOOK_SECRET, TWILIO_AUTH_TOKEN
 from routes import pop_notify
 from routes import pop_processor
 from routes.pop_list import list_router
+from routes.pop_offers import offers_router
 from routes.pop_wallet import wallet_router
 from routes.pop_chat import chat_router
 from routes.pop_referral import referral_router
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/pop", tags=["pop-chatbot"])
 
 router.include_router(list_router)
+router.include_router(offers_router)
 router.include_router(wallet_router)
 router.include_router(chat_router)
 router.include_router(referral_router)
