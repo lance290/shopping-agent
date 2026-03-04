@@ -1,7 +1,10 @@
 import type { Offer, ProviderStatusSnapshot, Bid, Row, Project, OfferSortMode } from "./store-types";
 import { mapBidToOffer } from "./store";
 
-  setRowResults: (rowId, results, providerStatuses, moreIncoming = false, userMessage) => set((state) => {
+import type { ShoppingState } from "./store-state";
+
+export const createStoreActions = (set: any, get: () => ShoppingState) => ({
+  setRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[], moreIncoming: boolean = false, userMessage?: string) => set((state: ShoppingState) => {
     // STREAMING LOCK: If SSE is actively streaming for this row, skip the replace.
     // This prevents auto-load, comment merge, and other paths from wiping SSE results.
     if (state.streamingRowIds[rowId]) {
@@ -28,7 +31,7 @@ import { mapBidToOffer } from "./store";
       isSearching: moreIncoming,
     };
   }),
-  appendRowResults: (rowId, results, providerStatuses, moreIncoming = false, userMessage) => set((state) => {
+  appendRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[], moreIncoming: boolean = false, userMessage?: string) => set((state: ShoppingState) => {
     const existingResults = state.rowResults[rowId] || [];
     const existingStatuses = state.rowProviderStatuses[rowId] || [];
     // Dedupe by bid_id (stable identity), fall back to URL for pre-persistence offers
@@ -56,37 +59,37 @@ import { mapBidToOffer } from "./store";
       isSearching: moreIncoming,
     };
   }),
-  updateRowOffer: (rowId, matcher, updates) => set((state) => {
+  updateRowOffer: (rowId: number, matcher: (offer: Offer) => boolean, updates: Partial<Offer>) => set((state: ShoppingState) => {
     const existing = state.rowResults[rowId];
     if (!existing) return {};
     const updated = existing.map((offer) => matcher(offer) ? { ...offer, ...updates } : offer);
     return { rowResults: { ...state.rowResults, [rowId]: updated } };
   }),
-  clearRowResults: (rowId) => set((state) => {
+  clearRowResults: (rowId: number) => set((state: ShoppingState) => {
     const { [rowId]: _, ...rest } = state.rowResults;
     const { [rowId]: __, ...restStatuses } = state.rowProviderStatuses;
     const { [rowId]: ___, ...restErrors } = state.rowSearchErrors;
     return { rowResults: rest, rowProviderStatuses: restStatuses, rowSearchErrors: restErrors };
   }),
-  setRowOfferSort: (rowId, sort) => set((state) => {
+  setRowOfferSort: (rowId: number, sort: OfferSortMode) => set((state: ShoppingState) => {
     if (sort === 'original') {
       const { [rowId]: _, ...rest } = state.rowOfferSort;
       return { rowOfferSort: rest };
     }
     return { rowOfferSort: { ...state.rowOfferSort, [rowId]: sort } };
   }),
-  setIsSearching: (searching) => set({ isSearching: searching }),
-  setMoreResultsIncoming: (rowId, incoming) => set((state) => ({
+  setIsSearching: (searching: boolean) => set({ isSearching: searching }),
+  setMoreResultsIncoming: (rowId: number, incoming: boolean) => set((state: ShoppingState) => ({
     moreResultsIncoming: { ...state.moreResultsIncoming, [rowId]: incoming },
   })),
-  setStreamingLock: (rowId, locked) => set((state) => ({
+  setStreamingLock: (rowId: number, locked: boolean) => set((state: ShoppingState) => ({
     streamingRowIds: { ...state.streamingRowIds, [rowId]: locked },
   })),
   clearSearch: () => set({ rowResults: {}, rowProviderStatuses: {}, rowSearchErrors: {}, moreResultsIncoming: {}, currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
-  setCardClickQuery: (query) => set({ cardClickQuery: query }),
+  setCardClickQuery: (query: string | null) => set({ cardClickQuery: query }),
 
   // Find a row that matches the query, or return null if we need to create one
-  selectOrCreateRow: (query, existingRows) => {
+  selectOrCreateRow: (query: string, existingRows: Row[]) => {
     const lowerQuery = query.toLowerCase().trim();
     const activeRowId = get().activeRowId;
     const targetProjectId = get().targetProjectId;
@@ -134,7 +137,7 @@ import { mapBidToOffer } from "./store";
 
     return match || null;
   },
-}));
+});
 
 export function shouldForceNewRow(params: {
   message: string;

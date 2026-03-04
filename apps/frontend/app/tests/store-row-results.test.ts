@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { useShoppingStore } from '../store';
-import { shouldForceNewRow } from '../store';
+import { shouldForceNewRow } from '../store-actions';
 
 describe('Zustand Store - Per-Row Results', () => {
   beforeEach(() => {

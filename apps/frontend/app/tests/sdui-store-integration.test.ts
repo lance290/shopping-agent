@@ -12,7 +12,8 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { useShoppingStore, mapBidToOffer, shouldForceNewRow } from '../store';
+import { useShoppingStore, mapBidToOffer } from '../store';
+import { shouldForceNewRow } from '../store-actions';
 import type { Row, Bid, Offer } from '../store';
 import { validateUISchema, getMinimumViableRow } from '../sdui/types';
 // UISchema type used implicitly via validateUISchema return

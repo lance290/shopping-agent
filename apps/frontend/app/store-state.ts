@@ -1,16 +1,20 @@
 import { create } from "zustand";
 import type { Offer, ProviderStatusSnapshot, Bid, Row, Project, OfferSortMode } from "./store-types";
 import { mapBidToOffer } from "./store";
+import { createStoreActions } from "./store-actions";
 
-  } catch {
-    return {};
-  }
+export interface PendingRowDelete {
+  row: Row;
+  rowIndex: number;
+  results: Offer[];
+  timeoutId: ReturnType<typeof setTimeout>;
+  expiresAt: number;
 }
 
 // ChoiceFactor, OfferSortMode, CommentData, BidSocialData — now in store-types.ts (re-exported above)
 
 // The source of truth state
-interface ShoppingState {
+export interface ShoppingState {
   // Core state - SOURCE OF TRUTH
   currentQuery: string;           // The current search query
   activeRowId: number | null;     // The currently selected row ID
@@ -77,7 +81,8 @@ interface ShoppingState {
   selectOrCreateRow: (query: string, existingRows: Row[]) => Row | null;
 }
 
-export const useShoppingStore = create<ShoppingState>((set, get) => ({
+export const useShoppingStore = create<ShoppingState>((set, get) => {
+  return {
   // Initial state
   currentQuery: '',
   activeRowId: null,
@@ -360,3 +365,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     rows: state.rows.filter((row) => row.id !== id),
     activeRowId: state.activeRowId === id ? null : state.activeRowId,
   })),
+
+  ...(createStoreActions(set, get) as any)
+  } as ShoppingState;
+});
