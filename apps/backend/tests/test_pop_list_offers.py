@@ -1,10 +1,8 @@
+"""Extracted Pop list offer/claim tests from test_pop_list.py."""
 import pytest
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
-from models import Row, Bid
-
-    resp = await client.delete(f"/pop/item/{pop_row.id}")
-    assert resp.status_code == 401
+from models import Row, Bid, Project, User, ProjectMember, AuthSession
 
 
 @pytest.mark.asyncio

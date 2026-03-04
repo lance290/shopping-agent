@@ -16,8 +16,11 @@ from .repository import (
     SourcingProvider,
     SourcingRepository,
     TicketmasterProvider,
+    EbayBrowseProvider,
+    RainforestAPIProvider,
     extract_merchant_domain,
     normalize_url,
+    compute_match_score,
 )
 
 __all__ = [

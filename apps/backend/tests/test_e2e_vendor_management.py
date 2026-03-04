@@ -1,31 +1,13 @@
+"""Extracted vendor management e2e tests from test_e2e_revenue_flows.py."""
+import json
+from datetime import datetime, timedelta
+from unittest.mock import patch, AsyncMock, MagicMock
 import pytest
 from httpx import AsyncClient
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-
-        user_id=user.id,
-    )
-    session.add(row)
-    await session.commit()
-    await session.refresh(row)
-
-    # Simulate what the streaming search does when 0 results come back
-    schema = build_zero_results_schema(row)
-    row.ui_schema = schema
-    row.ui_schema_version = 1
-    row.status = "sourcing"
-    session.add(row)
-    await session.commit()
-    await session.refresh(row)
-
-    assert row.ui_schema is not None
-    assert row.ui_schema["version"] == 1
-    blocks = row.ui_schema["blocks"]
-    assert any("No options found" in str(b.get("content", "")) for b in blocks)
-    assert any(
-        b.get("type") == "ActionRow" and
-        any(a.get("intent") == "edit_request" for a in b.get("actions", []))
-        for b in blocks
-    )
+from models import Row, User, Vendor, AuthSession, Bid, Seller, SellerQuote, OutreachEvent, generate_session_token, hash_token, generate_magic_link_token
+from services.sdui_builder import build_zero_results_schema
 
 
 # ---------------------------------------------------------------------------

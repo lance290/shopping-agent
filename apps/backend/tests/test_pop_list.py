@@ -351,5 +351,3 @@ async def test_delete_item_soft_deletes_row(
     assert pop_row.status == "canceled", "Row must be soft-deleted (status=canceled)"
 
 
-@pytest.mark.asyncio
-async def test_delete_item_401_without_auth(client: AsyncClient, pop_row: Row):

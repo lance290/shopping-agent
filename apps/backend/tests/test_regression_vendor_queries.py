@@ -1,7 +1,27 @@
 import pytest
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
-from models import Row
+from unittest.mock import MagicMock, AsyncMock, patch
+from models import Row, User
+
+
+def _mock_decision(action_type="create_row", what="eggs", message="Added!"):
+    """Build a minimal mock matching UnifiedDecision's ACTUAL API (single item)."""
+    mock_intent = MagicMock()
+    mock_intent.what = what
+    mock_intent.category = "product"
+    mock_intent.service_type = None
+    mock_intent.search_query = f"{what} deals"
+    mock_intent.constraints = {}
+    mock_intent.desire_tier = "commodity"
+    mock_intent.desire_confidence = 0.8
+
+    mock_decision = MagicMock()
+    mock_decision.intent = mock_intent
+    mock_decision.action = {"type": action_type}
+    mock_decision.message = message
+    mock_decision.items = None
+    return mock_decision
 
 class TestExtractVendorQuery:
     """Regression: SourcingService.extract_vendor_query must handle all edge cases."""

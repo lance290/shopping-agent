@@ -1,22 +1,9 @@
+"""Extracted rows authorization behavior tests from test_rows_authorization.py."""
+import json
 import pytest
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
-from models import Row
-
-
-    async def fake_search_all_with_status(self, query: str, **kwargs):
-        captured["query"] = query
-        return SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
-
-    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all_with_status': fake_search_all_with_status})()
-
-    search_resp = await client.post(
-        f"/rows/{row_id}/search",
-        json={},
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    assert search_resp.status_code == 200
-    assert captured["query"].startswith("Nintendo Switch 2")
+from models import Row, User, AuthSession, Bid, Seller, generate_session_token, hash_token
 
 
 @pytest.mark.asyncio

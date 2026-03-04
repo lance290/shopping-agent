@@ -1,7 +1,69 @@
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
-from models import User
+from models import User, Row, Bid, AuthSession, hash_token, generate_session_token
+
+
+GUEST_EMAIL = "guest@buy-anything.com"
+
+
+@pytest_asyncio.fixture
+async def real_user(session: AsyncSession) -> User:
+    """Create a real authenticated user (the one logging in)."""
+    user = User(email="buyer@example.com", phone_number="+15551234567", is_admin=False)
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def real_user_token(session: AsyncSession, real_user: User) -> str:
+    """Create a session token for the real user."""
+    token = generate_session_token()
+    auth_session = AuthSession(
+        email=real_user.email,
+        phone_number=real_user.phone_number,
+        user_id=real_user.id,
+        session_token_hash=hash_token(token),
+    )
+    session.add(auth_session)
+    await session.commit()
+    return token
+
+
+@pytest_asyncio.fixture
+async def guest_rows(session: AsyncSession, guest_user: User) -> list[Row]:
+    """Create multiple rows owned by the guest user."""
+    rows = []
+    for title in ["Standing desk", "Wireless earbuds", "Running shoes"]:
+        row = Row(user_id=guest_user.id, title=title, status="sourcing")
+        session.add(row)
+        rows.append(row)
+    await session.commit()
+    for r in rows:
+        await session.refresh(r)
+    return rows
+
+
+@pytest_asyncio.fixture
+async def guest_row_with_bids(session: AsyncSession, guest_user: User) -> Row:
+    """Create a guest row with bids — data that must survive claim."""
+    row = Row(user_id=guest_user.id, title="Private jet charter", status="sourcing")
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    bid1 = Bid(row_id=row.id, price=50000.0, total_cost=55000.0,
+               item_title="NetJets Citation X", item_url="https://netjets.com",
+               is_selected=True, is_liked=True)
+    bid2 = Bid(row_id=row.id, price=45000.0, total_cost=48000.0,
+               item_title="VistaJet Global 7500", item_url="https://vistajet.com",
+               is_selected=False, is_liked=False)
+    session.add_all([bid1, bid2])
+    await session.commit()
+    return row
+
 
 # ---------------------------------------------------------------------------
 # Edge cases

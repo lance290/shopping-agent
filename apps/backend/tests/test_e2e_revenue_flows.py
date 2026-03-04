@@ -337,13 +337,3 @@ async def test_e2e_tip_jar_creates_session(client):
 # Scenario 5: Search with 0 Results → Zero-Results Schema
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
-async def test_e2e_zero_results_schema_applied(session, auth_user_and_token):
-    """When search returns 0 results, row gets the zero-results ui_schema."""
-    from services.sdui_builder import build_zero_results_schema
-
-    user, token = auth_user_and_token
-
-    row = Row(
-        title="Unicorn saddle",
-        status="sourcing",
