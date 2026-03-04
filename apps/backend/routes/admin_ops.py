@@ -65,6 +65,11 @@ async def db_diagnostics(
             "COUNT(*) - COUNT(embedding) AS without_emb FROM vendor"
         ))).first()
 
+        ivfflat_exists = (await conn.execute(text(
+            "SELECT indexname FROM pg_indexes "
+            "WHERE indexname = 'vendor_embedding_ivfflat_idx'"
+        ))).first()
+
         hnsw_exists = (await conn.execute(text(
             "SELECT indexname FROM pg_indexes "
             "WHERE indexname = 'vendor_embedding_hnsw_idx'"
@@ -93,6 +98,7 @@ async def db_diagnostics(
         "top_tables": [{"name": r[0], "size": r[1], "bytes": r[2]} for r in top_tables],
         "vendors": {"total": vendor_stats[0], "with_embedding": vendor_stats[1], "without": vendor_stats[2]},
         "indexes": {
+            "ivfflat_vector": bool(ivfflat_exists),
             "hnsw_vector": bool(hnsw_exists),
             "trgm_name": bool(trgm_exists),
         },

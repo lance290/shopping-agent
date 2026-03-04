@@ -67,12 +67,21 @@ async def run_startup_migrations(engine) -> None:
             "CREATE INDEX IF NOT EXISTS vendor_name_trgm_idx ON vendor USING gin (name gin_trgm_ops);"
         ))
 
-        # HNSW index for fast vector similarity search on vendor embeddings
+        # Vector similarity index on vendor embeddings.
+        # IVFFlat chosen over HNSW because Railway Postgres containers have low
+        # shared memory limits (~64MB) which cause HNSW builds to fail with
+        # DiskFullError on the shared memory segment.
+        # IVFFlat is much lighter on memory and perfectly adequate for <10k vectors.
+        # lists ≈ sqrt(3700) ≈ 61
         await conn.execute(text("""
-            CREATE INDEX IF NOT EXISTS vendor_embedding_hnsw_idx
-            ON vendor USING hnsw (embedding vector_cosine_ops)
-            WITH (m = 16, ef_construction = 64);
+            CREATE INDEX IF NOT EXISTS vendor_embedding_ivfflat_idx
+            ON vendor USING ivfflat (embedding vector_cosine_ops)
+            WITH (lists = 60);
         """))
+        # Drop old HNSW index if it somehow exists from a previous attempt
+        await conn.execute(text(
+            "DROP INDEX IF EXISTS vendor_embedding_hnsw_idx;"
+        ))
 
         # Deal Pipeline tables
         await conn.execute(text("""
