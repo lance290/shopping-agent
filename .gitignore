@@ -9,7 +9,7 @@ __pycache__
 .next
 dist
 build
-out
+/out
 
 # Environment variables
 .env
