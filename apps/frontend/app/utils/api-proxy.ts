@@ -67,6 +67,19 @@ async function proxyRequest(
   };
   if (auth) headers['Authorization'] = auth;
 
+  // Forward origin, referer, and host so backend knows the correct frontend domain for redirects
+  const origin = request.headers.get('origin');
+  if (origin) headers['Origin'] = origin;
+
+  const referer = request.headers.get('referer');
+  if (referer) headers['Referer'] = referer;
+
+  const forwardedHost = request.headers.get('x-forwarded-host') || request.headers.get('host');
+  if (forwardedHost) headers['X-Forwarded-Host'] = forwardedHost;
+
+  const forwardedProto = request.headers.get('x-forwarded-proto') || request.nextUrl.protocol.replace(':', '');
+  if (forwardedProto) headers['X-Forwarded-Proto'] = forwardedProto;
+
   const url = `${BACKEND_URL}${backendPath}`;
 
   try {

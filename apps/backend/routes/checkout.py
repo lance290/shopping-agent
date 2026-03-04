@@ -20,9 +20,15 @@ router = APIRouter(tags=["checkout"])
 
 
 def _get_app_base(request: Request) -> str:
-    """Derive the frontend base URL from the request Origin/Referer, falling
+    """Derive the frontend base URL from the request Origin/Referer/Forwarded headers, falling
     back to the APP_BASE_URL env var.  This lets the same backend serve
     multiple domains (buy-anything.com, popsavings.com, etc.)."""
+    # Check X-Forwarded-Host first (set by our Next.js API proxy)
+    forwarded_host = request.headers.get("x-forwarded-host")
+    if forwarded_host:
+        proto = request.headers.get("x-forwarded-proto", "https")
+        return f"{proto}://{forwarded_host}"
+
     origin = request.headers.get("origin")
     if origin:
         return origin.rstrip("/")
