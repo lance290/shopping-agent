@@ -141,29 +141,28 @@ async def search_vendors(
         provider = VendorDirectoryProvider(db_url)
         results = await provider.search(q)
 
-        # Map SearchResults back to vendor detail
-        vendor_ids = []
-        for r in results:
-            if r.raw_data and r.raw_data.get("vendor_id"):
-                vendor_ids.append(r.raw_data["vendor_id"])
-
-        if vendor_ids:
-            stmt = select(Vendor).where(Vendor.id.in_(vendor_ids))
+        # Map SearchResults back to vendor detail via merchant name
+        vendor_names = [r.merchant for r in results if r.merchant]
+        if vendor_names:
+            stmt = select(Vendor).where(Vendor.name.in_(vendor_names))
             db_result = await session.exec(stmt)
-            vendor_map = {v.id: v for v in db_result.all()}
+            vendor_map = {v.name: v for v in db_result.all()}
             vendors_out = []
-            for vid in vendor_ids:
-                if vid in vendor_map:
-                    vendors_out.append(_vendor_to_public(vendor_map[vid]))
+            seen = set()
+            for r in results[:limit]:
+                v = vendor_map.get(r.merchant)
+                if v and v.id not in seen:
+                    seen.add(v.id)
+                    vendors_out.append(_vendor_to_public(v))
             return {"vendors": vendors_out, "query": q, "count": len(vendors_out)}
 
-        # Fallback: return search results directly
+        # Fallback: return search results directly (no DB match)
         return {
             "vendors": [
                 {
                     "name": r.title,
-                    "description": r.raw_data.get("description") if r.raw_data else None,
-                    "website": r.raw_data.get("website") if r.raw_data else None,
+                    "description": r.shipping_info,
+                    "website": r.url,
                     "image_url": r.image_url,
                     "source": r.source,
                 }

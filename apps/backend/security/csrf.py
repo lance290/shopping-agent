@@ -136,6 +136,7 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         "/auth/",
         "/health",
         "/webhooks/",
+        "/api/webhooks/",  # Webhook endpoints use signature verification, not CSRF
         "/api/bugs",  # Allow bug reports from unauthenticated users
         "/api/chat",  # Chat SSE endpoint — uses Bearer auth, not cookies
         "/pop/",      # Pop API endpoints (chat, receipt scanning) handle their own auth
