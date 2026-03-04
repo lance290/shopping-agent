@@ -13,31 +13,19 @@ fi
 # Wait for DB to be reachable before running any startup scripts
 echo "[STARTUP] Waiting for database to be reachable..."
 DB_READY=0
-for i in 1 2 3 4 5 6 7 8 9 10; do
-    if su fastapi -s /bin/sh -c "python -c \"
-import asyncio, sys
-async def check():
-    from database import engine
-    async with engine.connect() as conn:
-        from sqlalchemy import text
-        await conn.execute(text('SELECT 1'))
-try:
-    asyncio.run(asyncio.wait_for(check(), timeout=5))
-    sys.exit(0)
-except:
-    sys.exit(1)
-\"" 2>/dev/null; then
+for i in 1 2 3 4 5; do
+    if su fastapi -s /bin/sh -c "python scripts/check_db.py" 2>/dev/null; then
         echo "[STARTUP] Database is reachable (attempt $i)."
         DB_READY=1
         break
     else
-        echo "[STARTUP] Database not ready (attempt $i/10), waiting 3s..."
+        echo "[STARTUP] Database not ready (attempt $i/5), waiting 3s..."
         sleep 3
     fi
 done
 
 if [ "$DB_READY" = "0" ]; then
-    echo "[STARTUP] WARNING: Database not reachable after 10 attempts. Skipping all DB steps, starting app directly."
+    echo "[STARTUP] WARNING: Database not reachable after 5 attempts. Skipping all DB steps, starting app directly."
 else
     # ── DB is reachable — run startup scripts ──────────────────────
     # Patch missing tables/columns and ensure pgvector exists FIRST
