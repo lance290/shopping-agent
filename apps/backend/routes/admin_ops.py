@@ -106,6 +106,39 @@ async def db_diagnostics(
     }
 
 
+@router.post("/admin/ops/create-vector-index")
+async def create_vector_index(
+    x_ops_key: str = Header(None),
+):
+    """Manually create the IVFFlat vector index if startup migrations were skipped."""
+    if x_ops_key != OPS_KEY:
+        raise HTTPException(status_code=403, detail="Invalid ops key")
+
+    from database import engine
+    import time
+
+    t0 = time.monotonic()
+    async with engine.begin() as conn:
+        # Drop old HNSW if it exists
+        await conn.execute(text("DROP INDEX IF EXISTS vendor_embedding_hnsw_idx;"))
+        # Create IVFFlat (idempotent)
+        await conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS vendor_embedding_ivfflat_idx
+            ON vendor USING ivfflat (embedding vector_cosine_ops)
+            WITH (lists = 60);
+        """))
+
+    elapsed = round(time.monotonic() - t0, 2)
+
+    # Verify
+    async with engine.connect() as conn:
+        exists = (await conn.execute(text(
+            "SELECT indexname FROM pg_indexes WHERE indexname = 'vendor_embedding_ivfflat_idx'"
+        ))).first()
+
+    return {"status": "ok" if exists else "failed", "index": "vendor_embedding_ivfflat_idx", "elapsed_seconds": elapsed}
+
+
 @router.post("/admin/ops/db-cleanup")
 async def db_cleanup(
     x_ops_key: str = Header(None),
