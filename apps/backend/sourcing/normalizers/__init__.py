@@ -88,6 +88,14 @@ def normalize_generic_results(results: List[SearchResult], provider_id: str) -> 
 def normalize_results_for_provider(
     provider_id: str, results: List[SearchResult]
 ) -> List[NormalizedResult]:
+    if not results:
+        return []
+
+    # Providers in this pipeline return SearchResult objects.
+    # Only use provider-specific normalizers when the payload is raw dict data.
+    if isinstance(results[0], SearchResult):
+        return normalize_generic_results(results, provider_id)
+
     normalizer = NORMALIZER_REGISTRY.get(provider_id)
     if not normalizer:
         return normalize_generic_results(results, provider_id)

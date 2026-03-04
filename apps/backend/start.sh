@@ -13,19 +13,19 @@ fi
 # Wait for DB to be reachable before running any startup scripts
 echo "[STARTUP] Waiting for database to be reachable..."
 DB_READY=0
-for i in 1 2 3 4 5 6 7 8 9 10; do
-    if su fastapi -s /bin/sh -c "python scripts/check_db.py" 2>/dev/null; then
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+    if su fastapi -s /bin/sh -c "PYTHONPATH=. python scripts/check_db.py"; then
         echo "[STARTUP] Database is reachable (attempt $i)."
         DB_READY=1
         break
     else
-        echo "[STARTUP] Database not ready (attempt $i/10), waiting 5s..."
+        echo "[STARTUP] Database not ready (attempt $i/15), waiting 5s..."
         sleep 5
     fi
 done
 
 if [ "$DB_READY" = "0" ]; then
-    echo "[STARTUP] WARNING: Database not reachable after 10 attempts. Skipping all DB steps, starting app directly."
+    echo "[STARTUP] WARNING: Database not reachable after 15 attempts. Skipping all DB steps, starting app directly."
 else
     # ── DB is reachable — run startup scripts ──────────────────────
     # Patch missing tables/columns and ensure pgvector exists FIRST
