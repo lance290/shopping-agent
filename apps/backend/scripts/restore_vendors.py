@@ -63,7 +63,7 @@ async def restore_vendors_logic(session: AsyncSession):
     print(f"Model Columns: {valid_columns}")
     
     # Identify text fields that need stringification if they contain dicts/lists
-    text_fields = ["specialties", "provenance"]
+    text_fields = ["specialties", "provenance", "store_geo_location"]
 
     # Let's clean data for insertion
     cleaned_vendors = []
@@ -74,7 +74,13 @@ async def restore_vendors_logic(session: AsyncSession):
         for key, val in v.items():
             if key in valid_columns:
                 clean_v[key] = val
-        
+
+        # Map legacy key: service_areas -> store_geo_location
+        if "store_geo_location" in valid_columns and not clean_v.get("store_geo_location"):
+            legacy = v.get("service_areas")
+            if legacy is not None:
+                clean_v["store_geo_location"] = legacy
+
         # Drop service_areas — column removed
         clean_v.pop("service_areas", None)
         

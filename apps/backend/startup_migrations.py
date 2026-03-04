@@ -45,12 +45,20 @@ async def run_startup_migrations(engine) -> None:
         await conn.execute(text("ALTER TABLE vendor ADD COLUMN IF NOT EXISTS schema_markup JSONB;"))
         await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS vendor_slug_idx ON vendor (slug);"))
 
+        # Vendor GEO column
+        await conn.execute(text("ALTER TABLE vendor ADD COLUMN IF NOT EXISTS store_geo_location TEXT;"))
+
         # Drop dead service_areas column
         result = await conn.execute(text(
             "SELECT column_name FROM information_schema.columns "
             "WHERE table_name = 'vendor' AND column_name = 'service_areas'"
         ))
         if result.first() is not None:
+            await conn.execute(text(
+                "UPDATE vendor "
+                "SET store_geo_location = COALESCE(store_geo_location, CAST(service_areas AS TEXT)) "
+                "WHERE store_geo_location IS NULL"
+            ))
             await conn.execute(text("ALTER TABLE vendor DROP COLUMN service_areas;"))
 
         # SDUI schema columns (Phase 0.2)

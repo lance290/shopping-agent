@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Store, ExternalLink, Loader2 } from 'lucide-react';
+import { Search, Store, ExternalLink, Loader2, MapPin } from 'lucide-react';
 
 interface VendorCard {
   id?: number;
@@ -16,6 +16,19 @@ interface VendorCard {
   is_verified?: boolean;
 }
 
+interface FacetCombo {
+  city: string;
+  category: string;
+}
+
+function toSlug(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
 export default function VendorsPage() {
   const [query, setQuery] = useState('');
   const [vendors, setVendors] = useState<VendorCard[]>([]);
@@ -23,6 +36,7 @@ export default function VendorsPage() {
   const [searching, setSearching] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [facets, setFacets] = useState<FacetCombo[]>([]);
 
   // Load initial vendor list
   useEffect(() => {
@@ -45,6 +59,20 @@ export default function VendorsPage() {
       loadVendors();
     }
   }, [page, query]);
+
+  // Load geo facets for internal links
+  useEffect(() => {
+    const loadFacets = async () => {
+      try {
+        const res = await fetch('/api/proxy/public-vendors/facets');
+        if (res.ok) {
+          const data = await res.json();
+          setFacets((data.combos || []).slice(0, 60));
+        }
+      } catch { /* non-critical */ }
+    };
+    loadFacets();
+  }, []);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,6 +201,24 @@ export default function VendorsPage() {
             </div>
           )}
         </>
+      )}
+      {!query.trim() && facets.length > 0 && (
+        <div className="mt-16 border-t border-gray-200 pt-10">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <MapPin size={18} /> Browse by Location &amp; Category
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {facets.map((f, i) => (
+              <a
+                key={i}
+                href={`/locations/${toSlug(f.city)}/${toSlug(f.category)}/vendors`}
+                className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-blue-50 text-gray-700 hover:text-blue-700 rounded-full transition-colors"
+              >
+                {f.category} in {f.city}
+              </a>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

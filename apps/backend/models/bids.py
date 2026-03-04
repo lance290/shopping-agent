@@ -25,6 +25,7 @@ class Vendor(SQLModel, table=True):
     website: Optional[str] = None
     # Classification
     category: Optional[str] = Field(default=None, index=True)
+    store_geo_location: Optional[str] = None
     specialties: Optional[str] = None
     description: Optional[str] = None
     tagline: Optional[str] = None

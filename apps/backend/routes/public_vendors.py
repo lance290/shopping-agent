@@ -58,6 +58,7 @@ def _vendor_to_public(v: Vendor) -> Dict[str, Any]:
         "tagline": v.tagline,
         "description": v.description,
         "category": v.category,
+        "store_geo_location": v.store_geo_location,
         "specialties": v.specialties,
         "website": v.website,
         "image_url": v.image_url,
@@ -71,6 +72,54 @@ class VendorListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+@router.get("/api/public/vendors/filter", response_model=VendorListResponse)
+async def filter_vendors(
+    request: Request,
+    city: str = Query(..., min_length=1, max_length=100),
+    category: str = Query(..., min_length=1, max_length=200),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(24, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+):
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_rate_limit(client_ip):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    offset = (page - 1) * page_size
+    city_like = f"%{city}%"
+    cat_like = f"%{category}%"
+
+    base_where = (
+        Vendor.embedding.isnot(None),
+        Vendor.website.isnot(None),
+        Vendor.store_geo_location.isnot(None),
+        Vendor.store_geo_location.ilike(city_like),  # type: ignore
+        Vendor.category.isnot(None),
+        Vendor.category.ilike(cat_like),  # type: ignore
+    )
+
+    count_stmt = select(func.count(col(Vendor.id))).where(*base_where)
+    count_result = await session.exec(count_stmt)
+    total = count_result.one()
+
+    stmt = (
+        select(Vendor)
+        .where(*base_where)
+        .order_by(Vendor.name)
+        .offset(offset)
+        .limit(page_size)
+    )
+    result = await session.exec(stmt)
+    vendors = result.all()
+
+    return VendorListResponse(
+        vendors=[_vendor_to_public(v) for v in vendors],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/api/public/vendors", response_model=VendorListResponse)
@@ -190,6 +239,60 @@ async def search_vendors(
             "query": q,
             "count": len(vendors),
         }
+
+
+@router.get("/api/public/vendors/facets")
+async def list_vendor_facets(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Return distinct (city, category) pairs for sitemap and internal linking.
+
+    Parses store_geo_location (comma-separated city list) and returns
+    de-duped {cities: [...], categories: [...], combos: [{city, category}, ...]}.
+    Capped at 500 combos to keep responses reasonable.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_rate_limit(client_ip):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    stmt = (
+        select(Vendor.store_geo_location, Vendor.category)
+        .where(
+            Vendor.embedding.isnot(None),
+            Vendor.website.isnot(None),
+            Vendor.store_geo_location.isnot(None),
+            Vendor.category.isnot(None),
+        )
+        .distinct()
+    )
+    result = await session.exec(stmt)
+    rows = result.all()
+
+    cities_set: set = set()
+    categories_set: set = set()
+    combos: List[Dict[str, str]] = []
+
+    for geo, cat in rows:
+        if not geo or not cat:
+            continue
+        cat_clean = cat.strip()
+        if not cat_clean:
+            continue
+        categories_set.add(cat_clean)
+        for part in geo.split(","):
+            city = part.strip()
+            if not city or len(city) < 2:
+                continue
+            cities_set.add(city)
+            if len(combos) < 500:
+                combos.append({"city": city, "category": cat_clean})
+
+    return {
+        "cities": sorted(cities_set),
+        "categories": sorted(categories_set),
+        "combos": combos,
+    }
 
 
 @router.get("/api/public/vendors/{vendor_id}")
