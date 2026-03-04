@@ -47,6 +47,7 @@ from routes.stripe_connect import router as stripe_connect_router
 from routes.chat import router as chat_router
 from routes.search_enriched import router as search_enriched_router
 from routes.outreach_campaigns import router as outreach_campaigns_router
+from routes.outreach_vendors import router as outreach_vendors_router
 from routes.public_search import router as public_search_router
 from routes.public_vendors import router as public_vendors_router
 from routes.deals import router as deals_router
@@ -159,6 +160,7 @@ app.include_router(stripe_connect_router)
 app.include_router(chat_router)
 app.include_router(search_enriched_router)
 app.include_router(outreach_campaigns_router)
+app.include_router(outreach_vendors_router)
 app.include_router(public_search_router)
 app.include_router(public_vendors_router)
 app.include_router(deals_router)
