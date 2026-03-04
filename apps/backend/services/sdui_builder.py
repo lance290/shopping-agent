@@ -243,23 +243,28 @@ def _hydrate_action_row(row: "Row", bids: List["Bid"], total_bid_count: Optional
     """Hydrate default ActionRow based on available bids."""
     actions: List[ActionObject] = []
 
-    # If bids have URLs, add affiliate action for top bid
+    # Determine action for the top bid based on source
     for bid in bids[:1]:
         url = getattr(bid, "item_url", None)
         bid_id = getattr(bid, "id", None)
-        if url and not url.startswith("mailto:"):
+        source = getattr(bid, "source", "")
+
+        # vendor_directory bids → EA outreach workflow (contact_vendor)
+        if source == "vendor_directory" or (url and url.startswith("mailto:")):
+            actions.append(ActionObject(
+                label="Request Quote",
+                intent="contact_vendor",
+                bid_id=str(bid_id) if bid_id else None,
+            ))
+            break
+
+        # Regular product bids with URLs → affiliate clickout
+        if url:
             actions.append(ActionObject(
                 label="View Deal",
                 intent="outbound_affiliate",
                 bid_id=str(bid_id) if bid_id else None,
                 url=url,
-            ))
-            break
-        elif url and url.startswith("mailto:"):
-            actions.append(ActionObject(
-                label="Contact Vendor",
-                intent="contact_vendor",
-                bid_id=str(bid_id) if bid_id else None,
             ))
             break
 

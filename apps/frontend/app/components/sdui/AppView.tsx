@@ -7,6 +7,7 @@ import { createProjectInDb, duplicateProjectInDb, runSearchApiWithStatus } from 
 import { Bug, FolderPlus, Trash2, RotateCw, Copy } from 'lucide-react';
 import { DynamicRenderer } from './DynamicRenderer';
 import { validateUISchema } from '../../sdui/types';
+import VendorContactModal from '../VendorContactModal';
 
 interface AppViewProps {
   children?: React.ReactNode;
@@ -379,7 +380,7 @@ function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, onToggle
               <p className="text-sm text-gray-400 italic">No options found yet.</p>
             )}
             {displayOffers.map((offer, i) => (
-              <BidCard key={offer.bid_id ?? i} offer={offer} />
+              <BidCard key={offer.bid_id ?? i} offer={offer} row={row} />
             ))}
           </div>
         </div>
@@ -388,10 +389,13 @@ function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, onToggle
   );
 }
 
-function BidCard({ offer }: { offer: Offer }) {
+function BidCard({ offer, row }: { offer: Offer; row: Row }) {
+  const [showContactModal, setShowContactModal] = useState(false);
   const priceStr = offer.price !== null && offer.price !== undefined
     ? `$${offer.price.toFixed(2)}`
     : 'Request Quote';
+
+  const isVendor = offer.source === 'vendor_directory' || offer.is_service_provider;
 
   return (
     <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
@@ -415,15 +419,34 @@ function BidCard({ offer }: { offer: Offer }) {
           )}
         </div>
       </div>
-      {offer.url && offer.url !== '#' && (
+      {isVendor ? (
+        <button
+          onClick={() => setShowContactModal(true)}
+          className="px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex-shrink-0"
+        >
+          Request Quote
+        </button>
+      ) : offer.url && offer.url !== '#' ? (
         <a
-          href={offer.click_url || `/api/out?url=${encodeURIComponent(offer.url)}`}
+          href={offer.click_url || `/api/out?url=${encodeURIComponent(offer.url)}&bid_id=${offer.bid_id || ''}&row_id=${row.id}&source=${offer.source}`}
           target="_blank"
           rel="noopener noreferrer"
           className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0"
         >
           View Deal
         </a>
+      ) : null}
+      {showContactModal && (
+        <VendorContactModal
+          isOpen={showContactModal}
+          onClose={() => setShowContactModal(false)}
+          rowId={row.id}
+          rowTitle={row.title}
+          vendorName={offer.vendor_name || offer.merchant || ''}
+          vendorCompany={offer.vendor_company || offer.title}
+          vendorEmail={offer.vendor_email || ''}
+          onSent={() => setShowContactModal(false)}
+        />
       )}
     </div>
   );
