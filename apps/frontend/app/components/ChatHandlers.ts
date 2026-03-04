@@ -1,0 +1,421 @@
+import { Message } from "./ChatMessages";
+import { useShoppingStore } from "../store";
+import { fetchSingleRowFromDb, saveChatHistory } from "../utils/api";
+import { mapBidToOffer } from "../store";
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input,
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    const queryText = input.trim();
+    setInput('');
+    setIsLoading(true);
+    const intendedProjectId = store.targetProjectId;
+    const effectiveActiveRowId = store.activeRowId;
+
+    let assistantMessageId: string | null = null;
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          messages: [...messages, userMessage],
+          activeRowId: effectiveActiveRowId,
+          projectId: intendedProjectId,
+          // Include pending clarification context if we're in a multi-turn flow
+          pendingClarification: pendingClarification,
+        }),
+      });
+      
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let assistantContent = '';
+      let sseBuffer = '';
+      
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: '',
+      };
+      assistantMessageId = assistantMessage.id;
+      setMessages(prev => [...prev, assistantMessage]);
+      
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          sseBuffer += chunk;
+
+          while (true) {
+            const sepIndex = sseBuffer.indexOf('\n\n');
+            if (sepIndex === -1) break;
+            const frame = sseBuffer.slice(0, sepIndex);
+            sseBuffer = sseBuffer.slice(sepIndex + 2);
+
+            const lines = frame.split('\n');
+            let eventName = 'message';
+            const dataLines: string[] = [];
+            for (const line of lines) {
+              if (line.startsWith('event:')) {
+                eventName = line.slice('event:'.length).trim();
+              } else if (line.startsWith('data:')) {
+                dataLines.push(line.slice('data:'.length).trim());
+              }
+            }
+            const dataRaw = dataLines.join('\n');
+            let data: any = null;
+            try {
+              data = dataRaw ? JSON.parse(dataRaw) : null;
+            } catch {
+              data = dataRaw;
+            }
+
+            if (eventName === 'assistant_message') {
+              assistantContent = typeof data?.text === 'string' ? data.text : '';
+            } else if (eventName === 'action_started') {
+              if (data?.type === 'search') {
+                store.setIsSearching(true);
+                // Mark more results incoming but DON'T clear existing results
+                // This prevents the flash where results disappear then reappear
+                const searchRowId = data?.row_id;
+                if (searchRowId) {
+                  store.setMoreResultsIncoming(searchRowId, true);
+                }
+              } else if (data?.type === 'fetch_vendors') {
+                // Service rows: show loading state while fetching vendors
+                store.setIsSearching(true);
+                const vendorRowId = data?.row_id;
+                if (vendorRowId) {
+                  store.setMoreResultsIncoming(vendorRowId, true);
+                }
+              }
+            } else if (eventName === 'row_created') {
+              const row = data?.row;
+              if (row?.id) {
+                // Only preserve chat history if this was a clarification flow completion
+                // (pendingClarification was active). Otherwise it's a new unrelated request.
+                if (pendingClarification) {
+                  const currentMessages = [...messages, userMessage, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
+                  saveChatHistory(row.id, currentMessages);
+                  const rowWithHistory = { ...row, chat_history: JSON.stringify(currentMessages) };
+                  const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
+                  store.setRows(mergedRows);
+                } else {
+                  // New request — save outgoing row's chat, then start fresh for the new row
+                  const outgoingRowId = store.activeRowId;
+                  if (outgoingRowId && outgoingRowId !== row.id) {
+                    saveChatHistory(outgoingRowId, messages);
+                    store.updateRow(outgoingRowId, { chat_history: JSON.stringify(messages) });
+                  }
+                  const freshMessages = [userMessage, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
+                  saveChatHistory(row.id, freshMessages);
+                  const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages) };
+                  const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
+                  store.setRows(mergedRows);
+                  setMessages(freshMessages);
+                }
+                
+                store.setActiveRowId(row.id);
+                store.setCurrentQuery(row.title);
+                setPendingClarification(null);
+                // Update ref so load effect doesn't overwrite
+                lastRowIdRef.current = row.id;
+              }
+            } else if (eventName === 'context_switch') {
+              // User switched to completely different topic - new row, fresh chat for new topic
+              const row = data?.row;
+              if (row?.id) {
+                // Save outgoing row's chat before switching
+                const outgoingRowId = store.activeRowId;
+                if (outgoingRowId && outgoingRowId !== row.id) {
+                  saveChatHistory(outgoingRowId, messages);
+                  store.updateRow(outgoingRowId, { chat_history: JSON.stringify(messages) });
+                }
+                // Start fresh conversation with the CURRENT user message (not stale closure)
+                // userMessage is the message that triggered this context switch
+                const freshMessages = [
+                  userMessage,
+                  { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }
+                ];
+                saveChatHistory(row.id, freshMessages);
+                const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages) };
+                const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
+                store.setRows(mergedRows);
+                store.setActiveRowId(row.id);
+                store.setCurrentQuery(row.title);
+                setMessages(freshMessages);
+                setPendingClarification(null);
+                lastRowIdRef.current = row.id;
+              }
+            } else if (eventName === 'row_updated') {
+              const row = data?.row;
+              const rowId = row?.id ?? data?.row_id;
+              if (rowId) {
+                // Signal that new results are incoming — but DON'T clear existing results.
+                // Old results stay visible until the first search_results batch replaces them.
+                store.setMoreResultsIncoming(rowId, true);
+                store.setIsSearching(true);
+                const updatedRow = row ?? await fetchSingleRowFromDb(rowId);
+                if (updatedRow) {
+                  const mergedRows = [...store.rows.filter((r) => r.id !== updatedRow.id), updatedRow];
+                  store.setRows(mergedRows);
+                  store.setActiveRowId(updatedRow.id);
+                  store.setCurrentQuery(updatedRow.title);
+                }
+              }
+            } else if (eventName === 'factors_updated') {
+              const row = data?.row;
+              const rowId = row?.id ?? data?.row_id;
+              console.log('[Chat] factors_updated event:', { rowId, hasRow: !!row, factorsType: typeof row?.choice_factors, factorsLen: row?.choice_factors?.length });
+              if (row) {
+                // Merge factors + answers into existing row — preserve local bids/chat_history
+                store.updateRow(row.id, {
+                  choice_factors: row.choice_factors,
+                  choice_answers: row.choice_answers,
+                });
+                console.log('[Chat] Updated row with factors, choice_factors type:', typeof row.choice_factors);
+              } else if (rowId) {
+                const freshRow = await fetchSingleRowFromDb(rowId);
+                if (freshRow) {
+                  store.updateRow(freshRow.id, {
+                    choice_factors: freshRow.choice_factors,
+                    choice_answers: freshRow.choice_answers,
+                  });
+                }
+              }
+            } else if (eventName === 'search_results') {
+              const rowId = data?.row_id;
+              const results = Array.isArray(data?.results) ? data.results : [];
+              const providerStatuses = Array.isArray(data?.provider_statuses) ? data.provider_statuses : undefined;
+              const moreIncoming = data?.more_incoming ?? false;
+              const provider = data?.provider;
+              const userMessage = data?.user_message; // Extract user_message
+              
+              if (rowId) {
+                // Always append during SSE streaming — never replace.
+                // The authoritative DB re-fetch happens on 'done'.
+                store.appendRowResults(rowId, results, providerStatuses, moreIncoming, userMessage);
+              }
+              if (!moreIncoming) {
+                store.setIsSearching(false);
+              }
+            } else if (eventName === 'ui_schema_updated') {
+              const entityId = data?.entity_id;
+              const schema = data?.schema;
+              if (entityId && schema) {
+                store.updateRow(entityId, {
+                  ui_schema: schema,
+                  ui_schema_version: data?.version ?? 1,
+                });
+              }
+            } else if (eventName === 'vendors_loaded') {
+              // Service request - convert vendors to offer-like tiles
+              const rowId = data?.row_id;
+              const vendors = Array.isArray(data?.vendors) ? data.vendors : [];
+              const category = data?.category;
+
+              if (rowId) {
+                // Clear "more results incoming" flag for this row
+                store.setMoreResultsIncoming(rowId, false);
+
+                if (vendors.length > 0) {
+                  // Convert vendors to offer format for display
+                  const vendorOffers = vendors.map((v: any, idx: number) => ({
+                    id: `vendor-${idx}`,
+                    title: v.title || v.vendor_company || v.name || 'Charter Provider',
+                    price: null,
+                    image_url: v.image_url,
+                    item_url: v.url,
+                    url: v.url,
+                    source: v.source || 'vendor',
+                    seller_name: v.vendor_company || v.title,
+                    seller_domain: null,
+                    is_vendor: true,
+                    is_service_provider: true,
+                    vendor_id: idx,
+                    vendor_category: category,
+                    vendor_name: v.vendor_name,
+                    vendor_company: v.vendor_company || v.title,
+                    vendor_email: v.vendor_email,
+                    contact_name: v.vendor_name,
+                    contact_email: v.vendor_email,
+                    contact_phone: v.contact_phone,
+                  }));
+                  store.setRowResults(rowId, vendorOffers, undefined, false);
+                }
+              }
+              // Don't set isSearching=false here - let 'done' event handle it
+              // Otherwise RowStrip's auto-refresh triggers before vendor offers propagate
+            } else if (eventName === 'needs_clarification') {
+              // Store partial constraints for the next turn
+              if (data?.type && data?.partial_constraints) {
+                setPendingClarification({
+                  type: data.type,
+                  service_type: data.service_type,
+                  title: data.title,
+                  partial_constraints: data.partial_constraints,
+                });
+              }
+            } else if (eventName === 'done') {
+              store.setIsSearching(false);
+              const doneRowId = store.activeRowId;
+              if (doneRowId) {
+                store.setMoreResultsIncoming(doneRowId, false);
+                // Authoritative re-fetch: DB has all persisted, filtered bids.
+                // This replaces any stale/mixed results from the SSE stream.
+                const freshRow = await fetchSingleRowFromDb(doneRowId);
+                if (freshRow && freshRow.bids && freshRow.bids.length > 0) {
+                  const offers = freshRow.bids.map(mapBidToOffer);
+                  store.setRowResults(doneRowId, offers);
+                  store.updateRow(doneRowId, freshRow);
+                }
+              }
+            } else if (eventName === 'error') {
+              const msg = typeof data?.message === 'string' ? data.message : 'Something went wrong.';
+              assistantContent = msg;
+              store.setIsSearching(false);
+              const errorRowId = data?.row_id ?? store.activeRowId;
+              if (errorRowId) {
+                store.setMoreResultsIncoming(errorRowId, false);
+              }
+            }
+
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === assistantMessage.id
+                  ? { ...m, content: assistantContent }
+                  : m
+              )
+            );
+          }
+
+        }
+      } else {
+        assistantContent = await response.text().catch(() => '');
+      }
+
+      if (!assistantContent.trim()) {
+        assistantContent = 'Sorry, the assistant returned an empty response. Please try again.';
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === assistantMessage.id
+              ? { ...m, content: assistantContent }
+              : m
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
+      const fallbackText = 'Sorry, something went wrong. Please try again.';
+      if (assistantMessageId) {
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === assistantMessageId
+              ? { ...m, content: fallbackText }
+              : m
+          )
+        );
+      } else {
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: fallbackText,
+        }]);
+      }
+    } finally {
+      setIsLoading(false);
+      // Save chat history after stream completes
+      setMessages(currentMsgs => {
+        saveCurrentChat(currentMsgs);
+        return currentMsgs;
+      });
+      // Belt-and-suspenders: force-refetch active row after stream ends
+      // to ensure factors/answers are loaded even if SSE events were missed
+      const finalRowId = store.activeRowId;
+      if (finalRowId) {
+        console.log('[Chat] Stream ended, force-refetching row', finalRowId);
+        fetchSingleRowFromDb(finalRowId).then(freshRow => {
+          if (freshRow) {
+            console.log('[Chat] Post-stream refetch got row, factors:', typeof freshRow.choice_factors, freshRow.choice_factors?.length);
+            // Don't overwrite chat_history — it was just saved and the backend
+            // response may be stale (race between PATCH save and GET fetch)
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { chat_history: _, ...rowWithoutChat } = freshRow;
+            store.updateRow(freshRow.id, rowWithoutChat);
+          }
+        }).catch(() => {});
+      }
+    }
+  };
+  
+  useEffect(() => {
+    const cardClickQuery = store.cardClickQuery;
+    if (cardClickQuery) {
+      const cardMessage: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: cardClickQuery,
+      };
+      setMessages(prev => [...prev, cardMessage]);
+      store.setCardClickQuery(null);
+    }
+  }, [store.cardClickQuery]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      window.location.href = '/login';
+    } catch (err) {
+      console.error('Logout failed', err);
+      // Force redirect anyway
+      window.location.href = '/login';
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-warm-light border-r border-warm-grey/70">
+      <ChatHeader
+        activeRow={activeRow}
+        userEmail={userEmail}
+        userPhone={userPhone}
+        onLogout={handleLogout}
+      />
+
+      <ChatMessages
+        ref={messagesEndRef}
+        messages={messages}
+        isLoading={isLoading}
+      />
+
+      <div className="px-6 py-5 bg-white border-t border-warm-grey">
+        <form onSubmit={handleSubmit} className="flex gap-3 items-end">
+          <Input
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={activeRow ? `Refine "${activeRow.title}"...` : "What are you looking for?"}
+            className="flex-1"
+          />
+          <Button
+            type="submit"
+            disabled={isLoading || !input?.trim()}
+            variant="primary"
+            size="md"
+            className="px-4"
+          >
+            <Send size={20} />
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}
