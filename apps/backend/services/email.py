@@ -30,7 +30,13 @@ ADMIN_EMAIL = os.getenv("ADMIN_NOTIFY_EMAIL", "")
 
 # Dev mode: redirect ALL vendor-facing emails to this address instead
 # Set to "" or unset in production to send to real vendors
-DEV_EMAIL_OVERRIDE = os.getenv("DEV_EMAIL_OVERRIDE", "")
+# Safety: auto-disable in production even if accidentally set
+_is_production = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("ENVIRONMENT") == "production")
+DEV_EMAIL_OVERRIDE = "" if _is_production else os.getenv("DEV_EMAIL_OVERRIDE", "")
+if DEV_EMAIL_OVERRIDE:
+    print(f"[EMAIL] DEV_EMAIL_OVERRIDE active — all emails redirect to {DEV_EMAIL_OVERRIDE}")
+elif os.getenv("DEV_EMAIL_OVERRIDE"):
+    print("[EMAIL] DEV_EMAIL_OVERRIDE ignored in production — emails go to real recipients")
 
 # Base URL for magic links
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:3003")

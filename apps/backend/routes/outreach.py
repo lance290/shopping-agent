@@ -361,8 +361,7 @@ async def blast_outreach(
 
         email_result = await send_custom_outreach_email(
             to_email=t["vendor_email"],
-            to_name=t["vendor_name"],
-            company_name=t["vendor_company"],
+            vendor_company=t["vendor_company"],
             subject=subj,
             body_text=body_text,
             quote_token=token,
