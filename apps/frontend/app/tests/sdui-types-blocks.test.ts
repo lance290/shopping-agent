@@ -20,7 +20,6 @@ import type {
   EscrowStatusBlock,
   UISchemaUpdatedEvent,
 } from '../sdui/types';
-import { validateUISchema } from '../sdui/types';
 
 // =========================================================================
 // Block Type Shapes
