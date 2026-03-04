@@ -3,6 +3,7 @@ Marketplace provider classes (eBay Browse, Rainforest/Amazon).
 
 Extracted from sourcing/repository.py to keep files under 450 lines.
 """
+import base64
 import httpx
 import os
 import re
@@ -10,7 +11,7 @@ import time
 from typing import List, Optional, Dict, Any
 from urllib.parse import urlparse
 
-from sourcing.repository import SearchResult, SourcingProvider, normalize_url, compute_match_score
+from sourcing.repository import SearchResult, SourcingProvider, normalize_url, compute_match_score, extract_merchant_domain
 from sourcing.models import NormalizedResult, ProviderStatusSnapshot
 from utils.security import redact_secrets_from_text
 
