@@ -251,31 +251,34 @@ async def fix_schema(conn):
         added += 1
 
     # ── Ensure audit_log table exists ─────────────────────────────
-    arow = await conn.execute(text(
-        "SELECT 1 FROM information_schema.tables WHERE table_name = 'audit_log'"
-    ))
-    if arow.first() is None:
-        await conn.execute(text("""
-            CREATE TABLE audit_log (
-                id SERIAL PRIMARY KEY,
-                timestamp TIMESTAMP NOT NULL DEFAULT NOW(),
-                user_id INTEGER REFERENCES "user"(id),
-                session_id INTEGER,
-                ip_address VARCHAR,
-                user_agent VARCHAR,
-                action VARCHAR NOT NULL,
-                resource_type VARCHAR,
-                resource_id VARCHAR,
-                details VARCHAR,
-                success BOOLEAN NOT NULL DEFAULT true,
-                error_message VARCHAR
-            )
-        """))
-        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_log_timestamp ON audit_log (timestamp)"))
-        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_log_user_id ON audit_log (user_id)"))
-        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_log_action ON audit_log (action)"))
-        print("[SCHEMA-FIX] Created audit_log table with indexes")
-        added += 1
+    try:
+        arow = await conn.execute(text(
+            "SELECT 1 FROM information_schema.tables WHERE table_name = 'audit_log'"
+        ))
+        if arow.first() is None:
+            await conn.execute(text("""
+                CREATE TABLE audit_log (
+                    id SERIAL PRIMARY KEY,
+                    timestamp TIMESTAMP NOT NULL DEFAULT NOW(),
+                    user_id INTEGER,
+                    session_id INTEGER,
+                    ip_address VARCHAR,
+                    user_agent VARCHAR,
+                    action VARCHAR NOT NULL,
+                    resource_type VARCHAR,
+                    resource_id VARCHAR,
+                    details VARCHAR,
+                    success BOOLEAN NOT NULL DEFAULT true,
+                    error_message VARCHAR
+                )
+            """))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_log_timestamp ON audit_log (timestamp)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_log_user_id ON audit_log (user_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_audit_log_action ON audit_log (action)"))
+            print("[SCHEMA-FIX] Created audit_log table with indexes")
+            added += 1
+    except Exception as e:
+        print(f"[SCHEMA-FIX] WARNING: Could not create audit_log table: {e}")
 
     # Fix vendor.embedding column type: varchar -> vector(1536)
     try:
