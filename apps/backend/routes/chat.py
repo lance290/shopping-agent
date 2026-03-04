@@ -17,7 +17,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
-from dependencies import get_current_session
+from dependencies import get_current_session, resolve_user_id
 from models.rows import Row, Project
 from models.auth import User
 from utils.json_utils import safe_json_loads
@@ -70,11 +70,7 @@ async def chat_endpoint(
     Unified chat endpoint — SSE stream.
     Replaces BFF's POST /api/chat entirely.
     """
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    user_id = auth_session.user_id
+    user_id = await resolve_user_id(authorization, session)
 
     async def generate_events() -> AsyncGenerator[str, None]:
         try:
