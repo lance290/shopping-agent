@@ -51,6 +51,14 @@ def _vendor_to_public(v: Vendor) -> Dict[str, Any]:
         slug = "-".join(part for part in slug.split("-") if part)
         slug = f"{slug}-{v.id}" if slug else f"vendor-{v.id}"
 
+    def _parse_json_field(val: Any) -> Any:
+        if isinstance(val, str):
+            try:
+                return json.loads(val)
+            except (json.JSONDecodeError, ValueError):
+                return None
+        return val
+
     return {
         "id": v.id,
         "slug": slug,
@@ -64,6 +72,8 @@ def _vendor_to_public(v: Vendor) -> Dict[str, Any]:
         "image_url": v.image_url,
         "is_verified": v.is_verified,
         "tier_affinity": v.tier_affinity,
+        "seo_content": _parse_json_field(v.seo_content),
+        "schema_markup": _parse_json_field(v.schema_markup),
     }
 
 
@@ -343,7 +353,4 @@ async def get_vendor_detail_by_slug(
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
 
-    out = _vendor_to_public(vendor)
-    out["seo_content"] = vendor.seo_content
-    out["schema_markup"] = vendor.schema_markup
-    return out
+    return _vendor_to_public(vendor)
