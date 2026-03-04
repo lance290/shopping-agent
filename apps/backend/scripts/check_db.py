@@ -11,5 +11,6 @@ async def check():
 try:
     asyncio.run(asyncio.wait_for(check(), timeout=5))
     sys.exit(0)
-except Exception:
+except Exception as e:
+    print(f"DB check failed: {type(e).__name__}: {str(e)}", file=sys.stderr)
     sys.exit(1)
