@@ -208,14 +208,17 @@ async def create_github_issue_task(bug_id: int):
             body += "\n\n<!-- CLAUDE-INSTRUCTION: Fix this bug. Use the provided context and diagnostics. -->"
 
             labels = ["ai-fix", "bug"]
+            issue_prefix = "Bug"
             if is_feature_request:
                 labels = ["ai-fix", "feature-request"]
                 bug.status = "feature_request"
+                issue_prefix = "Feature Request"
                 print(f"[BUG] Report {bug_id} classified as feature request; creating GitHub issue")
 
+            notes_truncated = bug.notes[:50] + ("..." if len(bug.notes) > 50 else "")
             print(f"[BUG] Creating GitHub issue for report {bug_id}...")
             issue = await github_client.create_issue(
-                title=f"[Bug] {bug.notes[:50]}...",
+                title=f"[{issue_prefix}] {notes_truncated}",
                 body=body,
                 labels=labels
             )
