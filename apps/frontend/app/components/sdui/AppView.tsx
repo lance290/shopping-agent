@@ -435,7 +435,7 @@ export function AppView({ children }: AppViewProps) {
   );
 
   return (
-    <div className="flex flex-col lg:flex-row h-[100dvh] w-full overflow-hidden relative">
+    <div className="flex flex-col lg:flex-row h-[100dvh] w-full overflow-hidden relative" style={{ ['--sheet-peek-height' as string]: '72px' }}>
       {/* Undo Toast */}
       {pendingRowDelete && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-navy text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
@@ -456,7 +456,7 @@ export function AppView({ children }: AppViewProps) {
         className="flex-1 lg:flex-none min-h-0 flex flex-col z-10"
         style={isDesktop ? { width: chatWidth, flexBasis: chatWidth } : undefined}
       >
-        <div className={isDesktop ? 'h-full' : 'h-[calc(100dvh-72px)]'}>
+        <div className={isDesktop ? 'h-full' : undefined} style={!isDesktop ? { height: 'calc(100dvh - var(--sheet-peek-height, 72px))' } : undefined}>
           {children}
         </div>
       </div>
