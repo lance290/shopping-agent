@@ -7,13 +7,18 @@ import json
 import logging
 import os
 import re
+import time
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")  # Direct Gemini REST API fallback
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")  # Direct Gemini REST API
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-3-flash-preview")  # Primary LLM path
+
+# Circuit breaker: skip OpenRouter for N seconds after a 402/payment error
+_openrouter_backoff_until: float = 0.0
+_OPENROUTER_BACKOFF_SECS = 600  # 10 minutes
 
 
 def _get_gemini_api_key() -> str:
@@ -89,20 +94,38 @@ async def _call_openrouter(prompt: str, timeout: float = 30.0) -> str:
 
 
 async def call_gemini(prompt: str, timeout: float = 30.0) -> str:
-    """Call LLM: try OpenRouter first (gemini-3-flash-preview), fall back to Gemini direct."""
-    # Primary: OpenRouter (supports gemini-3-flash-preview)
-    if _get_openrouter_api_key():
+    """Call LLM: try OpenRouter first, fall back to Gemini direct. Circuit-breaker on 402."""
+    global _openrouter_backoff_until
+    t0 = time.monotonic()
+
+    # Primary: OpenRouter (skip if circuit breaker is active)
+    if _get_openrouter_api_key() and time.monotonic() >= _openrouter_backoff_until:
         try:
-            return await _call_openrouter(prompt, timeout)
+            result = await _call_openrouter(prompt, timeout)
+            elapsed = time.monotonic() - t0
+            logger.info(f"[LLM] OpenRouter responded in {elapsed:.1f}s")
+            return result
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 402:
+                _openrouter_backoff_until = time.monotonic() + _OPENROUTER_BACKOFF_SECS
+                logger.error(f"[LLM] OpenRouter 402 — OUT OF CREDITS. Skipping for {_OPENROUTER_BACKOFF_SECS}s.")
+            else:
+                logger.warning(f"[LLM] OpenRouter HTTP {e.response.status_code}, falling back to Gemini direct")
         except Exception as e:
-            logger.warning(f"OpenRouter failed, trying Gemini direct: {e}")
+            logger.warning(f"[LLM] OpenRouter failed ({e}), falling back to Gemini direct")
+    elif _get_openrouter_api_key():
+        remaining = int(_openrouter_backoff_until - time.monotonic())
+        logger.info(f"[LLM] OpenRouter circuit breaker active ({remaining}s remaining), using Gemini direct")
 
     # Fallback: Gemini direct API
     if _get_gemini_api_key():
         try:
-            return await _call_gemini_direct(prompt, timeout)
+            result = await _call_gemini_direct(prompt, timeout)
+            elapsed = time.monotonic() - t0
+            logger.info(f"[LLM] Gemini direct responded in {elapsed:.1f}s")
+            return result
         except Exception as e:
-            logger.error(f"Gemini direct also failed: {e}")
+            logger.error(f"[LLM] Gemini direct also failed: {e}")
             raise
 
     raise ValueError("No LLM API key configured (OPENROUTER_API_KEY, GEMINI_API_KEY, or GOOGLE_GENERATIVE_AI_API_KEY)")
