@@ -24,7 +24,7 @@ from services.llm import call_gemini
 
 logger = logging.getLogger(__name__)
 
-OUTREACH_DOMAIN = os.getenv("OUTREACH_DOMAIN", "quotes.buyanything.com")
+OUTREACH_DOMAIN = os.getenv("OUTREACH_DOMAIN", "shopper.buy-anything.com")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:3003")
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")

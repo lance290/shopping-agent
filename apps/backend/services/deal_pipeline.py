@@ -34,7 +34,7 @@ except ModuleNotFoundError:  # pragma: no cover
 
 logger = logging.getLogger(__name__)
 
-MESSAGES_DOMAIN = os.getenv("DEAL_MESSAGES_DOMAIN", "messages.buy-anything.com")
+MESSAGES_DOMAIN = os.getenv("DEAL_MESSAGES_DOMAIN", "shopper.buy-anything.com")
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:3003")
 
 TRUST_FOOTER_HTML = """

@@ -24,7 +24,7 @@ RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 if RESEND_API_KEY and resend is not None:
     resend.api_key = RESEND_API_KEY
 
-FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@buyanything.ai")
+FROM_EMAIL = os.getenv("FROM_EMAIL", "outreach@shopper.buy-anything.com")
 FROM_NAME = os.getenv("FROM_NAME", "BuyAnything")
 ADMIN_EMAIL = os.getenv("ADMIN_NOTIFY_EMAIL", "")
 
