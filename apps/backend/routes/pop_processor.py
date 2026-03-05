@@ -149,7 +149,47 @@ async def process_pop_message(
         constraints = {k: v for k, v in (intent.constraints or {}).items() if k not in _META_KEYS}
 
         # 5. Create or Update Row based on intent
-        if action_type in ("create_row", "context_switch") or (action_type == "search" and not active_row):
+        if action_type in ("create_row", "context_switch") and decision.items and len(decision.items) > 0:
+            # Handle multiple items
+            for item in decision.items:
+                item_title = item.get("what", "")
+                if not item_title:
+                    continue
+                item_title = item_title[0].upper() + item_title[1:]
+                item_search_query = item.get("search_query")
+                
+                row = await _create_row(
+                    session, user.id, item_title, project.id,
+                    is_service, service_category, constraints, item_search_query,
+                    desire_tier=intent.desire_tier,
+                )
+                target_row = row
+                
+                factors = await generate_choice_factors(item_title, constraints, is_service, service_category)
+                if factors:
+                    await _save_choice_factors(session, row, factors)
+                
+                # Trigger sourcing for each item
+                if item_search_query:
+                    async for _batch in _stream_search(row.id, item_search_query, authorization=None):
+                        pass
+                    
+                    try:
+                        from sqlmodel import select as sql_select
+                        from models.bids import Bid
+                        bids_result = await session.execute(
+                            sql_select(Bid).where(Bid.row_id == row.id).order_by(Bid.combined_score.desc().nullslast()).limit(5)
+                        )
+                        bids = list(bids_result.scalars().all())
+                        ui_schema = build_ui_schema(decision.ui_hint, row, bids)
+                        row.ui_schema = ui_schema
+                        row.ui_schema_version = (row.ui_schema_version or 0) + 1
+                        session.add(row)
+                        await session.commit()
+                    except Exception as e:
+                        logger.warning(f"[Pop] Failed to build ui_schema for row {row.id}: {e}")
+
+        elif action_type in ("create_row", "context_switch") or (action_type == "search" and not active_row):
             row = await _create_row(
                 session, user.id, title, project.id,
                 is_service, service_category, constraints, search_query,
@@ -161,6 +201,27 @@ async def process_pop_message(
             if factors:
                 await _save_choice_factors(session, row, factors)
 
+            # Trigger sourcing
+            if search_query:
+                async for _batch in _stream_search(target_row.id, search_query, authorization=None):
+                    pass
+
+                # Build and persist SDUI schema after sourcing
+                try:
+                    from sqlmodel import select as sql_select
+                    from models.bids import Bid
+                    bids_result = await session.execute(
+                        sql_select(Bid).where(Bid.row_id == target_row.id).order_by(Bid.combined_score.desc().nullslast()).limit(5)
+                    )
+                    bids = list(bids_result.scalars().all())
+                    ui_schema = build_ui_schema(decision.ui_hint, target_row, bids)
+                    target_row.ui_schema = ui_schema
+                    target_row.ui_schema_version = (target_row.ui_schema_version or 0) + 1
+                    session.add(target_row)
+                    await session.commit()
+                except Exception as e:
+                    logger.warning(f"[Pop] Failed to build ui_schema for row {target_row.id}: {e}")
+
         elif action_type == "update_row" and active_row:
             row = await _update_row(
                 session, active_row,
@@ -170,26 +231,26 @@ async def process_pop_message(
             )
             target_row = row
 
-        # Trigger sourcing
-        if search_query and target_row:
-            async for _batch in _stream_search(target_row.id, search_query, authorization=None):
-                pass
+            # Trigger sourcing
+            if search_query:
+                async for _batch in _stream_search(target_row.id, search_query, authorization=None):
+                    pass
 
-            # Build and persist SDUI schema after sourcing
-            try:
-                from sqlmodel import select as sql_select
-                from models.bids import Bid
-                bids_result = await session.execute(
-                    sql_select(Bid).where(Bid.row_id == target_row.id).order_by(Bid.combined_score.desc().nullslast()).limit(5)
-                )
-                bids = list(bids_result.scalars().all())
-                ui_schema = build_ui_schema(decision.ui_hint, target_row, bids)
-                target_row.ui_schema = ui_schema
-                target_row.ui_schema_version = (target_row.ui_schema_version or 0) + 1
-                session.add(target_row)
-                await session.commit()
-            except Exception as e:
-                logger.warning(f"[Pop] Failed to build ui_schema for row {target_row.id}: {e}")
+                # Build and persist SDUI schema after sourcing
+                try:
+                    from sqlmodel import select as sql_select
+                    from models.bids import Bid
+                    bids_result = await session.execute(
+                        sql_select(Bid).where(Bid.row_id == target_row.id).order_by(Bid.combined_score.desc().nullslast()).limit(5)
+                    )
+                    bids = list(bids_result.scalars().all())
+                    ui_schema = build_ui_schema(decision.ui_hint, target_row, bids)
+                    target_row.ui_schema = ui_schema
+                    target_row.ui_schema_version = (target_row.ui_schema_version or 0) + 1
+                    session.add(target_row)
+                    await session.commit()
+                except Exception as e:
+                    logger.warning(f"[Pop] Failed to build ui_schema for row {target_row.id}: {e}")
 
         # If no row was created/updated, use active_row for history persistence
         if target_row is None:

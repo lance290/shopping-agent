@@ -38,15 +38,31 @@ async def _call_gemini_direct(prompt: str, timeout: float = 30.0, image_urls: Op
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
-    effective_prompt = prompt
+    parts = [{"text": prompt}]
+    
     if image_urls:
-        # Gemini direct fallback currently receives image URLs as textual context.
-        # Multimodal image rendering is handled via OpenRouter in the primary path.
-        image_lines = "\n".join(f"- {u}" for u in image_urls)
-        effective_prompt = f"{prompt}\n\nImage URLs:\n{image_lines}"
+        import base64
+        import mimetypes
+        
+        async with httpx.AsyncClient() as dl_client:
+            for img_url in image_urls:
+                try:
+                    resp = await dl_client.get(img_url, timeout=10.0)
+                    resp.raise_for_status()
+                    b64_data = base64.b64encode(resp.content).decode("utf-8")
+                    mime_type = mimetypes.guess_type(img_url)[0] or "image/jpeg"
+                    
+                    parts.append({
+                        "inlineData": {
+                            "mimeType": mime_type,
+                            "data": b64_data
+                        }
+                    })
+                except Exception as e:
+                    logger.warning(f"[LLM] Failed to download image {img_url} for Gemini fallback: {e}")
 
     payload = {
-        "contents": [{"parts": [{"text": effective_prompt}]}],
+        "contents": [{"parts": parts}],
         "generationConfig": {
             "temperature": 0.2,
             "maxOutputTokens": 4096,
