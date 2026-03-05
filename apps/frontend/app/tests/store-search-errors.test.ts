@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'vitest';
-import { useShoppingStore } from '../store';
+import { useShoppingStore, Offer } from '../store';
 
 // Mock the store creation to get a fresh instance for each test if needed,
 // but zustand stores are singletons. We'll rely on beforeEach to reset.
@@ -13,7 +13,7 @@ describe('ShoppingStore Search Errors', () => {
 
   test('setRowResults sets userMessage in rowSearchErrors', () => {
     const store = useShoppingStore.getState();
-    const mockResults: any[] = [];
+    const mockResults: Offer[] = [];
     const message = "Search failed due to rate limiting";
 
     store.setRowResults(1, mockResults, undefined, false, message);

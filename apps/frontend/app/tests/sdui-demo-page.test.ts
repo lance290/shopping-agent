@@ -178,8 +178,8 @@ describe('SDUI Demo Page Schemas', () => {
   });
 
   test('every schema has at least one ActionRow', () => {
-    for (const { name, schema } of schemas) {
-      const hasActionRow = schema.blocks.some((b: any) => b.type === 'ActionRow');
+    for (const { schema } of schemas) {
+      const hasActionRow = schema.blocks.some((b: { type: string }) => b.type === 'ActionRow');
       expect(hasActionRow).toBe(true);
     }
   });
@@ -188,7 +188,7 @@ describe('SDUI Demo Page Schemas', () => {
     const allTypes = new Set<string>();
     for (const { schema } of schemas) {
       for (const block of schema.blocks) {
-        allTypes.add((block as any).type);
+        allTypes.add((block as { type: string }).type);
       }
     }
     expect(allTypes).toContain('ProductImage');

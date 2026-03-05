@@ -89,8 +89,8 @@ class TestProviderInitialization:
             assert "amazon" in repo.providers
             assert repo.providers["amazon"].api_key == "test_rainforest_key"
 
-    def test_google_cse_provider_disabled(self):
-        """GoogleCustomSearchProvider is DISABLED — should NOT be initialized even with both keys."""
+    def test_google_cse_provider_enabled_with_both_keys(self):
+        """GoogleCustomSearchProvider IS registered when both API key and CX are set."""
         with patch.dict(os.environ, {
             "GOOGLE_CSE_API_KEY": "test_key",
             "GOOGLE_CSE_CX": "test_cx",
@@ -103,16 +103,15 @@ class TestProviderInitialization:
             from sourcing.repository import SourcingRepository
             repo = SourcingRepository()
             
-            assert "google_cse" not in repo.providers
+            assert "google_cse" in repo.providers
 
     def test_active_providers_with_all_keys(self):
-        """Amazon (Rainforest) + Vendor Directory should be active. SerpAPI disabled (Skimlinks conflict)."""
+        """All providers with valid keys should be registered — no gating."""
         with patch.dict(os.environ, {
             "RAINFOREST_API_KEY": "test_rainforest",
             "SCALESERP_API_KEY": "test_scaleserp",
             "SERPAPI_API_KEY": "test_serpapi",
             "SEARCHAPI_API_KEY": "test_searchapi",
-            "VALUESERP_API_KEY": "test_valueserp",
             "GOOGLE_CSE_API_KEY": "test_google",
             "GOOGLE_CSE_CX": "test_cx",
         }, clear=False):
@@ -120,11 +119,10 @@ class TestProviderInitialization:
             repo = SourcingRepository()
             
             assert "amazon" in repo.providers
-            assert "serpapi" not in repo.providers
-            assert "google_shopping" not in repo.providers
-            assert "searchapi" not in repo.providers
-            assert "valueserp" not in repo.providers
-            assert "google_cse" not in repo.providers
+            assert "serpapi" in repo.providers
+            assert "searchapi" in repo.providers
+            assert "scaleserp" in repo.providers
+            assert "google_cse" in repo.providers
 
     def test_provider_timeout_configurable(self):
         """Provider timeout should be configurable via environment variable."""

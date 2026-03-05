@@ -13,8 +13,8 @@ export interface ProvenanceData {
 export interface ProductInfo {
   title?: string;
   brand?: string;
-  specs?: Record<string, any>;
-  [key: string]: any; // Allow additional fields
+  specs?: Record<string, unknown>;
+  [key: string]: unknown; // Allow additional fields
 }
 
 export interface ChatExcerpt {

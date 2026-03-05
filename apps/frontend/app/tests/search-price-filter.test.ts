@@ -180,6 +180,7 @@ describe('Search API Request Building', () => {
     expect(fetchSpy).toHaveBeenCalled();
     const calls = fetchSpy.mock.calls as unknown as [string, RequestInit?][];
     const url = calls[0][0];
+    expect(url).toContain('/api/search');
 
     const init = calls[0][1] as RequestInit | undefined;
     expect(init?.method).toBe('POST');

@@ -324,11 +324,14 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
                                 className="flex items-center gap-3 bg-white rounded-xl px-3 py-2.5 hover:shadow-md transition-shadow"
                               >
                                 {deal.image_url ? (
-                                  <img
-                                    src={deal.image_url}
-                                    alt=""
-                                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                                  />
+                                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 relative">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={deal.image_url}
+                                      alt=""
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
                                 ) : (
                                   <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
                                     <span className="text-lg">🏷️</span>
@@ -367,11 +370,14 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
                                 className="flex items-center gap-3 bg-white rounded-xl px-3 py-2.5 hover:shadow-md transition-shadow"
                               >
                                 {swap.image_url ? (
-                                  <img
-                                    src={swap.image_url}
-                                    alt=""
-                                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                                  />
+                                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 relative">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={swap.image_url}
+                                      alt=""
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
                                 ) : (
                                   <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
                                     <span className="text-lg">🔄</span>

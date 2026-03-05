@@ -21,28 +21,16 @@ import {
   STATE_DRIVEN_BLOCKS,
   LIMITS,
   isValidLayoutToken,
+  validateUISchema,
+  getMinimumViableRow,
   isValidBlockType,
   isValidActionIntent,
   isValidValueVector,
-  validateUISchema,
-  getMinimumViableRow,
 } from '../sdui/types';
 import type {
-  UISchema,
-  UISchemaUpdatedEvent,
-  ProductImageBlock,
-  PriceBlockData,
-  DataGridBlock,
-  FeatureListBlock,
-  BadgeListBlock,
   MarkdownTextBlock,
-  TimelineBlock,
-  MessageListBlock,
-  ChoiceFactorFormBlock,
+  BadgeListBlock,
   ActionRowBlock,
-  ReceiptUploaderBlock,
-  WalletLedgerBlock,
-  EscrowStatusBlock,
 } from '../sdui/types';
 
 // =========================================================================

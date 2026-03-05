@@ -365,7 +365,7 @@ describe('mapBidToOffer — edge cases', () => {
 
   test('handles undefined is_service_provider', () => {
     const bid = { ...minimalBid };
-    delete (bid as any).is_service_provider;
+    delete (bid as Record<string, unknown>).is_service_provider;
     const offer = mapBidToOffer(bid);
     expect(offer.is_service_provider).toBe(false);
   });
@@ -446,7 +446,7 @@ describe('Provider toggles default state', () => {
     const store = useShoppingStore.getState();
 
     // Mock fetch to avoid real API calls
-    global.fetch = (() => Promise.resolve({ ok: true })) as any;
+    global.fetch = (() => Promise.resolve({ ok: true })) as unknown as typeof global.fetch;
 
     store.toggleProvider('amazon');
     expect(useShoppingStore.getState().selectedProviders.amazon).toBe(false);

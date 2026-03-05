@@ -31,7 +31,7 @@ export const toggleLikeApi = async (
 };
 
 // Helper: Fetch likes
-export const fetchLikesApi = async (rowId?: number): Promise<any[]> => {
+export const fetchLikesApi = async (rowId?: number): Promise<unknown[]> => {
   try {
     const params = rowId ? `?row_id=${rowId}` : '';
     const res = await fetchWithAuth(`/api/likes${params}`);

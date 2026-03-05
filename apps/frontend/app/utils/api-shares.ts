@@ -21,7 +21,7 @@ export interface ShareLinkResponse {
 export interface ShareContentResponse {
   resource_type: string;
   resource_id: number;
-  resource_data: any;
+  resource_data: Record<string, unknown>;
   created_by: number;
   access_count: number;
 }

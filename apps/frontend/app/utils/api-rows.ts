@@ -45,7 +45,7 @@ export const runSearchApiWithStatus = async (
   options?: { providers?: string[] }
 ): Promise<SearchApiResponse> => {
   try {
-    const body: any = rowId ? { rowId } : {};
+    const body: Record<string, unknown> = rowId ? { rowId } : {};
     if (typeof query === 'string' && query.trim().length > 0) {
       body.query = query;
     }
@@ -68,7 +68,7 @@ export const runSearchApiWithStatus = async (
     const providerStatuses = Array.isArray(data?.provider_statuses) ? data.provider_statuses : undefined;
     
     // Combine vendor results (first) with product results
-    const results = [...rawResults.map((r: any) => {
+    const results = [...rawResults.map((r: Record<string, unknown>) => {
       const sourceRaw = String(r?.source ?? 'unknown');
       const price = Number(r?.price);
       const rating = r?.rating === null || r?.rating === undefined ? null : Number(r?.rating);
@@ -82,13 +82,13 @@ export const runSearchApiWithStatus = async (
         currency: String(r?.currency ?? 'USD'),
         merchant: String(r?.merchant ?? 'Unknown'),
         url: String(r?.url ?? '#'),
-        image_url: r?.image_url ?? null,
-        rating: Number.isFinite(rating as any) ? (rating as number) : null,
-        reviews_count: Number.isFinite(reviewsCount as any) ? (reviewsCount as number) : null,
-        shipping_info: r?.shipping_info ?? null,
+        image_url: typeof r?.image_url === 'string' ? r.image_url : null,
+        rating: Number.isFinite(rating) ? rating : null,
+        reviews_count: Number.isFinite(reviewsCount) ? reviewsCount : null,
+        shipping_info: typeof r?.shipping_info === 'string' ? r.shipping_info : null,
         source: sourceRaw,
-        merchant_domain: r?.merchant_domain ?? undefined,
-        click_url: r?.click_url ?? undefined,
+        merchant_domain: typeof r?.merchant_domain === 'string' ? r.merchant_domain : undefined,
+        click_url: typeof r?.click_url === 'string' ? r.click_url : undefined,
         match_score: typeof r?.match_score === 'number' ? r.match_score : undefined,
         bid_id: typeof r?.bid_id === 'number' ? r.bid_id : undefined,
         is_selected: typeof r?.is_selected === 'boolean' ? r.is_selected : undefined,
@@ -315,10 +315,10 @@ export const saveChoiceAnswerToDb = async (
   rowId: number,
   factorName: string,
   answer: string | number | boolean | string[],
-  existingAnswers?: Record<string, any>
+  existingAnswers?: Record<string, unknown>
 ): Promise<boolean> => {
   try {
-    const answers: Record<string, any> = { ...(existingAnswers || {}) };
+    const answers: Record<string, unknown> = { ...(existingAnswers || {}) };
     answers[factorName] = answer;
 
     const res = await fetchWithAuth(`/api/rows?id=${rowId}`, {

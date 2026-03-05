@@ -74,7 +74,7 @@ describe('ui_schema_updated SSE handler via store.updateRow', () => {
 
     const updated = useShoppingStore.getState().rows.find((r) => r.id === 1);
     expect(updated?.ui_schema_version).toBe(2);
-    expect((updated?.ui_schema as any)?.layout).toBe('ROW_MEDIA_LEFT');
+    expect((updated?.ui_schema as Record<string, unknown>)?.layout).toBe('ROW_MEDIA_LEFT');
   });
 
   test('received schema validates via validateUISchema', () => {
@@ -172,8 +172,8 @@ describe('Simulated SSE event processing', () => {
 
     const row = useShoppingStore.getState().rows.find((r) => r.id === 42);
     expect(row?.ui_schema).not.toBeNull();
-    expect((row?.ui_schema as any)?.layout).toBe('ROW_MEDIA_LEFT');
-    expect((row?.ui_schema as any)?.value_vector).toBe('unit_price');
+    expect((row?.ui_schema as Record<string, unknown>)?.layout).toBe('ROW_MEDIA_LEFT');
+    expect((row?.ui_schema as Record<string, unknown>)?.value_vector).toBe('unit_price');
     expect(row?.ui_schema_version).toBe(1);
   });
 
@@ -200,6 +200,6 @@ describe('Simulated SSE event processing', () => {
 
     const row = useShoppingStore.getState().rows.find((r) => r.id === 10);
     expect(row?.ui_schema_version).toBe(2);
-    expect((row?.ui_schema as any)?.layout).toBe('ROW_MEDIA_LEFT');
+    expect((row?.ui_schema as Record<string, unknown>)?.layout).toBe('ROW_MEDIA_LEFT');
   });
 });

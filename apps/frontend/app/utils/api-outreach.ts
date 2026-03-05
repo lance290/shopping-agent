@@ -105,11 +105,11 @@ export const createQuoteLink = async (
 
 export const saveOutreachToDb = async (
   rowId: number,
-  outreach: Record<string, any>,
-  existingAnswers?: Record<string, any>
+  outreach: Record<string, unknown>,
+  existingAnswers?: Record<string, unknown>
 ): Promise<boolean> => {
   try {
-    const answers: Record<string, any> = { ...(existingAnswers || {}) };
+    const answers: Record<string, unknown> = { ...(existingAnswers || {}) };
     answers.outreach = outreach;
 
     const res = await fetchWithAuth(`/api/rows?id=${rowId}`, {

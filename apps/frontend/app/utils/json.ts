@@ -5,8 +5,6 @@
  * to prevent runtime errors and provide better type safety.
  */
 
-import type { JsonValue } from '../types';
-
 /**
  * Safely parse JSON string with a fallback value
  *

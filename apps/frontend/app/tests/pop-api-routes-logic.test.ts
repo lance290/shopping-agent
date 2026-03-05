@@ -7,14 +7,6 @@ import { describe, test, expect } from 'vitest';
 type ListItem = { id: number; title: string; status: string };
 
 // localStorage helpers (duplicated from main test file)
-function writeGuestItems(items: ListItem[]) {
-  localStorage.setItem('pop_guest_list_items', JSON.stringify(items));
-}
-function readGuestItems(): ListItem[] {
-  try {
-    return JSON.parse(localStorage.getItem('pop_guest_list_items') || '[]');
-  } catch { return []; }
-}
 function writeGuestProjectId(id: number) {
   localStorage.setItem('pop_guest_project_id', String(id));
 }

@@ -2,18 +2,18 @@ export interface LogEntry {
   type: 'console' | 'network' | 'error';
   level: 'info' | 'warn' | 'error';
   message: string;
-  details?: any;
+  details?: unknown;
   timestamp: string;
 }
 
 export interface BreadcrumbEntry {
   type: 'route' | 'ui' | 'system';
   message: string;
-  details?: any;
+  details?: unknown;
   timestamp: string;
 }
 
-class RingBuffer<T> {
+class RingBuffer<T extends { timestamp: string }> {
   private buffer: T[];
   private size: number;
   private pointer: number = 0;
@@ -34,7 +34,7 @@ class RingBuffer<T> {
 
   getAll(): T[] {
     if (this.buffer.length < this.size) {
-      return [...this.buffer].sort((a: any, b: any) => 
+      return [...this.buffer].sort((a, b) => 
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
     }
@@ -43,7 +43,7 @@ class RingBuffer<T> {
       ...this.buffer.slice(this.pointer),
       ...this.buffer.slice(0, this.pointer)
     ];
-    return ordered.sort((a: any, b: any) => 
+    return ordered.sort((a, b) => 
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
   }
@@ -170,12 +170,7 @@ export const addBreadcrumb = (entry: BreadcrumbEntry) => {
 
 const REDACT_KEYS = ['authorization', 'token', 'cookie', 'password', 'secret', 'api_key', 'apikey'];
 
-const redactValue = (value: string) => {
-  if (value.length <= 6) return '[REDACTED]';
-  return `${value.slice(0, 3)}***${value.slice(-2)}`;
-};
-
-const redactObject = (obj: any, depth: number = 0): any => {
+const redactObject = (obj: unknown, depth: number = 0): unknown => {
   if (obj === null || obj === undefined) return obj;
   if (depth > 4) return '[TRUNCATED]';
 
@@ -188,13 +183,13 @@ const redactObject = (obj: any, depth: number = 0): any => {
   }
 
   if (typeof obj === 'object') {
-    const redacted: Record<string, any> = {};
+    const redacted: Record<string, unknown> = {};
     for (const key of Object.keys(obj)) {
       const lowerKey = key.toLowerCase();
       if (REDACT_KEYS.some(k => lowerKey.includes(k))) {
         redacted[key] = '[REDACTED]';
       } else {
-        redacted[key] = redactObject(obj[key], depth + 1);
+        redacted[key] = redactObject((obj as Record<string, unknown>)[key], depth + 1);
       }
     }
     return redacted;
@@ -203,7 +198,7 @@ const redactObject = (obj: any, depth: number = 0): any => {
   return obj;
 };
 
-export const redactDiagnostics = (payload: Record<string, any>) => {
+export const redactDiagnostics = (payload: Record<string, unknown>) => {
   return redactObject(payload);
 };
 

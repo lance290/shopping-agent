@@ -11,7 +11,7 @@ export function getAuthToken(): string {
   // Prefer cookie-based auth via same-origin requests, but keep legacy token
   // fallback for environments where only localStorage is populated.
   if (typeof window === 'undefined') return '';
-  const storage = (globalThis as any).localStorage;
+  const storage = globalThis.localStorage;
   if (!storage || typeof storage.getItem !== 'function') return '';
   return storage.getItem('session_token') || '';
 }

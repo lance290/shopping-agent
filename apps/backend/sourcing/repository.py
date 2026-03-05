@@ -174,6 +174,31 @@ class SourcingRepository:
             self.providers["ticketmaster"] = TicketmasterProvider(ticketmaster_key)
             print(f"[SourcingRepository] Ticketmaster provider initialized")
 
+        # SerpAPI — Google Shopping (general-purpose fallback)
+        serpapi_key = os.getenv("SERPAPI_API_KEY")
+        if serpapi_key:
+            self.providers["serpapi"] = SerpAPIProvider(serpapi_key)
+            print(f"[SourcingRepository] SerpAPI provider initialized")
+
+        # SearchAPI.io — Google Shopping
+        searchapi_key = os.getenv("SEARCHAPI_API_KEY")
+        if searchapi_key:
+            self.providers["searchapi"] = SearchAPIProvider(searchapi_key)
+            print(f"[SourcingRepository] SearchAPI provider initialized")
+
+        # ScaleSerp — Google Shopping (same company as Rainforest)
+        scaleserp_key = os.getenv("SCALESERP_API_KEY")
+        if scaleserp_key:
+            self.providers["scaleserp"] = ScaleSerpProvider(scaleserp_key)
+            print(f"[SourcingRepository] ScaleSerp provider initialized")
+
+        # Google Custom Search — 100 free queries/day
+        google_cse_key = os.getenv("GOOGLE_CSE_API_KEY")
+        google_cse_cx = os.getenv("GOOGLE_CSE_CX")
+        if google_cse_key and google_cse_cx:
+            self.providers["google_cse"] = GoogleCustomSearchProvider(google_cse_key, google_cse_cx)
+            print(f"[SourcingRepository] Google CSE provider initialized")
+
         # Vendor Directory — pgvector semantic search (always runs)
         from sourcing.vendor_provider import VendorDirectoryProvider
         db_url = os.getenv("DATABASE_URL", "")
@@ -208,24 +233,6 @@ class SourcingRepository:
         result = await self.search_all_with_status(query, **kwargs)
         return result.results
 
-    def _filter_providers_by_tier(self, providers: Dict[str, "SourcingProvider"], desire_tier: Optional[str] = None) -> Dict[str, "SourcingProvider"]:
-        """Gate providers based on desire tier."""
-        if not desire_tier:
-            return providers
-        MARKETPLACE_ONLY_PROVIDERS = {"amazon", "ebay", "mock"}
-        if desire_tier in ("service", "bespoke", "high_value"):
-            filtered = {k: v for k, v in providers.items() if k not in MARKETPLACE_ONLY_PROVIDERS}
-            print(f"[SourcingRepository] Tier '{desire_tier}' — excluded marketplace-only providers, running: {list(filtered.keys())}")
-            if not filtered:
-                print(f"[SourcingRepository] WARNING: No providers left after tier filtering, falling back to all")
-                return providers
-            return filtered
-        if desire_tier == "advisory":
-            print(f"[SourcingRepository] Tier 'advisory' — no search providers (handled by chat)")
-            return {}
-        print(f"[SourcingRepository] Tier '{desire_tier}' — running all providers: {list(providers.keys())}")
-        return providers
-
     async def search_all_with_status(self, query: str, **kwargs) -> SearchResultWithStatus:
         """Search all providers and return results with provider status."""
         print(f"[SourcingRepository] search_all called with query: {query}")
@@ -234,7 +241,7 @@ class SourcingRepository:
         from sourcing.normalizers import normalize_results_for_provider
 
         providers_filter = kwargs.pop("providers", None)
-        desire_tier = kwargs.pop("desire_tier", None)
+        kwargs.pop("desire_tier", None)  # consumed but not used for filtering
         vendor_query = kwargs.pop("vendor_query", None)
         selected_providers: Dict[str, SourcingProvider] = self.providers
         if providers_filter:
@@ -244,8 +251,6 @@ class SourcingRepository:
             selected_providers = {k: v for k, v in self.providers.items() if k in allow}
             print(f"[SourcingRepository] Provider filter requested: {sorted(list(allow))}")
             print(f"[SourcingRepository] Providers selected: {list(selected_providers.keys())}")
-
-        selected_providers = self._filter_providers_by_tier(selected_providers, desire_tier)
         
         start_time = time.time()
         try:
@@ -373,13 +378,11 @@ class SourcingRepository:
         from sourcing.normalizers import normalize_results_for_provider
 
         providers_filter = kwargs.pop("providers", None)
-        desire_tier = kwargs.pop("desire_tier", None)
+        kwargs.pop("desire_tier", None)  # consumed but not used for filtering
         selected_providers: Dict[str, SourcingProvider] = self.providers
         if providers_filter:
             allow = {str(p).strip() for p in providers_filter if str(p).strip()}
             selected_providers = {k: v for k, v in self.providers.items() if k in allow}
-
-        selected_providers = self._filter_providers_by_tier(selected_providers, desire_tier)
 
         PROVIDER_TIMEOUT_SECONDS = float(os.getenv("SOURCING_PROVIDER_TIMEOUT_SECONDS", "30.0"))
 

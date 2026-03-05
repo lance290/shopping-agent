@@ -23,8 +23,12 @@ from sourcing.scorer import score_results
 # 1. No tier-based provider gating exists (removed — LLM decides, not heuristics)
 # =============================================================================
 
-# _filter_providers_by_tier was removed entirely. There is no method to test.
-# Provider selection is driven only by user toggle (providers_filter).
+def test_no_filter_providers_by_tier_method():
+    """_filter_providers_by_tier must not exist on SourcingRepository."""
+    from sourcing.repository import SourcingRepository
+    assert not hasattr(SourcingRepository, "_filter_providers_by_tier"), (
+        "_filter_providers_by_tier was re-introduced! Remove it — all providers run always."
+    )
 
 
 # =============================================================================

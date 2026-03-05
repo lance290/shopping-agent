@@ -76,7 +76,8 @@ export default function PublicOfferCard({ offer, onRequestQuote }: PublicOfferCa
   return (
     <div className="bg-white rounded-lg border border-warm-grey shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">
       {offer.image_url && (
-        <div className="aspect-square bg-canvas-dark overflow-hidden">
+        <div className="aspect-square bg-canvas-dark overflow-hidden relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={offer.image_url}
             alt={offer.title}
