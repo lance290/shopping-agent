@@ -192,11 +192,11 @@ async def send_outreach(
     session=Depends(get_session),
 ):
     """
-    Generate + send a vendor outreach email via Resend.
+    Send a vendor outreach email via proxy relay (Deal pipeline).
 
-    If subject/body are provided, use them directly (user edited).
-    If not, LLM generates from chat context.
-    Reply-to is set to the user's email — vendor replies go to them.
+    Creates a Deal with a proxy email alias so vendor replies come back
+    through our relay and get shown in the app. No quote form link —
+    the vendor simply replies to the email with their offer.
     """
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
@@ -230,64 +230,75 @@ async def send_outreach(
         subject = subject or generated["subject"]
         body = body or generated["body"]
 
-    # Create outreach record + quote link
-    token = generate_magic_link_token()
+    # Resolve vendor_id from Vendor table by email (if exists)
+    from models import Vendor
+    vendor_id = None
+    if request.vendor_email:
+        v_result = await session.execute(
+            select(Vendor).where(Vendor.email == request.vendor_email).limit(1)
+        )
+        vendor = v_result.scalar_one_or_none()
+        if vendor:
+            vendor_id = vendor.id
 
-    quote = SellerQuote(
+    # Create a Deal with proxy email alias for relay
+    from services.deal_pipeline import create_deal, record_message, MESSAGES_DOMAIN
+    deal = await create_deal(
+        session=session,
         row_id=row_id,
-        token=token,
-        token_expires_at=datetime.utcnow() + timedelta(days=14),
-        seller_email=request.vendor_email,
-        seller_name=request.vendor_name,
-        seller_company=request.vendor_company,
-        status="pending",
+        buyer_user_id=auth_session.user_id,
+        vendor_id=vendor_id,
     )
-    session.add(quote)
+    proxy_address = f"{deal.proxy_email_alias}@{MESSAGES_DOMAIN}"
 
+    # Create outreach event for tracking
     event = OutreachEvent(
         row_id=row_id,
         vendor_email=request.vendor_email,
         vendor_name=request.vendor_name,
         vendor_company=request.vendor_company,
         vendor_source="modal",
-        quote_token=token,
     )
     session.add(event)
     await session.commit()
 
-    # Send via Resend with reply-to
-    email_result = await send_custom_outreach_email(
+    # Send via Resend through the proxy alias (vendor replies come back to relay)
+    from services.email import send_deal_outreach_email
+    email_result = await send_deal_outreach_email(
         to_email=request.vendor_email,
         vendor_company=request.vendor_company,
         subject=subject,
         body_text=body,
-        quote_token=token,
-        reply_to_email=request.reply_to_email,
+        proxy_address=proxy_address,
         sender_name=request.sender_name,
     )
 
-    # Update event with send status
-    if email_result.success and email_result.message_id:
-        result = await session.execute(
-            select(OutreachEvent).where(OutreachEvent.quote_token == token)
+    # Record the outreach as the first message in the deal ledger
+    if email_result.success:
+        await record_message(
+            session=session,
+            deal_id=deal.id,
+            sender_type="buyer",
+            content_text=body,
+            sender_email=proxy_address,
+            subject=subject,
+            resend_message_id=email_result.message_id,
         )
-        evt = result.scalar_one_or_none()
-        if evt:
-            evt.sent_at = datetime.utcnow()
-            evt.message_id = email_result.message_id
+        event.sent_at = datetime.utcnow()
+        event.message_id = email_result.message_id
 
-        # Persist user profile fields from outreach modal
-        if auth_session.user_id:
-            user = await session.get(User, auth_session.user_id)
-            if user:
-                if request.reply_to_email and not user.email:
-                    user.email = request.reply_to_email
-                if request.sender_name and not user.name:
-                    user.name = request.sender_name
-                if request.sender_company and not user.company:
-                    user.company = request.sender_company
+    # Persist user profile fields from outreach modal
+    if auth_session.user_id:
+        user = await session.get(User, auth_session.user_id)
+        if user:
+            if request.reply_to_email and not user.email:
+                user.email = request.reply_to_email
+            if request.sender_name and not user.name:
+                user.name = request.sender_name
+            if request.sender_company and not user.company:
+                user.company = request.sender_company
 
-        await session.commit()
+    await session.commit()
 
     return {
         "status": "sent" if email_result.success else "error",
@@ -295,7 +306,8 @@ async def send_outreach(
         "error": email_result.error,
         "subject": subject,
         "body": body,
-        "quote_token": token,
+        "deal_id": deal.id,
+        "proxy_email": proxy_address,
     }
 
 

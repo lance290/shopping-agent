@@ -407,10 +407,52 @@ async def generate_outreach_email(
 ) -> Dict[str, str]:
     """
     Generate a personalized outreach email to a vendor using LLM.
+    Includes ALL request details so the vendor can quote without a form.
     Returns {"subject": ..., "body": ...}.
     """
-    prompt = f"""Write a brief, professional outreach email from {sender_name} to {vendor_company}
-about a customer looking for: {row_title}.
+    safe_sender = sender_name or "BuyAnything Concierge"
+    chat_history = kwargs.get("chat_history") or ""
+    choice_answers = kwargs.get("choice_answers") or ""
+    search_intent = kwargs.get("search_intent") or ""
+    sender_company = kwargs.get("sender_company") or ""
+
+    # Build a rich context block for the LLM
+    details_parts = [f"Request: {row_title}"]
+    if search_intent:
+        try:
+            intent = json.loads(search_intent) if isinstance(search_intent, str) else search_intent
+            if isinstance(intent, dict):
+                for k, v in intent.items():
+                    if v and str(v).lower() not in ("none", "null", "", "not answered"):
+                        details_parts.append(f"{k.replace('_', ' ').title()}: {v}")
+        except (json.JSONDecodeError, TypeError):
+            details_parts.append(str(search_intent))
+    if choice_answers:
+        try:
+            answers = json.loads(choice_answers) if isinstance(choice_answers, str) else choice_answers
+            if isinstance(answers, dict):
+                for k, v in answers.items():
+                    if v and str(v).lower() not in ("none", "null", "", "not answered", "{}"):
+                        details_parts.append(f"{k.replace('_', ' ').title()}: {v}")
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    details_block = "\n".join(details_parts)
+
+    prompt = f"""Write a professional outreach email from {safe_sender} to {vendor_company}.
+The buyer is looking for a vendor quote. Include ALL details below so the vendor can respond with pricing.
+
+== REQUEST DETAILS ==
+{details_block}
+
+== RULES ==
+1. Address the email to {vendor_company}.
+2. Include EVERY detail from the request (dates, locations, passengers, specs, etc.).
+3. Ask the vendor to reply with their quote, availability, and any questions.
+4. Do NOT mention any forms, links, or buttons — they just reply to this email.
+5. Sign as: {safe_sender}{(' — ' + sender_company) if sender_company else ''}
+6. Keep it under 300 words, professional but warm.
+7. Do NOT invent details not provided above.
 
 Return JSON ONLY: {{"subject": "...", "body": "..."}}"""
 
@@ -418,13 +460,13 @@ Return JSON ONLY: {{"subject": "...", "body": "..."}}"""
         text = await call_gemini(prompt, timeout=15.0)
         parsed = _extract_json(text)
         return {
-            "subject": parsed.get("subject", f"Inquiry about {row_title}"),
-            "body": parsed.get("body", f"Hi {vendor_company}, we have a customer interested in {row_title}."),
+            "subject": parsed.get("subject", f"Quote Request: {row_title}"),
+            "body": parsed.get("body", f"Hi {vendor_company},\n\nWe have a client looking for:\n\n{details_block}\n\nCould you reply with your availability and pricing?\n\nBest,\n{safe_sender}"),
         }
     except Exception:
         return {
-            "subject": f"Inquiry about {row_title}",
-            "body": f"Hi {vendor_company},\n\nWe have a customer interested in {row_title}. Would you be able to provide a quote?\n\nBest,\n{sender_name}",
+            "subject": f"Quote Request: {row_title}",
+            "body": f"Hi {vendor_company},\n\nWe have a client interested in the following:\n\n{details_block}\n\nCould you reply with your availability and pricing?\n\nBest regards,\n{safe_sender}",
         }
 
 

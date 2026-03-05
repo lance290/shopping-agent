@@ -195,8 +195,8 @@ export default function VendorContactModal({
               </div>
               <p className="text-lg font-semibold text-ink">Email sent to {vendorCompany}!</p>
               <p className="text-sm text-ink-muted text-center">
-                Replies will go directly to <strong>{replyToEmail}</strong>.
-                <br />A tracked quote link was included in the email.
+                The vendor will reply directly to this email thread.
+                <br />All messages are securely routed through BuyAnything.
               </p>
               <Button variant="primary" onClick={onClose} className="mt-4">
                 Done
@@ -264,15 +264,15 @@ export default function VendorContactModal({
                   className="w-full px-3 py-2 bg-white border border-warm-grey rounded-lg text-sm text-ink focus:border-gold focus:ring-1 focus:ring-gold outline-none resize-y"
                 />
                 <p className="text-[10px] text-onyx-muted mt-1">
-                  A &quot;Submit Your Quote&quot; button and tracking link will be appended automatically.
+                  A &quot;reply to this email&quot; prompt will be appended automatically.
                 </p>
               </div>
 
               <div className="bg-gold/5 border border-gold/20 rounded-lg px-4 py-3">
                 <p className="text-xs text-ink-muted">
-                  <strong>How it works:</strong> Email is sent from <em>BuyAnything</em> via our verified domain for best deliverability.
-                  The vendor&apos;s reply goes directly to <strong>{replyToEmail || 'your email'}</strong>.
-                  A tracked quote link is included so the vendor can submit a formal quote on our platform.
+                  <strong>How it works:</strong> Email is sent from <em>BuyAnything</em> via our verified domain.
+                  The vendor replies to the email and all messages are securely routed through our platform
+                  so you can track the conversation in the app.
                 </p>
               </div>
             </>

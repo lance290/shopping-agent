@@ -289,6 +289,82 @@ Submit your quote: {quote_url}
     return EmailResult(success=True, message_id="demo-custom-" + quote_token[:8])
 
 
+async def send_deal_outreach_email(
+    to_email: str,
+    vendor_company: str,
+    subject: str,
+    body_text: str,
+    proxy_address: str,
+    sender_name: str = None,
+) -> EmailResult:
+    """
+    Send a vendor outreach email via the Deal proxy relay.
+
+    - FROM: BuyAnything <proxy_alias@shopper.buy-anything.com>
+    - REPLY-TO: proxy_alias@shopper.buy-anything.com (relay intercepts replies)
+    - No quote form link — vendor just replies to negotiate.
+    """
+    display_name = sender_name or FROM_NAME
+
+    # Convert plain text body to HTML paragraphs
+    body_html = body_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    body_html = "<br>\n".join(body_html.split("\n"))
+
+    html_content = f"""
+    <html>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="line-height: 1.6;">
+{body_html}
+        </div>
+
+        <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 16px; margin: 24px 0; text-align: center;">
+            <p style="margin: 0; font-size: 14px; color: #0369a1;">
+                <strong>Simply reply to this email</strong> with your quote and availability.
+            </p>
+        </div>
+
+        {_viral_footer_html()}
+    </body>
+    </html>
+    """
+
+    plain_text = f"""{body_text}
+
+---
+Simply reply to this email with your quote and availability.
+{_viral_footer_text()}"""
+
+    to_email, subject = _maybe_intercept(to_email, subject)
+    if RESEND_API_KEY and resend is not None:
+        try:
+            params: resend.Emails.SendParams = {
+                "from": f"{display_name} <{proxy_address}>",
+                "to": [to_email],
+                "reply_to": proxy_address,
+                "subject": subject,
+                "html": html_content,
+                "text": plain_text,
+            }
+
+            response = resend.Emails.send(params)
+
+            return EmailResult(
+                success=True,
+                message_id=response.get("id"),
+            )
+        except Exception as e:
+            print(f"[RESEND ERROR] {e}")
+            return EmailResult(success=False, error=str(e))
+
+    # Demo mode
+    print(f"[DEMO EMAIL] To: {to_email}")
+    print(f"[DEMO EMAIL] From: {display_name} <{proxy_address}>")
+    print(f"[DEMO EMAIL] Reply-To: {proxy_address}")
+    print(f"[DEMO EMAIL] Subject: {subject}")
+
+    return EmailResult(success=True, message_id="demo-deal-outreach")
+
+
 async def send_reminder_email(
     to_email: str,
     to_name: str,
