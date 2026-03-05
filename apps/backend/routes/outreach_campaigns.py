@@ -24,7 +24,9 @@ logger = logging.getLogger(__name__)
 
 class DraftCampaignRequest(BaseModel):
     row_id: int
-    ea_name: Optional[str] = "Executive Assistant"
+    bid_ids: Optional[List[int]] = None
+    ea_name: Optional[str] = None
+    ea_email: Optional[str] = None
 
 
 class ApproveMessageRequest(BaseModel):
@@ -44,6 +46,12 @@ async def create_campaign(
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     user_id = auth_session.user_id
+
+    # Look up user for name/email defaults
+    from models import User
+    user = await session.get(User, user_id)
+    ea_name = body.ea_name or (user.name if user and user.name else "Executive Assistant")
+    ea_email = body.ea_email or (user.email if user and user.email else "")
 
     # Get the row
     result = await session.exec(
@@ -73,7 +81,9 @@ async def create_campaign(
         row=row,
         user_id=user_id,
         vendor_bids=list(vendor_bids),
-        ea_name=body.ea_name or "Executive Assistant",
+        ea_name=ea_name,
+        ea_email=ea_email,
+        bid_ids=body.bid_ids,
     )
 
     # Return the full campaign with messages

@@ -65,6 +65,73 @@ export const sendOutreachEmail = async (
   }
 };
 
+export interface CampaignMessage {
+  id: number;
+  vendor_id: number;
+  vendor: { id: number; name: string; domain?: string };
+  direction: string;
+  channel: string;
+  status: string;
+  subject: string | null;
+  body: string;
+  to_address: string;
+  sent_at: string | null;
+}
+
+export interface CampaignDetails {
+  campaign: {
+    id: number;
+    row_id: number;
+    status: string;
+    request_summary: string;
+    action_budget: number;
+    actions_used: number;
+    created_at: string;
+  };
+  messages: CampaignMessage[];
+  quotes: unknown[];
+}
+
+export const createOutreachCampaign = async (
+  rowId: number,
+  bidIds?: number[],
+  eaName?: string,
+  eaEmail?: string,
+): Promise<CampaignDetails | null> => {
+  try {
+    const res = await fetchWithAuth('/api/outreach/campaigns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        row_id: rowId,
+        bid_ids: bidIds || null,
+        ea_name: eaName || null,
+        ea_email: eaEmail || null,
+      }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Create outreach campaign error:', err);
+    return null;
+  }
+};
+
+export const approveAndSendCampaign = async (
+  campaignId: number,
+): Promise<{ approved: number; sent: number } | null> => {
+  try {
+    const res = await fetchWithAuth(`/api/outreach/campaigns/${campaignId}/approve-all`, {
+      method: 'POST',
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Approve+send campaign error:', err);
+    return null;
+  }
+};
+
 export const fetchContactStatuses = async (
   rowId: number,
 ): Promise<Record<string, { status: string; sent_at: string | null; quoted_at: string | null }> | null> => {

@@ -42,6 +42,47 @@ elif os.getenv("DEV_EMAIL_OVERRIDE"):
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:3003")
 
 
+def _viral_footer_html(unsubscribe_url: str = "", tracking_pixel_url: str = "") -> str:
+    """Shared viral + legal footer appended to every outreach email."""
+    unsub = f'<a href="{unsubscribe_url}" style="color: #999;">Unsubscribe</a>' if unsubscribe_url else ""
+    pixel = f'<img src="{tracking_pixel_url}" width="1" height="1" style="display:none;" alt="">' if tracking_pixel_url else ""
+    return f"""
+        <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 10px; padding: 20px; margin: 30px 0; text-align: center;">
+            <p style="font-size: 16px; font-weight: 700; color: #92400e; margin: 0 0 6px 0;">
+                Need to buy anything? Let us handle it.
+            </p>
+            <p style="font-size: 13px; color: #78350f; margin: 0 0 14px 0;">
+                From private jets to plumbing — one request, multiple quotes, zero legwork.
+            </p>
+            <a href="{APP_BASE_URL}?ref=email"
+               style="display: inline-block; background: #1e293b; color: #fbbf24; padding: 10px 24px;
+                      text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 14px;">
+                Try BuyAnything Free &rarr;
+            </a>
+        </div>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+        <p style="color: #999; font-size: 12px; text-align: center;">
+            {unsub}
+        </p>
+        <p style="color: #bbb; font-size: 10px; text-align: center;">
+            BuyAnything.ai is a marketplace platform. We may earn a referral fee or commission
+            when transactions are completed through our platform.
+        </p>
+        {pixel}
+    """
+
+
+def _viral_footer_text() -> str:
+    """Plain-text viral footer."""
+    return (
+        "\n---\n"
+        "Need to buy anything? Let us handle it.\n"
+        "From private jets to plumbing — one request, multiple quotes, zero legwork.\n"
+        f"Try BuyAnything free: {APP_BASE_URL}?ref=email\n\n"
+        "Disclosure: BuyAnything.ai may earn a referral fee or commission on transactions.\n"
+    )
+
+
 def _maybe_intercept(to_email: str, subject: str) -> tuple[str, str]:
     """In dev mode, redirect email to DEV_EMAIL_OVERRIDE and tag the subject."""
     if DEV_EMAIL_OVERRIDE:
@@ -86,6 +127,8 @@ async def send_outreach_email(
     
     subject = f"RFP: {request_summary}"
     
+    unsubscribe_url = f"{backend_url}/outreach/unsubscribe/{quote_token}"
+
     html_content = f"""
     <html>
     <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -114,43 +157,25 @@ async def send_outreach_email(
         <p style="color: #666; font-size: 14px;">
             This link expires in 7 days. If you're not interested, no action is needed.
         </p>
-        
-        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-        
-        <p style="color: #999; font-size: 12px;">
-            You received this because {company_name} was identified as a potential provider.
-            <br>
-            <a href="{backend_url}/outreach/unsubscribe/{quote_token}" style="color: #999;">Unsubscribe</a> from future requests.
-        </p>
-        
-        <p style="color: #bbb; font-size: 10px; margin-top: 20px;">
-            BuyAnything.ai is a marketplace platform. We may earn a referral fee or commission when transactions are completed through our platform.
-        </p>
-        
-        <img src="{tracking_url}" width="1" height="1" style="display:none;" alt="">
+
+        {_viral_footer_html(unsubscribe_url=unsubscribe_url, tracking_pixel_url=tracking_url)}
     </body>
     </html>
     """
     
-    text_content = f"""
-    New Request for Quote
-    
-    Hi {to_name or 'there'},
-    
-    A buyer on BuyAnything is looking for a quote:
-    
-    Request: {request_summary}
-    
-    To submit your quote, visit:
-    {quote_url}
-    
-    This link expires in 7 days.
-    
-    --
-    BuyAnything Team
-    
-    Disclosure: BuyAnything.ai may earn a referral fee or commission on transactions completed through our platform.
-    """
+    text_content = f"""New Request for Quote
+
+Hi {to_name or 'there'},
+
+A buyer on BuyAnything is looking for a quote:
+
+Request: {request_summary}
+
+To submit your quote, visit:
+{quote_url}
+
+This link expires in 7 days.
+{_viral_footer_text()}"""
     
     # If Resend is configured, send real email
     to_email, subject = _maybe_intercept(to_email, subject)
@@ -205,6 +230,8 @@ async def send_custom_outreach_email(
     body_html = body_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     body_html = "<br>\n".join(body_html.split("\n"))
 
+    unsubscribe_url = f"{backend_url}/outreach/unsubscribe/{quote_token}"
+
     html_content = f"""
     <html>
     <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -220,20 +247,7 @@ async def send_custom_outreach_email(
             </a>
         </p>
 
-        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-
-        <p style="color: #999; font-size: 12px;">
-            Sent on behalf of {sender_name} via BuyAnything
-            <br>
-            <a href="{backend_url}/outreach/unsubscribe/{quote_token}" style="color: #999;">Unsubscribe</a>
-        </p>
-
-        <p style="color: #bbb; font-size: 10px;">
-            BuyAnything.ai is a marketplace platform. We may earn a referral fee or commission
-            when transactions are completed through our platform.
-        </p>
-
-        <img src="{tracking_url}" width="1" height="1" style="display:none;" alt="">
+        {_viral_footer_html(unsubscribe_url=unsubscribe_url, tracking_pixel_url=tracking_url)}
     </body>
     </html>
     """
@@ -242,10 +256,7 @@ async def send_custom_outreach_email(
 
 ---
 Submit your quote: {quote_url}
-
-Sent on behalf of {sender_name} via BuyAnything
-Disclosure: BuyAnything.ai may earn a referral fee or commission on transactions.
-"""
+{_viral_footer_text()}"""
 
     to_email, subject = _maybe_intercept(to_email, subject)
     if RESEND_API_KEY and resend is not None:
@@ -293,6 +304,9 @@ async def send_reminder_email(
     
     subject = f"Reminder: RFP for {request_summary}"
     
+    tracking_url = get_tracking_pixel_url(quote_token)
+    unsubscribe_url = f"{backend_url}/outreach/unsubscribe/{quote_token}"
+
     html_content = f"""
     <html>
     <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -320,16 +334,8 @@ async def send_reminder_email(
         <p style="color: #666; font-size: 14px;">
             No worries if this isn't a fit — no action needed.
         </p>
-        
-        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-        
-        <p style="color: #999; font-size: 12px;">
-            <a href="{backend_url}/outreach/unsubscribe/{quote_token}" style="color: #999;">Unsubscribe</a> from future requests.
-        </p>
-        
-        <p style="color: #bbb; font-size: 10px; margin-top: 20px;">
-            BuyAnything.ai is a marketplace platform. We may earn a referral fee or commission when transactions are completed through our platform.
-        </p>
+
+        {_viral_footer_html(unsubscribe_url=unsubscribe_url, tracking_pixel_url=tracking_url)}
     </body>
     </html>
     """

@@ -115,29 +115,84 @@ class VendorDirectoryProvider(SourcingProvider):
 
         vec_str = "[" + ",".join(str(f) for f in embedding) + "]"
 
-        # 2. Query vendor table with cosine similarity (uses HNSW index)
+        # Hybrid scoring weights
+        vector_weight = float(os.getenv("VENDOR_VECTOR_WEIGHT", "0.7"))
+        fts_weight = 1.0 - vector_weight
+
+        # 2. Hybrid query: vector cosine + full-text ts_rank, blended
+        #    ts_rank returns 0 when search_vector is NULL or no match,
+        #    so the query gracefully degrades to vector-only for vendors
+        #    without the search_vector column (pre-migration).
         try:
             async with self._engine.connect() as conn:
                 result = await conn.execute(
-                    sa.text(
-                        "SELECT id, name, description, tagline, website, email, phone, "
-                        "image_url, category, "
-                        "(embedding <=> CAST(:qvec AS vector)) AS distance "
-                        "FROM vendor "
-                        "WHERE embedding IS NOT NULL "
-                        "ORDER BY embedding <=> CAST(:qvec AS vector) "
-                        "LIMIT :lim"
-                    ),
-                    {"qvec": vec_str, "lim": kwargs.get("limit", 15)},
+                    sa.text("""
+                        SELECT id, name, description, tagline, website, email, phone,
+                               image_url, category,
+                               (embedding <=> CAST(:qvec AS vector)) AS distance,
+                               CASE
+                                 WHEN search_vector IS NOT NULL
+                                 THEN ts_rank_cd(search_vector, plainto_tsquery('english', :raw_query))
+                                 ELSE 0
+                               END AS fts_rank
+                        FROM vendor
+                        WHERE embedding IS NOT NULL
+                        ORDER BY (
+                            :vec_w * (embedding <=> CAST(:qvec AS vector)) +
+                            :fts_w * (1.0 - LEAST(
+                                CASE
+                                  WHEN search_vector IS NOT NULL
+                                  THEN ts_rank_cd(search_vector, plainto_tsquery('english', :raw_query))
+                                  ELSE 0
+                                END, 1.0))
+                        )
+                        LIMIT :lim
+                    """),
+                    {
+                        "qvec": vec_str,
+                        "raw_query": query,
+                        "vec_w": vector_weight,
+                        "fts_w": fts_weight,
+                        "lim": kwargs.get("limit", 15),
+                    },
                 )
                 rows = result.mappings().all()
                 t_db = time.monotonic()
-                logger.info(f"[VendorProvider] DB query took {t_db - t_embed:.2f}s, {len(rows)} rows")
+                logger.info(
+                    f"[VendorProvider] Hybrid query took {t_db - t_embed:.2f}s, "
+                    f"{len(rows)} rows (weights: vec={vector_weight}, fts={fts_weight})"
+                )
         except Exception as e:
-            logger.warning(f"[VendorProvider] DB query failed: {e}")
-            return []
+            # If search_vector column doesn't exist yet, fall back to vector-only
+            if "search_vector" in str(e):
+                logger.warning("[VendorProvider] search_vector column missing — falling back to vector-only")
+                try:
+                    async with self._engine.connect() as conn:
+                        result = await conn.execute(
+                            sa.text(
+                                "SELECT id, name, description, tagline, website, email, phone, "
+                                "image_url, category, "
+                                "(embedding <=> CAST(:qvec AS vector)) AS distance, "
+                                "0::float AS fts_rank "
+                                "FROM vendor "
+                                "WHERE embedding IS NOT NULL "
+                                "ORDER BY embedding <=> CAST(:qvec AS vector) "
+                                "LIMIT :lim"
+                            ),
+                            {"qvec": vec_str, "lim": kwargs.get("limit", 15)},
+                        )
+                        rows = result.mappings().all()
+                        t_db = time.monotonic()
+                        logger.info(f"[VendorProvider] Vector-only fallback took {t_db - t_embed:.2f}s, {len(rows)} rows")
+                except Exception as e2:
+                    logger.warning(f"[VendorProvider] Vector-only fallback also failed: {e2}")
+                    return []
+            else:
+                logger.warning(f"[VendorProvider] DB query failed: {e}")
+                return []
 
         # 3. Filter by distance threshold and convert to SearchResult
+        #    Boost match_score when FTS also matched (fts_rank > 0)
         results: List[SearchResult] = []
         for r in rows:
             if r["distance"] > DISTANCE_THRESHOLD:
@@ -168,6 +223,11 @@ class VendorDirectoryProvider(SourcingProvider):
             elif merchant_domain:
                 favicon = f"https://www.google.com/s2/favicons?domain={merchant_domain}&sz=128"
 
+            # Blend vector similarity (0-1) with FTS rank (0-1 clamped)
+            vec_score = 1.0 - float(r["distance"])
+            fts_rank = min(float(r.get("fts_rank", 0)), 1.0)
+            blended = vector_weight * vec_score + fts_weight * fts_rank
+
             results.append(SearchResult(
                 title=r["name"],
                 price=None,
@@ -177,12 +237,16 @@ class VendorDirectoryProvider(SourcingProvider):
                 merchant_domain=merchant_domain,
                 image_url=favicon,
                 source="vendor_directory",
-                match_score=1.0 - float(r["distance"]),
+                match_score=round(blended, 4),
                 rating=None,
                 reviews_count=None,
                 shipping_info=f"Category: {r['category'] or 'General'}" if r["category"] else None,
                 description=r["tagline"] or r["description"] or None,
             ))
 
-        logger.info(f"[VendorProvider] Found {len(results)} vendors within distance {DISTANCE_THRESHOLD} (checked {len(rows)} total)")
+        fts_boosted = sum(1 for r in rows if float(r.get("fts_rank", 0)) > 0)
+        logger.info(
+            f"[VendorProvider] Found {len(results)} vendors within distance {DISTANCE_THRESHOLD} "
+            f"(checked {len(rows)}, {fts_boosted} had FTS boost)"
+        )
         return results

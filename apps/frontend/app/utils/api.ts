@@ -33,12 +33,15 @@ export { createCommentApi, fetchCommentsApi } from './api-comments';
 export { toggleLikeApi, fetchLikesApi } from './api-likes';
 
 // Outreach
+export type { CampaignDetails, CampaignMessage } from './api-outreach';
 export {
   generateOutreachEmail,
   sendOutreachEmail,
   fetchContactStatuses,
   createQuoteLink,
   saveOutreachToDb,
+  createOutreachCampaign,
+  approveAndSendCampaign,
 } from './api-outreach';
 
 // Bugs
