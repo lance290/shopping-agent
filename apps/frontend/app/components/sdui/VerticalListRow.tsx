@@ -33,6 +33,7 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
 
   const hasSchema = !!(row.ui_schema && validateUISchema(row.ui_schema));
   const bidCount = row.bids?.length ?? 0;
+  const [sortMode, setSortMode] = useState<'relevance' | 'price_asc' | 'price_desc'>('relevance');
   const unsortedOffers = offers.length > 0 ? offers : (row.bids || []).map(mapBidToOffer);
   const displayOffers = [...unsortedOffers].sort((a, b) => {
     // Liked/selected always float to top
@@ -40,13 +41,24 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
     if (!a.is_liked && b.is_liked) return 1;
     if (a.is_selected && !b.is_selected) return -1;
     if (!a.is_selected && b.is_selected) return 1;
-    // Sort by combined_score descending — only when both have scores (stable otherwise)
+
+    if (sortMode === 'price_asc') {
+      const pa = a.price ?? Infinity;
+      const pb = b.price ?? Infinity;
+      return pa - pb;
+    }
+    if (sortMode === 'price_desc') {
+      const pa = a.price ?? -Infinity;
+      const pb = b.price ?? -Infinity;
+      return pb - pa;
+    }
+    // Default: relevance (combined_score descending)
     const sa = a.match_score;
     const sb = b.match_score;
     if (sa != null && sb != null) return sb - sa;
-    if (sa != null) return -1;  // scored items above unscored
+    if (sa != null) return -1;
     if (sb != null) return 1;
-    return 0;  // preserve original order for unscored items
+    return 0;
   });
   
   const requestDeleteRow = useShoppingStore((s) => s.requestDeleteRow);
@@ -139,6 +151,30 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
             </div>
           )}
           
+          {/* Sort controls */}
+          {displayOffers.length > 1 && (
+            <div className="flex items-center gap-1.5 text-[10px]">
+              <span className="text-ink-muted font-medium mr-1">Sort:</span>
+              {([
+                ['relevance', 'Best Match'],
+                ['price_asc', 'Price ↑'],
+                ['price_desc', 'Price ↓'],
+              ] as const).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  onClick={() => setSortMode(mode)}
+                  className={`px-2 py-0.5 rounded-full border transition-colors ${
+                    sortMode === mode
+                      ? 'bg-ink text-white border-ink'
+                      : 'bg-white text-ink-muted border-warm-grey hover:border-ink-muted'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="space-y-2">
             {displayOffers.length === 0 && !hasSchema && (
               <p className="text-sm text-onyx-muted italic">No options found yet.</p>

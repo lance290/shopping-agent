@@ -416,7 +416,7 @@ async def generate_outreach_email(
     search_intent = kwargs.get("search_intent") or ""
     sender_company = kwargs.get("sender_company") or ""
 
-    prompt = f"""You are writing a professional vendor outreach email on behalf of a buyer's concierge service called BuyAnything.
+    prompt = f"""You are writing a professional outreach email from a buyer directly to a vendor.
 
 == CONTEXT (raw structured data — do NOT copy these fields verbatim) ==
 Title: {row_title}
@@ -427,17 +427,19 @@ Buyer preferences JSON: {choice_answers}
 Chat history: {chat_history[:1500] if chat_history else 'N/A'}
 
 == YOUR TASK ==
-Write a natural, professional email that:
+Write a natural, professional email where {safe_sender} reaches out DIRECTLY to {vendor_company} as a potential customer{(' representing ' + sender_company) if sender_company else ''}:
 1. Greets {vendor_company} warmly.
-2. Explains what the buyer needs IN NATURAL PROSE — weave the details into sentences, not bullet lists of raw field names.
+2. Explains what {safe_sender} is looking for IN NATURAL PROSE — weave the details into sentences.
    - For SERVICES (charters, contractors, etc.): mention dates, locations, number of people, budget range, specific requirements.
    - For PRODUCTS (snow blowers, electronics, etc.): mention the product, any specs or preferences, quantity, and ask for pricing/availability.
-3. Asks the vendor to reply to this email with their quote, availability, and any questions.
-4. Signs off as {safe_sender}.
+3. Asks the vendor to reply with their quote, availability, and any questions.
+4. Signs off as {safe_sender}{(' — ' + sender_company) if sender_company else ''}.
 5. Keeps it under 200 words, warm but professional.
 
 == CRITICAL RULES ==
-- NEVER dump raw field names like "Product Category:", "Keywords:", "Product Name:" — that looks robotic.
+- The sender is the BUYER, NOT a concierge or third party. Write in first person ("I'm looking for..." or "We're looking for...").
+- NEVER mention "BuyAnything", "concierge", "on behalf of", "my client", or any platform name.
+- NEVER dump raw field names like "Product Category:", "Keywords:", "Product Name:".
 - NEVER mention forms, links, or buttons.
 - NEVER invent details not present in the context above.
 - If details are sparse, keep the email short and simple — don't pad it.
@@ -445,7 +447,7 @@ Write a natural, professional email that:
 
 Return JSON ONLY: {{"subject": "...", "body": "..."}}"""
 
-    fallback_body = f"Hi {vendor_company},\n\nI'm reaching out on behalf of a client who is looking for: {row_title}.\n\nCould you reply with your pricing and availability?\n\nBest regards,\n{safe_sender}"
+    fallback_body = f"Hi {vendor_company},\n\nI'm looking for: {row_title}.\n\nCould you reply with your pricing and availability?\n\nBest regards,\n{safe_sender}"
 
     try:
         text = await call_gemini(prompt, timeout=15.0)
