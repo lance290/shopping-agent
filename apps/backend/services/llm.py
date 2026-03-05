@@ -416,57 +416,48 @@ async def generate_outreach_email(
     search_intent = kwargs.get("search_intent") or ""
     sender_company = kwargs.get("sender_company") or ""
 
-    # Build a rich context block for the LLM
-    details_parts = [f"Request: {row_title}"]
-    if search_intent:
-        try:
-            intent = json.loads(search_intent) if isinstance(search_intent, str) else search_intent
-            if isinstance(intent, dict):
-                for k, v in intent.items():
-                    if v and str(v).lower() not in ("none", "null", "", "not answered"):
-                        details_parts.append(f"{k.replace('_', ' ').title()}: {v}")
-        except (json.JSONDecodeError, TypeError):
-            details_parts.append(str(search_intent))
-    if choice_answers:
-        try:
-            answers = json.loads(choice_answers) if isinstance(choice_answers, str) else choice_answers
-            if isinstance(answers, dict):
-                for k, v in answers.items():
-                    if v and str(v).lower() not in ("none", "null", "", "not answered", "{}"):
-                        details_parts.append(f"{k.replace('_', ' ').title()}: {v}")
-        except (json.JSONDecodeError, TypeError):
-            pass
+    prompt = f"""You are writing a professional vendor outreach email on behalf of a buyer's concierge service called BuyAnything.
 
-    details_block = "\n".join(details_parts)
+== CONTEXT (raw structured data — do NOT copy these fields verbatim) ==
+Title: {row_title}
+Vendor: {vendor_company}
+Sender: {safe_sender}{(' at ' + sender_company) if sender_company else ''}
+Search intent JSON: {search_intent}
+Buyer preferences JSON: {choice_answers}
+Chat history: {chat_history[:1500] if chat_history else 'N/A'}
 
-    prompt = f"""Write a professional outreach email from {safe_sender} to {vendor_company}.
-The buyer is looking for a vendor quote. Include ALL details below so the vendor can respond with pricing.
+== YOUR TASK ==
+Write a natural, professional email that:
+1. Greets {vendor_company} warmly.
+2. Explains what the buyer needs IN NATURAL PROSE — weave the details into sentences, not bullet lists of raw field names.
+   - For SERVICES (charters, contractors, etc.): mention dates, locations, number of people, budget range, specific requirements.
+   - For PRODUCTS (snow blowers, electronics, etc.): mention the product, any specs or preferences, quantity, and ask for pricing/availability.
+3. Asks the vendor to reply to this email with their quote, availability, and any questions.
+4. Signs off as {safe_sender}.
+5. Keeps it under 200 words, warm but professional.
 
-== REQUEST DETAILS ==
-{details_block}
-
-== RULES ==
-1. Address the email to {vendor_company}.
-2. Include EVERY detail from the request (dates, locations, passengers, specs, etc.).
-3. Ask the vendor to reply with their quote, availability, and any questions.
-4. Do NOT mention any forms, links, or buttons — they just reply to this email.
-5. Sign as: {safe_sender}{(' — ' + sender_company) if sender_company else ''}
-6. Keep it under 300 words, professional but warm.
-7. Do NOT invent details not provided above.
+== CRITICAL RULES ==
+- NEVER dump raw field names like "Product Category:", "Keywords:", "Product Name:" — that looks robotic.
+- NEVER mention forms, links, or buttons.
+- NEVER invent details not present in the context above.
+- If details are sparse, keep the email short and simple — don't pad it.
+- Write like a real person, not a template.
 
 Return JSON ONLY: {{"subject": "...", "body": "..."}}"""
+
+    fallback_body = f"Hi {vendor_company},\n\nI'm reaching out on behalf of a client who is looking for: {row_title}.\n\nCould you reply with your pricing and availability?\n\nBest regards,\n{safe_sender}"
 
     try:
         text = await call_gemini(prompt, timeout=15.0)
         parsed = _extract_json(text)
         return {
             "subject": parsed.get("subject", f"Quote Request: {row_title}"),
-            "body": parsed.get("body", f"Hi {vendor_company},\n\nWe have a client looking for:\n\n{details_block}\n\nCould you reply with your availability and pricing?\n\nBest,\n{safe_sender}"),
+            "body": parsed.get("body", fallback_body),
         }
     except Exception:
         return {
             "subject": f"Quote Request: {row_title}",
-            "body": f"Hi {vendor_company},\n\nWe have a client interested in the following:\n\n{details_block}\n\nCould you reply with your availability and pricing?\n\nBest regards,\n{safe_sender}",
+            "body": fallback_body,
         }
 
 
