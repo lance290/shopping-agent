@@ -113,6 +113,17 @@ class ProjectInvite(SQLModel, table=True):
     expires_at: Optional[datetime] = Field(default=None)
 
 
+class GroupThread(SQLModel, table=True):
+    """Maps a group MMS thread (hash of sorted phone numbers) to a Project."""
+    __tablename__ = "group_thread"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    thread_hash: str = Field(index=True, unique=True)
+    project_id: int = Field(foreign_key="project.id", index=True)
+    phone_numbers: str = ""  # comma-separated sorted phone numbers for debugging
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Row(RowBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)

@@ -10,7 +10,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models.auth import User
-from routes.pop_helpers import RESEND_WEBHOOK_SECRET, TWILIO_AUTH_TOKEN
+from models.rows import GroupThread, Project
+from routes.pop_helpers import RESEND_WEBHOOK_SECRET, TWILIO_AUTH_TOKEN, _ensure_project_member
 from routes import pop_notify
 from routes import pop_processor
 from routes.pop_list import list_router
@@ -142,6 +143,69 @@ async def resend_inbound(
 
     return {"status": "accepted"}
 
+def _compute_thread_hash(phone_numbers: list[str]) -> str:
+    """Compute a deterministic hash from sorted phone numbers for group thread identity.
+    Pop's own number should be excluded before calling this.
+    """
+    sorted_nums = sorted(set(n.strip() for n in phone_numbers if n.strip()))
+    key = ",".join(sorted_nums)
+    return hashlib.sha256(key.encode()).hexdigest()[:32]
+
+
+async def _resolve_group_thread(
+    session: AsyncSession,
+    from_phone: str,
+    to_phones: list[str],
+    user: "User",
+) -> tuple["GroupThread | None", "Project | None"]:
+    """Resolve or create a GroupThread for a group MMS conversation.
+    Returns (group_thread, project) or (None, None) if not a group message.
+    """
+    from routes.pop_helpers import TWILIO_PHONE_NUMBER
+    pop_number = TWILIO_PHONE_NUMBER
+    human_phones = [p for p in ([from_phone] + to_phones) if p != pop_number]
+    all_phones = sorted(set(human_phones))
+    if len(all_phones) < 2:
+        return None, None
+
+    thread_hash = _compute_thread_hash(all_phones)
+    stmt = select(GroupThread).where(GroupThread.thread_hash == thread_hash)
+    result = await session.execute(stmt)
+    gt = result.scalar_one_or_none()
+
+    if gt:
+        project = await session.get(Project, gt.project_id)
+        if project:
+            await _ensure_project_member(session, project.id, user.id, channel="sms")
+            return gt, project
+
+    proj_stmt = (
+        select(Project)
+        .where(Project.user_id == user.id)
+        .where(Project.status == "active")
+        .order_by(Project.updated_at.desc())
+        .limit(1)
+    )
+    proj_result = await session.execute(proj_stmt)
+    project = proj_result.scalar_one_or_none()
+    if not project:
+        project = Project(title="My Shopping List", user_id=user.id)
+        session.add(project)
+        await session.commit()
+        await session.refresh(project)
+
+    gt = GroupThread(
+        thread_hash=thread_hash,
+        project_id=project.id,
+        phone_numbers=",".join(all_phones),
+    )
+    session.add(gt)
+    await _ensure_project_member(session, project.id, user.id, channel="sms")
+    await session.commit()
+    await session.refresh(gt)
+    return gt, project
+
+
 def _verify_twilio_signature(request: Request, form_data: dict) -> bool:
     """Verify Twilio request signature."""
     if not TWILIO_AUTH_TOKEN or TwilioValidator is None:
@@ -188,6 +252,16 @@ async def twilio_inbound(
     user = result.scalar_one_or_none()
 
     if user and user.email:
+        # Detect group MMS: extract all To numbers
+        to_raw = params.get("To", "")
+        to_phones = [t.strip() for t in str(to_raw).split(",") if t.strip()]
+
+        group_thread = None
+        if len(to_phones) >= 2:
+            group_thread, _project = await _resolve_group_thread(session, sender_phone, to_phones, user)
+            if group_thread:
+                logger.info(f"[Pop] Group MMS thread={group_thread.thread_hash[:8]} project={_project.id if _project else '?'}")
+
         background_tasks.add_task(
             pop_processor.process_pop_message,
             user.email,

@@ -33,6 +33,7 @@ from models.rows import (
     Project,
     ProjectMember,
     ProjectInvite,
+    GroupThread,
     Row,
     RequestSpec,
 )

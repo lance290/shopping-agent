@@ -4,6 +4,7 @@ import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import PopItemEditor from './PopItemEditor';
+import HouseholdModal from './HouseholdModal';
 
 interface Deal {
   id: number;
@@ -64,6 +65,7 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
   const [isSharing, setIsSharing] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [editingItem, setEditingItem] = useState<ListItem | null>(null);
+  const [showHousehold, setShowHousehold] = useState(false);
 
   useEffect(() => {
     async function fetchList() {
@@ -172,9 +174,19 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
       <div className="max-w-2xl mx-auto px-4 py-6">
         {/* List Header */}
         <div className="mb-4">
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <span>🛒</span> {list.title}
-          </h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <span>🛒</span> {list.title}
+            </h1>
+            {isLoggedIn && (
+              <button
+                onClick={() => setShowHousehold(true)}
+                className="text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1"
+              >
+                👨‍👩‍👧 Household
+              </button>
+            )}
+          </div>
           <p className="text-sm text-gray-500 mt-1">
             {checkedCount > 0
               ? `${checkedCount} of ${totalItems} checked off`
@@ -532,6 +544,14 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
             });
             setEditingItem(null);
           }}
+        />
+      )}
+
+      {/* Household Modal */}
+      {showHousehold && list && (
+        <HouseholdModal
+          projectId={list.project_id}
+          onClose={() => setShowHousehold(false)}
         />
       )}
 

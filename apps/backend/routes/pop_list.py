@@ -496,4 +496,94 @@ async def delete_pop_item(
     return {"deleted": True}
 
 
+# ---------------------------------------------------------------------------
+# Household Member Management (PRD-03)
+# ---------------------------------------------------------------------------
+
+@list_router.get("/projects/{project_id}/members")
+async def get_project_members(
+    project_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """List all members of a household/project."""
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Must be owner or member to view members
+    member_stmt = select(ProjectMember).where(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id == user.id,
+    )
+    member_result = await session.execute(member_stmt)
+    if not member_result.scalar_one_or_none() and project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not a member of this list")
+
+    from models.auth import User as AuthUser
+    stmt = (
+        select(ProjectMember, AuthUser)
+        .join(AuthUser, ProjectMember.user_id == AuthUser.id)
+        .where(ProjectMember.project_id == project_id)
+        .order_by(ProjectMember.joined_at.asc())
+    )
+    result = await session.execute(stmt)
+    rows = result.all()
+
+    members = []
+    for pm, u in rows:
+        members.append({
+            "user_id": u.id,
+            "name": u.name or u.email,
+            "email": u.email,
+            "role": pm.role,
+            "channel": pm.channel,
+            "joined_at": pm.joined_at.isoformat() if pm.joined_at else None,
+            "is_owner": project.user_id == u.id,
+        })
+
+    return {"project_id": project_id, "members": members}
+
+
+@list_router.delete("/projects/{project_id}/members/{member_user_id}")
+async def remove_project_member(
+    project_id: int,
+    member_user_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Remove a member from the household. Only the project owner can do this."""
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the list owner can remove members")
+
+    if member_user_id == user.id:
+        raise HTTPException(status_code=400, detail="Cannot remove yourself from your own list")
+
+    stmt = select(ProjectMember).where(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id == member_user_id,
+    )
+    result = await session.execute(stmt)
+    member = result.scalar_one_or_none()
+
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    await session.delete(member)
+    await session.commit()
+    return {"removed": True, "user_id": member_user_id}
+
+
 # Offer claim/unclaim endpoints moved to routes/pop_offers.py

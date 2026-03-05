@@ -94,6 +94,15 @@ async def send_pop_onboarding_email(email: str) -> EmailResult:
     return await send_pop_reply(email, subject, body_text)
 
 
+def send_pop_group_sms(phone_numbers: list[str], body_text: str) -> int:
+    """Send an outbound SMS to multiple phones (group MMS reply). Returns count of successful sends."""
+    sent = 0
+    for phone in phone_numbers:
+        if send_pop_sms(phone, body_text):
+            sent += 1
+    return sent
+
+
 def send_pop_onboarding_sms(phone: str) -> bool:
     """Send onboarding SMS to an unknown phone number."""
     body = (

@@ -427,3 +427,109 @@ async def test_patch_item_returns_attribution(
     assert data["origin_user_id"] == user.id
 
 
+# ---------------------------------------------------------------------------
+# PRD-03: Household Member Management
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_get_project_members(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    pop_project: Project,
+):
+    """GET /pop/projects/{id}/members returns members list."""
+    user, token = pop_user
+    from routes.pop_helpers import _ensure_project_member
+    await _ensure_project_member(session, pop_project.id, user.id, channel="web", role="owner")
+
+    resp = await client.get(
+        f"/pop/projects/{pop_project.id}/members",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["project_id"] == pop_project.id
+    assert isinstance(data["members"], list)
+    assert len(data["members"]) >= 1
+    assert any(m["user_id"] == user.id for m in data["members"])
+
+
+@pytest.mark.asyncio
+async def test_get_project_members_401_without_auth(
+    client: AsyncClient,
+    pop_project: Project,
+):
+    resp = await client.get(f"/pop/projects/{pop_project.id}/members")
+    assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_remove_project_member(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    other_user,
+    pop_project: Project,
+):
+    """Owner can remove a member from the household."""
+    user, token = pop_user
+    other, _ = other_user
+    from routes.pop_helpers import _ensure_project_member
+    await _ensure_project_member(session, pop_project.id, user.id, channel="web", role="owner")
+    await _ensure_project_member(session, pop_project.id, other.id, channel="sms", role="member")
+
+    resp = await client.delete(
+        f"/pop/projects/{pop_project.id}/members/{other.id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["removed"] is True
+
+    # Verify member is gone
+    members_resp = await client.get(
+        f"/pop/projects/{pop_project.id}/members",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    member_ids = [m["user_id"] for m in members_resp.json()["members"]]
+    assert other.id not in member_ids
+
+
+@pytest.mark.asyncio
+async def test_remove_self_from_own_list_400(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    pop_project: Project,
+):
+    """Owner cannot remove themselves."""
+    user, token = pop_user
+    resp = await client.delete(
+        f"/pop/projects/{pop_project.id}/members/{user.id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_non_owner_cannot_remove_member(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    other_user,
+    pop_project: Project,
+):
+    """Non-owner gets 403 when trying to remove a member."""
+    user, _ = pop_user
+    other, other_token = other_user
+    from routes.pop_helpers import _ensure_project_member
+    await _ensure_project_member(session, pop_project.id, user.id, channel="web", role="owner")
+    await _ensure_project_member(session, pop_project.id, other.id, channel="web", role="member")
+
+    resp = await client.delete(
+        f"/pop/projects/{pop_project.id}/members/{user.id}",
+        headers={"Authorization": f"Bearer {other_token}"},
+    )
+    assert resp.status_code == 403
+
+
