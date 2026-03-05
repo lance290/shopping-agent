@@ -11,8 +11,9 @@ This PRD introduces a Dual CopyLink system, providing users with two distinct li
 
 ## 2. Goals & Acceptance Criteria
 - **Joint List Sharing:** Users can click a "Copy List Link" button that copies a stable, invite-capable URL for their specific list (Project).
-- **TeamPop Referral Link:** Users can click a "Copy Referral Link" button that copies a unique link containing their user ID or affiliate code.
-- **Attribution & Wallet:** When a new user signs up via a referral link, the backend records the referrer. The system must issue a standard referral reward (e.g., wallet credit or ledger entry) to the referrer's wallet.
+- **TeamPop Referral Link:** Users can click a "Copy Referral Link" that includes their affiliate code. Kris and Peggy will power this TeamPop link, enabling users to share with their "Top150" network.
+- **Messaging / Slogan:** The sharing flow should utilize the hook: "united we save" — helping Americans save $100/mo on their grocery bills.
+- **Attribution & Wallet:** When a new user signs up via a referral link, the backend records the referrer. The system must issue a standard referral reward to the referrer's wallet.
 - **Acceptance Criteria:**
   - UI displays two clear "Copy Link" actions (Share List vs. Refer Friends).
   - Clicking either copies the correct respective URL to the clipboard.

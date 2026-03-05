@@ -6,11 +6,12 @@
 PopSavings aims to convert raw shopping intent into a monetizable network by connecting household lists directly to CPG (Consumer Packaged Goods) brand managers. Using a combination of Kroger MCP for item selection, Scout/Tod for automated outreach, and a self-serve portal, PMs can embed GroFlo-powered coupons directly into users' lists. This creates a B2B2C flywheel where brands are incentivized to share lists with their audiences.
 
 ## 2. Goals & Acceptance Criteria
-- **Item Selection via Kroger MCP:** Users can search and select specific, purchasable retail items using the Kroger MCP integration.
-- **Brand Mapping & PM Outreach:** Backend maps selected items to their parent CPG brands and product managers (via Jeremy's DB). Pop/Tod executes automated outreach to these PMs via Scout.
-- **Self-Serve Coupon Publishing:** PMs receive a secure, one-click link to a portal where they can attach a GroFlo coupon to their product.
+- **Item Selection via Kroger MCP:** Users can search and select specific, purchasable retail items using the Kroger MCP integration (managed by Lance).
+- **Brand Mapping & PM Outreach:** Backend maps selected items to their parent CPG brands and product managers. Jeremy provides the database of every CPG product manager. Pop/Tod executes automated outreach to these PMs.
+- **Scout Referral Routing:** Kris and Peggy utilize Scout to do referred routing of the coupon requests to all of those PMs.
+- **Self-Serve Coupon Publishing:** PMs receive a secure link to a portal where they can self-serve add a GroFlo-powered coupon to their product.
 - **In-List Coupon Display:** When a coupon is active for an item on a user's list, the UI displays a visual badge/button to "Clip Coupon."
-- **Brand Amplification Incentive:** Brand managers who refer users (via TeamPop referral links) earn top sponsored deal slots under matching categories/items.
+- **Brand Amplification Incentive:** Brand managers who refer users (via TeamPop referral links) earn top sponsored deal slots under matching categories/items, and receive rev share for signing up users in their Wallet.
 - **Acceptance Criteria:**
   - A user can search "Tide" and pick a specific Kroger item.
   - The system logs an intent-to-buy and queues a Scout outreach task for the P&G PM.
