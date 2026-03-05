@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useShoppingStore, mapBidToOffer } from '../../store';
 import type { Row, Offer } from '../../store';
@@ -67,6 +67,13 @@ export function AppView({ children }: AppViewProps) {
   const [isTipJarLoading, setIsTipJarLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
+  // Chat panel resize state (desktop only)
+  const [chatWidth, setChatWidth] = useState(400);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(0);
+
   // Check environment on mount
   useEffect(() => {
     const hostname = window.location.hostname;
@@ -98,6 +105,44 @@ export function AppView({ children }: AppViewProps) {
       mounted = false;
     };
   }, []);
+
+  // Detect desktop breakpoint for resize handle visibility
+  useEffect(() => {
+    const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024);
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
+
+  // Global drag handlers for chat panel resize
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      const delta = e.clientX - dragStartX.current;
+      setChatWidth(Math.max(280, Math.min(800, dragStartWidth.current + delta)));
+    };
+    const handleMouseUp = () => {
+      if (!isDragging.current) return;
+      isDragging.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    isDragging.current = true;
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = chatWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  };
 
   const targetProjectId = useShoppingStore((s) => s.targetProjectId);
 
@@ -177,8 +222,20 @@ export function AppView({ children }: AppViewProps) {
       )}
 
       {/* Chat Pane */}
-      <div className="flex-[0_0_50vh] lg:flex-[0_0_400px] xl:flex-[0_0_500px] min-h-0 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-200 z-10">
+      <div
+        className="flex-[0_0_50vh] lg:flex-none min-h-0 flex flex-col border-b lg:border-b-0 z-10"
+        style={isDesktop ? { width: chatWidth, flexBasis: chatWidth } : undefined}
+      >
         {children}
+      </div>
+
+      {/* Resize Handle - desktop only */}
+      <div
+        className="hidden lg:flex flex-shrink-0 w-1 cursor-col-resize z-20 group items-center justify-center bg-gray-200 hover:bg-blue-400 active:bg-blue-500 transition-colors"
+        onMouseDown={handleResizeStart}
+        title="Drag to resize"
+      >
+        <div className="w-0.5 h-8 rounded-full bg-gray-400 group-hover:bg-blue-600 transition-colors" />
       </div>
 
       {/* List Pane */}
