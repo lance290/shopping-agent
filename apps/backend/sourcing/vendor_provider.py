@@ -21,31 +21,47 @@ from sourcing.repository import SearchResult, SourcingProvider
 
 logger = logging.getLogger(__name__)
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "openai/text-embedding-3-small")
-EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "1536"))
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/embeddings"
 
+
+def _get_openrouter_api_key() -> str:
+    """Read at call time so dotenv has loaded."""
+    return os.getenv("OPENROUTER_API_KEY", "")
+
+
+def _get_embedding_model() -> str:
+    return os.getenv("EMBEDDING_MODEL", "openai/text-embedding-3-small")
+
+
+def _get_embedding_dimensions() -> int:
+    return int(os.getenv("EMBEDDING_DIMENSIONS", "1536"))
+
 # Cosine distance threshold: 0 = identical, 2 = opposite
-DISTANCE_THRESHOLD = float(os.getenv("VENDOR_DISTANCE_THRESHOLD", "0.45"))
+# Default read at call time so .env overrides work
+def _get_distance_threshold() -> float:
+    return float(os.getenv("VENDOR_DISTANCE_THRESHOLD", "0.45"))
 
 
 async def _embed_texts(texts: List[str]) -> Optional[List[List[float]]]:
     """Embed one or more texts via OpenRouter in a single batched call."""
-    if not OPENROUTER_API_KEY:
+    api_key = _get_openrouter_api_key()
+    if not api_key:
+        logger.warning("[VendorProvider] No OPENROUTER_API_KEY — skipping embedding")
         return None
+    model = _get_embedding_model()
+    dims = _get_embedding_dimensions()
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(
                 OPENROUTER_BASE_URL,
                 headers={
-                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": EMBEDDING_MODEL,
+                    "model": model,
                     "input": texts,
-                    "dimensions": EMBEDDING_DIMENSIONS,
+                    "dimensions": dims,
                 },
             )
             resp.raise_for_status()
@@ -195,7 +211,8 @@ class VendorDirectoryProvider(SourcingProvider):
         #    Boost match_score when FTS also matched (fts_rank > 0)
         results: List[SearchResult] = []
         for r in rows:
-            if r["distance"] > DISTANCE_THRESHOLD:
+            threshold = _get_distance_threshold()
+            if r["distance"] > threshold:
                 continue
 
             url = r["website"] or ""
@@ -246,7 +263,7 @@ class VendorDirectoryProvider(SourcingProvider):
 
         fts_boosted = sum(1 for r in rows if float(r.get("fts_rank", 0)) > 0)
         logger.info(
-            f"[VendorProvider] Found {len(results)} vendors within distance {DISTANCE_THRESHOLD} "
+            f"[VendorProvider] Found {len(results)} vendors within distance {_get_distance_threshold()} "
             f"(checked {len(rows)}, {fts_boosted} had FTS boost)"
         )
         return results
