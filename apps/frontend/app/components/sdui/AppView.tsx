@@ -240,7 +240,7 @@ export function AppView({ children }: AppViewProps) {
 
       {/* List Pane */}
       <div className="flex-1 min-w-0 overflow-y-auto bg-gray-50/50">
-        {isAuthenticated !== true ? (
+        {isAuthenticated !== true && !activeRowId ? (
           <div className="p-6 space-y-8 bg-gradient-to-b from-[#111827] via-[#1f2937] to-[#111827] text-slate-100 min-h-full">
             <section className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm p-7 shadow-2xl">
               <p className="text-xs uppercase tracking-[0.35em] text-slate-400 mb-3">BuyAnything</p>
