@@ -46,6 +46,7 @@ from routes.rows_search_helpers import (
     _serialize_json_payload,
     _parse_intent_payload,
 )
+from sourcing.adapters import build_provider_query_map
 from sourcing.normalizers import normalize_generic_results
 from sourcing.scorer import score_results
 from sourcing.service import SourcingService
