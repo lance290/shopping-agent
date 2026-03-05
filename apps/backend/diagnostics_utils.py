@@ -68,9 +68,11 @@ def generate_diagnostics_summary(diagnostics_json) -> str:
     """
     if not diagnostics_json:
         return "No diagnostics available."
-    
+
     try:
         data = _parse_diagnostics(diagnostics_json)
+        if not isinstance(data, dict):
+            return "No diagnostics available."
         summary = []
         
         # User Agent & URL
