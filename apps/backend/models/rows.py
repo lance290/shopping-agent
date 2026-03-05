@@ -48,6 +48,10 @@ class RowBase(SQLModel):
     # SDUI schema (Phase 0.2)
     ui_schema_version: int = 0  # 0 = never had a schema; increments on each replacement
 
+    # Attribution (PRD-02: Grocery Taxonomy & History UI)
+    origin_channel: Optional[str] = None  # "sms", "email", "web"
+    origin_user_id: Optional[int] = None  # user who added this item (may differ from project owner)
+
     # Anonymous session scoping — browser-generated UUID stored in localStorage
     # Used to filter rows so each anonymous browser session only sees its own rows
     anonymous_session_id: Optional[str] = None

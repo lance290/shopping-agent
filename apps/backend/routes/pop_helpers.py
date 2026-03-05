@@ -174,10 +174,18 @@ async def _build_item_with_deals(session: AsyncSession, row: Row) -> dict:
         else:
             ui_schema = build_zero_results_schema(row)
 
+    answers = row.choice_answers if isinstance(row.choice_answers, dict) else {}
+
     return {
         "id": row.id,
         "title": row.title,
         "status": row.status,
+        "origin_channel": row.origin_channel,
+        "origin_user_id": row.origin_user_id,
+        "department": answers.get("department"),
+        "brand": answers.get("brand"),
+        "size": answers.get("size"),
+        "quantity": answers.get("quantity"),
         "deals": deals,
         "swaps": swaps[:3],
         "lowest_price": lowest_price,

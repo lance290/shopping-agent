@@ -351,3 +351,79 @@ async def test_delete_item_soft_deletes_row(
     assert pop_row.status == "canceled", "Row must be soft-deleted (status=canceled)"
 
 
+# ---------------------------------------------------------------------------
+# PRD-02: Grocery Taxonomy & Attribution
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_patch_item_taxonomy_fields(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    pop_row: Row,
+):
+    """PATCH /pop/item/{id} accepts and persists taxonomy fields in choice_answers."""
+    _, token = pop_user
+    resp = await client.patch(
+        f"/pop/item/{pop_row.id}",
+        json={"department": "Dairy", "brand": "Tillamook", "quantity": "2", "size": "gallon"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["department"] == "Dairy"
+    assert data["brand"] == "Tillamook"
+    assert data["quantity"] == "2"
+    assert data["size"] == "gallon"
+
+    await session.refresh(pop_row)
+    answers = pop_row.choice_answers or {}
+    assert answers["department"] == "Dairy"
+    assert answers["brand"] == "Tillamook"
+
+
+@pytest.mark.asyncio
+async def test_patch_item_title_and_taxonomy(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    pop_row: Row,
+):
+    """PATCH /pop/item/{id} can update title and taxonomy in one request."""
+    _, token = pop_user
+    resp = await client.patch(
+        f"/pop/item/{pop_row.id}",
+        json={"title": "Organic Whole Milk", "department": "Dairy"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["title"] == "Organic Whole Milk"
+    assert data["department"] == "Dairy"
+
+
+@pytest.mark.asyncio
+async def test_patch_item_returns_attribution(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    pop_row: Row,
+):
+    """PATCH response includes origin_channel and origin_user_id."""
+    user, token = pop_user
+    pop_row.origin_channel = "sms"
+    pop_row.origin_user_id = user.id
+    session.add(pop_row)
+    await session.commit()
+
+    resp = await client.patch(
+        f"/pop/item/{pop_row.id}",
+        json={"department": "Produce"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["origin_channel"] == "sms"
+    assert data["origin_user_id"] == user.id
+
+

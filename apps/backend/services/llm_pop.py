@@ -82,14 +82,21 @@ ACTION TYPES:
 5. "ask_clarification" — RARELY used. Only for chitchat, non-grocery requests, or true ambiguity.
 6. "search" — Re-search for deals on current item
 
+GROCERY TAXONOMY (extract when mentioned):
+- "department": one of Produce, Meat, Dairy, Pantry, Frozen, Bakery, Household, Personal Care, Pet, Other
+- "brand": specific brand name if mentioned (e.g. "Tillamook", "Kirkland")
+- "size": package size if mentioned (e.g. "gallon", "16 oz", "family size")
+- "quantity": count if mentioned (e.g. "2", "a dozen")
+Put these in the "constraints" object. Example: "2 gallons of Tillamook whole milk" → constraints: {{"department": "Dairy", "brand": "Tillamook", "size": "gallon", "quantity": "2"}}
+
 Return ONLY valid JSON. 
 
 For MULTIPLE new items (create_row / context_switch), use the "items" array AND provide a default fallback intent:
 {{
   "message": "Brief friendly response",
   "items": [
-    {{ "what": "Ice Cream", "search_query": "ice cream grocery deals" }},
-    {{ "what": "Cookies", "search_query": "cookies grocery deals" }}
+    {{ "what": "Ice Cream", "search_query": "ice cream grocery deals", "department": "Frozen" }},
+    {{ "what": "Cookies", "search_query": "cookies grocery deals", "department": "Pantry" }}
   ],
   "intent": {{
     "what": "Multiple items",
@@ -110,7 +117,7 @@ For a SINGLE item (create_row, update_row, delete_row, etc.), you MUST provide t
     "category": "product",
     "service_type": null,
     "search_query": "grocery search query for deals",
-    "constraints": {{}},
+    "constraints": {{ "department": "Dairy", "quantity": "2", "size": "gallon" }},
     "desire_tier": "commodity",
     "desire_confidence": 0.95
   }},

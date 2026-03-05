@@ -26,6 +26,30 @@ list_router = APIRouter()
 from routes.pop_offers import _classify_swaps_llm  # noqa: F401 — re-exported for backward compat
 
 
+def _extract_taxonomy(row: Row) -> dict:
+    """Extract taxonomy fields (department, brand, size, quantity) from choice_answers."""
+    answers = row.choice_answers if isinstance(row.choice_answers, dict) else {}
+    return {
+        "department": answers.get("department"),
+        "brand": answers.get("brand"),
+        "size": answers.get("size"),
+        "quantity": answers.get("quantity"),
+    }
+
+
+def _item_response(row: Row) -> dict:
+    """Build a single-item response dict with taxonomy + attribution."""
+    taxonomy = _extract_taxonomy(row)
+    return {
+        "id": row.id,
+        "title": row.title,
+        "status": row.status,
+        "origin_channel": row.origin_channel,
+        "origin_user_id": row.origin_user_id,
+        **taxonomy,
+    }
+
+
 @list_router.get("/list/{project_id}")
 async def get_pop_list(
     project_id: int,
@@ -131,11 +155,15 @@ async def get_pop_list(
                 "savings_vs_first": s.savings_cents / 100,
             })
 
+        taxonomy = _extract_taxonomy(row)
         items.append({
             "id": row.id,
             "title": row.title,
             "status": row.status,
             "created_at": row.created_at.isoformat() if row.created_at else None,
+            "origin_channel": row.origin_channel,
+            "origin_user_id": row.origin_user_id,
+            **taxonomy,
             "deals": deals,
             "swaps": swaps[:3],
             "lowest_price": lowest_price,
@@ -390,8 +418,18 @@ async def join_pop_list(
     return {"joined": True, "project_id": project.id, "title": project.title}
 
 
+GROCERY_DEPARTMENTS = [
+    "Produce", "Meat", "Dairy", "Pantry", "Frozen",
+    "Bakery", "Household", "Personal Care", "Pet", "Other",
+]
+
+
 class PatchItemRequest(BaseModel):
-    title: str
+    title: Optional[str] = None
+    department: Optional[str] = None
+    brand: Optional[str] = None
+    size: Optional[str] = None
+    quantity: Optional[str] = None
 
 
 @list_router.patch("/item/{row_id}")
@@ -401,7 +439,7 @@ async def patch_pop_item(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ):
-    """Rename a list item."""
+    """Update a list item's title and/or taxonomy fields (department, brand, size, quantity)."""
     user = await _get_pop_user(request, session)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -410,11 +448,25 @@ async def patch_pop_item(
     if not row or row.user_id != user.id:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    row.title = body.title.strip()
+    if body.title is not None:
+        row.title = body.title.strip()
+
+    answers = dict(row.choice_answers) if isinstance(row.choice_answers, dict) else {}
+    changed = False
+    for key in ("department", "brand", "size", "quantity"):
+        val = getattr(body, key, None)
+        if val is not None:
+            answers[key] = val.strip()
+            changed = True
+    if changed:
+        row.choice_answers = answers
+
     row.updated_at = datetime.utcnow()
     session.add(row)
     await session.commit()
-    return {"id": row.id, "title": row.title, "status": row.status}
+    await session.refresh(row)
+
+    return _item_response(row)
 
 
 @list_router.delete("/item/{row_id}")

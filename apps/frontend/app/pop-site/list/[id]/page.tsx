@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import PopItemEditor from './PopItemEditor';
 
 interface Deal {
   id: number;
@@ -32,6 +33,12 @@ interface ListItem {
   swaps: Swap[];
   lowest_price: number | null;
   deal_count: number;
+  department?: string | null;
+  brand?: string | null;
+  size?: string | null;
+  quantity?: string | null;
+  origin_channel?: string | null;
+  origin_user_id?: number | null;
 }
 
 interface PopList {
@@ -56,6 +63,7 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
   const [hasJoined, setHasJoined] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [editingItem, setEditingItem] = useState<ListItem | null>(null);
 
   useEffect(() => {
     async function fetchList() {
@@ -249,6 +257,16 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
                         {item.title}
                       </span>
                       <div className="flex items-center gap-2 mt-0.5">
+                        {item.department && (
+                          <span className="text-[10px] font-medium bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">
+                            {item.department}
+                          </span>
+                        )}
+                        {item.origin_channel && (
+                          <span className="text-[10px] text-gray-400">
+                            via {item.origin_channel}
+                          </span>
+                        )}
                         {item.lowest_price != null && (
                           <span className="text-xs font-semibold text-green-700">
                             from ${item.lowest_price.toFixed(2)}
@@ -265,6 +283,16 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
                           </span>
                         )}
                       </div>
+                    </button>
+
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditingItem(item); }}
+                      className="p-1.5 flex-shrink-0 text-gray-300 hover:text-green-600 transition-colors"
+                      title="Edit item"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
                     </button>
 
                     <button
@@ -484,6 +512,28 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
           </div>
         )}
       </div>
+
+      {/* Edit Item Modal */}
+      {editingItem && (
+        <PopItemEditor
+          item={editingItem}
+          onClose={() => setEditingItem(null)}
+          onSaved={(updated) => {
+            setList((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                items: prev.items.map((it) =>
+                  it.id === editingItem.id
+                    ? { ...it, ...updated }
+                    : it
+                ),
+              };
+            });
+            setEditingItem(null);
+          }}
+        />
+      )}
 
       {/* Footer */}
       <footer className="mt-12 py-6 text-center text-xs text-gray-400">

@@ -162,6 +162,7 @@ async def process_pop_message(
                     session, user.id, item_title, project.id,
                     is_service, service_category, constraints, item_search_query,
                     desire_tier=intent.desire_tier,
+                    origin_channel=channel,
                 )
                 target_row = row
                 
@@ -194,6 +195,7 @@ async def process_pop_message(
                 session, user.id, title, project.id,
                 is_service, service_category, constraints, search_query,
                 desire_tier=intent.desire_tier,
+                origin_channel=channel,
             )
             target_row = row
 
