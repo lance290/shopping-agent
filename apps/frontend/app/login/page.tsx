@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { startAuth, verifyAuth } from '../utils/auth';
 import { CheckCircle } from 'lucide-react';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function LoginPage() {
       <header className="sticky top-0 z-40 bg-navy text-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-14">
-            <a href="/" className="text-lg font-bold tracking-tight">BuyAnything</a>
+            <Link href="/" className="text-lg font-bold tracking-tight">BuyAnything</Link>
           </div>
         </div>
       </header>
@@ -36,12 +37,12 @@ export default function LoginPage() {
           <h1 className="text-2xl font-bold text-navy mb-2">You&apos;ve been signed out</h1>
           <p className="text-ink-muted mb-6">Thanks for using BuyAnything. See you next time!</p>
           <div className="flex flex-col gap-3">
-            <a
+            <Link
               href="/"
               className="w-full inline-block bg-navy text-white py-2.5 px-4 rounded-md hover:bg-navy-light transition-colors font-medium"
             >
               Back to Home
-            </a>
+            </Link>
             <button
               onClick={() => router.replace('/login')}
               className="text-sm text-ink-muted hover:text-navy transition-colors"
@@ -94,7 +95,7 @@ export default function LoginPage() {
         <header className="sticky top-0 z-40 bg-navy text-white shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center h-14">
-              <a href="/" className="text-lg font-bold tracking-tight">BuyAnything</a>
+              <Link href="/" className="text-lg font-bold tracking-tight">BuyAnything</Link>
             </div>
           </div>
         </header>
@@ -115,7 +116,7 @@ export default function LoginPage() {
       <header className="sticky top-0 z-40 bg-navy text-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-14">
-            <a href="/" className="text-lg font-bold tracking-tight">BuyAnything</a>
+            <Link href="/" className="text-lg font-bold tracking-tight">BuyAnything</Link>
           </div>
         </div>
       </header>
