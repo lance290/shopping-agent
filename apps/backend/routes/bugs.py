@@ -173,7 +173,8 @@ async def create_github_issue_task(bug_id: int):
             if bug.diagnostics:
                 try:
                     diag_data = json.loads(bug.diagnostics)
-                    page_url = diag_data.get("url")
+                    if isinstance(diag_data, dict):
+                        page_url = diag_data.get("url")
                 except (json.JSONDecodeError, TypeError, KeyError):
                     pass
 
