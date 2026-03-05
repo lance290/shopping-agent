@@ -151,15 +151,19 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
             </div>
           )}
           
-          {/* Sort toggle */}
+          {/* Sort dropdown */}
           {displayOffers.length > 1 && (
             <div className="flex justify-end">
-              <button
-                onClick={() => setSortMode((m) => m === 'relevance' ? 'price_asc' : m === 'price_asc' ? 'price_desc' : 'relevance')}
-                className="px-2.5 py-1 rounded-full border border-warm-grey bg-white text-[10px] text-ink-muted font-medium hover:border-ink-muted transition-colors"
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as typeof sortMode)}
+                className="text-[10px] text-ink-muted font-medium pl-2 pr-5 py-0.5 rounded border border-warm-grey bg-white hover:border-ink-muted transition-colors outline-none cursor-pointer appearance-none"
+                style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 4px center' }}
               >
-                {sortMode === 'relevance' ? 'Best Match' : sortMode === 'price_asc' ? 'Price ↑' : 'Price ↓'}
-              </button>
+                <option value="relevance">Best Match</option>
+                <option value="price_asc">Price: Low → High</option>
+                <option value="price_desc">Price: High → Low</option>
+              </select>
             </div>
           )}
 
