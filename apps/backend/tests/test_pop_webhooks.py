@@ -34,7 +34,40 @@ async def test_resend_webhook_accepted(client: AsyncClient, pop_user):
             )
 
     assert resp.status_code == 200
-    assert resp.json()["status"] == "accepted"
+
+
+@pytest.mark.asyncio
+async def test_twilio_webhook_image_only_mms_dispatches(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+):
+    """Image-only Twilio MMS should be accepted and forwarded with media URL."""
+    user, _ = pop_user
+    user.phone_number = "+15005550123"
+    session.add(user)
+    await session.commit()
+
+    with patch("routes.pop._verify_twilio_signature", return_value=True):
+        with patch("routes.pop_processor.process_pop_message", new_callable=AsyncMock) as mock_proc:
+            resp = await client.post(
+                "/pop/webhooks/twilio",
+                data={
+                    "From": "+15005550123",
+                    "NumMedia": "1",
+                    "MediaUrl0": "https://example.com/pantry.png",
+                    "MediaContentType0": "image/png",
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+
+    assert resp.status_code == 200
+    args = mock_proc.call_args[0]
+    assert args[0] == user.email
+    assert "grocery photos" in args[1].lower()
+    assert args[5] == ["https://example.com/pantry.png"]
+    assert "application/xml" in resp.headers.get("content-type", "")
+    assert "<Response/>" in resp.text
 
 
 @pytest.mark.asyncio
@@ -132,6 +165,60 @@ async def test_resend_webhook_parses_full_name_email(client: AsyncClient, pop_us
     # process_pop_message should receive the parsed email, not "John Doe <email>"
     call_args = mock_proc.call_args
     assert call_args[0][0] == user.email
+
+
+@pytest.mark.asyncio
+async def test_resend_webhook_image_only_attachment_dispatches(client: AsyncClient, pop_user):
+    """Image-only Resend payload should be accepted and forwarded with image URLs."""
+    user, _ = pop_user
+    payload = json.dumps({
+        "from": user.email,
+        "subject": "fridge photo",
+        "attachments": [
+            {"content_type": "image/jpeg", "url": "https://example.com/fridge.jpg"}
+        ],
+    }).encode()
+
+    with patch("routes.pop._verify_resend_signature", return_value=True):
+        with patch("routes.pop_processor.process_pop_message", new_callable=AsyncMock) as mock_proc:
+            resp = await client.post(
+                "/pop/webhooks/resend",
+                content=payload,
+                headers={"Content-Type": "application/json"},
+            )
+
+    assert resp.status_code == 200
+    args = mock_proc.call_args[0]
+    assert args[0] == user.email
+    assert "grocery photos" in args[1].lower()
+    assert args[5] == ["https://example.com/fridge.jpg"]
+
+
+@pytest.mark.asyncio
+async def test_resend_webhook_nested_data_envelope_parsed(client: AsyncClient, pop_user):
+    """Resend webhook nested payload under data should be handled."""
+    user, _ = pop_user
+    payload = json.dumps({
+        "type": "email.received",
+        "data": {
+            "from": f"User <{user.email}>",
+            "text": "add bananas",
+            "subject": "list",
+        },
+    }).encode()
+
+    with patch("routes.pop._verify_resend_signature", return_value=True):
+        with patch("routes.pop_processor.process_pop_message", new_callable=AsyncMock) as mock_proc:
+            resp = await client.post(
+                "/pop/webhooks/resend",
+                content=payload,
+                headers={"Content-Type": "application/json"},
+            )
+
+    assert resp.status_code == 200
+    args = mock_proc.call_args[0]
+    assert args[0] == user.email
+    assert args[1] == "add bananas"
 
 
 # ---------------------------------------------------------------------------

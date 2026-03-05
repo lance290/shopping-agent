@@ -1,6 +1,7 @@
 import hmac
 import hashlib
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import PlainTextResponse
@@ -41,6 +42,45 @@ async def pop_health():
     """Health check for Pop/Bob service."""
     return {"status": "ok", "service": "pop"}
 
+
+def _extract_twilio_media_urls(params: dict[str, Any]) -> list[str]:
+    """Extract image media URLs from Twilio webhook params."""
+    raw_count = params.get("NumMedia", "0")
+    try:
+        media_count = int(raw_count)
+    except (TypeError, ValueError):
+        media_count = 0
+
+    image_urls: list[str] = []
+    for idx in range(media_count):
+        media_url = str(params.get(f"MediaUrl{idx}", "")).strip()
+        media_type = str(params.get(f"MediaContentType{idx}", "")).lower()
+        if media_url and media_type.startswith("image/"):
+            image_urls.append(media_url)
+    return image_urls
+
+
+def _extract_resend_image_urls(payload: dict[str, Any]) -> list[str]:
+    """Extract image attachment URLs from Resend inbound payload."""
+    attachments = payload.get("attachments") or []
+    if not isinstance(attachments, list):
+        return []
+
+    image_urls: list[str] = []
+    for attachment in attachments:
+        if not isinstance(attachment, dict):
+            continue
+        content_type = str(attachment.get("content_type") or attachment.get("mime_type") or "").lower()
+        if content_type and not content_type.startswith("image/"):
+            continue
+
+        for key in ("url", "content_url", "download_url", "href"):
+            candidate = str(attachment.get(key) or "").strip()
+            if candidate:
+                image_urls.append(candidate)
+                break
+    return image_urls
+
 def _verify_resend_signature(payload: bytes, signature: str) -> bool:
     """Verify Resend webhook signature using HMAC-SHA256."""
     if not RESEND_WEBHOOK_SECRET:
@@ -70,22 +110,35 @@ async def resend_inbound(
         raise HTTPException(status_code=401, detail="Invalid signature")
 
     payload = await request.json()
+    envelope = payload.get("data") if isinstance(payload.get("data"), dict) else payload
 
     # Resend inbound webhook payload structure
-    sender = payload.get("from", "")
+    sender = envelope.get("from", "")
     # "from" may be a full address like "John <john@example.com>" — extract email
     if "<" in sender and ">" in sender:
         sender = sender.split("<")[1].split(">")[0]
 
-    body = payload.get("text", "") or payload.get("html", "")
-    subject = payload.get("subject", "")
+    body = envelope.get("text", "") or envelope.get("html", "")
+    subject = envelope.get("subject", "")
+    image_urls = _extract_resend_image_urls(envelope)
 
-    if not sender or not body:
-        raise HTTPException(status_code=400, detail="Missing sender or body")
+    if not sender or (not body and not image_urls):
+        raise HTTPException(status_code=400, detail="Missing sender and message content")
 
-    logger.info(f"[Pop] Resend inbound from {sender}: {subject}")
+    if not body and image_urls:
+        body = "User sent grocery photos. Extract items and add to list."
 
-    background_tasks.add_task(pop_processor.process_pop_message, sender, body, session, "email", None)
+    logger.info(f"[Pop] Resend inbound from {sender}: {subject} (images={len(image_urls)})")
+
+    background_tasks.add_task(
+        pop_processor.process_pop_message,
+        sender,
+        body,
+        session,
+        "email",
+        None,
+        image_urls,
+    )
 
     return {"status": "accepted"}
 
@@ -119,11 +172,15 @@ async def twilio_inbound(
 
     sender_phone = params.get("From", "")
     body = params.get("Body", "")
+    image_urls = _extract_twilio_media_urls(params)
 
-    if not sender_phone or not body:
-        raise HTTPException(status_code=400, detail="Missing From or Body")
+    if not sender_phone or (not body and not image_urls):
+        raise HTTPException(status_code=400, detail="Missing From and message content")
 
-    logger.info(f"[Pop] Twilio SMS from {sender_phone}: {body[:80]}")
+    if not body and image_urls:
+        body = "User sent grocery photos via SMS. Extract items and add to list."
+
+    logger.info(f"[Pop] Twilio SMS from {sender_phone}: {body[:80]} (images={len(image_urls)})")
 
     # Look up user by phone number
     statement = select(User).where(User.phone_number == sender_phone)
@@ -132,7 +189,13 @@ async def twilio_inbound(
 
     if user and user.email:
         background_tasks.add_task(
-            pop_processor.process_pop_message, user.email, body, session, "sms", sender_phone,
+            pop_processor.process_pop_message,
+            user.email,
+            body,
+            session,
+            "sms",
+            sender_phone,
+            image_urls,
         )
     else:
         logger.info(f"[Pop] Unknown phone {sender_phone}. Sending onboarding SMS.")

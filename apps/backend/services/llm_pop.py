@@ -32,6 +32,8 @@ async def make_pop_decision(ctx: ChatContext) -> UnifiedDecision:
 
     recent = ctx.conversation_history[-6:] if ctx.conversation_history else []
     recent_text = "\n".join(f"  {m['role']}: {m['content']}" for m in recent)
+    image_url_lines = "\n".join(f"  - {u}" for u in (ctx.image_urls or []))
+    image_input = image_url_lines if image_url_lines else "none"
 
     prompt = f"""You are Pop, a fast and friendly grocery savings assistant. Your job is to help users build their grocery shopping list and find the best deals.
 
@@ -39,6 +41,8 @@ INPUTS:
 - User message: "{ctx.user_message}"
 - Active list item (the one the user is currently talking about or just added): {active_row_json}
 - Shopping list: {active_project_json}
+- Image URLs (if any):
+{image_input}
 - Recent conversation:
 {recent_text}
 
@@ -58,6 +62,7 @@ GOLDEN RULES:
    - If they want to CHANGE the active item entirely: use "update_row" with the new name.
    - If they want to DELETE the active item: use "delete_row".
    - If they are clarifying details of the active item (e.g. "organic"): use "update_row" with new constraints.
+8. **If image URLs are present, extract likely grocery items from the image first** (fridge/pantry/receipt/recipe photos), then map to simple grocery item names.
 
 HANDLING USER MESSAGES:
 - "hi" / "hello" / "hey" → GREET BACK. Message: "Hey! What do you need from the store today?" Action: "ask_clarification".
@@ -113,7 +118,7 @@ For a SINGLE item (create_row, update_row, delete_row, etc.), you MUST provide t
 }}"""
 
     try:
-        text = await call_gemini(prompt, timeout=20.0)
+        text = await call_gemini(prompt, timeout=20.0, image_urls=ctx.image_urls or [])
         parsed = _extract_json(text)
 
         # Handle multi-item responses: LLM returns "items" array instead of "intent"

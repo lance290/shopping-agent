@@ -3,7 +3,7 @@
 import json
 import logging
 import re
-from typing import Optional
+from typing import Optional, List
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -35,6 +35,7 @@ async def process_pop_message(
     session: AsyncSession,
     channel: str = "email",
     sender_phone: Optional[str] = None,
+    image_urls: Optional[List[str]] = None,
 ):
     """
     Core logic for Pop:
@@ -124,6 +125,7 @@ async def process_pop_message(
             active_row=active_row_data,
             active_project={"id": project.id, "title": project.title},
             pending_clarification=None,
+            image_urls=image_urls or [],
         )
 
         # 4. NLU Decision

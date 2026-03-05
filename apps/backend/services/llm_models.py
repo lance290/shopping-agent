@@ -62,3 +62,4 @@ class ChatContext(BaseModel):
     active_row: Optional[Dict[str, Any]] = None
     active_project: Optional[Dict[str, Any]] = None
     pending_clarification: Optional[Dict[str, Any]] = None
+    image_urls: Optional[List[str]] = None
