@@ -18,7 +18,7 @@ export default function ChatHeader({ activeRow, userEmail, userPhone, onLogout }
       <div className="flex items-center gap-3 min-w-0">
         <h2 className="text-base font-semibold flex items-center gap-2 shrink-0">
           <Bot className="w-5 h-5 text-gold" />
-          <span className="hidden sm:inline tracking-tight">BuyAnything</span>
+          <span className="hidden sm:inline tracking-tight"><span className="text-white">Buy</span><span className="text-gold">Anything</span></span>
         </h2>
         {activeRow && (
           <div className="flex items-center gap-1.5 text-xs text-white/60 min-w-0">

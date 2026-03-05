@@ -10,12 +10,12 @@ export function PriceBlock({ amount, currency, label }: PriceBlockData) {
   return (
     <div className="flex items-baseline gap-2">
       {formatted ? (
-        <span className="text-xl font-bold text-gray-900">{formatted}</span>
+        <span className="text-xl font-bold text-ink">{formatted}</span>
       ) : (
-        <span className="text-lg font-semibold text-blue-600">Request Quote</span>
+        <span className="text-lg font-semibold text-gold-dark">Request Quote</span>
       )}
       {label && label !== 'Total' && (
-        <span className="text-sm text-gray-500">{label}</span>
+        <span className="text-sm text-ink-muted">{label}</span>
       )}
     </div>
   );

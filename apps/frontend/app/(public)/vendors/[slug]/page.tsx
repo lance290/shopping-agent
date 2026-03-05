@@ -77,7 +77,7 @@ export default function VendorDetailPage() {
   if (loading) {
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
-        <Loader2 className="w-8 h-8 animate-spin text-navy mx-auto mb-4" />
+        <Loader2 className="w-8 h-8 animate-spin text-gold mx-auto mb-4" />
         <p className="text-ink-muted">Loading vendor details...</p>
       </div>
     );
@@ -87,9 +87,9 @@ export default function VendorDetailPage() {
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
         <Store className="w-12 h-12 text-ink-muted mx-auto mb-4" />
-        <h1 className="text-xl font-bold text-navy mb-2">Vendor Not Found</h1>
+        <h1 className="text-xl font-bold text-ink mb-2">Vendor Not Found</h1>
         <p className="text-ink-muted mb-6">The vendor you&apos;re looking for doesn&apos;t exist or has been removed.</p>
-        <Link href="/vendors" className="text-sm text-navy hover:text-navy-light font-medium underline">
+        <Link href="/vendors" className="text-sm text-accent-blue hover:text-accent-blue-hover font-medium underline">
           Browse all vendors
         </Link>
       </div>
@@ -108,12 +108,12 @@ export default function VendorDetailPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaMarkup) }}
         />
       )}
-      <Link href="/vendors" className="inline-flex items-center gap-1 text-sm text-navy hover:underline mb-6">
+      <Link href="/vendors" className="inline-flex items-center gap-1 text-sm text-accent-blue hover:underline mb-6">
         <ArrowLeft size={14} /> Back to directory
       </Link>
 
       <div className="bg-white rounded-xl border border-warm-grey overflow-hidden">
-        <div className="bg-gradient-to-r from-navy to-navy-light px-6 py-8">
+        <div className="bg-navy px-6 py-8">
           <div className="flex items-center gap-3 mb-2">
             <Store size={20} className="text-gold-light" />
             {vendor.category && (
@@ -133,14 +133,14 @@ export default function VendorDetailPage() {
           {typeof seo.summary === 'string' && seo.summary && (
             <div>
               <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider mb-2">Summary</h2>
-              <p className="text-navy leading-relaxed whitespace-pre-line">{seo.summary}</p>
+              <p className="text-ink leading-relaxed whitespace-pre-line">{seo.summary}</p>
             </div>
           )}
 
           {vendor.description && (
             <div>
               <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider mb-2">About</h2>
-              <p className="text-navy leading-relaxed whitespace-pre-line">{vendor.description}</p>
+              <p className="text-ink leading-relaxed whitespace-pre-line">{vendor.description}</p>
             </div>
           )}
 
@@ -149,7 +149,7 @@ export default function VendorDetailPage() {
               <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider mb-2">Services</h2>
               <ul className="space-y-2">
                 {seo.services_list.map((s: unknown, i: number) => (
-                  <li key={i} className="text-navy">{String(s)}</li>
+                  <li key={i} className="text-ink">{String(s)}</li>
                 ))}
               </ul>
             </div>
@@ -161,7 +161,7 @@ export default function VendorDetailPage() {
               <div className="space-y-3">
                 {seo.features_matrix.map((f, i: number) => (
                   <div key={i} className="rounded-lg border border-warm-grey p-3">
-                    <div className="font-medium text-navy text-sm">
+                    <div className="font-medium text-ink text-sm">
                       {String(f?.feature || '')}
                     </div>
                     {f?.details && (
@@ -178,7 +178,7 @@ export default function VendorDetailPage() {
               <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider mb-2">Specialties</h2>
               <div className="flex flex-wrap gap-2">
                 {specialties.map((s, i) => (
-                  <span key={i} className="inline-flex items-center gap-1 px-3 py-1 bg-canvas-dark text-navy text-sm rounded-full">
+                  <span key={i} className="inline-flex items-center gap-1 px-3 py-1 bg-canvas-dark text-ink text-sm rounded-full">
                     <Tag size={12} /> {s}
                   </span>
                 ))}
@@ -192,7 +192,7 @@ export default function VendorDetailPage() {
                 href={`/api/out?url=${encodeURIComponent(vendor.website)}&merchant=${encodeURIComponent(vendor.name)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-navy hover:bg-navy-light text-white font-medium rounded-lg transition-colors"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gold hover:bg-gold-dark text-navy font-semibold rounded-lg transition-colors"
               >
                 <ExternalLink size={16} /> Visit Website
               </a>

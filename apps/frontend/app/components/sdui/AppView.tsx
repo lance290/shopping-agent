@@ -2,13 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useShoppingStore, mapBidToOffer } from '../../store';
-import type { Row, Offer } from '../../store';
-import { createProjectInDb, duplicateProjectInDb, runSearchApiWithStatus } from '../../utils/api';
-import { Bug, FolderPlus, Trash2, RotateCw, Copy } from 'lucide-react';
-import { DynamicRenderer } from './DynamicRenderer';
-import { validateUISchema } from '../../sdui/types';
-import VendorContactModal from '../VendorContactModal';
+import { useShoppingStore } from '../../store';
+import type { Row } from '../../store';
+import { createProjectInDb, duplicateProjectInDb } from '../../utils/api';
+import { Bug, FolderPlus, Copy } from 'lucide-react';
+import { VerticalListRow } from './VerticalListRow';
 import { getMe } from '../../utils/auth';
 
 interface AppViewProps {
@@ -208,13 +206,13 @@ export function AppView({ children }: AppViewProps) {
     <div className="flex flex-col lg:flex-row h-[100dvh] w-full overflow-hidden relative">
       {/* Undo Toast */}
       {pendingRowDelete && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-navy text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
           <div className="text-sm font-medium">
             Deleted &quot;{pendingRowDelete.row.title}&quot;
           </div>
           <button
             onClick={undoDeleteRow}
-            className="text-sm font-bold text-blue-400 hover:text-blue-300 transition-colors bg-white/10 px-3 py-1.5 rounded-lg"
+            className="text-sm font-bold text-gold hover:text-gold-dark transition-colors bg-white/10 px-3 py-1.5 rounded-lg"
           >
             Undo
           </button>
@@ -231,21 +229,21 @@ export function AppView({ children }: AppViewProps) {
 
       {/* Resize Handle - desktop only */}
       <div
-        className="hidden lg:flex flex-shrink-0 w-1 cursor-col-resize z-20 group items-center justify-center bg-gray-200 hover:bg-blue-400 active:bg-blue-500 transition-colors"
+        className="hidden lg:flex flex-shrink-0 w-1 cursor-col-resize z-20 group items-center justify-center bg-warm-grey hover:bg-gold active:bg-gold-dark transition-colors"
         onMouseDown={handleResizeStart}
         title="Drag to resize"
       >
-        <div className="w-0.5 h-8 rounded-full bg-gray-400 group-hover:bg-blue-600 transition-colors" />
+        <div className="w-0.5 h-8 rounded-full bg-onyx-muted group-hover:bg-gold-dark transition-colors" />
       </div>
 
       {/* List Pane */}
-      <div className="flex-1 min-w-0 overflow-y-auto bg-gray-50/50">
+      <div className="flex-1 min-w-0 overflow-y-auto bg-canvas-dark/50">
         {isAuthenticated !== true && !activeRowId ? (
-          <div className="p-6 space-y-8 bg-gradient-to-b from-[#111827] via-[#1f2937] to-[#111827] text-slate-100 min-h-full">
+          <div className="p-6 space-y-8 bg-gradient-to-b from-[#111827] via-[#1f2937] to-[#111827] text-white min-h-full">
             <section className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm p-7 shadow-2xl">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400 mb-3">BuyAnything</p>
+              <p className="text-xs uppercase tracking-[0.35em] text-white/50 mb-3">BuyAnything</p>
               <h2 className="text-3xl font-semibold text-white leading-tight">Every purchase decision, handled.</h2>
-              <p className="mt-3 text-sm text-slate-300 max-w-2xl">
+              <p className="mt-3 text-sm text-white/70 max-w-2xl">
                 Tell the chat what you need. We’ll infer intent, compare options, and keep your shortlist
                 tidy once you sign in.
               </p>
@@ -271,8 +269,8 @@ export function AppView({ children }: AppViewProps) {
 
             <section>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Trending intents</h3>
-                <span className="text-xs text-slate-500 uppercase tracking-widest">Tap to ask chat</span>
+                <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wide">Trending intents</h3>
+                <span className="text-xs text-white/40 uppercase tracking-widest">Tap to ask chat</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {TRENDING_SEARCHES.map((label) => (
@@ -280,7 +278,7 @@ export function AppView({ children }: AppViewProps) {
                     key={label}
                     type="button"
                     onClick={() => handleIntentClick(label)}
-                    className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-slate-100 hover:bg-white/20"
+                    className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20"
                   >
                     {label}
                   </button>
@@ -289,11 +287,11 @@ export function AppView({ children }: AppViewProps) {
             </section>
 
             <section>
-              <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">Editorial guides</h3>
+              <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wide mb-3">Editorial guides</h3>
               <div className="grid gap-3 md:grid-cols-2">
                 {GUIDE_LINKS.map((guide) => (
                   <div key={guide.slug} className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
-                    <div className="h-28 w-full bg-slate-800">
+                    <div className="h-28 w-full bg-navy">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={guide.image} alt={guide.title} className="h-full w-full object-cover opacity-90" />
                     </div>
@@ -311,7 +309,7 @@ export function AppView({ children }: AppViewProps) {
                       <button
                         type="button"
                         onClick={() => handleIntentClick(guide.title)}
-                        className="text-slate-300 hover:text-white"
+                        className="text-white/70 hover:text-white"
                       >
                         Ask chat →
                       </button>
@@ -325,7 +323,7 @@ export function AppView({ children }: AppViewProps) {
         ) : (
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+            <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wide">
               Your List
             </h2>
             <div className="flex items-center gap-2">
@@ -357,7 +355,7 @@ export function AppView({ children }: AppViewProps) {
               </button>
               <button
                 onClick={handleCreateProject}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-accent-blue bg-accent-blue/10 rounded-lg hover:bg-accent-blue/20 transition-colors"
               >
                 <FolderPlus size={14} />
                 New Project
@@ -376,7 +374,7 @@ export function AppView({ children }: AppViewProps) {
           </div>
 
           {activeRows.length === 0 && (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-onyx-muted">
               <p className="text-sm">No items yet. Start a conversation to add items.</p>
             </div>
           )}
@@ -389,50 +387,52 @@ export function AppView({ children }: AppViewProps) {
             
             return (
               <div key={project.id} className="mb-4">
-                <button
-                  onClick={() => setCollapsedProjects(prev => ({ ...prev, [project.id]: !isCollapsed }))}
-                  className="w-full flex items-center justify-between mb-2 pb-1 border-b border-gray-200 group hover:border-blue-300 transition-colors"
+                <div
+                  role="group"
+                  className="w-full flex items-center justify-between mb-2 pb-1 border-b border-warm-grey group hover:border-gold transition-colors"
                 >
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <button
+                    onClick={() => setCollapsedProjects(prev => ({ ...prev, [project.id]: !isCollapsed }))}
+                    className="flex items-center gap-2 text-left"
+                  >
+                    <svg className="w-4 h-4 text-gold-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                     </svg>
-                    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide group-hover:text-blue-700 transition-colors">{project.title}</span>
-                    <span className="text-xs text-gray-400">{projectRows.length} item{projectRows.length !== 1 ? 's' : ''}</span>
+                    <span className="text-xs font-semibold text-ink uppercase tracking-wide group-hover:text-gold-dark transition-colors">{project.title}</span>
+                    <span className="text-xs text-onyx-muted">{projectRows.length} item{projectRows.length !== 1 ? 's' : ''}</span>
                     {targetProjectId === project.id && (
-                      <span className="ml-2 px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider">
+                      <span className="ml-2 px-1.5 py-0.5 rounded bg-gold/20 text-gold-dark text-[10px] font-bold uppercase tracking-wider">
                         Active
                       </span>
                     )}
-                  </div>
+                    <svg className={`w-4 h-4 text-onyx-muted transition-transform ${isCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onClick={() => {
                         if (targetProjectId === project.id) {
                           setTargetProjectId(null);
                         } else {
                           setTargetProjectId(project.id);
                         }
                       }}
-                      className="opacity-0 group-hover:opacity-100 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition-all"
+                      className="opacity-0 group-hover:opacity-100 px-2 py-1 text-xs text-accent-blue hover:bg-accent-blue/10 rounded transition-all"
                     >
                       {targetProjectId === project.id ? 'Cancel Add' : '+ Add Item'}
                     </button>
                     <button
                       onClick={(e) => handleDuplicateProject(e, project.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-blue-600 rounded transition-colors"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-onyx-muted hover:text-accent-blue rounded transition-colors"
                       title="Duplicate List"
                     >
                       <Copy size={14} />
                     </button>
-                    <svg className={`w-4 h-4 text-gray-400 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
                   </div>
-                </button>
+                </div>
                 {!isCollapsed && (
-                  <div className="space-y-2 pl-2 border-l-2 border-blue-100">
+                  <div className="space-y-2 pl-2 border-l-2 border-gold/30">
                     {projectRows.map(renderRow)}
                   </div>
                 )}
@@ -448,13 +448,13 @@ export function AppView({ children }: AppViewProps) {
                 {projects.length > 0 && (
                   <button
                     onClick={() => setCollapsedProjects(prev => ({ ...prev, ungrouped: !isCollapsed }))}
-                    className="w-full flex items-center justify-between mb-2 pb-1 border-b border-gray-200 group hover:border-blue-300 transition-colors"
+                    className="w-full flex items-center justify-between mb-2 pb-1 border-b border-warm-grey group hover:border-gold transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide group-hover:text-blue-700 transition-colors">Other Requests</span>
-                      <span className="text-xs text-gray-400">{ungrouped.length} item{ungrouped.length !== 1 ? 's' : ''}</span>
+                      <span className="text-xs font-semibold text-onyx-muted uppercase tracking-wide group-hover:text-gold-dark transition-colors">Other Requests</span>
+                      <span className="text-xs text-onyx-muted">{ungrouped.length} item{ungrouped.length !== 1 ? 's' : ''}</span>
                     </div>
-                    <svg className={`w-4 h-4 text-gray-400 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className={`w-4 h-4 text-onyx-muted transition-transform ${isCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
@@ -470,197 +470,6 @@ export function AppView({ children }: AppViewProps) {
         </div>
         )}
       </div>
-    </div>
-  );
-}
-
-interface VerticalListRowProps {
-  row: Row;
-  offers: Offer[];
-  isActive: boolean;
-  isExpanded: boolean;
-  onSelect: () => void;
-  onToggleExpand: () => void;
-}
-
-function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, onToggleExpand }: VerticalListRowProps) {
-  const hasSchema = !!(row.ui_schema && validateUISchema(row.ui_schema));
-  const bidCount = row.bids?.length ?? 0;
-  const displayOffers = offers.length > 0 ? offers : (row.bids || []).map(mapBidToOffer);
-  
-  const requestDeleteRow = useShoppingStore((s) => s.requestDeleteRow);
-  const setIsSearching = useShoppingStore((s) => s.setIsSearching);
-  const setRowResults = useShoppingStore((s) => s.setRowResults);
-
-  const handleRerunSearch = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      setIsSearching(true);
-      const res = await runSearchApiWithStatus(null, row.id);
-      setRowResults(row.id, res.results, res.providerStatuses);
-    } catch (err) {
-      console.error('Failed to rerun search', err);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    requestDeleteRow(row.id);
-  };
-
-  return (
-    <div
-      className={`bg-white rounded-xl shadow-sm border transition-all ${
-        isActive ? 'border-blue-400 ring-1 ring-blue-200' : 'border-gray-200'
-      }`}
-    >
-      {/* Row Header */}
-      <button
-        className="w-full text-left px-4 py-3 flex items-center gap-3 group"
-        onClick={() => { onSelect(); onToggleExpand(); }}
-      >
-        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-          row.status === 'sourcing' ? 'bg-yellow-400 animate-pulse' :
-          row.status === 'closed' || row.status === 'delivered' ? 'bg-green-400' :
-          'bg-blue-400'
-        }`} />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate">{row.title}</p>
-          <p className="text-xs text-gray-500">
-            {row.status === 'sourcing' ? 'Searching...' :
-             bidCount > 0 ? `${bidCount} option${bidCount !== 1 ? 's' : ''}` :
-             row.status}
-          </p>
-        </div>
-        
-        {/* Quick Actions (visible on hover) */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pr-2">
-          <div 
-            onClick={handleRerunSearch}
-            className="p-1.5 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
-            title="Rerun Search"
-          >
-            <RotateCw size={14} />
-          </div>
-          <div 
-            onClick={handleDelete}
-            className="p-1.5 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
-            title="Delete Request"
-          >
-            <Trash2 size={14} />
-          </div>
-        </div>
-
-        <svg className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-
-      {/* Expanded: show SDUI schema + ALL bids as cards */}
-      {isExpanded && (
-        <div className="border-t border-gray-100 px-4 py-3 space-y-4 max-h-[600px] overflow-y-auto">
-          {hasSchema && (
-            <div className="mb-4">
-              <DynamicRenderer
-                schema={row.ui_schema}
-                fallbackTitle={row.title}
-                fallbackStatus={row.status}
-              />
-            </div>
-          )}
-          
-          <div className="space-y-2">
-            {displayOffers.length === 0 && !hasSchema && (
-              <p className="text-sm text-gray-400 italic">No options found yet.</p>
-            )}
-            {displayOffers.map((offer, i) => (
-              <BidCard key={offer.bid_id ?? i} offer={offer} row={row} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-const SOURCE_DISPLAY_NAMES: Record<string, string> = {
-  rainforest_amazon: 'Amazon',
-  amazon: 'Amazon',
-  ebay_browse: 'eBay',
-  ebay: 'eBay',
-  serpapi: 'Google',
-  google_cse: 'Google',
-  kroger: 'Kroger',
-  vendor_directory: 'Vendor',
-  seller_quote: 'Quote',
-  registered_merchant: 'Merchant',
-};
-
-function friendlySource(source: string): string {
-  return SOURCE_DISPLAY_NAMES[source] || source.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
-
-function BidCard({ offer, row }: { offer: Offer; row: Row }) {
-  const [showContactModal, setShowContactModal] = useState(false);
-  const priceStr = offer.price !== null && offer.price !== undefined
-    ? `$${offer.price.toFixed(2)}`
-    : 'Request Quote';
-
-  const isVendor = offer.source === 'vendor_directory' || offer.is_service_provider;
-
-  return (
-    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
-      {offer.image_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={offer.image_url} alt={offer.title} className="w-12 h-12 rounded-md object-cover bg-gray-100 flex-shrink-0" />
-      ) : (
-        <div className="w-12 h-12 rounded-md bg-gray-100 flex-shrink-0 flex items-center justify-center">
-          <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-        </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-gray-800 truncate">{offer.title}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-sm font-semibold text-gray-900">{priceStr}</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">{friendlySource(offer.source)}</span>
-          {offer.merchant && offer.merchant !== 'Unknown' && (
-            <span className="text-[10px] text-gray-400">{offer.merchant}</span>
-          )}
-        </div>
-      </div>
-      {isVendor ? (
-        <button
-          onClick={() => setShowContactModal(true)}
-          className="px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex-shrink-0"
-        >
-          Request Quote
-        </button>
-      ) : offer.url && offer.url !== '#' ? (
-        <a
-          href={offer.click_url || `/api/out?url=${encodeURIComponent(offer.url)}${offer.bid_id ? `&bid_id=${offer.bid_id}` : ''}&row_id=${row.id}&source=${offer.source}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0"
-        >
-          View Deal
-        </a>
-      ) : null}
-      {showContactModal && (
-        <VendorContactModal
-          isOpen={showContactModal}
-          onClose={() => setShowContactModal(false)}
-          rowId={row.id}
-          rowTitle={row.title}
-          vendorName={offer.vendor_name || offer.merchant || ''}
-          vendorCompany={offer.vendor_company || offer.title}
-          vendorEmail={offer.vendor_email || ''}
-          onSent={() => setShowContactModal(false)}
-        />
-      )}
     </div>
   );
 }

@@ -8,7 +8,7 @@ export function FeatureList({ features }: FeatureListBlock) {
   return (
     <ul className="space-y-1">
       {features.map((feature, i) => (
-        <li key={i} className="flex items-center gap-2 text-sm text-gray-700">
+        <li key={i} className="flex items-center gap-2 text-sm text-ink">
           <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>

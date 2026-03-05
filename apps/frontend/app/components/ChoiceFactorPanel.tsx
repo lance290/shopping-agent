@@ -1,10 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { parseChoiceFactors, parseChoiceAnswers, useShoppingStore } from '../store';
-import { saveChoiceAnswerToDb, fetchSingleRowFromDb, runSearchApiWithStatus } from '../utils/api';
+import { saveChoiceAnswerToDb, fetchSingleRowFromDb, runSearchApiWithStatus, fetchWithAuth } from '../utils/api';
 import { Loader2, Check, AlertCircle, ChevronLeft, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { cn } from '../../utils/cn';
+
+type ChoiceAnswerValue = string | number | boolean | string[];
+
+function isTextOrNumber(value: ChoiceAnswerValue | undefined): value is string | number {
+  return typeof value === 'string' || typeof value === 'number';
+}
 
 export default function ChoiceFactorPanel() {
   const { rows, activeRowId, updateRow, setRowResults, setIsSearching, isSidebarOpen, setSidebarOpen } = useShoppingStore();
@@ -13,7 +19,7 @@ export default function ChoiceFactorPanel() {
   const factors = row ? parseChoiceFactors(row) : [];
   
   // Local state
-  const [localAnswers, setLocalAnswers] = useState<Record<string, any>>({});
+  const [localAnswers, setLocalAnswers] = useState<Record<string, ChoiceAnswerValue>>({});
   const [savingFields, setSavingFields] = useState<Record<string, boolean>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pollCount, setPollCount] = useState(0);
@@ -35,7 +41,7 @@ export default function ChoiceFactorPanel() {
       setPollCount(0);
       prevRowIdRef.current = currId;
     }
-  }, [row?.id]);
+  }, [row?.id, row]);
 
   useEffect(() => {
     if (!row) return;
@@ -78,7 +84,7 @@ export default function ChoiceFactorPanel() {
     setPollCount(0); // Reset poll count to allow more auto-polls if needed
     try {
       // Ask backend (via BFF) to regenerate specs for this row.
-      await fetch(`/api/rows?id=${row.id}`, {
+      await fetchWithAuth(`/api/rows?id=${row.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ regenerate_choice_factors: true }),
@@ -97,7 +103,7 @@ export default function ChoiceFactorPanel() {
     if (!row) return;
 
     // 1. Optimistic local update
-    const newAnswers: Record<string, any> = { ...localAnswers };
+    const newAnswers: Record<string, ChoiceAnswerValue> = { ...localAnswers };
     const shouldClear = value === '' || (typeof value === 'number' && Number.isNaN(value)) || (Array.isArray(value) && value.length === 0);
     if (shouldClear) {
       delete newAnswers[factorName];
@@ -153,9 +159,23 @@ export default function ChoiceFactorPanel() {
     setLocalAnswers(prev => ({ ...prev, [factorName]: value }));
   };
 
-  const isPriceRangeFactor = (factor: any) => {
+  const isPriceRangeFactor = (factor: { name?: string; type?: string }) => {
     const name = String(factor?.name || '').toLowerCase();
     return factor?.type === 'number' && (name.includes('price') || name.includes('budget'));
+  };
+
+  const hasFactorAnswer = (factorName: string, factorType?: string) => {
+    if (factorName === 'min_price') {
+      return (localAnswers.min_price !== undefined && localAnswers.min_price !== '') ||
+        (localAnswers.max_price !== undefined && localAnswers.max_price !== '');
+    }
+
+    const answer = localAnswers[factorName];
+    if (factorType === 'multiselect') {
+      return Array.isArray(answer) && answer.length > 0;
+    }
+
+    return answer !== undefined && answer !== '';
   };
 
   // Determine which factors to display (progressive disclosure)
@@ -167,16 +187,11 @@ export default function ChoiceFactorPanel() {
     const optionalFactors = factors.filter((f) => !f.required);
 
     // Check which required factors have answers
-    const answeredRequired: any[] = [];
-    const unansweredRequired: any[] = [];
+    const answeredRequired: typeof requiredFactors = [];
+    const unansweredRequired: typeof requiredFactors = [];
 
     requiredFactors.forEach((factor) => {
-      const hasAnswer = factor.name === 'min_price'
-        ? (localAnswers.min_price !== undefined && localAnswers.min_price !== '') ||
-          (localAnswers.max_price !== undefined && localAnswers.max_price !== '')
-        : factor.type === 'multiselect'
-        ? Array.isArray(localAnswers[factor.name]) && localAnswers[factor.name].length > 0
-        : localAnswers[factor.name] !== undefined && localAnswers[factor.name] !== '';
+      const hasAnswer = hasFactorAnswer(factor.name, factor.type);
 
       if (hasAnswer) {
         answeredRequired.push(factor);
@@ -200,13 +215,7 @@ export default function ChoiceFactorPanel() {
   const totalRequired = factors.filter((f) => f.required).length;
   const answeredRequired = factors.filter((f) => {
     if (!f.required) return false;
-    const hasAnswer = f.name === 'min_price'
-      ? (localAnswers.min_price !== undefined && localAnswers.min_price !== '') ||
-        (localAnswers.max_price !== undefined && localAnswers.max_price !== '')
-      : f.type === 'multiselect'
-      ? Array.isArray(localAnswers[f.name]) && localAnswers[f.name].length > 0
-      : localAnswers[f.name] !== undefined && localAnswers[f.name] !== '';
-    return hasAnswer;
+    return hasFactorAnswer(f.name, f.type);
   }).length;
 
   return (
@@ -284,14 +293,14 @@ export default function ChoiceFactorPanel() {
                   <div>
                     <p className="text-onyx font-medium text-sm">No specifications found</p>
                     <p className="text-xs text-onyx-muted mt-1 px-4">
-                      We couldn't identify specific criteria for this item.
+                      We couldn&apos;t identify specific criteria for this item.
                     </p>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleManualRefresh}
-                    className="text-agent-blurple hover:bg-agent-blurple/5"
+                    className="text-gold-dark hover:bg-gold/5"
                   >
                     Try Refreshing
                   </Button>
@@ -304,12 +313,13 @@ export default function ChoiceFactorPanel() {
                 .filter((factor) => factor.name !== 'max_price') // Handled by min_price price range component
                 .map(factor => {
                 const isSaving = savingFields[factor.name] || (factor.name === 'min_price' && savingFields['max_price']);
-                const hasAnswer = factor.name === 'min_price'
-                  ? (localAnswers.min_price !== undefined && localAnswers.min_price !== '') ||
-                    (localAnswers.max_price !== undefined && localAnswers.max_price !== '')
-                  : factor.type === 'multiselect'
-                  ? Array.isArray(localAnswers[factor.name]) && localAnswers[factor.name].length > 0
-                  : localAnswers[factor.name] !== undefined && localAnswers[factor.name] !== '';
+                const hasAnswer = hasFactorAnswer(factor.name, factor.type);
+                const rawAnswer = localAnswers[factor.name];
+                const textAnswer = isTextOrNumber(rawAnswer) ? rawAnswer : '';
+                const minAnswer = localAnswers.min_price;
+                const minValue = isTextOrNumber(minAnswer) ? minAnswer : '';
+                const maxAnswer = localAnswers.max_price;
+                const maxValue = isTextOrNumber(maxAnswer) ? maxAnswer : '';
                 
                 // Convert snake_case name to Title Case Label
                 const label = factor.name === 'min_price'
@@ -340,16 +350,16 @@ export default function ChoiceFactorPanel() {
                       {factor.type === 'select' && factor.options ? (
                         <div className="relative">
                           <select
-                            value={localAnswers[factor.name] || ''}
+                            value={textAnswer}
                             onChange={(e) => handleAnswerChange(factor.name, e.target.value)}
-                            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:border-blue-500 transition-colors outline-none appearance-none cursor-pointer hover:border-gray-400"
+                            className="w-full px-4 py-3 bg-white border border-warm-grey rounded-xl text-sm text-ink focus:border-gold transition-colors outline-none appearance-none cursor-pointer hover:border-onyx-muted"
                           >
                             <option value="" disabled>Select...</option>
                             {factor.options.map((opt: string) => (
                               <option key={opt} value={opt}>{opt}</option>
                             ))}
                           </select>
-                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-ink-muted">
                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
@@ -366,17 +376,17 @@ export default function ChoiceFactorPanel() {
                               <label
                                 key={opt}
                                 className={cn(
-                                  "flex items-center gap-3 px-4 py-3 bg-white border rounded-xl text-sm cursor-pointer transition-all hover:border-blue-400",
-                                  isSelected ? "border-blue-500 bg-blue-50" : "border-gray-300"
+                                  "flex items-center gap-3 px-4 py-3 bg-white border rounded-xl text-sm cursor-pointer transition-all hover:border-gold",
+                                  isSelected ? "border-gold bg-gold/5" : "border-warm-grey"
                                 )}
                               >
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
                                   onChange={() => handleMultiSelectToggle(factor.name, opt)}
-                                  className="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500"
+                                  className="w-4 h-4 text-gold border-warm-grey rounded focus:ring-gold"
                                 />
-                                <span className={cn("flex-1", isSelected && "font-medium text-blue-900")}>
+                                <span className={cn("flex-1", isSelected && "font-medium text-ink")}>
                                   {opt}
                                 </span>
                               </label>
@@ -408,7 +418,7 @@ export default function ChoiceFactorPanel() {
                         <div className="grid grid-cols-2 gap-3">
                           <Input
                             type="number"
-                            value={localAnswers.min_price ?? ''}
+                            value={minValue}
                             onChange={(e) => handleTextChange('min_price', e.target.value === '' ? '' : Number(e.target.value))}
                             onBlur={(e) => handleAnswerChange('min_price', e.target.value === '' ? '' : Number(e.target.value))}
                             placeholder="Min"
@@ -416,7 +426,7 @@ export default function ChoiceFactorPanel() {
                           />
                           <Input
                             type="number"
-                            value={localAnswers.max_price ?? ''}
+                            value={maxValue}
                             onChange={(e) => handleTextChange('max_price', e.target.value === '' ? '' : Number(e.target.value))}
                             onBlur={(e) => handleAnswerChange('max_price', e.target.value === '' ? '' : Number(e.target.value))}
                             placeholder="Max"
@@ -426,7 +436,7 @@ export default function ChoiceFactorPanel() {
                       ) : (
                         <Input
                           type={factor.type === 'number' ? 'number' : 'text'}
-                          value={localAnswers[factor.name] || ''}
+                          value={textAnswer}
                           onChange={(e) => handleTextChange(factor.name, factor.type === 'number' ? Number(e.target.value) : e.target.value)}
                           onBlur={(e) => handleAnswerChange(factor.name, factor.type === 'number' ? Number(e.target.value) : e.target.value)}
                           placeholder="..."

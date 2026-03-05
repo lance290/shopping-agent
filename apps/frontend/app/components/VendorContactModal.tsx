@@ -90,8 +90,8 @@ export default function VendorContactModal({
       } else {
         // Fallback if LLM fails
         setSubject(`Inquiry — ${rowTitle}`);
-        const fallbackName = senderName || 'Your Name';
-        const fallbackCompany = companyName || 'Your Company';
+        const fallbackName = userName || 'Your Name';
+        const fallbackCompany = userCompany || 'Your Company';
         setBody(
           `Hi ${vendorCompany},\n\nI'm reaching out regarding:\n\n  ${rowTitle}\n\nCould you please let us know about pricing, availability, and any relevant details?\n\nThanks,\n${fallbackName}\n${fallbackCompany}`
         );
@@ -152,7 +152,7 @@ export default function VendorContactModal({
 
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-xl mx-4 overflow-hidden max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+        <div className="bg-navy px-6 py-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">
               {state === 'sent' ? 'Email Sent!' : 'Send Outreach'}
@@ -167,13 +167,13 @@ export default function VendorContactModal({
         </div>
 
         {/* Vendor info bar */}
-        <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-            <Building2 size={16} className="text-blue-600" />
+        <div className="px-6 py-3 bg-canvas-dark border-b border-warm-grey flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center">
+            <Building2 size={16} className="text-gold-dark" />
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-gray-900 truncate">{vendorCompany}</div>
-            <div className="text-xs text-gray-500 truncate">{vendorEmail}</div>
+            <div className="text-sm font-semibold text-ink truncate">{vendorCompany}</div>
+            <div className="text-xs text-ink-muted truncate">{vendorEmail}</div>
           </div>
         </div>
 
@@ -182,8 +182,8 @@ export default function VendorContactModal({
           {/* Loading state */}
           {state === 'loading' && (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Loader2 size={32} className="text-blue-600 animate-spin" />
-              <p className="text-sm text-gray-500">Generating personalized email from your conversation...</p>
+              <Loader2 size={32} className="text-gold animate-spin" />
+              <p className="text-sm text-ink-muted">Generating personalized email from your conversation...</p>
             </div>
           )}
 
@@ -193,8 +193,8 @@ export default function VendorContactModal({
               <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
                 <Check size={32} className="text-green-600" />
               </div>
-              <p className="text-lg font-semibold text-gray-900">Email sent to {vendorCompany}!</p>
-              <p className="text-sm text-gray-500 text-center">
+              <p className="text-lg font-semibold text-ink">Email sent to {vendorCompany}!</p>
+              <p className="text-sm text-ink-muted text-center">
                 Replies will go directly to <strong>{replyToEmail}</strong>.
                 <br />A tracked quote link was included in the email.
               </p>
@@ -216,60 +216,60 @@ export default function VendorContactModal({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="text-xs text-gray-500 mb-1">Your name</div>
+                  <div className="text-xs text-ink-muted mb-1">Your name</div>
                   <input
                     value={senderName}
                     onChange={(e) => setSenderName(e.target.value)}
                     placeholder="Your Name"
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                    className="w-full px-3 py-2 bg-white border border-warm-grey rounded-lg text-sm text-ink focus:border-gold focus:ring-1 focus:ring-gold outline-none"
                   />
                 </div>
                 <div>
-                  <div className="text-xs text-gray-500 mb-1">Company</div>
+                  <div className="text-xs text-ink-muted mb-1">Company</div>
                   <input
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                     placeholder="Your Company"
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                    className="w-full px-3 py-2 bg-white border border-warm-grey rounded-lg text-sm text-ink focus:border-gold focus:ring-1 focus:ring-gold outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <div className="text-xs text-gray-500 mb-1">Reply-to (your email)</div>
+                <div className="text-xs text-ink-muted mb-1">Reply-to (your email)</div>
                 <input
                   value={replyToEmail}
                   onChange={(e) => setReplyToEmail(e.target.value)}
                   placeholder="your@email.com"
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                  className="w-full px-3 py-2 bg-white border border-warm-grey rounded-lg text-sm text-ink focus:border-gold focus:ring-1 focus:ring-gold outline-none"
                 />
-                <p className="text-[10px] text-gray-400 mt-1">Vendor replies go directly to this address.</p>
+                <p className="text-[10px] text-onyx-muted mt-1">Vendor replies go directly to this address.</p>
               </div>
 
               <div>
-                <div className="text-xs text-gray-500 mb-1">Subject</div>
+                <div className="text-xs text-ink-muted mb-1">Subject</div>
                 <input
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                  className="w-full px-3 py-2 bg-white border border-warm-grey rounded-lg text-sm text-ink focus:border-gold focus:ring-1 focus:ring-gold outline-none"
                 />
               </div>
 
               <div>
-                <div className="text-xs text-gray-500 mb-1">Email body</div>
+                <div className="text-xs text-ink-muted mb-1">Email body</div>
                 <textarea
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                   rows={10}
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none resize-y"
+                  className="w-full px-3 py-2 bg-white border border-warm-grey rounded-lg text-sm text-ink focus:border-gold focus:ring-1 focus:ring-gold outline-none resize-y"
                 />
-                <p className="text-[10px] text-gray-400 mt-1">
+                <p className="text-[10px] text-onyx-muted mt-1">
                   A &quot;Submit Your Quote&quot; button and tracking link will be appended automatically.
                 </p>
               </div>
 
-              <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
-                <p className="text-xs text-blue-700">
+              <div className="bg-gold/5 border border-gold/20 rounded-lg px-4 py-3">
+                <p className="text-xs text-ink-muted">
                   <strong>How it works:</strong> Email is sent from <em>BuyAnything</em> via our verified domain for best deliverability.
                   The vendor&apos;s reply goes directly to <strong>{replyToEmail || 'your email'}</strong>.
                   A tracked quote link is included so the vendor can submit a formal quote on our platform.

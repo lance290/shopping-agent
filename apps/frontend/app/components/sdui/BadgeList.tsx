@@ -10,13 +10,13 @@ export function BadgeList({ tags, source_refs }: BadgeListBlock) {
       {tags.map((tag, i) => (
         <span
           key={i}
-          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
+          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-canvas-dark text-ink"
           title={source_refs?.[i] ? `Source: ${source_refs[i]}` : undefined}
         >
           {tag}
           {source_refs?.[i] && (
             <button
-              className="ml-1 text-gray-400 hover:text-blue-500"
+              className="ml-1 text-onyx-muted hover:text-accent-blue"
               title="Why we're saying this"
               aria-label={`Provenance for ${tag}`}
             >

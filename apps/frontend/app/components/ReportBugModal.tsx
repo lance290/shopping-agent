@@ -212,7 +212,7 @@ export default function ReportBugModal() {
     }
   };
 
-  const inputClasses = "w-full bg-white border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors outline-none py-2.5 px-4 text-sm text-ink placeholder:text-ink-muted rounded-xl resize-y";
+  const inputClasses = "w-full bg-white border border-warm-grey focus:border-gold focus:ring-2 focus:ring-gold/20 transition-colors outline-none py-2.5 px-4 text-sm text-ink placeholder:text-ink-muted rounded-xl resize-y";
   const labelClasses = "block text-xs font-medium text-ink mb-1.5";
 
   if (submittedId) {
@@ -292,11 +292,12 @@ export default function ReportBugModal() {
             
             <div className={cn(
               "grid grid-cols-4 gap-3 rounded-xl p-2 -m-2 transition-colors",
-              isDragging && "bg-agent-blurple/10 ring-2 ring-agent-blurple/30"
+              isDragging && "bg-gold/10 ring-2 ring-gold/30"
             )}>
               {attachments.map((file, idx) => (
                 <div key={idx} className="relative group aspect-square rounded-xl border border-warm-grey overflow-hidden bg-warm-light">
                   {file.type.startsWith('image/') ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img 
                       src={blobUrls[idx]} 
                       alt="Preview" 
@@ -318,7 +319,7 @@ export default function ReportBugModal() {
               
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="aspect-square rounded-xl border-2 border-dashed border-warm-grey hover:border-agent-blurple hover:bg-agent-blurple/5 transition-colors flex flex-col items-center justify-center gap-1.5 text-ink-muted hover:text-agent-blurple"
+                className="aspect-square rounded-xl border-2 border-dashed border-warm-grey hover:border-gold hover:bg-gold/5 transition-colors flex flex-col items-center justify-center gap-1.5 text-ink-muted hover:text-gold-dark"
               >
                 <Upload size={18} />
                 <span className="text-[10px] font-medium leading-tight text-center">Upload or<br/>Paste</span>
@@ -410,14 +411,14 @@ export default function ReportBugModal() {
           </div>
 
           {/* 5. Diagnostics Toggle */}
-          <div className="flex items-start gap-3 p-3 bg-agent-blurple/5 rounded-xl border border-agent-blurple/20">
+          <div className="flex items-start gap-3 p-3 bg-gold/5 rounded-xl border border-gold/20">
             <div className="mt-0.5">
               <input
                 type="checkbox"
                 id="includeDiagnostics"
                 checked={includeDiagnostics}
                 onChange={(e) => setIncludeDiagnostics(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-agent-blurple focus:ring-agent-blurple"
+                className="w-4 h-4 rounded border-warm-grey text-gold focus:ring-gold"
               />
             </div>
             <div>

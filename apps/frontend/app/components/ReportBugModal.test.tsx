@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import ReportBugModal from './ReportBugModal';
 import { useShoppingStore } from '../store';
+import type { ShoppingState } from '../store-state';
 
 // Mock the store
 const mockClose = vi.fn();
@@ -24,11 +25,11 @@ vi.mock('../utils/diagnostics', () => ({
 describe('ReportBugModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (useShoppingStore as any).mockImplementation((selector: any) => {
+    vi.mocked(useShoppingStore).mockImplementation((selector: (state: ShoppingState) => unknown) => {
       const state = {
         isReportBugModalOpen: true,
         setReportBugModalOpen: mockClose,
-      };
+      } as unknown as ShoppingState;
       return selector(state);
     });
   });

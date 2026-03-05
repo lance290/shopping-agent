@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Mail, Clock, CheckCircle2, Users, Loader2 } from 'lucide-react';
 
 interface OutreachStatusProps {
@@ -27,13 +27,7 @@ export function OutreachStatus({ rowId, status, outreachCount }: OutreachStatusP
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    if (status === 'in_progress' || status === 'complete') {
-      loadDetails();
-    }
-  }, [rowId, status]);
-
-  async function loadDetails() {
+  const loadDetails = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/outreach/${rowId}`);
@@ -46,7 +40,13 @@ export function OutreachStatus({ rowId, status, outreachCount }: OutreachStatusP
     } finally {
       setLoading(false);
     }
-  }
+  }, [rowId]);
+
+  useEffect(() => {
+    if (status === 'in_progress' || status === 'complete') {
+      loadDetails();
+    }
+  }, [status, loadDetails]);
 
   if (!status || status === 'none') return null;
 
@@ -79,21 +79,21 @@ export function OutreachStatus({ rowId, status, outreachCount }: OutreachStatusP
           <span className={config.textColor}>{config.icon}</span>
           <span className={`font-medium ${config.textColor}`}>{config.label}</span>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="flex items-center gap-2 text-sm text-ink-muted">
           <Users size={14} />
           <span>{outreachCount} vendors</span>
         </div>
       </div>
 
       {expanded && details && (
-        <div className="mt-3 pt-3 border-t border-gray-200">
+        <div className="mt-3 pt-3 border-t border-warm-grey">
           {/* Stats */}
           <div className="flex gap-4 mb-3 text-sm">
-            <div className="flex items-center gap-1 text-gray-600">
+            <div className="flex items-center gap-1 text-ink-muted">
               <Mail size={12} />
               <span>{details.total_sent} sent</span>
             </div>
-            <div className="flex items-center gap-1 text-gray-600">
+            <div className="flex items-center gap-1 text-ink-muted">
               <Clock size={12} />
               <span>{details.quoted} quoted</span>
             </div>
@@ -106,11 +106,18 @@ export function OutreachStatus({ rowId, status, outreachCount }: OutreachStatusP
                 key={idx}
                 className="flex items-center justify-between text-sm bg-white/50 rounded px-2 py-1"
               >
-                <span className="font-medium text-gray-800">{vendor.company}</span>
+                <span className="font-medium text-ink">{vendor.company}</span>
                 <VendorStatusBadge status={vendor.status} />
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {expanded && loading && !details && (
+        <div className="mt-3 pt-3 border-t border-warm-grey flex items-center gap-2 text-sm text-ink-muted">
+          <Loader2 className="animate-spin" size={14} />
+          Loading outreach details...
         </div>
       )}
     </div>
@@ -119,7 +126,7 @@ export function OutreachStatus({ rowId, status, outreachCount }: OutreachStatusP
 
 function VendorStatusBadge({ status }: { status: string }) {
   const configs: Record<string, { label: string; className: string }> = {
-    pending: { label: 'Pending', className: 'bg-gray-100 text-gray-600' },
+    pending: { label: 'Pending', className: 'bg-canvas-dark text-ink-muted' },
     sent: { label: 'Sent', className: 'bg-blue-100 text-blue-700' },
     opened: { label: 'Opened', className: 'bg-yellow-100 text-yellow-700' },
     clicked: { label: 'Clicked', className: 'bg-orange-100 text-orange-700' },

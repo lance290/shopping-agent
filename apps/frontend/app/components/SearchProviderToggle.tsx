@@ -22,7 +22,7 @@ export default function SearchProviderToggle() {
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
-      <span className="text-[10px] text-gray-400 mr-0.5">Sources:</span>
+      <span className="text-[10px] text-onyx-muted mr-0.5">Sources:</span>
       {PROVIDERS.map(({ id, label, icon: Icon, color }) => {
         const isActive = safeProviders[id] ?? false;
         return (
@@ -38,8 +38,8 @@ export default function SearchProviderToggle() {
             className={cn(
               "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all duration-150",
               isActive
-                ? "bg-white border border-gray-200 shadow-sm"
-                : "bg-transparent border border-transparent text-gray-400 hover:bg-gray-50"
+                ? "bg-white border border-warm-grey shadow-sm"
+                : "bg-transparent border border-transparent text-onyx-muted hover:bg-canvas-dark"
             )}
             title={isActive ? `${label} ON — click to disable` : `${label} OFF — click to enable`}
           >
@@ -48,8 +48,8 @@ export default function SearchProviderToggle() {
             ) : (
               <X size={10} className="text-red-400 shrink-0" strokeWidth={3} />
             )}
-            <Icon size={11} className={cn(isActive ? color : 'text-gray-400')} />
-            <span className={cn(isActive ? 'text-gray-700' : 'text-gray-400')}>{label}</span>
+            <Icon size={11} className={cn(isActive ? color : 'text-onyx-muted')} />
+            <span className={cn(isActive ? 'text-ink' : 'text-onyx-muted')}>{label}</span>
           </button>
         );
       })}

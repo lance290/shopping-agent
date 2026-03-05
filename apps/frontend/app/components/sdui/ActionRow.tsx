@@ -12,7 +12,7 @@ function ActionButton({ action }: { action: ActionObject }) {
           href={`/api/out?bid_id=${action.bid_id || ''}&url=${encodeURIComponent(action.url || '')}`}
           target="_blank"
           rel="noopener noreferrer"
-          className={`${baseClasses} bg-blue-600 text-white hover:bg-blue-700`}
+          className={`${baseClasses} bg-gold text-navy hover:bg-gold-dark`}
         >
           {action.label}
         </a>
@@ -20,7 +20,7 @@ function ActionButton({ action }: { action: ActionObject }) {
 
     case 'contact_vendor':
       return (
-        <button className={`${baseClasses} bg-green-600 text-white hover:bg-green-700`}>
+        <button className={`${baseClasses} bg-status-success text-white hover:bg-status-success/90`}>
           {action.label}
         </button>
       );
@@ -56,7 +56,7 @@ function ActionButton({ action }: { action: ActionObject }) {
 
     case 'view_all_bids':
       return (
-        <button className={`${baseClasses} bg-gray-100 text-gray-700 hover:bg-gray-200`}>
+        <button className={`${baseClasses} bg-canvas-dark text-ink hover:bg-warm-grey`}>
           {action.label}
         </button>
       );
@@ -65,7 +65,7 @@ function ActionButton({ action }: { action: ActionObject }) {
     case 'edit_request':
     default:
       return (
-        <button className={`${baseClasses} bg-gray-100 text-gray-700 hover:bg-gray-200`}>
+        <button className={`${baseClasses} bg-canvas-dark text-ink hover:bg-warm-grey`}>
           {action.label}
         </button>
       );

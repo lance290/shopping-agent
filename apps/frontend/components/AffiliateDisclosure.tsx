@@ -11,9 +11,9 @@ interface AffiliateDisclosureProps {
 export default function AffiliateDisclosure({ variant = 'inline', className = '' }: AffiliateDisclosureProps) {
   if (variant === 'footer') {
     return (
-      <p className={`text-xs text-gray-400 ${className}`}>
+      <p className={`text-xs text-onyx-muted ${className}`}>
         Some links on this site are affiliate links. We may earn a commission at no extra cost to you.{' '}
-        <a href="/disclosure" className="underline hover:text-gray-300">
+        <a href="/disclosure" className="underline hover:text-white/80">
           Full disclosure
         </a>
       </p>
@@ -21,9 +21,9 @@ export default function AffiliateDisclosure({ variant = 'inline', className = ''
   }
 
   return (
-    <div className={`text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-md px-3 py-2 ${className}`}>
+    <div className={`text-xs text-ink-muted bg-canvas-dark border border-warm-grey rounded-md px-3 py-2 ${className}`}>
       Some links on this page are affiliate links. We may earn a commission at no extra cost to you.{' '}
-      <a href="/disclosure" className="underline hover:text-gray-600">
+      <a href="/disclosure" className="underline hover:text-ink">
         Learn more
       </a>
     </div>

@@ -10,6 +10,27 @@ import { logout, getMe } from '../utils/auth';
 import { getAnonymousSessionId } from '../utils/anonymous-session';
 import ChatHeader from './ChatHeader';
 import ChatMessages, { type Message } from './ChatMessages';
+import type { Offer, ProviderStatusSnapshot, Row } from '../store';
+
+type SsePayload = {
+  text?: string;
+  type?: string;
+  row_id?: number;
+  row?: Row;
+  results?: Offer[];
+  provider_statuses?: ProviderStatusSnapshot[];
+  more_incoming?: boolean;
+  user_message?: string;
+  entity_id?: number;
+  schema?: Record<string, unknown>;
+  version?: number;
+  vendors?: Array<Record<string, unknown>>;
+  category?: string;
+  partial_constraints?: Record<string, unknown>;
+  service_type?: string;
+  title?: string;
+  message?: string;
+};
 
 export default function Chat() {
   const [input, setInput] = useState('');
@@ -31,7 +52,14 @@ export default function Chat() {
   const lastRowIdRef = useRef<number | null>(null);
   
   const store = useShoppingStore();
-  const activeRow = store.rows.find(r => r.id === store.activeRowId);
+  const activeRowId = store.activeRowId;
+  const rows = store.rows;
+  const cardClickQuery = store.cardClickQuery;
+  const setRows = store.setRows;
+  const setProjects = store.setProjects;
+  const updateRow = store.updateRow;
+  const setCardClickQuery = store.setCardClickQuery;
+  const activeRow = rows.find(r => r.id === activeRowId);
 
   useEffect(() => {
     // Check auth state
@@ -50,7 +78,7 @@ export default function Chat() {
 
   useEffect(() => {
     // Handle "New Request" - clear the chat when activeRowId becomes null
-    if (store.activeRowId === null) {
+    if (activeRowId === null) {
       setMessages([]);
       setInput('');
       setPendingClarification(null);
@@ -59,7 +87,7 @@ export default function Chat() {
     }
 
     if (!activeRow) return;
-    if (lastRowIdRef.current === store.activeRowId) return;
+    if (lastRowIdRef.current === activeRowId) return;
 
     // Save outgoing row's chat before switching
     const outgoingRowId = lastRowIdRef.current;
@@ -69,14 +97,14 @@ export default function Chat() {
           saveChatHistory(outgoingRowId, currentMsgs);
           // Defer updateRow to avoid setState-during-render warning
           queueMicrotask(() => {
-            store.updateRow(outgoingRowId, { chat_history: JSON.stringify(currentMsgs) });
+            updateRow(outgoingRowId, { chat_history: JSON.stringify(currentMsgs) });
           });
         }
         return currentMsgs;
       });
     }
 
-    lastRowIdRef.current = store.activeRowId;
+    lastRowIdRef.current = activeRowId;
 
     // Only focus/clear on actual row switch
     setInput('');
@@ -97,7 +125,7 @@ export default function Chat() {
       // No history - show focus message
       setMessages([
         {
-          id: `${Date.now()}-${store.activeRowId}`,
+          id: `${Date.now()}-${activeRowId}`,
           role: 'assistant',
           content: `Focused on: ${activeRow.title}`,
         },
@@ -106,7 +134,7 @@ export default function Chat() {
 
     // Clear clarification context when switching rows
     setPendingClarification(null);
-  }, [store.activeRowId, activeRow]);
+  }, [activeRowId, activeRow, updateRow]);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -114,8 +142,8 @@ export default function Chat() {
   
   // Helper to save chat history - called only on stream end, not on every message change
   const saveCurrentChat = (msgs: Message[]) => {
-    if (store.activeRowId && msgs.length > 0) {
-      saveChatHistory(store.activeRowId, msgs);
+    if (activeRowId && msgs.length > 0) {
+      saveChatHistory(activeRowId, msgs);
     }
   };
 
@@ -126,15 +154,15 @@ export default function Chat() {
       const rows = await fetchRowsFromDb();
       console.log('[Chat] fetchRowsFromDb returned:', rows?.length ?? 'null', 'rows');
       if (rows) {
-        store.setRows(rows);
+        setRows(rows);
       }
       const projects = await fetchProjectsFromDb();
       if (projects) {
-        store.setProjects(projects);
+        setProjects(projects);
       }
     };
     loadData();
-  }, []);
+  }, [setProjects, setRows]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,11 +175,10 @@ export default function Chat() {
     };
     
     setMessages(prev => [...prev, userMessage]);
-    const queryText = input.trim();
     setInput('');
     setIsLoading(true);
     const intendedProjectId = store.targetProjectId;
-    const effectiveActiveRowId = store.activeRowId;
+    const effectiveActiveRowId = activeRowId;
 
     let assistantMessageId: string | null = null;
     try {
@@ -208,34 +235,38 @@ export default function Chat() {
               }
             }
             const dataRaw = dataLines.join('\n');
-            let data: any = null;
+            let data: unknown = null;
             try {
               data = dataRaw ? JSON.parse(dataRaw) : null;
             } catch {
               data = dataRaw;
             }
+            const payload: SsePayload =
+              data !== null && typeof data === 'object' && !Array.isArray(data)
+                ? (data as SsePayload)
+                : {};
 
             if (eventName === 'assistant_message') {
-              assistantContent = typeof data?.text === 'string' ? data.text : '';
+              assistantContent = typeof payload.text === 'string' ? payload.text : '';
             } else if (eventName === 'action_started') {
-              if (data?.type === 'search') {
+              if (payload.type === 'search') {
                 store.setIsSearching(true);
                 // Mark more results incoming but DON'T clear existing results
                 // This prevents the flash where results disappear then reappear
-                const searchRowId = data?.row_id;
+                const searchRowId = typeof payload.row_id === 'number' ? payload.row_id : null;
                 if (searchRowId) {
                   store.setMoreResultsIncoming(searchRowId, true);
                 }
-              } else if (data?.type === 'fetch_vendors') {
+              } else if (payload.type === 'fetch_vendors') {
                 // Service rows: show loading state while fetching vendors
                 store.setIsSearching(true);
-                const vendorRowId = data?.row_id;
+                const vendorRowId = typeof payload.row_id === 'number' ? payload.row_id : null;
                 if (vendorRowId) {
                   store.setMoreResultsIncoming(vendorRowId, true);
                 }
               }
             } else if (eventName === 'row_created') {
-              const row = data?.row;
+              const row = payload.row;
               if (row?.id) {
                 // Only preserve chat history if this was a clarification flow completion
                 // (pendingClarification was active). Otherwise it's a new unrelated request.
@@ -243,8 +274,8 @@ export default function Chat() {
                   const currentMessages = [...messages, userMessage, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
                   saveChatHistory(row.id, currentMessages);
                   const rowWithHistory = { ...row, chat_history: JSON.stringify(currentMessages) };
-                  const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
-                  store.setRows(mergedRows);
+                  const mergedRows = [...rows.filter((r) => r.id !== row.id), rowWithHistory];
+                  setRows(mergedRows);
                 } else {
                   // New request — save outgoing row's chat, then start fresh for the new row
                   const outgoingRowId = store.activeRowId;
@@ -255,8 +286,8 @@ export default function Chat() {
                   const freshMessages = [userMessage, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
                   saveChatHistory(row.id, freshMessages);
                   const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages) };
-                  const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
-                  store.setRows(mergedRows);
+                  const mergedRows = [...rows.filter((r) => r.id !== row.id), rowWithHistory];
+                  setRows(mergedRows);
                   setMessages(freshMessages);
                 }
                 
@@ -268,7 +299,7 @@ export default function Chat() {
               }
             } else if (eventName === 'context_switch') {
               // User switched to completely different topic - new row, fresh chat for new topic
-              const row = data?.row;
+              const row = payload.row;
               if (row?.id) {
                 // Save outgoing row's chat before switching
                 const outgoingRowId = store.activeRowId;
@@ -284,8 +315,8 @@ export default function Chat() {
                 ];
                 saveChatHistory(row.id, freshMessages);
                 const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages) };
-                const mergedRows = [...store.rows.filter((r) => r.id !== row.id), rowWithHistory];
-                store.setRows(mergedRows);
+                const mergedRows = [...rows.filter((r) => r.id !== row.id), rowWithHistory];
+                setRows(mergedRows);
                 store.setActiveRowId(row.id);
                 store.setCurrentQuery(row.title);
                 setMessages(freshMessages);
@@ -293,8 +324,8 @@ export default function Chat() {
                 lastRowIdRef.current = row.id;
               }
             } else if (eventName === 'row_updated') {
-              const row = data?.row;
-              const rowId = row?.id ?? data?.row_id;
+              const row = payload.row;
+              const rowId = (typeof row?.id === 'number' ? row.id : null) ?? (typeof payload.row_id === 'number' ? payload.row_id : null);
               if (rowId) {
                 // Signal that new results are incoming — but DON'T clear existing results.
                 // Old results stay visible until the first search_results batch replaces them.
@@ -302,15 +333,15 @@ export default function Chat() {
                 store.setIsSearching(true);
                 const updatedRow = row ?? await fetchSingleRowFromDb(rowId);
                 if (updatedRow) {
-                  const mergedRows = [...store.rows.filter((r) => r.id !== updatedRow.id), updatedRow];
-                  store.setRows(mergedRows);
+                  const mergedRows = [...rows.filter((r) => r.id !== updatedRow.id), updatedRow];
+                  setRows(mergedRows);
                   store.setActiveRowId(updatedRow.id);
                   store.setCurrentQuery(updatedRow.title);
                 }
               }
             } else if (eventName === 'factors_updated') {
-              const row = data?.row;
-              const rowId = row?.id ?? data?.row_id;
+              const row = payload.row;
+              const rowId = (typeof row?.id === 'number' ? row.id : null) ?? (typeof payload.row_id === 'number' ? payload.row_id : null);
               console.log('[Chat] factors_updated event:', { rowId, hasRow: !!row, factorsType: typeof row?.choice_factors, factorsLen: row?.choice_factors?.length });
               if (row) {
                 // Merge factors + answers into existing row — preserve local bids/chat_history
@@ -329,12 +360,11 @@ export default function Chat() {
                 }
               }
             } else if (eventName === 'search_results') {
-              const rowId = data?.row_id;
-              const results = Array.isArray(data?.results) ? data.results : [];
-              const providerStatuses = Array.isArray(data?.provider_statuses) ? data.provider_statuses : undefined;
-              const moreIncoming = data?.more_incoming ?? false;
-              const provider = data?.provider;
-              const userMessage = data?.user_message; // Extract user_message
+              const rowId = typeof payload.row_id === 'number' ? payload.row_id : null;
+              const results = Array.isArray(payload.results) ? payload.results : [];
+              const providerStatuses = Array.isArray(payload.provider_statuses) ? payload.provider_statuses : undefined;
+              const moreIncoming = typeof payload.more_incoming === 'boolean' ? payload.more_incoming : false;
+              const userMessage = typeof payload.user_message === 'string' ? payload.user_message : undefined;
               
               if (rowId) {
                 // Always append during SSE streaming — never replace.
@@ -345,19 +375,19 @@ export default function Chat() {
                 store.setIsSearching(false);
               }
             } else if (eventName === 'ui_schema_updated') {
-              const entityId = data?.entity_id;
-              const schema = data?.schema;
+              const entityId = typeof payload.entity_id === 'number' ? payload.entity_id : null;
+              const schema = payload.schema;
               if (entityId && schema) {
                 store.updateRow(entityId, {
                   ui_schema: schema,
-                  ui_schema_version: data?.version ?? 1,
+                  ui_schema_version: typeof payload.version === 'number' ? payload.version : 1,
                 });
               }
             } else if (eventName === 'vendors_loaded') {
               // Service request - convert vendors to offer-like tiles
-              const rowId = data?.row_id;
-              const vendors = Array.isArray(data?.vendors) ? data.vendors : [];
-              const category = data?.category;
+              const rowId = typeof payload.row_id === 'number' ? payload.row_id : null;
+              const vendors = Array.isArray(payload.vendors) ? payload.vendors : [];
+              const category = typeof payload.category === 'string' ? payload.category : undefined;
 
               if (rowId) {
                 // Clear "more results incoming" flag for this row
@@ -365,26 +395,23 @@ export default function Chat() {
 
                 if (vendors.length > 0) {
                   // Convert vendors to offer format for display
-                  const vendorOffers = vendors.map((v: any, idx: number) => ({
+                  const vendorOffers: Offer[] = vendors.map((v, idx: number) => ({
                     id: `vendor-${idx}`,
-                    title: v.title || v.vendor_company || v.name || 'Charter Provider',
+                    title: (typeof v.title === 'string' && v.title) || (typeof v.vendor_company === 'string' && v.vendor_company) || (typeof v.name === 'string' && v.name) || 'Charter Provider',
                     price: null,
-                    image_url: v.image_url,
-                    item_url: v.url,
-                    url: v.url,
-                    source: v.source || 'vendor',
-                    seller_name: v.vendor_company || v.title,
-                    seller_domain: null,
-                    is_vendor: true,
+                    currency: 'USD',
+                    merchant: (typeof v.vendor_company === 'string' && v.vendor_company) || (typeof v.title === 'string' && v.title) || 'Vendor',
+                    url: typeof v.url === 'string' ? v.url : '#',
+                    image_url: typeof v.image_url === 'string' ? v.image_url : null,
+                    rating: null,
+                    reviews_count: null,
+                    shipping_info: null,
+                    source: (typeof v.source === 'string' && v.source) || 'vendor',
                     is_service_provider: true,
-                    vendor_id: idx,
                     vendor_category: category,
-                    vendor_name: v.vendor_name,
-                    vendor_company: v.vendor_company || v.title,
-                    vendor_email: v.vendor_email,
-                    contact_name: v.vendor_name,
-                    contact_email: v.vendor_email,
-                    contact_phone: v.contact_phone,
+                    vendor_name: typeof v.vendor_name === 'string' ? v.vendor_name : undefined,
+                    vendor_company: (typeof v.vendor_company === 'string' && v.vendor_company) || (typeof v.title === 'string' ? v.title : undefined),
+                    vendor_email: typeof v.vendor_email === 'string' ? v.vendor_email : undefined,
                   }));
                   store.setRowResults(rowId, vendorOffers, undefined, false);
                 }
@@ -393,12 +420,12 @@ export default function Chat() {
               // Otherwise RowStrip's auto-refresh triggers before vendor offers propagate
             } else if (eventName === 'needs_clarification') {
               // Store partial constraints for the next turn
-              if (data?.type && data?.partial_constraints) {
+              if (typeof payload.type === 'string' && payload.partial_constraints && typeof payload.partial_constraints === 'object') {
                 setPendingClarification({
-                  type: data.type,
-                  service_type: data.service_type,
-                  title: data.title,
-                  partial_constraints: data.partial_constraints,
+                  type: payload.type,
+                  service_type: typeof payload.service_type === 'string' ? payload.service_type : undefined,
+                  title: typeof payload.title === 'string' ? payload.title : undefined,
+                  partial_constraints: payload.partial_constraints as Record<string, unknown>,
                 });
               }
             } else if (eventName === 'done') {
@@ -416,10 +443,10 @@ export default function Chat() {
                 }
               }
             } else if (eventName === 'error') {
-              const msg = typeof data?.message === 'string' ? data.message : 'Something went wrong.';
+              const msg = typeof payload.message === 'string' ? payload.message : 'Something went wrong.';
               assistantContent = msg;
               store.setIsSearching(false);
-              const errorRowId = data?.row_id ?? store.activeRowId;
+              const errorRowId = (typeof payload.row_id === 'number' ? payload.row_id : null) ?? store.activeRowId;
               if (errorRowId) {
                 store.setMoreResultsIncoming(errorRowId, false);
               }
@@ -494,16 +521,15 @@ export default function Chat() {
   };
   
   useEffect(() => {
-    const cardClickQuery = store.cardClickQuery;
     if (cardClickQuery && !isLoading) {
-      store.setCardClickQuery(null);
+      setCardClickQuery(null);
       setInput(cardClickQuery);
       // Defer submit so React flushes the input state first
       setTimeout(() => {
         formRef.current?.requestSubmit();
       }, 0);
     }
-  }, [store.cardClickQuery, isLoading]);
+  }, [cardClickQuery, isLoading, setCardClickQuery]);
 
   const handleLogout = async () => {
     try {

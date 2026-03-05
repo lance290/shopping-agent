@@ -1,7 +1,8 @@
 import { create } from "zustand";
-import type { Offer, ProviderStatusSnapshot, Bid, Row, Project, OfferSortMode } from "./store-types";
+import type { Offer, ProviderStatusSnapshot, Row, Project, OfferSortMode } from "./store-types";
 import { mapBidToOffer } from "./store";
 import { createStoreActions } from "./store-actions";
+import { fetchWithAuth } from "./utils/api-core";
 
 export interface PendingRowDelete {
   row: Row;
@@ -149,7 +150,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => {
           : row
       );
       // Fire-and-forget persist to backend
-      fetch(`/api/rows?id=${state.activeRowId}`, {
+      fetchWithAuth(`/api/rows?id=${state.activeRowId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ selected_providers: serialized }),
@@ -177,9 +178,12 @@ export const useShoppingStore = create<ShoppingState>((set, get) => {
       clearTimeout(existingPending.timeoutId);
       set((s) => {
         const id = existingPending.row.id;
-        const { [id]: _, ...restResults } = s.rowResults;
-        const { [id]: __, ...restStatuses } = s.rowProviderStatuses;
-        const { [id]: ___, ...restErrors } = s.rowSearchErrors;
+        const restResults = { ...s.rowResults };
+        const restStatuses = { ...s.rowProviderStatuses };
+        const restErrors = { ...s.rowSearchErrors };
+        delete restResults[id];
+        delete restStatuses[id];
+        delete restErrors[id];
         return {
           rowResults: restResults,
           rowProviderStatuses: restStatuses,
@@ -204,15 +208,18 @@ export const useShoppingStore = create<ShoppingState>((set, get) => {
     });
 
     // Immediately archive in the backend — don't wait for the undo window.
-    fetch(`/api/rows?id=${rowId}`, { method: 'DELETE' }).catch(() => {});
+    fetchWithAuth(`/api/rows?id=${rowId}`, { method: 'DELETE' }).catch(() => {});
 
     // Timer just expires the undo UI after the window closes.
     const timeoutId = setTimeout(() => {
       set((s) => {
         if (!s.pendingRowDelete || s.pendingRowDelete.row.id !== rowId) return s;
-        const { [rowId]: _, ...restResults } = s.rowResults;
-        const { [rowId]: __, ...restStatuses } = s.rowProviderStatuses;
-        const { [rowId]: ___, ...restErrors } = s.rowSearchErrors;
+        const restResults = { ...s.rowResults };
+        const restStatuses = { ...s.rowProviderStatuses };
+        const restErrors = { ...s.rowSearchErrors };
+        delete restResults[rowId];
+        delete restStatuses[rowId];
+        delete restErrors[rowId];
         return {
           rowResults: restResults,
           rowProviderStatuses: restStatuses,
@@ -251,7 +258,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => {
     });
 
     // Restore the row in the backend by unarchiving it.
-    fetch(`/api/rows?id=${pending.row.id}`, {
+    fetchWithAuth(`/api/rows?id=${pending.row.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: pending.row.status }),
@@ -321,14 +328,16 @@ export const useShoppingStore = create<ShoppingState>((set, get) => {
   }),
   addRow: (row) => set((state) => {
     const newRow = { ...row, last_engaged_at: Date.now() };
-    const { [newRow.id]: _, ...restResults } = state.rowResults;
-    const { [newRow.id]: __, ...restStatuses } = state.rowProviderStatuses;
+    const restResults = { ...state.rowResults };
+    const restStatuses = { ...state.rowProviderStatuses };
+    delete restResults[newRow.id];
+    delete restStatuses[newRow.id];
     // Add new row at the beginning (most recent)
     return { rows: [newRow, ...state.rows], rowResults: restResults, rowProviderStatuses: restStatuses };
   }),
   updateRow: (id, updates) => set((state) => {
     const newRows = state.rows.map((row) => (row.id === id ? { ...row, ...updates } : row));
-    const newState: any = { rows: newRows };
+    const newState: Partial<ShoppingState> = { rows: newRows };
 
     // Hydrate rowResults from bids when row has them — ensures results display
     // even if the search response was empty (e.g. after error recovery or page reload)
@@ -366,6 +375,6 @@ export const useShoppingStore = create<ShoppingState>((set, get) => {
     activeRowId: state.activeRowId === id ? null : state.activeRowId,
   })),
 
-  ...(createStoreActions(set, get) as any)
+  ...(createStoreActions(set, get) as Partial<ShoppingState>)
   } as ShoppingState;
 });

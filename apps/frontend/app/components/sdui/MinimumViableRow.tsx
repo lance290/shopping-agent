@@ -11,7 +11,7 @@ interface MinimumViableRowProps {
 
 export function MinimumViableRow({ title = 'Untitled', status = 'sourcing' }: MinimumViableRowProps) {
   return (
-    <div className="space-y-2 p-3 bg-white rounded-lg border border-gray-200">
+    <div className="space-y-2 p-3 bg-white rounded-lg border border-warm-grey">
       <MarkdownText type="MarkdownText" content={`**${title}**`} />
       <BadgeList type="BadgeList" tags={[status]} />
       <ActionRow

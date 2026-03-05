@@ -131,8 +131,8 @@ export function CommentPanel({ bidId, isOpen, onClose }: CommentPanelProps) {
               rows={2}
               className={cn(
                 'flex-1 px-3 py-2 rounded-lg resize-none',
-                'border border-warm-grey/30 focus:border-agent-blurple',
-                'focus:outline-none focus:ring-2 focus:ring-agent-blurple/20',
+                'border border-warm-grey/30 focus:border-gold',
+                'focus:outline-none focus:ring-2 focus:ring-gold/20',
                 'text-sm text-onyx placeholder:text-onyx-muted'
               )}
               disabled={isSubmitting}

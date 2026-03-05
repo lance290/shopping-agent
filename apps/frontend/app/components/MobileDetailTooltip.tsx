@@ -26,7 +26,7 @@ export function MobileDetailTooltip({ show, onDismiss }: MobileDetailTooltipProp
 
   return (
     <div
-      className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg animate-fade-in"
+      className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-3 bg-navy text-white text-sm rounded-lg shadow-lg animate-fade-in"
       role="status"
       aria-live="polite"
       onClick={() => {

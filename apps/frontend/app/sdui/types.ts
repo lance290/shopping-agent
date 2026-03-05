@@ -148,7 +148,7 @@ export interface MessageListBlock {
 
 export interface ChoiceFactorFormBlock {
   type: 'ChoiceFactorForm';
-  factors: Record<string, any>[];
+  factors: Record<string, unknown>[];
 }
 
 export interface ActionObject {
@@ -277,7 +277,7 @@ export function validateUISchema(data: unknown): UISchema | null {
 
   // Strip unknown block types
   const validBlocks = blocks.filter(
-    (b: unknown) => b && typeof b === 'object' && isValidBlockType((b as any).type)
+    (b: unknown) => b && typeof b === 'object' && 'type' in b && typeof (b as { type: unknown }).type === 'string' && isValidBlockType((b as { type: string }).type)
   ) as UIBlock[];
 
   return {

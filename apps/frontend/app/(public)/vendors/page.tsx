@@ -100,126 +100,137 @@ export default function VendorsPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="text-center mb-10">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">Vendor Directory</h1>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-8">
-          Search our network of 3,000+ vendors — from local artisans to specialized service providers.
-        </p>
-
-        <form onSubmit={handleSearch} className="max-w-xl mx-auto">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search vendors (e.g., caterers in San Francisco)"
-              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-full text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </form>
-
-        {query.trim() && (
-          <button onClick={clearSearch} className="mt-3 text-sm text-blue-600 hover:underline">
-            Clear search — show all vendors
-          </button>
-        )}
-      </div>
-
-      {(loading || searching) && (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
-        </div>
-      )}
-
-      {!loading && !searching && vendors.length === 0 && (
-        <div className="text-center py-12">
-          <Store className="mx-auto h-12 w-12 text-gray-300 mb-4" />
-          <p className="text-gray-500">No vendors found. Try a different search.</p>
-        </div>
-      )}
-
-      {!loading && !searching && vendors.length > 0 && (
-        <>
-          <p className="text-sm text-gray-500 mb-6">
-            {query.trim()
-              ? `${total} vendors matching "${query}"`
-              : `${total} vendors in our network`}
+    <div className="bg-canvas-dark min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="text-center mb-10">
+          <h1 className="text-3xl font-bold text-ink mb-3">Vendor Directory</h1>
+          <p className="text-base text-ink-muted max-w-2xl mx-auto mb-6">
+            Browse our network of 3,000+ vendors — from local artisans to specialized service providers.
           </p>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {vendors.map((vendor, idx) => (
-              <a
-                key={vendor.slug || vendor.id || idx}
-                href={vendor.slug ? `/vendors/${vendor.slug}` : '#'}
-                className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Store size={14} className="text-blue-600 shrink-0" />
-                  {vendor.category && (
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-blue-600">{vendor.category}</span>
-                  )}
-                </div>
-                <h3 className="font-semibold text-gray-900 text-sm mb-1">{vendor.name}</h3>
-                {vendor.tagline && (
-                  <p className="text-xs text-gray-500 mb-2 line-clamp-2">{vendor.tagline}</p>
-                )}
-                {vendor.description && !vendor.tagline && (
-                  <p className="text-xs text-gray-500 mb-2 line-clamp-2">{vendor.description}</p>
-                )}
-                <div className="mt-auto pt-2">
-                  {vendor.website && (
-                    <span className="text-xs text-blue-600 inline-flex items-center gap-1">
-                      Visit website <ExternalLink size={10} />
-                    </span>
-                  )}
-                </div>
-              </a>
-            ))}
-          </div>
-
-          {!query.trim() && total > 24 && (
-            <div className="flex justify-center gap-2 mt-8">
+          <form onSubmit={handleSearch} className="max-w-xl mx-auto">
+            <div className="flex">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search vendors (e.g., caterers in San Francisco)"
+                className="flex-1 pl-4 pr-4 py-2.5 border border-warm-grey rounded-l-md text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent placeholder:text-onyx-muted"
+              />
               <button
-                onClick={() => setPage(Math.max(1, page - 1))}
-                disabled={page <= 1}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50"
+                type="submit"
+                className="px-5 py-2.5 bg-gold hover:bg-gold-dark rounded-r-md transition-colors"
+                aria-label="Search"
               >
-                Previous
-              </button>
-              <span className="px-4 py-2 text-sm text-gray-600">
-                Page {page} of {Math.ceil(total / 24)}
-              </span>
-              <button
-                onClick={() => setPage(page + 1)}
-                disabled={page >= Math.ceil(total / 24)}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50"
-              >
-                Next
+                <Search className="h-5 w-5 text-navy" />
               </button>
             </div>
+          </form>
+
+          {query.trim() && (
+            <button onClick={clearSearch} className="mt-3 text-sm text-accent-blue hover:underline">
+              Clear search — show all vendors
+            </button>
           )}
-        </>
-      )}
-      {!query.trim() && facets.length > 0 && (
-        <div className="mt-16 border-t border-gray-200 pt-10">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <MapPin size={18} /> Browse by Location &amp; Category
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {facets.map((f, i) => (
-              <a
-                key={i}
-                href={`/locations/${toSlug(f.city)}/${toSlug(f.category)}/vendors`}
-                className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-blue-50 text-gray-700 hover:text-blue-700 rounded-full transition-colors"
-              >
-                {f.category} in {f.city}
-              </a>
-            ))}
-          </div>
         </div>
-      )}
+
+        {(loading || searching) && (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 text-gold animate-spin" />
+          </div>
+        )}
+
+        {!loading && !searching && vendors.length === 0 && (
+          <div className="text-center py-12">
+            <Store className="mx-auto h-12 w-12 text-onyx-muted mb-4" />
+            <p className="text-ink-muted">No vendors found. Try a different search.</p>
+          </div>
+        )}
+
+        {!loading && !searching && vendors.length > 0 && (
+          <>
+            <p className="text-sm text-ink-muted mb-4">
+              {query.trim()
+                ? `${total} vendors matching "${query}"`
+                : `${total} vendors in our network`}
+            </p>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {vendors.map((vendor, idx) => (
+                <a
+                  key={vendor.slug || vendor.id || idx}
+                  href={vendor.slug ? `/vendors/${vendor.slug}` : '#'}
+                  className="bg-white rounded-lg border border-warm-grey p-4 hover:shadow-md hover:border-border-hover transition-all flex flex-col"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Store size={14} className="text-gold-dark shrink-0" />
+                    {vendor.category && (
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-ink-muted">{vendor.category}</span>
+                    )}
+                    {vendor.is_verified && (
+                      <span className="text-[10px] font-medium bg-status-success/10 text-status-success px-1.5 py-0.5 rounded">Verified</span>
+                    )}
+                  </div>
+                  <h3 className="font-semibold text-ink text-sm mb-1">{vendor.name}</h3>
+                  {vendor.tagline && (
+                    <p className="text-xs text-ink-muted mb-2 line-clamp-2">{vendor.tagline}</p>
+                  )}
+                  {vendor.description && !vendor.tagline && (
+                    <p className="text-xs text-ink-muted mb-2 line-clamp-2">{vendor.description}</p>
+                  )}
+                  <div className="mt-auto pt-2">
+                    {vendor.website && (
+                      <span className="text-xs text-accent-blue inline-flex items-center gap-1">
+                        Visit website <ExternalLink size={10} />
+                      </span>
+                    )}
+                  </div>
+                </a>
+              ))}
+            </div>
+
+            {!query.trim() && total > 24 && (
+              <div className="flex justify-center gap-2 mt-8">
+                <button
+                  onClick={() => setPage(Math.max(1, page - 1))}
+                  disabled={page <= 1}
+                  className="px-4 py-2 text-sm border border-warm-grey rounded-lg disabled:opacity-50 hover:bg-white hover:border-border-hover transition-colors"
+                >
+                  Previous
+                </button>
+                <span className="px-4 py-2 text-sm text-ink-muted">
+                  Page {page} of {Math.ceil(total / 24)}
+                </span>
+                <button
+                  onClick={() => setPage(page + 1)}
+                  disabled={page >= Math.ceil(total / 24)}
+                  className="px-4 py-2 text-sm border border-warm-grey rounded-lg disabled:opacity-50 hover:bg-white hover:border-border-hover transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        )}
+        {!query.trim() && facets.length > 0 && (
+          <div className="mt-12 border-t border-warm-grey pt-8">
+            <h2 className="text-lg font-semibold text-ink mb-4 flex items-center gap-2">
+              <MapPin size={18} className="text-gold-dark" /> Browse by Location &amp; Category
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {facets.map((f, i) => (
+                <a
+                  key={i}
+                  href={`/locations/${toSlug(f.city)}/${toSlug(f.category)}/vendors`}
+                  className="px-3 py-1.5 text-xs bg-white border border-warm-grey hover:border-gold hover:bg-gold/5 text-ink-muted hover:text-ink rounded-full transition-colors"
+                >
+                  {f.category} in {f.city}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

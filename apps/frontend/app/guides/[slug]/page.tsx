@@ -202,7 +202,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
     <main className="min-h-screen bg-canvas text-onyx pb-24">
       <nav className="border-b border-warm-grey/30 bg-canvas/80 backdrop-blur-md sticky top-0 z-10">
         <div className="mx-auto flex h-16 max-w-5xl items-center px-6">
-          <Link href="/" className="text-sm font-semibold hover:text-agent-blurple transition-colors flex items-center gap-2">
+          <Link href="/" className="text-sm font-semibold hover:text-gold-dark transition-colors flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -213,7 +213,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
 
       <article className="mx-auto max-w-3xl px-6 pt-12">
         <header className="mb-14 text-center">
-          <span className="inline-block rounded-full bg-agent-blurple/15 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-agent-camel mb-6 border border-agent-blurple/20">
+          <span className="inline-block rounded-full bg-gold/15 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-gold-dark mb-6 border border-gold/20">
             {guide.tag}
           </span>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-white mb-8 tracking-tight">
@@ -221,7 +221,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
           </h1>
           <div className="flex items-center justify-center gap-4 text-sm text-onyx-muted border-y border-warm-grey/30 py-4 max-w-md mx-auto">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-agent-blurple to-agent-camel flex items-center justify-center text-[10px] text-white font-bold">BA</div>
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gold-dark to-gold flex items-center justify-center text-[10px] text-white font-bold">BA</div>
               <span className="font-medium text-onyx/90">BuyAnything Concierge</span>
             </div>
             <span>·</span>
@@ -231,6 +231,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
 
         {guide.heroImage && (
           <div className="w-full aspect-[21/9] rounded-3xl overflow-hidden mb-16 border border-white/10 shadow-2xl">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={guide.heroImage} alt="Hero" className="w-full h-full object-cover" />
           </div>
         )}

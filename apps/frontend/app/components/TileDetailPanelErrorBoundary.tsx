@@ -30,12 +30,12 @@ export class TileDetailPanelErrorBoundary extends Component<Props, State> {
       return (
         <div className="p-6 text-center">
           <div className="text-red-600 font-medium mb-2">Unable to display details</div>
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-ink-muted">
             {this.state.error?.message || 'An unexpected error occurred'}
           </div>
           <button
             onClick={() => this.setState({ hasError: false, error: null })}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="mt-4 px-4 py-2 bg-gold text-navy rounded hover:bg-gold-dark"
           >
             Try Again
           </button>

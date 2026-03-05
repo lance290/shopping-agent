@@ -1,5 +1,3 @@
-import { create } from 'zustand';
-
 // Types extracted to store-types.ts — re-exported for backward compatibility
 export type {
   Offer,
@@ -14,15 +12,7 @@ export type {
   ChoiceFactor,
 } from './store-types';
 
-import type { Offer, ProviderStatusSnapshot, Bid, Row, Project, OfferSortMode } from './store-types';
-
-interface PendingRowDelete {
-  row: Row;
-  rowIndex: number;
-  results: Offer[];
-  timeoutId: ReturnType<typeof setTimeout>;
-  expiresAt: number;
-}
+import type { Offer, Bid, Row, ChoiceFactor } from './store-types';
 
 // Helper to convert DB Bid to Offer
 export function mapBidToOffer(bid: Bid, rowId?: number): Offer {
@@ -32,10 +22,10 @@ export function mapBidToOffer(bid: Bid, rowId?: number): Offer {
     : undefined;
   const parsedName = bid.item_title.match(/Contact: (.*)\)/)?.[1];
   
-  let parsedProvenance: any = {};
-  if (typeof (bid as any).provenance === 'string' && (bid as any).provenance) {
+  let parsedProvenance: Record<string, unknown> = {};
+  if (typeof (bid as unknown as Record<string, unknown>).provenance === 'string' && (bid as unknown as Record<string, unknown>).provenance) {
     try {
-      parsedProvenance = JSON.parse((bid as any).provenance);
+      parsedProvenance = JSON.parse((bid as unknown as Record<string, unknown>).provenance as string);
     } catch { }
   }
   
@@ -67,12 +57,14 @@ export function mapBidToOffer(bid: Bid, rowId?: number): Offer {
     vendor_name: bid.contact_name || parsedName, // Prefer explicit contact name
     vendor_email: contactEmail || itemEmail, // Prefer explicit email
     description: bid.seller?.description || bid.seller?.tagline || undefined,
-    matched_features: parsedProvenance?.matched_features || (bid as any).matched_features || [],
+    matched_features: Array.isArray(parsedProvenance?.matched_features)
+      ? parsedProvenance.matched_features
+      : (Array.isArray((bid as unknown as Record<string, unknown>).matched_features) ? (bid as unknown as Record<string, unknown>).matched_features as string[] : []),
   };
 }
 
 // Helper to parse factors
-export function parseChoiceFactors(row: Row): any[] {
+export function parseChoiceFactors(row: Row): ChoiceFactor[] {
   if (!row.choice_factors) return [];
   try {
     const parsed = JSON.parse(row.choice_factors);
@@ -80,8 +72,8 @@ export function parseChoiceFactors(row: Row): any[] {
     if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
       return Object.entries(parsed).map(([name, value]) => ({
         name,
-        ...(value as Record<string, any>),
-      }));
+        ...(value as Record<string, unknown>),
+      })) as ChoiceFactor[];
     }
     return [];
   } catch {
@@ -89,14 +81,14 @@ export function parseChoiceFactors(row: Row): any[] {
   }
 }
 
-export function parseChoiceAnswers(row: Row): Record<string, any> {
+export function parseChoiceAnswers(row: Row): Record<string, unknown> {
   if (!row.choice_answers) return {};
   try {
     const parsed = JSON.parse(row.choice_answers);
     if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed;
+      return parsed as Record<string, unknown>;
     }
-  } catch (e) {
+  } catch {
     // Ignore parse errors
   }
   return {};

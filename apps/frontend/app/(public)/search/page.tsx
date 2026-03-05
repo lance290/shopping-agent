@@ -92,9 +92,9 @@ function SearchResults() {
   if (!query.trim()) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-        <Search className="mx-auto h-12 w-12 text-gray-300 mb-4" />
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Search for anything</h1>
-        <p className="text-gray-500">Enter a query in the search bar above to find products and vendors.</p>
+        <Search className="mx-auto h-12 w-12 text-onyx-muted mb-4" />
+        <h1 className="text-2xl font-bold text-ink mb-2">Search for anything</h1>
+        <p className="text-ink-muted">Enter a query in the search bar above to find products and vendors.</p>
       </div>
     );
   }
@@ -102,11 +102,11 @@ function SearchResults() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-ink">
           Results for &ldquo;{query}&rdquo;
         </h1>
         {searchInfo.optimized && searchInfo.optimized !== query && (
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-ink-muted mt-1">
             Searched as: &ldquo;{searchInfo.optimized}&rdquo;
           </p>
         )}
@@ -116,8 +116,8 @@ function SearchResults() {
 
       {loading && (
         <div className="flex flex-col items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 text-blue-600 animate-spin mb-4" />
-          <p className="text-gray-500">Searching all providers...</p>
+          <Loader2 className="h-8 w-8 text-gold animate-spin mb-4" />
+          <p className="text-ink-muted">Searching all providers...</p>
         </div>
       )}
 
@@ -129,7 +129,7 @@ function SearchResults() {
 
       {!loading && !error && results.length === 0 && (
         <div className="text-center py-20">
-          <p className="text-gray-500 text-lg">No results found. Try a different search.</p>
+          <p className="text-ink-muted text-lg">No results found. Try a different search.</p>
         </div>
       )}
 
@@ -146,12 +146,12 @@ function SearchResults() {
           </div>
 
           <div className="mt-8 text-center">
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-ink-muted mb-4">
               {results.length} results from multiple sources
             </p>
-            <div className="inline-flex items-center gap-2 bg-gray-50 rounded-full px-4 py-2">
-              <span className="text-sm text-gray-600">Want to save and track results?</span>
-              <a href="/login" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+            <div className="inline-flex items-center gap-2 bg-canvas-dark rounded-full px-4 py-2">
+              <span className="text-sm text-ink-muted">Want to save and track results?</span>
+              <a href="/login" className="text-sm font-medium text-accent-blue hover:text-accent-blue-hover">
                 Sign in
               </a>
             </div>
@@ -166,7 +166,7 @@ export default function SearchPage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+        <Loader2 className="h-8 w-8 text-gold animate-spin" />
       </div>
     }>
       <SearchResults />

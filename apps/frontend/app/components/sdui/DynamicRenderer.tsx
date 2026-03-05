@@ -76,7 +76,7 @@ function getLayoutClass(layout: string): string {
     case 'ROW_MEDIA_LEFT':
       return 'flex gap-4 p-3 items-start';
     case 'ROW_TIMELINE':
-      return 'space-y-3 p-3 border-l-2 border-blue-200 pl-4';
+      return 'space-y-3 p-3 border-l-2 border-gold/30 pl-4';
     default:
       return 'space-y-2 p-3';
   }

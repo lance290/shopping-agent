@@ -41,7 +41,7 @@ const GUIDES = [
 
 const TAG_STYLES: Record<string, string> = {
   Trending: 'bg-red-500/15 text-red-400',
-  Popular: 'bg-agent-blurple/15 text-agent-camel',
+  Popular: 'bg-gold/15 text-gold-dark',
   Seasonal: 'bg-amber-500/15 text-amber-400',
   Rising: 'bg-emerald-500/15 text-emerald-400',
   Luxury: 'bg-purple-500/15 text-purple-300',

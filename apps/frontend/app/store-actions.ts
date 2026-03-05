@@ -1,9 +1,12 @@
-import type { Offer, ProviderStatusSnapshot, Bid, Row, Project, OfferSortMode } from "./store-types";
-import { mapBidToOffer } from "./store";
+import type { Offer, ProviderStatusSnapshot, Row, OfferSortMode } from "./store-types";
 
 import type { ShoppingState } from "./store-state";
 
-export const createStoreActions = (set: any, get: () => ShoppingState) => ({
+type SetStoreState = (
+  partial: Partial<ShoppingState> | ((state: ShoppingState) => Partial<ShoppingState>)
+) => void;
+
+export const createStoreActions = (set: SetStoreState, get: () => ShoppingState) => ({
   setRowResults: (rowId: number, results: Offer[], providerStatuses?: ProviderStatusSnapshot[], moreIncoming: boolean = false, userMessage?: string) => set((state: ShoppingState) => {
     // STREAMING LOCK: If SSE is actively streaming for this row, skip the replace.
     // This prevents auto-load, comment merge, and other paths from wiping SSE results.
@@ -66,14 +69,18 @@ export const createStoreActions = (set: any, get: () => ShoppingState) => ({
     return { rowResults: { ...state.rowResults, [rowId]: updated } };
   }),
   clearRowResults: (rowId: number) => set((state: ShoppingState) => {
-    const { [rowId]: _, ...rest } = state.rowResults;
-    const { [rowId]: __, ...restStatuses } = state.rowProviderStatuses;
-    const { [rowId]: ___, ...restErrors } = state.rowSearchErrors;
+    const rest = { ...state.rowResults };
+    const restStatuses = { ...state.rowProviderStatuses };
+    const restErrors = { ...state.rowSearchErrors };
+    delete rest[rowId];
+    delete restStatuses[rowId];
+    delete restErrors[rowId];
     return { rowResults: rest, rowProviderStatuses: restStatuses, rowSearchErrors: restErrors };
   }),
   setRowOfferSort: (rowId: number, sort: OfferSortMode) => set((state: ShoppingState) => {
     if (sort === 'original') {
-      const { [rowId]: _, ...rest } = state.rowOfferSort;
+      const rest = { ...state.rowOfferSort };
+      delete rest[rowId];
       return { rowOfferSort: rest };
     }
     return { rowOfferSort: { ...state.rowOfferSort, [rowId]: sort } };

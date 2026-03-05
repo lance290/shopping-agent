@@ -24,28 +24,28 @@ export default function LoginPage() {
   if (mounted && isLoggedOut) {
     return (
       <div className="min-h-screen bg-canvas">
-      <header className="sticky top-0 z-40 bg-navy text-white shadow-sm">
+      <header className="sticky top-0 z-40 bg-navy text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-14">
-            <Link href="/" className="text-lg font-bold tracking-tight">BuyAnything</Link>
+            <Link href="/" className="flex items-center gap-1"><span className="text-lg font-bold">Buy</span><span className="text-lg font-bold text-gold">Anything</span></Link>
           </div>
         </div>
       </header>
       <main className="flex items-center justify-center p-4" style={{ minHeight: 'calc(100vh - 56px)' }}>
-        <div className="w-full max-w-md bg-white text-navy rounded-lg shadow-md p-8 text-center">
+        <div className="w-full max-w-md bg-white text-ink rounded-lg shadow-md p-8 text-center">
           <CheckCircle className="w-12 h-12 text-status-success mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-navy mb-2">You&apos;ve been signed out</h1>
+          <h1 className="text-2xl font-bold text-ink mb-2">You&apos;ve been signed out</h1>
           <p className="text-ink-muted mb-6">Thanks for using BuyAnything. See you next time!</p>
           <div className="flex flex-col gap-3">
             <Link
               href="/"
-              className="w-full inline-block bg-navy text-white py-2.5 px-4 rounded-md hover:bg-navy-light transition-colors font-medium"
+              className="w-full inline-block bg-gold text-navy py-2.5 px-4 rounded-md hover:bg-gold-dark transition-colors font-semibold"
             >
               Back to Home
             </Link>
             <button
               onClick={() => router.replace('/login')}
-              className="text-sm text-ink-muted hover:text-navy transition-colors"
+              className="text-sm text-ink-muted hover:text-ink transition-colors"
             >
               Sign in again
             </button>
@@ -92,17 +92,17 @@ export default function LoginPage() {
   if (!mounted) {
     return (
       <div className="min-h-screen bg-canvas">
-        <header className="sticky top-0 z-40 bg-navy text-white shadow-sm">
+        <header className="sticky top-0 z-40 bg-navy text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center h-14">
-              <Link href="/" className="text-lg font-bold tracking-tight">BuyAnything</Link>
+              <Link href="/" className="flex items-center gap-1"><span className="text-lg font-bold">Buy</span><span className="text-lg font-bold text-gold">Anything</span></Link>
             </div>
           </div>
         </header>
         <main className="flex items-center justify-center p-4" style={{ minHeight: 'calc(100vh - 56px)' }}>
-          <div className="w-full max-w-md bg-white text-navy rounded-lg shadow-md p-8">
+          <div className="w-full max-w-md bg-white text-ink rounded-lg shadow-md p-8">
             <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold text-navy">Sign in to BuyAnything</h1>
+              <h1 className="text-2xl font-bold text-ink">Sign in to BuyAnything</h1>
               <p className="text-ink-muted mt-2">Loading...</p>
             </div>
           </div>
@@ -113,17 +113,17 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-canvas">
-      <header className="sticky top-0 z-40 bg-navy text-white shadow-sm">
+      <header className="sticky top-0 z-40 bg-navy text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-14">
-            <Link href="/" className="text-lg font-bold tracking-tight">BuyAnything</Link>
+            <Link href="/" className="flex items-center gap-1"><span className="text-lg font-bold">Buy</span><span className="text-lg font-bold text-gold">Anything</span></Link>
           </div>
         </div>
       </header>
     <main className="flex items-center justify-center p-4" style={{ minHeight: 'calc(100vh - 56px)' }}>
-      <div className="w-full max-w-md bg-white text-navy rounded-lg shadow-md p-8">
+      <div className="w-full max-w-md bg-white text-ink rounded-lg shadow-md p-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-navy">Sign in to BuyAnything</h1>
+          <h1 className="text-2xl font-bold text-ink">Sign in to BuyAnything</h1>
           <p className="text-ink-muted mt-2">Enter your phone number to get started</p>
         </div>
 
@@ -136,7 +136,7 @@ export default function LoginPage() {
         {step === 'start' ? (
           <form onSubmit={handleStart} className="space-y-6">
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="phone" className="block text-sm font-medium text-ink mb-1">
                 Phone number
               </label>
               <input
@@ -145,14 +145,14 @@ export default function LoginPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+1 555 555 5555"
-                className="w-full bg-white text-gray-900 placeholder:text-gray-400 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent"
+                className="w-full bg-white text-ink placeholder:text-onyx-muted px-3 py-2 border border-warm-grey rounded-md focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent"
                 required
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-navy text-white py-2 px-4 rounded-md hover:bg-navy-light focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 disabled:opacity-50 transition-colors"
+              className="w-full bg-gold text-navy py-2 px-4 rounded-md hover:bg-gold-dark font-semibold focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 disabled:opacity-50 transition-colors"
             >
               {loading ? 'Sending...' : 'Continue'}
             </button>
@@ -160,7 +160,7 @@ export default function LoginPage() {
         ) : (
           <form onSubmit={handleVerify} className="space-y-6">
             <div>
-              <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="code" className="block text-sm font-medium text-ink mb-1">
                 Verification Code
               </label>
               <input
@@ -169,18 +169,18 @@ export default function LoginPage() {
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="123456"
-                className="w-full bg-white text-gray-900 placeholder:text-gray-400 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent tracking-widest text-lg"
+                className="w-full bg-white text-ink placeholder:text-onyx-muted px-3 py-2 border border-warm-grey rounded-md focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent tracking-widest text-lg"
                 required
                 maxLength={6}
               />
-              <p className="mt-2 text-sm text-gray-500">
-                Sent to {phone}. <button type="button" onClick={() => setStep('start')} className="text-navy hover:text-navy-light">Change?</button>
+              <p className="mt-2 text-sm text-ink-muted">
+                Sent to {phone}. <button type="button" onClick={() => setStep('start')} className="text-accent-blue hover:text-accent-blue-hover">Change?</button>
               </p>
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-navy text-white py-2 px-4 rounded-md hover:bg-navy-light focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 disabled:opacity-50 transition-colors"
+              className="w-full bg-gold text-navy py-2 px-4 rounded-md hover:bg-gold-dark font-semibold focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 disabled:opacity-50 transition-colors"
             >
               {loading ? 'Verifying...' : 'Sign In'}
             </button>

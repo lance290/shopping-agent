@@ -110,6 +110,7 @@ def _default_choice_factors_for_row(row: Row) -> list:
 async def create_row(
     row: RowCreate,
     authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
     
@@ -135,6 +136,7 @@ async def create_row(
         choice_answers=row.choice_answers,
         is_service=row.is_service,
         service_category=row.service_category,
+        anonymous_session_id=x_anonymous_session_id,
     )
     if db_row.choice_factors is None:
         db_row.choice_factors = _default_choice_factors_for_row(db_row)

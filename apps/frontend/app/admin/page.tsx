@@ -59,8 +59,8 @@ export default function AdminDashboard() {
   }) => (
     <Card className="p-5">
       <div className="flex items-center gap-3 mb-2">
-        <div className="w-9 h-9 rounded-lg bg-agent-blurple/10 flex items-center justify-center">
-          <Icon size={18} className="text-agent-blurple" />
+        <div className="w-9 h-9 rounded-lg bg-gold/10 flex items-center justify-center">
+          <Icon size={18} className="text-gold-dark" />
         </div>
         <span className="text-xs font-medium text-onyx-muted uppercase tracking-wide">{label}</span>
       </div>

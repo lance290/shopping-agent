@@ -87,7 +87,7 @@ export default function LocationPrompt({ onComplete, onSkip }: LocationPromptPro
           </svg>
         </div>
         <p className="text-lg font-semibold text-green-900">Location set!</p>
-        <p className="text-sm text-gray-500 mt-1">Zip code: {resolvedZip}</p>
+        <p className="text-sm text-ink-muted mt-1">Zip code: {resolvedZip}</p>
       </div>
     );
   }
@@ -104,7 +104,7 @@ export default function LocationPrompt({ onComplete, onSkip }: LocationPromptPro
             </svg>
           </div>
           <h3 className="text-lg font-semibold text-green-900">Find stores near you</h3>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-ink-muted">
             We use your location to find the best grocery deals at stores near you.
           </p>
           <button
@@ -126,7 +126,7 @@ export default function LocationPrompt({ onComplete, onSkip }: LocationPromptPro
           </button>
           <button
             onClick={() => setState('manual')}
-            className="text-sm text-gray-500 hover:text-gray-700 underline"
+            className="text-sm text-ink-muted hover:text-ink underline"
           >
             Enter zip code instead
           </button>
@@ -149,7 +149,7 @@ export default function LocationPrompt({ onComplete, onSkip }: LocationPromptPro
         <form onSubmit={handleZipSubmit} className="space-y-4">
           <div className="text-center mb-2">
             <h3 className="text-lg font-semibold text-green-900">Enter your zip code</h3>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-ink-muted mt-1">
               We&apos;ll find grocery stores and deals near you.
             </p>
           </div>
@@ -190,7 +190,7 @@ export default function LocationPrompt({ onComplete, onSkip }: LocationPromptPro
           <button
             type="button"
             onClick={() => { setState('idle'); setError(null); }}
-            className="w-full text-sm text-gray-500 hover:text-gray-700 underline"
+            className="w-full text-sm text-ink-muted hover:text-ink underline"
           >
             Try GPS instead
           </button>
@@ -202,7 +202,7 @@ export default function LocationPrompt({ onComplete, onSkip }: LocationPromptPro
         <div className="text-center mt-4">
           <button
             onClick={onSkip}
-            className="text-xs text-gray-400 hover:text-gray-600"
+            className="text-xs text-onyx-muted hover:text-ink"
           >
             Skip for now
           </button>

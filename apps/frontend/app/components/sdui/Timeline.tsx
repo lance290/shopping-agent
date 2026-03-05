@@ -15,21 +15,21 @@ export function Timeline({ steps }: TimelineBlock) {
                 step.status === 'done'
                   ? 'bg-green-500 text-white'
                   : step.status === 'active'
-                  ? 'bg-blue-500 text-white ring-2 ring-blue-200'
-                  : 'bg-gray-200 text-gray-500'
+                  ? 'bg-gold text-navy ring-2 ring-gold/30'
+                  : 'bg-canvas-dark text-ink-muted'
               }`}
             >
               {step.status === 'done' ? '✓' : i + 1}
             </div>
             <span className={`text-xs mt-1 whitespace-nowrap ${
-              step.status === 'active' ? 'font-semibold text-blue-600' : 'text-gray-500'
+              step.status === 'active' ? 'font-semibold text-gold-dark' : 'text-ink-muted'
             }`}>
               {step.label}
             </span>
           </div>
           {i < steps.length - 1 && (
             <div className={`w-8 h-0.5 mt-[-14px] ${
-              step.status === 'done' ? 'bg-green-400' : 'bg-gray-200'
+              step.status === 'done' ? 'bg-green-400' : 'bg-canvas-dark'
             }`} />
           )}
         </div>

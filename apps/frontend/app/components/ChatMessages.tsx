@@ -22,7 +22,7 @@ const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center px-6 text-onyx-muted">
             <div className="w-14 h-14 rounded-full bg-white border border-warm-grey flex items-center justify-center mb-5">
-              <Bot className="w-6 h-6 text-agent-blurple" />
+              <Bot className="w-6 h-6 text-gold-dark" />
             </div>
             <div className="text-[10px] uppercase tracking-[0.16em] text-onyx-muted/80 font-medium">Welcome</div>
             <h3 className="text-lg font-medium text-onyx mt-2 mb-2">How can I help you today?</h3>
@@ -43,7 +43,7 @@ const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
             <div
               className={cn(
                 "w-9 h-9 rounded-full flex items-center justify-center shrink-0 border border-warm-grey/70 bg-white/90",
-                m.role === 'user' ? "bg-[#E7F0FF] text-onyx border-[#C7D9F6]" : "text-agent-blurple"
+                m.role === 'user' ? "bg-[#E7F0FF] text-onyx border-[#C7D9F6]" : "text-gold-dark"
               )}
             >
               {m.role === 'user' ? <User size={18} /> : <Bot size={18} />}

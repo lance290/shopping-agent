@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -47,11 +47,7 @@ export default function SellerDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData(activeTab);
-  }, [activeTab]);
-
-  async function loadData(tab: Tab) {
+  const loadData = useCallback(async (tab: Tab) => {
     setLoading(true);
     setError(null);
     try {
@@ -81,7 +77,11 @@ export default function SellerDashboard() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadData(activeTab);
+  }, [activeTab, loadData]);
 
   const statusBadge = (status: string) => {
     const colors: Record<string, string> = {
@@ -91,7 +91,7 @@ export default function SellerDashboard() {
       rejected: 'bg-red-100 text-red-700',
     };
     return (
-      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase ${colors[status] || 'bg-gray-100 text-gray-600'}`}>
+      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase ${colors[status] || 'bg-canvas-dark text-ink-muted'}`}>
         {status}
       </span>
     );
@@ -114,7 +114,7 @@ export default function SellerDashboard() {
                 onClick={() => setActiveTab(tab)}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                   activeTab === tab
-                    ? 'bg-agent-blurple text-white'
+                    ? 'bg-gold text-navy'
                     : 'text-onyx-muted hover:bg-warm-grey/30'
                 }`}
               >
@@ -178,19 +178,26 @@ export default function SellerDashboard() {
                     <Button
                       size="sm"
                       variant="primary"
-                      onClick={() => {
+                      onClick={async () => {
                         const price = window.prompt('Your quote price ($):');
                         const desc = window.prompt('Description / notes:');
                         if (!price) return;
-                        fetch('/api/seller/quotes', {
-                          method: 'POST',
-                          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            row_id: rfp.row_id,
-                            price: parseFloat(price),
-                            description: desc || '',
-                          }),
-                        }).then(() => loadData('quotes'));
+                        try {
+                          const res = await fetch('/api/seller/quotes', {
+                            method: 'POST',
+                            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              row_id: rfp.row_id,
+                              price: parseFloat(price),
+                              description: desc || '',
+                            }),
+                          });
+                          if (!res.ok) throw new Error('Failed to submit quote');
+                          await loadData('quotes');
+                        } catch (err) {
+                          console.error('[seller] quote submit failed', err);
+                          setError(err instanceof Error ? err.message : 'Failed to submit quote');
+                        }
                       }}
                     >
                       Submit Quote

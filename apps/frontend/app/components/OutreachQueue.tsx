@@ -60,6 +60,15 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
 
   const requestQuote = async (bidId: number) => {
     setQuotesRequested(prev => new Set(prev).add(bidId));
+    try {
+      await fetch('/api/outreach/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row_id: rowId, bid_ids: [bidId] }),
+      });
+    } catch (err) {
+      console.error('[OutreachQueue] requestQuote failed', err);
+    }
   };
 
   const requestSelectedQuotes = async () => {
@@ -88,7 +97,7 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
   return (
     <div className="mt-3">
       <div className="flex items-center justify-between mb-2">
-        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+        <h4 className="text-xs font-semibold text-ink-muted uppercase tracking-wide flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5" />
           {tierLabel} ({vendorOffers.length})
         </h4>
@@ -96,7 +105,7 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
           <button
             onClick={requestSelectedQuotes}
             disabled={requestingQuotes}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-navy rounded-lg text-xs font-medium hover:bg-gold-dark disabled:opacity-50 transition-colors"
           >
             <Send className="w-3 h-3" />
             Request {selectedVendors.size} Quote{selectedVendors.size !== 1 ? 's' : ''}
@@ -120,8 +129,8 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
                 isRequested
                   ? 'border-green-300 bg-green-50/50'
                   : isSelected
-                  ? 'border-blue-400 bg-blue-50/50 ring-1 ring-blue-400'
-                  : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                  ? 'border-gold bg-gold/5 ring-1 ring-gold'
+                  : 'border-warm-grey bg-white hover:border-onyx-muted hover:shadow-sm'
               }`}
               onClick={() => !isRequested && toggleSelect(bidId)}
             >
@@ -133,21 +142,21 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
                     Requested
                   </span>
                 ) : isSelected ? (
-                  <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
+                  <div className="w-5 h-5 rounded-full bg-gold flex items-center justify-center">
                     <Check className="w-3 h-3 text-white" />
                   </div>
                 ) : (
-                  <div className="w-5 h-5 rounded-full border-2 border-gray-300" />
+                  <div className="w-5 h-5 rounded-full border-2 border-warm-grey" />
                 )}
               </div>
 
               {/* Vendor info */}
               <div className="pr-8">
-                <h5 className="text-sm font-semibold text-gray-900 leading-tight">
+                <h5 className="text-sm font-semibold text-ink leading-tight">
                   {offer.vendor_company || offer.vendor_name || offer.merchant}
                 </h5>
                 {offer.title && offer.title !== offer.merchant && (
-                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{offer.title}</p>
+                  <p className="text-xs text-ink-muted mt-0.5 line-clamp-1">{offer.title}</p>
                 )}
               </div>
 
@@ -168,7 +177,7 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
                       e.stopPropagation();
                       requestQuote(bidId);
                     }}
-                    className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-gold text-navy rounded-lg text-sm font-medium hover:bg-gold-dark transition-colors shadow-sm"
                   >
                     <Send className="w-3.5 h-3.5" />
                     Request Quote
@@ -177,8 +186,8 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
               )}
 
               {/* Contact info + expand */}
-              <div className="mt-auto pt-3 flex items-center justify-between border-t border-gray-100">
-                <div className="flex items-center gap-1.5 text-xs text-gray-400">
+              <div className="mt-auto pt-3 flex items-center justify-between border-t border-warm-grey">
+                <div className="flex items-center gap-1.5 text-xs text-onyx-muted">
                   <ChannelIcon className="w-3.5 h-3.5" />
                   {offer.vendor_email || 'Contact available'}
                 </div>
@@ -188,7 +197,7 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
                       e.stopPropagation();
                       setExpandedVendor(isExpanded ? null : bidId);
                     }}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-onyx-muted hover:text-ink"
                   >
                     {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
@@ -197,8 +206,8 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
 
               {/* Expanded: additional details if needed */}
               {isExpanded && !isRequested && (
-                <div className="mt-3 pt-3 border-t border-gray-100">
-                  <p className="text-xs text-gray-500">
+                <div className="mt-3 pt-3 border-t border-warm-grey">
+                  <p className="text-xs text-ink-muted">
                     Click Request Quote to send your requirements to {offer.vendor_company || offer.vendor_name || offer.merchant}.
                   </p>
                 </div>

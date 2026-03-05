@@ -20,7 +20,7 @@ const CATEGORIES = [
   { slug: 'other', label: 'Other' },
 ];
 
-const INPUT_CLASS = 'w-full px-4 py-2 border border-gray-300 rounded-lg text-ink placeholder:text-ink-muted focus:ring-2 focus:ring-agent-blurple/30 focus:border-agent-blurple';
+const INPUT_CLASS = 'w-full px-4 py-2 border border-warm-grey rounded-lg text-ink placeholder:text-ink-muted focus:ring-2 focus:ring-gold/30 focus:border-gold';
 const LABEL_CLASS = 'block text-sm font-medium text-ink mb-1';
 
 export default function MerchantRegisterPage() {
@@ -81,18 +81,18 @@ export default function MerchantRegisterPage() {
 
   if (authenticated === null) {
     return (
-      <div className="min-h-screen bg-gray-50 text-ink flex items-center justify-center">
-        <Loader2 className="animate-spin text-agent-blurple" size={32} />
+      <div className="min-h-screen bg-canvas-dark text-ink flex items-center justify-center">
+        <Loader2 className="animate-spin text-gold" size={32} />
       </div>
     );
   }
 
   if (authenticated === false) {
     return (
-      <div className="min-h-screen bg-gray-50 text-ink flex items-center justify-center p-4">
+      <div className="min-h-screen bg-canvas-dark text-ink flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <div className="bg-agent-blurple/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <LogIn className="text-agent-blurple" size={28} />
+          <div className="bg-gold/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <LogIn className="text-gold-dark" size={28} />
           </div>
           <h1 className="text-2xl font-bold text-ink mb-2">Sign In Required</h1>
           <p className="text-ink-muted mb-6">
@@ -100,7 +100,7 @@ export default function MerchantRegisterPage() {
           </p>
           <Link
             href="/"
-            className="inline-flex items-center gap-2 bg-agent-blurple text-white px-6 py-2 rounded-lg font-medium hover:bg-agent-blurple/90 transition-colors"
+            className="inline-flex items-center gap-2 bg-gold text-navy px-6 py-2 rounded-lg font-semibold hover:bg-gold-dark transition-colors"
           >
             Go to Login
           </Link>
@@ -112,9 +112,9 @@ export default function MerchantRegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gray-50 text-ink flex items-center justify-center p-4">
+      <div className="min-h-screen bg-canvas-dark text-ink flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <CheckCircle className="mx-auto text-emerald-500 mb-4" size={48} />
+          <CheckCircle className="mx-auto text-status-success mb-4" size={48} />
           <h1 className="text-2xl font-bold text-ink mb-2">Registration Received!</h1>
           <p className="text-ink-muted mb-6">
             Thank you for registering. We&apos;ll review your application and contact you
@@ -122,7 +122,7 @@ export default function MerchantRegisterPage() {
           </p>
           <Link
             href="/"
-            className="inline-flex items-center gap-2 bg-agent-blurple text-white px-6 py-2 rounded-lg font-medium hover:bg-agent-blurple/90 transition-colors"
+            className="inline-flex items-center gap-2 bg-gold text-navy px-6 py-2 rounded-lg font-semibold hover:bg-gold-dark transition-colors"
           >
             Back to Home
           </Link>
@@ -133,19 +133,19 @@ export default function MerchantRegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 text-ink py-8 px-4">
+    <div className="min-h-screen bg-canvas-dark text-ink py-8 px-4">
       <div className="max-w-lg mx-auto">
         {/* Brand header */}
         <div className="text-center mb-6">
-          <Link href="/" className="inline-flex items-center gap-2 text-agent-blurple font-bold text-lg hover:opacity-80 transition-opacity">
+          <Link href="/" className="inline-flex items-center gap-2 text-gold-dark font-bold text-lg hover:opacity-80 transition-opacity">
             Shopping Agent
           </Link>
         </div>
 
         <div className="bg-white rounded-lg shadow-lg p-8">
           <div className="flex items-center gap-3 mb-6">
-            <div className="bg-agent-blurple/10 p-2 rounded-lg">
-              <Building2 className="text-agent-blurple" size={24} />
+            <div className="bg-gold/10 p-2 rounded-lg">
+              <Building2 className="text-gold-dark" size={24} />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-ink">Join Our Seller Network</h1>
@@ -242,8 +242,8 @@ export default function MerchantRegisterPage() {
                     onClick={() => toggleCategory(cat.slug)}
                     className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
                       selectedCategories.includes(cat.slug)
-                        ? 'bg-agent-blurple/10 border-agent-blurple/40 text-agent-blurple font-medium'
-                        : 'border-gray-200 text-ink-muted hover:border-gray-300 hover:text-ink'
+                        ? 'bg-gold/10 border-gold/40 text-gold-dark font-medium'
+                        : 'border-warm-grey text-ink-muted hover:border-onyx-muted hover:text-ink'
                     }`}
                   >
                     {cat.label}
@@ -261,7 +261,7 @@ export default function MerchantRegisterPage() {
             <button
               type="submit"
               disabled={submitting || !businessName || !contactName || !email || selectedCategories.length === 0}
-              className="w-full bg-agent-blurple text-white py-3 rounded-lg font-medium hover:bg-agent-blurple/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-gold text-navy py-3 rounded-lg font-semibold hover:bg-gold-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {submitting ? (
                 <>

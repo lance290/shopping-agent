@@ -1,6 +1,6 @@
 'use client';
 
-import { Mail, CheckCircle2, Handshake } from 'lucide-react';
+import { Mail, Handshake } from 'lucide-react';
 
 interface DealStatusProps {
   status: 'introduced' | 'closed' | null;
@@ -21,7 +21,7 @@ export function DealStatus({ status, sellerCompany, dealValue }: DealStatusProps
           <div>
             <div className="font-semibold text-purple-900">Deal in Progress</div>
             <div className="text-sm text-purple-700">
-              You've been introduced to {sellerCompany || 'the vendor'} via email.
+              You&apos;ve been introduced to {sellerCompany || 'the vendor'} via email.
               {dealValue && (
                 <span className="font-medium"> (${dealValue.toLocaleString()})</span>
               )}

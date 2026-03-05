@@ -32,10 +32,10 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
       return (
         <div className="flex items-center justify-center p-8 text-center">
           <div>
-            <p className="text-gray-400 text-sm mb-2">Something went wrong.</p>
+            <p className="text-onyx-muted text-sm mb-2">Something went wrong.</p>
             <button
               onClick={() => this.setState({ hasError: false })}
-              className="text-xs text-blue-400 hover:text-blue-300 underline"
+              className="text-xs text-accent-blue hover:text-gold underline"
             >
               Try again
             </button>

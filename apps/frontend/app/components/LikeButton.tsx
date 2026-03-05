@@ -1,7 +1,7 @@
 'use client';
 
 import { Heart } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { cn } from '../../utils/cn';
 
 interface LikeButtonProps {
@@ -35,6 +35,7 @@ export function LikeButton({
   return (
     <button
       onClick={handleClick}
+      data-bid-id={bidId}
       aria-pressed={isLiked}
       aria-label={isLiked ? 'Unlike this offer' : 'Like this offer'}
       className={cn(

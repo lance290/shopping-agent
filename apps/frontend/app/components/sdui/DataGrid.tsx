@@ -9,8 +9,8 @@ export function DataGrid({ items }: DataGridBlock) {
     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
       {items.map((item, i) => (
         <div key={i} className="contents">
-          <dt className="text-gray-500 font-medium">{item.key}</dt>
-          <dd className="text-gray-900">{item.value}</dd>
+          <dt className="text-ink-muted font-medium">{item.key}</dt>
+          <dd className="text-ink">{item.value}</dd>
         </div>
       ))}
     </div>

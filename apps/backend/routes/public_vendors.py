@@ -6,6 +6,7 @@ Never exposes email or phone — only public business information.
 """
 
 import hashlib
+import json
 import logging
 import os
 import re
@@ -323,6 +324,15 @@ async def get_vendor_detail(
     return _vendor_to_public(vendor)
 
 
+def _compute_slug(name: str, vendor_id: int) -> str:
+    """Generate a URL-safe slug from a vendor name + id (matches _vendor_to_public logic)."""
+    slug = (name or "").lower().strip()
+    for ch in [" ", "'", '"', "&", "/", "\\", ".", ","]:
+        slug = slug.replace(ch, "-")
+    slug = "-".join(part for part in slug.split("-") if part)
+    return f"{slug}-{vendor_id}" if slug else f"vendor-{vendor_id}"
+
+
 @router.get("/api/public/vendors/slug/{vendor_slug}")
 async def get_vendor_detail_by_slug(
     vendor_slug: str,
@@ -335,20 +345,33 @@ async def get_vendor_detail_by_slug(
 
     vendor: Optional[Vendor] = None
 
-    # Prefer canonical slug column
+    # 1. Prefer canonical slug column
     stmt = select(Vendor).where(Vendor.slug == vendor_slug)
     result = await session.exec(stmt)
     vendor = result.first()
 
-    # Fallback: handle name-id slugs like "wimco-6135"
+    # 2. Fallback: handle computed name-id slugs like "wimco-6135"
     if not vendor:
         m = re.search(r"-(\d+)$", vendor_slug)
         if m:
             try:
                 vendor_id = int(m.group(1))
-                vendor = await session.get(Vendor, vendor_id)
+                candidate = await session.get(Vendor, vendor_id)
+                # Verify the slug actually matches this vendor to avoid ID-guessing
+                if candidate and _compute_slug(candidate.name, candidate.id) == vendor_slug:
+                    vendor = candidate
             except Exception:
                 vendor = None
+
+    # 3. Persist the slug so future lookups hit the fast path
+    if vendor and not vendor.slug:
+        try:
+            vendor.slug = _compute_slug(vendor.name, vendor.id)
+            session.add(vendor)
+            await session.commit()
+            await session.refresh(vendor)
+        except Exception:
+            pass  # Non-fatal — slug will be persisted on next write
 
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")

@@ -4,7 +4,7 @@ import type { ProductImageBlock } from '../../sdui/types';
 
 export function ProductImage({ url, alt }: ProductImageBlock) {
   return (
-    <div className="relative w-full aspect-square max-w-[200px] rounded-lg overflow-hidden bg-gray-100">
+    <div className="relative w-full aspect-square max-w-[200px] rounded-lg overflow-hidden bg-canvas-dark">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={url}

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { AlertCircle, CheckCircle2, Link2, LogIn, Pencil, ShoppingBag } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { getMe } from '../../utils/auth';
+import { fetchWithAuth } from '../../utils/api-core';
 
 interface BidItem {
   id: number;
@@ -52,7 +53,7 @@ export default function ListPage() {
   useEffect(() => {
     async function fetchRow() {
       try {
-        const res = await fetch(`/api/rows?id=${id}`);
+        const res = await fetchWithAuth(`/api/rows?id=${id}`);
         if (!res.ok) {
           throw new Error('List not found');
         }
@@ -88,7 +89,7 @@ export default function ListPage() {
     }
     setSavingTitle(true);
     try {
-      const res = await fetch(`/api/rows?id=${id}`, {
+      const res = await fetchWithAuth(`/api/rows?id=${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: trimmed }),
@@ -164,22 +165,22 @@ export default function ListPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      <div className="min-h-screen bg-canvas-dark flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gold" />
       </div>
     );
   }
 
   if (error || !row) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-canvas-dark flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <ShoppingBag className="mx-auto text-gray-400 mb-4" size={48} />
-          <h1 className="text-xl font-bold text-gray-900 mb-2">List Not Found</h1>
-          <p className="text-gray-600 mb-6">{error || 'This list is no longer available.'}</p>
+          <ShoppingBag className="mx-auto text-onyx-muted mb-4" size={48} />
+          <h1 className="text-xl font-bold text-ink mb-2">List Not Found</h1>
+          <p className="text-ink-muted mb-6">{error || 'This list is no longer available.'}</p>
           <Link
             href="/"
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-2 bg-gold text-navy px-6 py-2 rounded-lg font-semibold hover:bg-gold-dark transition-colors"
           >
             <ShoppingBag size={16} />
             Start Shopping
@@ -192,12 +193,12 @@ export default function ListPage() {
   const bids = row.bids ?? [];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-canvas-dark py-8 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
+              <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-1">
                 Shopping List
               </p>
               {isEditingTitle ? (
@@ -210,7 +211,7 @@ export default function ListPage() {
                   onBlur={handleSaveTitle}
                   onKeyDown={handleTitleKeyDown}
                   disabled={savingTitle}
-                  className="text-2xl font-bold text-gray-900 border-b-2 border-blue-500 outline-none bg-transparent w-full"
+                  className="text-2xl font-bold text-ink border-b-2 border-gold outline-none bg-transparent w-full"
                   autoFocus
                 />
               ) : (
@@ -219,12 +220,12 @@ export default function ListPage() {
                   onClick={handleStartEditTitle}
                   className="group flex items-center gap-2 text-left"
                 >
-                  <h1 className="text-2xl font-bold text-gray-900">{row.title}</h1>
-                  <Pencil size={16} className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  <h1 className="text-2xl font-bold text-ink">{row.title}</h1>
+                  <Pencil size={16} className="text-onyx-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                 </button>
               )}
               {row.status && row.status !== 'new' && (
-                <p className="text-sm text-gray-500 mt-1 capitalize">{row.status}</p>
+                <p className="text-sm text-ink-muted mt-1 capitalize">{row.status}</p>
               )}
             </div>
             <Button
@@ -254,14 +255,14 @@ export default function ListPage() {
           </div>
 
           {row.budget_max != null && (
-            <div className="text-sm text-gray-600 mb-4">
+            <div className="text-sm text-ink-muted mb-4">
               Budget: up to ${Number(row.budget_max).toLocaleString()} {row.currency || 'USD'}
             </div>
           )}
 
           {/* Shopping items checklist */}
           {bids.length > 0 && (
-            <div className="border-t border-gray-100 pt-4">
+            <div className="border-t border-warm-grey pt-4">
               {isDoneShopping && (
                 <div
                   data-testid="done-shopping-banner"
@@ -278,20 +279,20 @@ export default function ListPage() {
                     <li key={bid.id}>
                       <label
                         data-testid={`item-${bid.id}`}
-                        className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                        className="flex items-center gap-3 p-3 rounded-lg border border-warm-grey hover:bg-canvas-dark cursor-pointer transition-colors"
                       >
                         <input
                           type="checkbox"
                           data-testid={`item-checkbox-${bid.id}`}
                           checked={isChecked}
                           onChange={() => handleToggleItem(bid.id)}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          className="w-4 h-4 text-gold border-warm-grey rounded focus:ring-gold"
                         />
-                        <span className={`flex-1 text-sm font-medium ${isChecked ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                        <span className={`flex-1 text-sm font-medium ${isChecked ? 'line-through text-onyx-muted' : 'text-ink'}`}>
                           {bid.item_title}
                         </span>
                         {bid.price != null && (
-                          <span className="text-sm text-gray-500 shrink-0">
+                          <span className="text-sm text-ink-muted shrink-0">
                             ${Number(bid.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         )}
@@ -315,8 +316,8 @@ export default function ListPage() {
           )}
 
           {bids.length === 0 && (
-            <div className="border-t border-gray-100 pt-4">
-              <p className="text-sm text-gray-500">
+            <div className="border-t border-warm-grey pt-4">
+              <p className="text-sm text-ink-muted">
                 Share this list with family and friends so they can view and shop together.
               </p>
             </div>
@@ -324,14 +325,14 @@ export default function ListPage() {
         </div>
 
         <div className="bg-white rounded-lg shadow-lg p-6 text-center">
-          <h3 className="font-semibold text-gray-900 mb-2">Find the best deals</h3>
-          <p className="text-sm text-gray-600 mb-4">
+          <h3 className="font-semibold text-ink mb-2">Find the best deals</h3>
+          <p className="text-sm text-ink-muted mb-4">
             BuyAnything helps you find the best prices across the internet.
           </p>
           {isAuthenticated ? (
             <Link
               href="/"
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 bg-gold text-navy px-6 py-3 rounded-lg font-semibold hover:bg-gold-dark transition-colors"
             >
               <ShoppingBag size={16} />
               Open My Board
@@ -340,7 +341,7 @@ export default function ListPage() {
             <Link
               href="/login"
               data-testid="login-btn"
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 bg-gold text-navy px-6 py-3 rounded-lg font-semibold hover:bg-gold-dark transition-colors"
             >
               <LogIn size={16} />
               Sign In

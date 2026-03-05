@@ -41,7 +41,7 @@ export default function ContactForm() {
             <input 
               required 
               type="text" 
-              className="w-full bg-[#171717] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agent-blurple transition-colors" 
+              className="w-full bg-[#171717] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold transition-colors" 
               placeholder="Jane Doe"
             />
           </div>
@@ -50,7 +50,7 @@ export default function ContactForm() {
             <input 
               required 
               type="email" 
-              className="w-full bg-[#171717] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agent-blurple transition-colors" 
+              className="w-full bg-[#171717] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold transition-colors" 
               placeholder="jane@example.com"
             />
           </div>
@@ -60,7 +60,7 @@ export default function ContactForm() {
           <textarea 
             required 
             rows={4} 
-            className="w-full bg-[#171717] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agent-blurple transition-colors resize-none"
+            className="w-full bg-[#171717] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold transition-colors resize-none"
             placeholder="I'm looking to source..."
           />
         </div>

@@ -1,6 +1,6 @@
 import { ProviderStatusSnapshot } from '../store';
 import { cn } from '../../utils/cn';
-import { Check, AlertTriangle, XCircle, Clock, BatteryWarning } from 'lucide-react';
+import { Check, XCircle, Clock, BatteryWarning } from 'lucide-react';
 
 interface ProviderStatusBadgeProps {
   status: ProviderStatusSnapshot;
@@ -58,7 +58,7 @@ export default function ProviderStatusBadge({ status, className }: ProviderStatu
         colorClass,
         className
       )}
-      title={`${providerName}: ${statusCode} (${latency_ms}ms) - ${result_count} results`}
+      title={`${providerName}: ${label} (${latency_ms}ms) - ${result_count} results`}
     >
       {icon}
       <span>{providerName}</span>

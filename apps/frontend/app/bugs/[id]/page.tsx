@@ -26,7 +26,7 @@ export default function BugReportStatusPage() {
         } else {
           setError('Bug report not found.');
         }
-      } catch (err) {
+      } catch {
         setError('Failed to load bug report.');
       } finally {
         setLoading(false);
@@ -40,8 +40,8 @@ export default function BugReportStatusPage() {
     return (
       <div className="min-h-screen bg-warm-white flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center">
-          <div className="w-12 h-12 bg-gray-200 rounded-full mb-4"></div>
-          <div className="h-4 w-32 bg-gray-200 rounded"></div>
+          <div className="w-12 h-12 bg-warm-grey rounded-full mb-4"></div>
+          <div className="h-4 w-32 bg-warm-grey rounded"></div>
         </div>
       </div>
     );
@@ -69,8 +69,8 @@ export default function BugReportStatusPage() {
       case 'pr_created': return 'text-orange-600 bg-orange-50 border-orange-200';
       case 'preview_ready': return 'text-pink-600 bg-pink-50 border-pink-200';
       case 'shipped': return 'text-green-600 bg-green-50 border-green-200';
-      case 'closed': return 'text-gray-600 bg-gray-100 border-gray-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+      case 'closed': return 'text-ink-muted bg-canvas-dark border-warm-grey';
+      default: return 'text-ink-muted bg-canvas-dark border-warm-grey';
     }
   };
 
@@ -125,7 +125,7 @@ export default function BugReportStatusPage() {
             {/* Actions / Links */}
             <div className="flex flex-wrap gap-3 mt-4">
                 {report.github_issue_url && (
-                    <a href={report.github_issue_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
+                    <a href={report.github_issue_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-3 py-1.5 bg-canvas-dark hover:bg-warm-grey text-ink rounded-lg text-xs font-medium transition-colors">
                         <Github size={14} className="mr-1.5" />
                         View Issue
                     </a>
@@ -157,13 +157,13 @@ export default function BugReportStatusPage() {
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <h3 className="text-xs font-medium text-ink-muted uppercase tracking-wider mb-2">Severity</h3>
-                <span className="inline-block px-2 py-1 bg-gray-100 rounded text-sm text-ink capitalize">
+                <span className="inline-block px-2 py-1 bg-canvas-dark rounded text-sm text-ink capitalize">
                   {report.severity}
                 </span>
               </div>
               <div>
                 <h3 className="text-xs font-medium text-ink-muted uppercase tracking-wider mb-2">Category</h3>
-                <span className="inline-block px-2 py-1 bg-gray-100 rounded text-sm text-ink capitalize">
+                <span className="inline-block px-2 py-1 bg-canvas-dark rounded text-sm text-ink capitalize">
                   {report.category}
                 </span>
               </div>
@@ -179,10 +179,11 @@ export default function BugReportStatusPage() {
                       href={path} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="block aspect-square rounded-lg border border-warm-grey overflow-hidden hover:border-blue-400 transition-colors bg-gray-50 relative group"
+                      className="block aspect-square rounded-lg border border-warm-grey overflow-hidden hover:border-gold transition-colors bg-canvas-dark relative group"
                     >
                       {/* Very basic preview attempt based on extension */}
                       {path.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={path} alt="Attachment" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center text-ink-muted p-2 text-center">
@@ -198,12 +199,12 @@ export default function BugReportStatusPage() {
           </div>
           
           {/* Footer / Timeline Stub */}
-          <div className="px-6 py-4 bg-gray-50 border-t border-warm-grey/50">
+          <div className="px-6 py-4 bg-canvas-dark border-t border-warm-grey/50">
              <h3 className="text-xs font-medium text-ink-muted uppercase tracking-wider mb-3">Activity</h3>
              <div className="flex gap-3">
                 <div className="relative pt-1">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <div className="absolute top-3 left-1 w-px h-full bg-gray-200 -ml-px"></div>
+                    <div className="w-2 h-2 bg-gold rounded-full"></div>
+                    <div className="absolute top-3 left-1 w-px h-full bg-warm-grey -ml-px"></div>
                 </div>
                 <div className="pb-4">
                     <p className="text-sm text-ink">Report captured</p>

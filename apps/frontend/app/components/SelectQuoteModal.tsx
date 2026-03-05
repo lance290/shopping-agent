@@ -37,8 +37,9 @@ export function SelectQuoteModal({
     try {
       await onConfirm({ name: buyerName || undefined, phone: buyerPhone || undefined });
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to select quote');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to select quote';
+      setError(message);
     } finally {
       setSubmitting(false);
     }
@@ -57,15 +58,15 @@ export function SelectQuoteModal({
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+          className="absolute top-4 right-4 text-onyx-muted hover:text-ink"
         >
           <X size={20} />
         </button>
 
         {/* Header */}
         <div className="mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Select This Quote?</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <h2 className="text-xl font-bold text-ink">Select This Quote?</h2>
+          <p className="text-sm text-ink-muted mt-1">
             This will introduce you to the vendor via email.
           </p>
         </div>
@@ -77,16 +78,16 @@ export function SelectQuoteModal({
               <Building2 className="text-emerald-600" size={20} />
             </div>
             <div className="flex-1">
-              <div className="font-semibold text-gray-900">{quote.seller_company}</div>
+              <div className="font-semibold text-ink">{quote.seller_company}</div>
               {quote.seller_name && (
-                <div className="text-sm text-gray-600">{quote.seller_name}</div>
+                <div className="text-sm text-ink-muted">{quote.seller_name}</div>
               )}
               <div className="flex items-center gap-1 mt-2 text-lg font-bold text-emerald-700">
                 <DollarSign size={18} />
                 {quote.price.toLocaleString()}
               </div>
               {quote.description && (
-                <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                <p className="text-sm text-ink-muted mt-2 line-clamp-2">
                   {quote.description}
                 </p>
               )}
@@ -96,27 +97,27 @@ export function SelectQuoteModal({
 
         {/* Your Contact Info */}
         <div className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">
+          <h3 className="text-sm font-semibold text-ink mb-3">
             Your Contact Info (Optional)
           </h3>
           <div className="space-y-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Your Name</label>
+              <label className="block text-xs text-ink-muted mb-1">Your Name</label>
               <input
                 type="text"
                 value={buyerName}
                 onChange={(e) => setBuyerName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full px-3 py-2 border border-warm-grey rounded-lg text-sm focus:ring-2 focus:ring-gold focus:border-gold"
                 placeholder="Enter your name"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Your Phone</label>
+              <label className="block text-xs text-ink-muted mb-1">Your Phone</label>
               <input
                 type="tel"
                 value={buyerPhone}
                 onChange={(e) => setBuyerPhone(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full px-3 py-2 border border-warm-grey rounded-lg text-sm focus:ring-2 focus:ring-gold focus:border-gold"
                 placeholder="(555) 123-4567"
               />
             </div>
@@ -124,19 +125,19 @@ export function SelectQuoteModal({
         </div>
 
         {/* What happens next */}
-        <div className="bg-gray-50 rounded-lg p-4 mb-6">
-          <h4 className="text-sm font-semibold text-gray-700 mb-2">What happens next?</h4>
-          <ul className="text-sm text-gray-600 space-y-1">
+        <div className="bg-canvas-dark rounded-lg p-4 mb-6">
+          <h4 className="text-sm font-semibold text-ink mb-2">What happens next?</h4>
+          <ul className="text-sm text-ink-muted space-y-1">
             <li className="flex items-center gap-2">
-              <Mail size={14} className="text-gray-400" />
-              You'll receive the vendor's contact info
+              <Mail size={14} className="text-onyx-muted" />
+              You&apos;ll receive the vendor&apos;s contact info
             </li>
             <li className="flex items-center gap-2">
-              <Mail size={14} className="text-gray-400" />
+              <Mail size={14} className="text-onyx-muted" />
               The vendor will receive your contact info
             </li>
             <li className="flex items-center gap-2">
-              <Phone size={14} className="text-gray-400" />
+              <Phone size={14} className="text-onyx-muted" />
               You can communicate directly to finalize
             </li>
           </ul>
@@ -153,7 +154,7 @@ export function SelectQuoteModal({
           <button
             onClick={onClose}
             disabled={submitting}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50"
+            className="flex-1 px-4 py-2 border border-warm-grey rounded-lg text-ink font-medium hover:bg-canvas-dark disabled:opacity-50"
           >
             Cancel
           </button>

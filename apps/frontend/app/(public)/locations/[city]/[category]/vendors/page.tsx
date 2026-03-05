@@ -87,7 +87,7 @@ export default async function LocationCategoryVendorsPage(
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="mb-10">
-        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 mb-4">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted mb-4">
           <Link href="/vendors" className="hover:underline">
             Vendor Directory
           </Link>
@@ -101,16 +101,16 @@ export default async function LocationCategoryVendorsPage(
           </span>
         </div>
 
-        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">
+        <h1 className="text-3xl sm:text-4xl font-bold text-ink">
           {category} in {city}
         </h1>
-        <p className="text-gray-600 mt-3 max-w-2xl">
+        <p className="text-ink-muted mt-3 max-w-2xl">
           {data.total} vendors found. Click a vendor to view details, or click through to their website.
         </p>
       </div>
 
       {data.vendors.length === 0 ? (
-        <div className="text-center py-16 text-gray-500">
+        <div className="text-center py-16 text-ink-muted">
           No vendors found for this city/category.
         </div>
       ) : (
@@ -118,33 +118,33 @@ export default async function LocationCategoryVendorsPage(
           {data.vendors.map((vendor) => (
             <div
               key={vendor.slug || vendor.id}
-              className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm flex flex-col"
+              className="bg-white rounded-lg border border-warm-grey p-5 shadow-sm hover:shadow-md transition-all flex flex-col"
             >
               <Link href={`/vendors/${vendor.slug}`} className="block">
                 <div className="flex items-center gap-2 mb-2">
-                  <Store size={14} className="text-blue-600 shrink-0" />
+                  <Store size={14} className="text-gold-dark shrink-0" />
                   {vendor.category && (
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-blue-600">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-ink-muted">
                       {vendor.category}
                     </span>
                   )}
                   {vendor.is_verified && (
-                    <span className="text-[10px] bg-green-500/15 text-green-700 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] bg-status-success/10 text-status-success px-2 py-0.5 rounded-full">
                       Verified
                     </span>
                   )}
                 </div>
 
-                <h2 className="font-semibold text-gray-900 text-sm mb-1">{vendor.name}</h2>
+                <h2 className="font-semibold text-ink text-sm mb-1">{vendor.name}</h2>
 
                 {vendor.tagline ? (
-                  <p className="text-xs text-gray-500 mb-2 line-clamp-2">{vendor.tagline}</p>
+                  <p className="text-xs text-ink-muted mb-2 line-clamp-2">{vendor.tagline}</p>
                 ) : vendor.description ? (
-                  <p className="text-xs text-gray-500 mb-2 line-clamp-2">{vendor.description}</p>
+                  <p className="text-xs text-ink-muted mb-2 line-clamp-2">{vendor.description}</p>
                 ) : null}
 
                 {vendor.store_geo_location && (
-                  <p className="text-[11px] text-gray-400 line-clamp-2">{vendor.store_geo_location}</p>
+                  <p className="text-[11px] text-onyx-muted line-clamp-2">{vendor.store_geo_location}</p>
                 )}
               </Link>
 
@@ -154,12 +154,12 @@ export default async function LocationCategoryVendorsPage(
                     href={`/api/out?url=${encodeURIComponent(vendor.website)}&merchant=${encodeURIComponent(vendor.name)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                    className="inline-flex items-center gap-1 text-xs text-accent-blue hover:underline"
                   >
                     Visit website <ExternalLink size={12} />
                   </a>
                 ) : (
-                  <span className="text-xs text-gray-400">Website not listed</span>
+                  <span className="text-xs text-onyx-muted">Website not listed</span>
                 )}
               </div>
             </div>
@@ -172,17 +172,17 @@ export default async function LocationCategoryVendorsPage(
           <Link
             href={`/locations/${citySlug}/${categorySlug}/vendors?page=${Math.max(1, page - 1)}`}
             aria-disabled={page <= 1}
-            className={`px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 ${page <= 1 ? 'pointer-events-none opacity-50' : ''}`}
+            className={`px-4 py-2 text-sm border border-warm-grey rounded-lg hover:bg-canvas-dark ${page <= 1 ? 'pointer-events-none opacity-50' : ''}`}
           >
             Previous
           </Link>
-          <span className="px-4 py-2 text-sm text-gray-600">
+          <span className="px-4 py-2 text-sm text-ink-muted">
             Page {page} of {totalPages}
           </span>
           <Link
             href={`/locations/${citySlug}/${categorySlug}/vendors?page=${Math.min(totalPages, page + 1)}`}
             aria-disabled={page >= totalPages}
-            className={`px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 ${page >= totalPages ? 'pointer-events-none opacity-50' : ''}`}
+            className={`px-4 py-2 text-sm border border-warm-grey rounded-lg hover:bg-canvas-dark ${page >= totalPages ? 'pointer-events-none opacity-50' : ''}`}
           >
             Next
           </Link>
