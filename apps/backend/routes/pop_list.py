@@ -456,8 +456,13 @@ async def patch_pop_item(
     for key in ("department", "brand", "size", "quantity"):
         val = getattr(body, key, None)
         if val is not None:
-            answers[key] = val.strip()
-            changed = True
+            val_clean = val.strip()
+            if not val_clean and key in answers:
+                del answers[key]
+                changed = True
+            elif val_clean and answers.get(key) != val_clean:
+                answers[key] = val_clean
+                changed = True
     if changed:
         row.choice_answers = answers
 

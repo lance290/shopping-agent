@@ -165,8 +165,7 @@ async def _create_row(
     )
     session.add(spec)
 
-    if constraints:
-        row.choice_answers = constraints
+    row.choice_answers = constraints if constraints else {}
 
     await session.commit()
     await session.refresh(row)
