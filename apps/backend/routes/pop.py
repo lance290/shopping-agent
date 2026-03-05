@@ -71,7 +71,7 @@ def _extract_resend_image_urls(payload: dict[str, Any]) -> list[str]:
         if not isinstance(attachment, dict):
             continue
         content_type = str(attachment.get("content_type") or attachment.get("mime_type") or "").lower()
-        if content_type and not content_type.startswith("image/"):
+        if not content_type or not content_type.startswith("image/"):
             continue
 
         for key in ("url", "content_url", "download_url", "href"):
