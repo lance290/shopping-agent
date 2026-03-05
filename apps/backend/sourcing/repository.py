@@ -58,11 +58,13 @@ class SearchResult(BaseModel):
     rating: Optional[float] = None
     reviews_count: Optional[int] = None
     shipping_info: Optional[str] = None
+    description: Optional[str] = None
     source: str
     bid_id: Optional[int] = None
     is_selected: bool = False
     is_liked: bool = False
     liked_at: Optional[str] = None
+    embedding: Optional[List[float]] = Field(None, exclude=True)  # for quantum reranker, not serialized
 
 
 class SearchResultWithStatus(BaseModel):

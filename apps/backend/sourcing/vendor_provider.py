@@ -158,7 +158,7 @@ class VendorDirectoryProvider(SourcingProvider):
                         -- Top candidates by vector similarity
                         vec_candidates AS (
                             SELECT id, name, description, tagline, website, email, phone,
-                                   image_url, category,
+                                   image_url, category, embedding::text AS embedding_text,
                                    (embedding <=> CAST(:qvec AS vector)) AS distance,
                                    CASE
                                      WHEN search_vector IS NOT NULL
@@ -173,7 +173,7 @@ class VendorDirectoryProvider(SourcingProvider):
                         -- Top candidates by FTS rank (guaranteed inclusion)
                         fts_candidates AS (
                             SELECT id, name, description, tagline, website, email, phone,
-                                   image_url, category,
+                                   image_url, category, embedding::text AS embedding_text,
                                    (embedding <=> CAST(:qvec AS vector)) AS distance,
                                    ts_rank_cd(search_vector, to_tsquery('english', :fts_query)) AS fts_rank
                             FROM vendor
@@ -279,6 +279,15 @@ class VendorDirectoryProvider(SourcingProvider):
             fts_norm = min(fts_rank_raw / FTS_NORM_DIVISOR, 1.0)
             blended = vector_weight * vec_score + fts_weight * fts_norm
 
+            # Parse vendor embedding for quantum reranker
+            vendor_embedding = None
+            emb_text = r.get("embedding_text")
+            if emb_text:
+                try:
+                    vendor_embedding = [float(x) for x in emb_text.strip("[]").split(",")]
+                except Exception:
+                    pass
+
             results.append(SearchResult(
                 title=r["name"],
                 price=None,
@@ -293,6 +302,7 @@ class VendorDirectoryProvider(SourcingProvider):
                 reviews_count=None,
                 shipping_info=f"Category: {r['category'] or 'General'}" if r["category"] else None,
                 description=r["tagline"] or r["description"] or None,
+                embedding=vendor_embedding,
             ))
 
         # Sort by blended score descending (best matches first)

@@ -61,6 +61,11 @@ def _normalize_result(result: SearchResult, provider_id: str) -> NormalizedResul
     normalized_price = converted_price if converted_price is not None else result.price
     normalized_currency = "USD" if converted_price is not None else (result.currency or "USD")
 
+    raw_data: dict = {"provider_id": provider_id}
+    # Carry vendor embedding through for quantum reranker
+    if getattr(result, "embedding", None):
+        raw_data["embedding"] = result.embedding
+
     return NormalizedResult(
         title=result.title,
         url=result.url,
@@ -76,7 +81,7 @@ def _normalize_result(result: SearchResult, provider_id: str) -> NormalizedResul
         rating=result.rating,
         reviews_count=result.reviews_count,
         shipping_info=result.shipping_info,
-        raw_data={"provider_id": provider_id},
+        raw_data=raw_data,
         provenance=_build_provenance(result, provider_id),
     )
 

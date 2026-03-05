@@ -47,6 +47,7 @@ from routes.rows_search_helpers import (
     _parse_intent_payload,
 )
 from sourcing.normalizers import normalize_generic_results
+from sourcing.scorer import score_results
 from sourcing.service import SourcingService
 from sourcing.choice_filter import should_exclude_by_choices
 from sourcing.messaging import determine_search_user_message
@@ -125,19 +126,6 @@ async def search_row_listings(
         session.add(row)
         await session.commit()
 
-    # Soft-delete existing bids that are not liked or selected to ensure new results overwrite old ones
-    from sqlalchemy import update as sql_update
-    from models import Bid
-    await session.exec(
-        sql_update(Bid).where(
-            Bid.row_id == row_id,
-            Bid.is_liked == False,
-            Bid.is_selected == False,
-            Bid.is_superseded == False,
-        ).values(is_superseded=True, superseded_at=datetime.utcnow())
-    )
-    await session.commit()
-
     # Initialize SourcingService
     sourcing_service = SourcingService(session, get_sourcing_repo())
 
@@ -148,9 +136,10 @@ async def search_row_listings(
         providers=body.providers,
     )
 
-    # Merge in any liked/selected bids that weren't returned by the new search.
-    # This ensures user-chosen bids survive re-searches even if providers don't return them.
+    # Supersede stale bids AFTER persist — only bids not returned by the new search.
+    # This preserves good results from providers that returned different URLs on refinement.
     search_bid_ids = {b.id for b in bids}
+    await sourcing_service.supersede_stale_bids(row_id, search_bid_ids)
     preserved_stmt = (
         select(Bid)
         .where(
@@ -292,18 +281,6 @@ async def search_row_listings_stream(
     # Extract clean vendor query from row intent (e.g. "yacht charter" not "yacht charter San Diego to Acapulco March")
     vendor_query = SourcingService.extract_vendor_query(row) or row.title
 
-    # Soft-delete existing bids that are not liked or selected to ensure new results overwrite old ones
-    from sqlalchemy import update as sql_update
-    from models import Bid
-    await session.exec(
-        sql_update(Bid).where(
-            Bid.row_id == row_id,
-            Bid.is_liked == False,
-            Bid.is_selected == False,
-            Bid.is_superseded == False,
-        ).values(is_superseded=True, superseded_at=datetime.utcnow())
-    )
-
     row.status = "bids_arriving"
     row.updated_at = datetime.utcnow()
     session.add(row)
@@ -313,6 +290,29 @@ async def search_row_listings_stream(
         """Generate SSE events as each provider completes."""
         all_results: List[SearchResult] = []
         all_statuses: List[ProviderStatusSnapshot] = []
+        all_persisted_bid_ids: set[int] = set()
+
+        # Initialize quantum reranker ONCE — scores each batch against user intent
+        quantum_reranker = None
+        query_embedding = None
+        try:
+            from sourcing.quantum.reranker import QuantumReranker
+            from sourcing.vendor_provider import _embed_texts
+            quantum_reranker = QuantumReranker()
+            if quantum_reranker.is_available():
+                # Generate query embedding from the search query (same API as vendor_provider)
+                embed_text = vendor_query or sanitized_query
+                vecs = await _embed_texts([embed_text])
+                if vecs and len(vecs) > 0:
+                    query_embedding = vecs[0]
+                    logger.info(f"[SEARCH STREAM] Quantum reranker active for row {row_id} (embedded '{embed_text[:50]}')")
+                else:
+                    quantum_reranker = None
+            else:
+                quantum_reranker = None
+        except Exception as e:
+            logger.warning(f"[SEARCH STREAM] Quantum reranker init failed (graceful degradation): {e}")
+            quantum_reranker = None
 
         async for provider_name, results, status, providers_remaining in sourcing_repo.search_streaming(
             sanitized_query,
@@ -352,7 +352,49 @@ async def search_row_listings_stream(
                 try:
                     normalized_batch = normalize_generic_results(filtered_batch, provider_name)
                     if normalized_batch:
-                        await sourcing_service._persist_results(row_id, normalized_batch)
+                        normalized_batch = score_results(
+                            normalized_batch,
+                            intent=sourcing_service._parse_search_intent(row),
+                            min_price=min_price_filter,
+                            max_price=max_price_filter,
+                            desire_tier=row.desire_tier,
+                        )
+
+                        # Quantum reranking: score batch against user intent embedding
+                        if quantum_reranker and query_embedding:
+                            try:
+                                results_for_quantum = []
+                                for idx, res in enumerate(normalized_batch):
+                                    rd = {
+                                        "_idx": idx,
+                                        "title": res.title,
+                                        "embedding": res.raw_data.get("embedding") if res.raw_data else None,
+                                    }
+                                    results_for_quantum.append(rd)
+
+                                if any(r.get("embedding") for r in results_for_quantum):
+                                    reranked = await quantum_reranker.rerank_results(
+                                        query_embedding=query_embedding,
+                                        search_results=results_for_quantum,
+                                        top_k=len(normalized_batch),
+                                    )
+                                    score_map = {}
+                                    for r in reranked:
+                                        if r.get("quantum_reranked") and "_idx" in r:
+                                            score_map[r["_idx"]] = r
+                                    for idx, res in enumerate(normalized_batch):
+                                        if idx in score_map:
+                                            qr = score_map[idx]
+                                            res.provenance["quantum_score"] = qr.get("quantum_score", 0.0)
+                                            res.provenance["blended_score"] = qr.get("blended_score", 0.0)
+                                            res.provenance["novelty_score"] = qr.get("novelty_score", 0.0)
+                                            res.provenance["coherence_score"] = qr.get("coherence_score", 0.0)
+                                    logger.info(f"[SEARCH STREAM] Quantum reranked {len(score_map)}/{len(normalized_batch)} results from {provider_name}")
+                            except Exception as qe:
+                                logger.warning(f"[SEARCH STREAM] Quantum reranking failed for {provider_name}: {qe}")
+
+                        persisted_bids = await sourcing_service._persist_results(row_id, normalized_batch)
+                        all_persisted_bid_ids.update(b.id for b in persisted_bids if b.id)
                 except Exception as err:
                     logger.error(f"[SEARCH STREAM] Failed to persist results for provider {provider_name}: {err}")
 
@@ -370,6 +412,13 @@ async def search_row_listings_stream(
             
             yield f"data: {json.dumps(event_data)}\n\n"
         
+        # Supersede stale bids AFTER all providers complete.
+        # Only bids not returned by any provider in this search get retired.
+        try:
+            await sourcing_service.supersede_stale_bids(row_id, all_persisted_bid_ids)
+        except Exception as e:
+            logger.error(f"[SEARCH STREAM] Failed to supersede stale bids: {e}")
+
         # Determine user_message based on results and statuses
         user_message = determine_search_user_message(all_results, all_statuses)
 
