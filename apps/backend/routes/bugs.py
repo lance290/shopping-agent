@@ -172,8 +172,9 @@ async def create_github_issue_task(bug_id: int):
             page_url = None
             if bug.diagnostics:
                 try:
-                    diag_data = json.loads(bug.diagnostics)
-                    if isinstance(diag_data, dict):
+                    # Handle both pre-parsed JSON dicts and stringified JSON
+                    diag_data = bug.diagnostics if isinstance(bug.diagnostics, dict) else json.loads(bug.diagnostics)
+                    if isinstance(diag_data, dict) and diag_data is not None:
                         page_url = diag_data.get("url")
                 except (json.JSONDecodeError, TypeError, KeyError):
                     pass
