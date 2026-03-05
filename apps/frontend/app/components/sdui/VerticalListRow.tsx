@@ -94,8 +94,7 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
       }`}
     >
       {/* Row Header */}
-      <button
-        className="w-full text-left px-4 py-3 flex items-center gap-3 group"
+      <div className="w-full text-left px-4 py-3 flex items-center gap-3 group cursor-pointer"
         onClick={() => { onSelect(); onToggleExpand(); }}
       >
         <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
@@ -112,34 +111,28 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
           </p>
         </div>
         
-        {/* Quick Actions (visible on hover) — use div+role to avoid nested <button> */}
+        {/* Quick Actions (visible on hover) — separate click handlers, stopPropagation */}
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pr-2">
-          <div 
-            role="button"
-            tabIndex={0}
-            onClick={(e) => handleRerunSearch(e as React.MouseEvent)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleRerunSearch(e as unknown as React.MouseEvent); }}
-            className="p-1.5 text-onyx-muted hover:text-accent-blue rounded-md hover:bg-accent-blue/10 transition-colors cursor-pointer"
+          <button
+            onClick={(e) => { e.stopPropagation(); handleRerunSearch(e); }}
+            className="p-1.5 text-onyx-muted hover:text-accent-blue rounded-md hover:bg-accent-blue/10 transition-colors"
             title="Rerun Search"
           >
             <RotateCw size={14} />
-          </div>
-          <div 
-            role="button"
-            tabIndex={0}
-            onClick={(e) => handleDelete(e as React.MouseEvent)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleDelete(e as unknown as React.MouseEvent); }}
-            className="p-1.5 text-onyx-muted hover:text-red-600 rounded-md hover:bg-red-50 transition-colors cursor-pointer"
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleDelete(e); }}
+            className="p-1.5 text-onyx-muted hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
             title="Delete Request"
           >
             <Trash2 size={14} />
-          </div>
+          </button>
         </div>
 
         <svg className={`w-4 h-4 text-onyx-muted transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
-      </button>
+      </div>
 
       {/* Expanded: show SDUI schema + ALL bids as cards */}
       {isExpanded && (
