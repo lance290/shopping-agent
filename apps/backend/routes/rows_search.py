@@ -289,6 +289,9 @@ async def search_row_listings_stream(
     sourcing_repo = get_sourcing_repo()
     sourcing_service = SourcingService(session, sourcing_repo)
 
+    # Extract clean vendor query from row intent (e.g. "yacht charter" not "yacht charter San Diego to Acapulco March")
+    vendor_query = SourcingService.extract_vendor_query(row) or row.title
+
     # Soft-delete existing bids that are not liked or selected to ensure new results overwrite old ones
     from sqlalchemy import update as sql_update
     from models import Bid
@@ -317,6 +320,7 @@ async def search_row_listings_stream(
             min_price=min_price_filter,
             max_price=max_price_filter,
             desire_tier=row.desire_tier,
+            vendor_query=vendor_query,
         ):
             all_statuses.append(status)
 

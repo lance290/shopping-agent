@@ -136,6 +136,17 @@ class VendorDirectoryProvider(SourcingProvider):
         fts_weight = 1.0 - vector_weight
         final_limit = kwargs.get("limit", 15)
 
+        # Build OR-based tsquery for FTS resilience.
+        # plainto_tsquery does AND — "yacht charter San Diego" requires ALL words,
+        # killing matches when location/date words are included.
+        # We use to_tsquery with OR (|) so any word match counts,
+        # but more matching words rank higher via ts_rank_cd.
+        fts_words = [w.strip() for w in query.split() if w.strip() and len(w.strip()) > 1]
+        if fts_words:
+            fts_query_str = " | ".join(fts_words)
+        else:
+            fts_query_str = query
+
         # 2. Hybrid query: UNION of vector-nearest + FTS-matched candidates.
         #    We fetch candidates from BOTH paths and merge/dedup in Python
         #    so FTS matches are never crowded out by mediocre vector matches.
@@ -151,7 +162,7 @@ class VendorDirectoryProvider(SourcingProvider):
                                    (embedding <=> CAST(:qvec AS vector)) AS distance,
                                    CASE
                                      WHEN search_vector IS NOT NULL
-                                     THEN ts_rank_cd(search_vector, plainto_tsquery('english', :raw_query))
+                                     THEN ts_rank_cd(search_vector, to_tsquery('english', :fts_query))
                                      ELSE 0
                                    END AS fts_rank
                             FROM vendor
@@ -164,12 +175,12 @@ class VendorDirectoryProvider(SourcingProvider):
                             SELECT id, name, description, tagline, website, email, phone,
                                    image_url, category,
                                    (embedding <=> CAST(:qvec AS vector)) AS distance,
-                                   ts_rank_cd(search_vector, plainto_tsquery('english', :raw_query)) AS fts_rank
+                                   ts_rank_cd(search_vector, to_tsquery('english', :fts_query)) AS fts_rank
                             FROM vendor
                             WHERE embedding IS NOT NULL
                               AND search_vector IS NOT NULL
-                              AND search_vector @@ plainto_tsquery('english', :raw_query)
-                            ORDER BY ts_rank_cd(search_vector, plainto_tsquery('english', :raw_query)) DESC
+                              AND search_vector @@ to_tsquery('english', :fts_query)
+                            ORDER BY ts_rank_cd(search_vector, to_tsquery('english', :fts_query)) DESC
                             LIMIT :fts_lim
                         ),
                         -- Merge and dedup (FTS row wins on tie)
@@ -183,7 +194,7 @@ class VendorDirectoryProvider(SourcingProvider):
                     """),
                     {
                         "qvec": vec_str,
-                        "raw_query": query,
+                        "fts_query": fts_query_str,
                         "vec_lim": final_limit * 2,
                         "fts_lim": final_limit,
                     },

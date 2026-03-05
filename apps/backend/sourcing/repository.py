@@ -379,6 +379,7 @@ class SourcingRepository:
 
         providers_filter = kwargs.pop("providers", None)
         kwargs.pop("desire_tier", None)  # consumed but not used for filtering
+        vendor_query = kwargs.pop("vendor_query", None)
         selected_providers: Dict[str, SourcingProvider] = self.providers
         if providers_filter:
             allow = {str(p).strip() for p in providers_filter if str(p).strip()}
@@ -390,12 +391,17 @@ class SourcingRepository:
             name: str, provider: SourcingProvider
         ) -> tuple[str, List[SearchResult], ProviderStatusSnapshot]:
             print(f"[SourcingRepository] [STREAM] Starting provider: {name}")
+            effective_query = query
+            extra_kwargs = dict(kwargs)
+            if name == "vendor_directory" and vendor_query:
+                effective_query = vendor_query
+                extra_kwargs["context_query"] = query
             results, status = await run_provider_with_status(
                 name,
                 provider,
-                query,
+                effective_query,
                 timeout_seconds=PROVIDER_TIMEOUT_SECONDS,
-                **kwargs,
+                **extra_kwargs,
             )
             if status.status != "ok":
                 error_str = redact_secrets(status.message or "")
