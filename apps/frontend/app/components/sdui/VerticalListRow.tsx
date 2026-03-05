@@ -151,27 +151,15 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
             </div>
           )}
           
-          {/* Sort controls */}
+          {/* Sort toggle */}
           {displayOffers.length > 1 && (
-            <div className="flex items-center gap-1.5 text-[10px]">
-              <span className="text-ink-muted font-medium mr-1">Sort:</span>
-              {([
-                ['relevance', 'Best Match'],
-                ['price_asc', 'Price ↑'],
-                ['price_desc', 'Price ↓'],
-              ] as const).map(([mode, label]) => (
-                <button
-                  key={mode}
-                  onClick={() => setSortMode(mode)}
-                  className={`px-2 py-0.5 rounded-full border transition-colors ${
-                    sortMode === mode
-                      ? 'bg-ink text-white border-ink'
-                      : 'bg-white text-ink-muted border-warm-grey hover:border-ink-muted'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
+            <div className="flex justify-end">
+              <button
+                onClick={() => setSortMode((m) => m === 'relevance' ? 'price_asc' : m === 'price_asc' ? 'price_desc' : 'relevance')}
+                className="px-2.5 py-1 rounded-full border border-warm-grey bg-white text-[10px] text-ink-muted font-medium hover:border-ink-muted transition-colors"
+              >
+                {sortMode === 'relevance' ? 'Best Match' : sortMode === 'price_asc' ? 'Price ↑' : 'Price ↓'}
+              </button>
             </div>
           )}
 
