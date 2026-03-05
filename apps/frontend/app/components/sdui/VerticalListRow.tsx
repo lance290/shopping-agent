@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useShoppingStore, mapBidToOffer } from '../../store';
 import type { Row, Offer } from '../../store';
 import { runSearchApiWithStatus } from '../../utils/api';
@@ -19,9 +19,32 @@ interface VerticalListRowProps {
 }
 
 export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, onToggleExpand }: VerticalListRowProps) {
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  // On mobile, scroll this row to the top of the sheet when expanded
+  useEffect(() => {
+    if (isExpanded && rowRef.current && window.innerWidth < 1024) {
+      // Small delay so the expand animation starts first
+      requestAnimationFrame(() => {
+        rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  }, [isExpanded]);
+
   const hasSchema = !!(row.ui_schema && validateUISchema(row.ui_schema));
   const bidCount = row.bids?.length ?? 0;
-  const displayOffers = offers.length > 0 ? offers : (row.bids || []).map(mapBidToOffer);
+  const unsortedOffers = offers.length > 0 ? offers : (row.bids || []).map(mapBidToOffer);
+  const displayOffers = [...unsortedOffers].sort((a, b) => {
+    // Liked/selected always float to top
+    if (a.is_liked && !b.is_liked) return -1;
+    if (!a.is_liked && b.is_liked) return 1;
+    if (a.is_selected && !b.is_selected) return -1;
+    if (!a.is_selected && b.is_selected) return 1;
+    // Then sort by combined_score (match_score) descending
+    const sa = a.match_score ?? 0;
+    const sb = b.match_score ?? 0;
+    return sb - sa;
+  });
   
   const requestDeleteRow = useShoppingStore((s) => s.requestDeleteRow);
   const setIsSearching = useShoppingStore((s) => s.setIsSearching);
@@ -47,6 +70,7 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
 
   return (
     <div
+      ref={rowRef}
       className={`bg-white rounded-xl shadow-sm border transition-all ${
         isActive ? 'border-gold ring-1 ring-gold/30' : 'border-warm-grey'
       }`}
