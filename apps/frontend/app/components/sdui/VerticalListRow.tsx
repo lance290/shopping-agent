@@ -95,7 +95,7 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
 
       {/* Expanded: show SDUI schema + ALL bids as cards */}
       {isExpanded && (
-        <div className="border-t border-warm-grey px-4 py-3 space-y-4 max-h-[600px] overflow-y-auto">
+        <div className="border-t border-warm-grey px-4 py-3 space-y-4 max-h-[calc(100dvh-8rem)] lg:max-h-[600px] overflow-y-auto">
           {hasSchema && (
             <div className="mb-4">
               <DynamicRenderer
