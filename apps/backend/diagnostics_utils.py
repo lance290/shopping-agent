@@ -31,7 +31,15 @@ def _process_object(obj: Any, depth: int = 0) -> Any:
     else:
         return obj
 
-def validate_and_redact_diagnostics(diagnostics_json: Optional[str]) -> Optional[str]:
+def _parse_diagnostics(raw: Any) -> Any:
+    """Parse diagnostics that may be a dict (from JSONB) or a JSON string."""
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        return json.loads(raw)
+    return raw
+
+def validate_and_redact_diagnostics(diagnostics_json) -> Optional[str]:
     """
     Validates that the input is valid JSON, redacts sensitive keys,
     truncates long strings, and returns the sanitized JSON string.
@@ -41,8 +49,8 @@ def validate_and_redact_diagnostics(diagnostics_json: Optional[str]) -> Optional
         return None
     
     try:
-        # 1. Parse
-        data = json.loads(diagnostics_json)
+        # 1. Parse (handles both dict and string)
+        data = _parse_diagnostics(diagnostics_json)
         
         # 2. Redact and Truncate
         sanitized = _process_object(data)
@@ -53,15 +61,16 @@ def validate_and_redact_diagnostics(diagnostics_json: Optional[str]) -> Optional
         print(f"[DIAGNOSTICS] Failed to process diagnostics: {e}")
         return None
 
-def generate_diagnostics_summary(diagnostics_json: Optional[str]) -> str:
+def generate_diagnostics_summary(diagnostics_json) -> str:
     """
     Generates a markdown summary of the diagnostics.
+    Accepts both JSON strings and pre-parsed dicts (from JSONB columns).
     """
     if not diagnostics_json:
         return "No diagnostics available."
     
     try:
-        data = json.loads(diagnostics_json)
+        data = _parse_diagnostics(diagnostics_json)
         summary = []
         
         # User Agent & URL

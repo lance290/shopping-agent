@@ -7,7 +7,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import Project, ProjectCreate, Row
-from dependencies import get_current_session
+from dependencies import get_current_session, resolve_user_id
 
 router = APIRouter(tags=["projects"])
 
@@ -19,13 +19,11 @@ async def create_project(
     session: AsyncSession = Depends(get_session)
 ):
     
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = await resolve_user_id(authorization, session)
 
     db_project = Project(
         title=project.title,
-        user_id=auth_session.user_id
+        user_id=user_id
     )
     session.add(db_project)
     await session.commit()
@@ -39,13 +37,11 @@ async def read_projects(
     session: AsyncSession = Depends(get_session)
 ):
     
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = await resolve_user_id(authorization, session)
 
     result = await session.exec(
         select(Project)
-        .where(Project.user_id == auth_session.user_id, Project.status != "archived")
+        .where(Project.user_id == user_id, Project.status != "archived")
         .order_by(Project.created_at.desc())
     )
     return result.all()

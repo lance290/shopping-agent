@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     const sessionToken = request.cookies.get(COOKIE_NAME)?.value;
     
     if (!sessionToken) {
-      return NextResponse.json({ authenticated: false }, { status: 401 });
+      return NextResponse.json({ authenticated: false }, { status: 200 });
     }
     
     const response = await fetch(`${BFF_URL}/auth/me`, {

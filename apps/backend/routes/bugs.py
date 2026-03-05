@@ -150,7 +150,8 @@ async def create_github_issue_task(bug_id: int):
             if bug.diagnostics:
                 diagnostics_summary = generate_diagnostics_summary(bug.diagnostics)
                 body += f"\n### Diagnostics Summary\n{diagnostics_summary}\n"
-                body += f"\n<details>\n<summary>Full Diagnostics JSON</summary>\n\n```json\n{bug.diagnostics}\n```\n</details>\n"
+                diag_str = json.dumps(bug.diagnostics, indent=2) if isinstance(bug.diagnostics, dict) else bug.diagnostics
+                body += f"\n<details>\n<summary>Full Diagnostics JSON</summary>\n\n```json\n{diag_str}\n```\n</details>\n"
 
             classification = await classify_report(
                 notes=bug.notes,

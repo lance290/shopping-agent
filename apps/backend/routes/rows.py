@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload, defer, joinedload
 
 from database import get_session
 from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project, User
-from dependencies import get_current_session
+from dependencies import get_current_session, resolve_user_id
 
 GUEST_EMAIL = "guest@buy-anything.com"
 from routes.rows_search import router as rows_search_router
@@ -115,15 +115,13 @@ async def create_row(
     session: AsyncSession = Depends(get_session)
 ):
     
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = await resolve_user_id(authorization, session)
 
     if row.project_id is not None:
         project = await session.get(Project, row.project_id)
         if not project:
             raise HTTPException(status_code=400, detail="Project not found")
-        if project.user_id != auth_session.user_id:
+        if project.user_id != user_id:
             raise HTTPException(status_code=403, detail="Project not owned by user")
 
     request_spec_data = row.request_spec
@@ -133,7 +131,7 @@ async def create_row(
         status=row.status,
         budget_max=row.budget_max,
         currency=row.currency,
-        user_id=auth_session.user_id,
+        user_id=user_id,
         project_id=row.project_id,
         choice_factors=row.choice_factors,
         choice_answers=row.choice_answers,
@@ -185,14 +183,12 @@ async def read_rows(
     session: AsyncSession = Depends(get_session)
 ):
     
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        return []
+    user_id = await resolve_user_id(authorization, session)
 
     result = await session.exec(
         select(Row)
         .where(
-            Row.user_id == auth_session.user_id,
+            Row.user_id == user_id,
             True if include_archived else (Row.status != "archived"),
         )
         .options(
@@ -221,13 +217,11 @@ async def read_row(
     session: AsyncSession = Depends(get_session)
 ):
     
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = await resolve_user_id(authorization, session)
 
     result = await session.exec(
         select(Row)
-        .where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        .where(Row.id == row_id, Row.user_id == user_id)
         .options(
             selectinload(Row.bids).options(
                 joinedload(Bid.seller),
@@ -255,12 +249,10 @@ async def delete_row(
     session: AsyncSession = Depends(get_session)
 ):
     
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = await resolve_user_id(authorization, session)
 
     result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        select(Row).where(Row.id == row_id, Row.user_id == user_id)
     )
     row = result.first()
 
@@ -284,12 +276,10 @@ async def update_row(
     
     print(f"Received PATCH request for row {row_id} with data: {row_update}")
     
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = await resolve_user_id(authorization, session)
 
     result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        select(Row).where(Row.id == row_id, Row.user_id == user_id)
     )
     row = result.first()
 
@@ -397,12 +387,10 @@ async def select_row_option(
     session: AsyncSession = Depends(get_session)
 ):
     
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = await resolve_user_id(authorization, session)
 
     result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == auth_session.user_id)
+        select(Row).where(Row.id == row_id, Row.user_id == user_id)
     )
     row = result.first()
 
@@ -448,7 +436,7 @@ async def claim_rows(
     """Transfer guest-owned rows to the authenticated user."""
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        raise HTTPException(status_code=401, detail="Not authenticated — claim requires login")
 
     if not body.row_ids:
         return {"claimed": 0}
@@ -471,7 +459,7 @@ async def claim_rows(
     rows_to_claim = rows_result.all()
 
     for row in rows_to_claim:
-        row.user_id = auth_session.user_id
+        row.user_id = auth_session.user_id  # transfer from guest to real user
         row.updated_at = datetime.utcnow()
         session.add(row)
 
