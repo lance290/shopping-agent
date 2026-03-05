@@ -39,7 +39,7 @@ def _get_embedding_dimensions() -> int:
 # Cosine distance threshold: 0 = identical, 2 = opposite
 # Default read at call time so .env overrides work
 def _get_distance_threshold() -> float:
-    return float(os.getenv("VENDOR_DISTANCE_THRESHOLD", "0.65"))
+    return float(os.getenv("VENDOR_DISTANCE_THRESHOLD", "0.55"))
 
 
 async def _embed_texts(texts: List[str]) -> Optional[List[List[float]]]:
@@ -134,49 +134,65 @@ class VendorDirectoryProvider(SourcingProvider):
         # Hybrid scoring weights
         vector_weight = float(os.getenv("VENDOR_VECTOR_WEIGHT", "0.7"))
         fts_weight = 1.0 - vector_weight
+        final_limit = kwargs.get("limit", 15)
 
-        # 2. Hybrid query: vector cosine + full-text ts_rank, blended
-        #    ts_rank returns 0 when search_vector is NULL or no match,
-        #    so the query gracefully degrades to vector-only for vendors
-        #    without the search_vector column (pre-migration).
+        # 2. Hybrid query: UNION of vector-nearest + FTS-matched candidates.
+        #    We fetch candidates from BOTH paths and merge/dedup in Python
+        #    so FTS matches are never crowded out by mediocre vector matches.
         try:
             async with self._engine.connect() as conn:
                 result = await conn.execute(
                     sa.text("""
-                        SELECT id, name, description, tagline, website, email, phone,
-                               image_url, category,
-                               (embedding <=> CAST(:qvec AS vector)) AS distance,
-                               CASE
-                                 WHEN search_vector IS NOT NULL
-                                 THEN ts_rank_cd(search_vector, plainto_tsquery('english', :raw_query))
-                                 ELSE 0
-                               END AS fts_rank
-                        FROM vendor
-                        WHERE embedding IS NOT NULL
-                        ORDER BY (
-                            :vec_w * (embedding <=> CAST(:qvec AS vector)) +
-                            :fts_w * (1.0 - LEAST(
-                                CASE
-                                  WHEN search_vector IS NOT NULL
-                                  THEN ts_rank_cd(search_vector, plainto_tsquery('english', :raw_query))
-                                  ELSE 0
-                                END, 1.0))
+                        WITH
+                        -- Top candidates by vector similarity
+                        vec_candidates AS (
+                            SELECT id, name, description, tagline, website, email, phone,
+                                   image_url, category,
+                                   (embedding <=> CAST(:qvec AS vector)) AS distance,
+                                   CASE
+                                     WHEN search_vector IS NOT NULL
+                                     THEN ts_rank_cd(search_vector, plainto_tsquery('english', :raw_query))
+                                     ELSE 0
+                                   END AS fts_rank
+                            FROM vendor
+                            WHERE embedding IS NOT NULL
+                            ORDER BY embedding <=> CAST(:qvec AS vector)
+                            LIMIT :vec_lim
+                        ),
+                        -- Top candidates by FTS rank (guaranteed inclusion)
+                        fts_candidates AS (
+                            SELECT id, name, description, tagline, website, email, phone,
+                                   image_url, category,
+                                   (embedding <=> CAST(:qvec AS vector)) AS distance,
+                                   ts_rank_cd(search_vector, plainto_tsquery('english', :raw_query)) AS fts_rank
+                            FROM vendor
+                            WHERE embedding IS NOT NULL
+                              AND search_vector IS NOT NULL
+                              AND search_vector @@ plainto_tsquery('english', :raw_query)
+                            ORDER BY ts_rank_cd(search_vector, plainto_tsquery('english', :raw_query)) DESC
+                            LIMIT :fts_lim
+                        ),
+                        -- Merge and dedup (FTS row wins on tie)
+                        merged AS (
+                            SELECT * FROM fts_candidates
+                            UNION ALL
+                            SELECT * FROM vec_candidates v
+                            WHERE NOT EXISTS (SELECT 1 FROM fts_candidates f WHERE f.id = v.id)
                         )
-                        LIMIT :lim
+                        SELECT * FROM merged
                     """),
                     {
                         "qvec": vec_str,
                         "raw_query": query,
-                        "vec_w": vector_weight,
-                        "fts_w": fts_weight,
-                        "lim": kwargs.get("limit", 15),
+                        "vec_lim": final_limit * 2,
+                        "fts_lim": final_limit,
                     },
                 )
                 rows = result.mappings().all()
                 t_db = time.monotonic()
                 logger.info(
                     f"[VendorProvider] Hybrid query took {t_db - t_embed:.2f}s, "
-                    f"{len(rows)} rows (weights: vec={vector_weight}, fts={fts_weight})"
+                    f"{len(rows)} candidates (weights: vec={vector_weight}, fts={fts_weight})"
                 )
         except Exception as e:
             # If search_vector column doesn't exist yet, fall back to vector-only
@@ -207,12 +223,19 @@ class VendorDirectoryProvider(SourcingProvider):
                 logger.warning(f"[VendorProvider] DB query failed: {e}")
                 return []
 
-        # 3. Filter by distance threshold and convert to SearchResult
-        #    Boost match_score when FTS also matched (fts_rank > 0)
+        # 3. Filter candidates and convert to SearchResult.
+        #    - FTS matches (fts_rank > 0) are ALWAYS included regardless of distance.
+        #    - Vector-only matches are filtered by distance threshold.
+        #    - FTS rank normalized by dividing by FTS_NORM_DIVISOR (not capped at 1.0).
         threshold = _get_distance_threshold()
+        FTS_NORM_DIVISOR = 5.0  # ts_rank_cd scores typically range 0-5 for our corpus
         results: List[SearchResult] = []
         for r in rows:
-            if r["distance"] > threshold:
+            fts_rank_raw = float(r.get("fts_rank", 0))
+            has_fts_match = fts_rank_raw > 0
+
+            # Vector-only candidates must pass distance threshold
+            if not has_fts_match and r["distance"] > threshold:
                 continue
 
             url = r["website"] or ""
@@ -240,10 +263,10 @@ class VendorDirectoryProvider(SourcingProvider):
             elif merchant_domain:
                 favicon = f"https://www.google.com/s2/favicons?domain={merchant_domain}&sz=128"
 
-            # Blend vector similarity (0-1) with FTS rank (0-1 clamped)
+            # Blend vector similarity (0-1) with normalized FTS rank (0-1)
             vec_score = 1.0 - float(r["distance"])
-            fts_rank = min(float(r.get("fts_rank", 0)), 1.0)
-            blended = vector_weight * vec_score + fts_weight * fts_rank
+            fts_norm = min(fts_rank_raw / FTS_NORM_DIVISOR, 1.0)
+            blended = vector_weight * vec_score + fts_weight * fts_norm
 
             results.append(SearchResult(
                 title=r["name"],
@@ -261,9 +284,13 @@ class VendorDirectoryProvider(SourcingProvider):
                 description=r["tagline"] or r["description"] or None,
             ))
 
-        fts_boosted = sum(1 for r in rows if float(r.get("fts_rank", 0)) > 0)
+        # Sort by blended score descending (best matches first)
+        results.sort(key=lambda x: x.match_score or 0, reverse=True)
+        results = results[:final_limit]
+
+        fts_included = sum(1 for r in rows if float(r.get("fts_rank", 0)) > 0)
         logger.info(
-            f"[VendorProvider] Found {len(results)} vendors within distance {_get_distance_threshold()} "
-            f"(checked {len(rows)}, {fts_boosted} had FTS boost)"
+            f"[VendorProvider] Found {len(results)} vendors "
+            f"(candidates={len(rows)}, fts_matched={fts_included}, vec_threshold={threshold})"
         )
         return results
