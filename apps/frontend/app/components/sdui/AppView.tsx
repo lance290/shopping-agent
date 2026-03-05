@@ -454,9 +454,11 @@ export function AppView({ children }: AppViewProps) {
       {/* Chat Pane — full-screen on mobile, resizable on desktop */}
       <div
         className="flex-1 lg:flex-none min-h-0 flex flex-col z-10"
-        style={isDesktop ? { width: chatWidth, flexBasis: chatWidth } : { paddingBottom: 72 }}
+        style={isDesktop ? { width: chatWidth, flexBasis: chatWidth } : undefined}
       >
-        {children}
+        <div className={isDesktop ? 'h-full' : 'h-[calc(100dvh-72px)]'}>
+          {children}
+        </div>
       </div>
 
       {/* Resize Handle - desktop only */}
