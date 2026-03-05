@@ -146,9 +146,18 @@ export interface MessageListBlock {
   messages: MessageItem[];
 }
 
+export interface ChoiceFactorItem {
+  name: string;
+  label?: string;
+  type?: string;
+  required?: boolean;
+  options?: string[];
+  placeholder?: string;
+}
+
 export interface ChoiceFactorFormBlock {
   type: 'ChoiceFactorForm';
-  factors: Record<string, unknown>[];
+  factors: ChoiceFactorItem[];
 }
 
 export interface ActionObject {

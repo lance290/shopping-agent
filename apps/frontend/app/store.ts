@@ -81,12 +81,12 @@ export function parseChoiceFactors(row: Row): ChoiceFactor[] {
   }
 }
 
-export function parseChoiceAnswers(row: Row): Record<string, unknown> {
+export function parseChoiceAnswers(row: Row): Record<string, string | number | boolean | string[]> {
   if (!row.choice_answers) return {};
   try {
     const parsed = JSON.parse(row.choice_answers);
     if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
+      return parsed as Record<string, string | number | boolean | string[]>;
     }
   } catch {
     // Ignore parse errors
