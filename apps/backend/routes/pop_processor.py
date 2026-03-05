@@ -36,11 +36,13 @@ async def process_pop_message(
     channel: str = "email",
     sender_phone: Optional[str] = None,
     image_urls: Optional[List[str]] = None,
+    group_project_id: Optional[int] = None,
+    group_phones: Optional[List[str]] = None,
 ):
     """
     Core logic for Pop:
     1. Identify user (or trigger onboarding)
-    2. Identify or create their active Family List (Project)
+    2. Identify or create their active Family List (Project), or use group_project_id
     3. Load conversation history from Row.chat_history
     4. Use Unified NLU Decision Engine
     5. Create/Update Rows and trigger sourcing
@@ -72,26 +74,34 @@ async def process_pop_message(
                 logger.info(f"[Pop] Saved zip_code {user.zip_code} for user {user.id}")
 
         # 2. Find active Pop project
-        proj_stmt = (
-            select(Project)
-            .where(Project.user_id == user.id)
-            .where(Project.status == "active")
-            .order_by(Project.updated_at.desc())
-            .limit(1)
-        )
-        proj_result = await session.execute(proj_stmt)
-        project = proj_result.scalar_one_or_none()
+        if group_project_id:
+            project = await session.get(Project, group_project_id)
+            if not project:
+                logger.warning(f"[Pop] Provided group_project_id {group_project_id} not found, falling back")
+        else:
+            project = None
 
         if not project:
-            project = Project(title="My Shopping List", user_id=user.id)
-            session.add(project)
-            await session.commit()
-            await session.refresh(project)
-        else:
-            from datetime import datetime
-            project.updated_at = datetime.utcnow()
-            session.add(project)
-            await session.commit()
+            proj_stmt = (
+                select(Project)
+                .where(Project.user_id == user.id)
+                .where(Project.status == "active")
+                .order_by(Project.updated_at.desc())
+                .limit(1)
+            )
+            proj_result = await session.execute(proj_stmt)
+            project = proj_result.scalar_one_or_none()
+
+            if not project:
+                project = Project(title="My Shopping List", user_id=user.id)
+                session.add(project)
+                await session.commit()
+                await session.refresh(project)
+            else:
+                from datetime import datetime
+                project.updated_at = datetime.utcnow()
+                session.add(project)
+                await session.commit()
 
         # Register user as project member (tracks channel preference)
         await _ensure_project_member(session, project.id, user.id, channel=channel)
@@ -267,11 +277,16 @@ async def process_pop_message(
         reply_subject = f"Re: {title}" if title else "Your shopping list update"
 
         if channel == "sms" and sender_phone:
-            ok = send_pop_sms(sender_phone, reply_message)
-            if ok:
-                logger.info(f"[Pop] SMS reply sent to {sender_phone}")
+            if group_phones and len(group_phones) > 1:
+                from routes.pop_notify import send_pop_group_sms
+                sent_count = send_pop_group_sms(group_phones, reply_message)
+                logger.info(f"[Pop] Group SMS reply sent to {sent_count}/{len(group_phones)} numbers")
             else:
-                logger.warning(f"[Pop] SMS reply failed for {sender_phone}")
+                ok = send_pop_sms(sender_phone, reply_message)
+                if ok:
+                    logger.info(f"[Pop] SMS reply sent to {sender_phone}")
+                else:
+                    logger.warning(f"[Pop] SMS reply failed for {sender_phone}")
         else:
             email_result = await send_pop_reply(user_email, reply_subject, reply_message)
             if email_result.success:

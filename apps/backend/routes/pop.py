@@ -257,10 +257,12 @@ async def twilio_inbound(
         to_phones = [t.strip() for t in str(to_raw).split(",") if t.strip()]
 
         group_thread = None
+        group_phones_list = None
         if len(to_phones) >= 2:
             group_thread, _project = await _resolve_group_thread(session, sender_phone, to_phones, user)
             if group_thread:
                 logger.info(f"[Pop] Group MMS thread={group_thread.thread_hash[:8]} project={_project.id if _project else '?'}")
+                group_phones_list = [p for p in group_thread.phone_numbers.split(",")]
 
         background_tasks.add_task(
             pop_processor.process_pop_message,
@@ -270,6 +272,8 @@ async def twilio_inbound(
             "sms",
             sender_phone,
             image_urls,
+            _project.id if group_thread and _project else None,
+            group_phones_list,
         )
     else:
         logger.info(f"[Pop] Unknown phone {sender_phone}. Sending onboarding SMS.")
