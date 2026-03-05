@@ -207,11 +207,11 @@ async def create_github_issue_task(bug_id: int):
 
             body += "\n\n<!-- CLAUDE-INSTRUCTION: Fix this bug. Use the provided context and diagnostics. -->"
 
-            labels = ["ai-fix", "bug"]
+            labels = ["ai-fix"]
             if is_feature_request:
-                labels = ["ai-fix", "feature-request"]
+                labels = ["feature-request"]
                 bug.status = "feature_request"
-                print(f"[BUG] Report {bug_id} classified as feature request; creating GitHub issue")
+                print(f"[BUG] Report {bug_id} classified as feature request; creating GitHub issue without ai-fix label")
 
             print(f"[BUG] Creating GitHub issue for report {bug_id}...")
             issue = await github_client.create_issue(
