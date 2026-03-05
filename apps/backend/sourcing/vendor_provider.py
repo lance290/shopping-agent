@@ -39,7 +39,7 @@ def _get_embedding_dimensions() -> int:
 # Cosine distance threshold: 0 = identical, 2 = opposite
 # Default read at call time so .env overrides work
 def _get_distance_threshold() -> float:
-    return float(os.getenv("VENDOR_DISTANCE_THRESHOLD", "0.45"))
+    return float(os.getenv("VENDOR_DISTANCE_THRESHOLD", "0.65"))
 
 
 async def _embed_texts(texts: List[str]) -> Optional[List[List[float]]]:
@@ -68,7 +68,7 @@ async def _embed_texts(texts: List[str]) -> Optional[List[List[float]]]:
             data = resp.json()
             return [item["embedding"] for item in data["data"]]
     except Exception as e:
-        logger.warning(f"[VendorProvider] Embedding failed: {e}")
+        logger.warning(f"[VendorProvider] Embedding failed: {type(e).__name__}: {e}")
         return None
 
 
@@ -209,9 +209,9 @@ class VendorDirectoryProvider(SourcingProvider):
 
         # 3. Filter by distance threshold and convert to SearchResult
         #    Boost match_score when FTS also matched (fts_rank > 0)
+        threshold = _get_distance_threshold()
         results: List[SearchResult] = []
         for r in rows:
-            threshold = _get_distance_threshold()
             if r["distance"] > threshold:
                 continue
 
