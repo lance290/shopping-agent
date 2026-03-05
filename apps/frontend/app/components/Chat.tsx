@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send } from 'lucide-react';
+import { Send, Bug, FolderPlus } from 'lucide-react';
 import { useShoppingStore, mapBidToOffer } from '../store';
-import { fetchRowsFromDb, fetchProjectsFromDb, fetchSingleRowFromDb, saveChatHistory } from '../utils/api';
+import { fetchRowsFromDb, fetchProjectsFromDb, fetchSingleRowFromDb, saveChatHistory, createProjectInDb } from '../utils/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { logout, getMe } from '../utils/auth';
@@ -36,6 +36,8 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isTipJarLoading, setIsTipJarLoading] = useState(false);
+  const [isProd, setIsProd] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userPhone, setUserPhone] = useState<string | null>(null);
   // Track pending clarification context for multi-turn flows (e.g., aviation)
@@ -59,7 +61,24 @@ export default function Chat() {
   const setProjects = store.setProjects;
   const updateRow = store.updateRow;
   const setCardClickQuery = store.setCardClickQuery;
+  const addProject = store.addProject;
+  const setTargetProjectId = store.setTargetProjectId;
+  const setReportBugModalOpen = store.setReportBugModalOpen;
   const activeRow = rows.find(r => r.id === activeRowId);
+
+  useEffect(() => {
+    const hostname = window.location.hostname;
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.includes('dev') ||
+      hostname.includes('staging')
+    ) {
+      setIsProd(false);
+    } else {
+      setIsProd(true);
+    }
+  }, []);
 
   useEffect(() => {
     // Check auth state
@@ -541,6 +560,34 @@ export default function Chat() {
     }
   };
 
+  const handleCreateProject = async () => {
+    const title = window.prompt('Enter project name:');
+    if (!title || !title.trim()) return;
+
+    const newProject = await createProjectInDb(title.trim());
+    if (newProject) {
+      addProject(newProject);
+      setTargetProjectId(newProject.id);
+    } else {
+      alert('Failed to create project');
+    }
+  };
+
+  const handleTipJar = async () => {
+    if (isTipJarLoading) return;
+    setIsTipJarLoading(true);
+    try {
+      const res = await fetch('/api/tip-jar', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.detail || 'Failed to create tip jar session');
+      if (data?.checkout_url) window.location.href = data.checkout_url;
+    } catch (error) {
+      console.error('[tip-jar] failed to create session', error);
+    } finally {
+      setIsTipJarLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-warm-light border-r border-warm-grey/70">
       <ChatHeader
@@ -549,6 +596,35 @@ export default function Chat() {
         userPhone={userPhone}
         onLogout={handleLogout}
       />
+
+      <div className="lg:hidden px-4 py-2 bg-white border-b border-warm-grey flex items-center gap-2 overflow-x-auto">
+        <button
+          onClick={handleTipJar}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors disabled:opacity-60 whitespace-nowrap"
+          title="Support our team"
+          disabled={isTipJarLoading}
+        >
+          <span>☕️</span>
+          {isTipJarLoading ? 'Opening…' : 'Tip Jar'}
+        </button>
+        <button
+          onClick={handleCreateProject}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-accent-blue bg-accent-blue/10 rounded-lg hover:bg-accent-blue/20 transition-colors whitespace-nowrap"
+        >
+          <FolderPlus size={14} />
+          New Project
+        </button>
+        {!isProd && (
+          <button
+            onClick={() => setReportBugModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors whitespace-nowrap"
+            title="Report Bug"
+          >
+            <Bug size={14} />
+            Report Bug
+          </button>
+        )}
+      </div>
 
       <ChatMessages
         ref={messagesEndRef}

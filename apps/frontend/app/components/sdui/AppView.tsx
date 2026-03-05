@@ -309,47 +309,49 @@ export function AppView({ children }: AppViewProps) {
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wide">Your List</h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={async () => {
-                  if (isTipJarLoading) return;
-                  setIsTipJarLoading(true);
-                  try {
-                    const res = await fetch('/api/tip-jar', { method: 'POST' });
-                    const data = await res.json();
-                    if (!res.ok) throw new Error(data?.detail || 'Failed to create tip jar session');
-                    if (data?.checkout_url) window.location.href = data.checkout_url;
-                  } catch (error) {
-                    console.error('[tip-jar] failed to create session', error);
-                  } finally {
-                    setIsTipJarLoading(false);
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors disabled:opacity-60"
-                title="Support our team"
-                disabled={isTipJarLoading}
-              >
-                <span>☕️</span>
-                {isTipJarLoading ? 'Opening…' : 'Tip Jar'}
-              </button>
-              <button
-                onClick={handleCreateProject}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-accent-blue bg-accent-blue/10 rounded-lg hover:bg-accent-blue/20 transition-colors"
-              >
-                <FolderPlus size={14} />
-                New Project
-              </button>
-              {!isProd && (
+            {isDesktop && (
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setReportBugModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-                  title="Report Bug"
+                  onClick={async () => {
+                    if (isTipJarLoading) return;
+                    setIsTipJarLoading(true);
+                    try {
+                      const res = await fetch('/api/tip-jar', { method: 'POST' });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data?.detail || 'Failed to create tip jar session');
+                      if (data?.checkout_url) window.location.href = data.checkout_url;
+                    } catch (error) {
+                      console.error('[tip-jar] failed to create session', error);
+                    } finally {
+                      setIsTipJarLoading(false);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors disabled:opacity-60"
+                  title="Support our team"
+                  disabled={isTipJarLoading}
                 >
-                  <Bug size={14} />
-                  Report Bug
+                  <span>☕️</span>
+                  {isTipJarLoading ? 'Opening…' : 'Tip Jar'}
                 </button>
-              )}
-            </div>
+                <button
+                  onClick={handleCreateProject}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-accent-blue bg-accent-blue/10 rounded-lg hover:bg-accent-blue/20 transition-colors"
+                >
+                  <FolderPlus size={14} />
+                  New Project
+                </button>
+                {!isProd && (
+                  <button
+                    onClick={() => setReportBugModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                    title="Report Bug"
+                  >
+                    <Bug size={14} />
+                    Report Bug
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {activeRows.length === 0 && (
