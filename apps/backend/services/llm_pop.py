@@ -13,6 +13,42 @@ from services.llm_core import call_gemini, _extract_json
 logger = logging.getLogger(__name__)
 
 
+async def parse_bulk_grocery_text(text: str) -> list[dict]:
+    """
+    Extract a structured list of grocery items from a wall of text (e.g. recipe).
+    Returns a list of dicts with 'name', 'qty', 'department'.
+    """
+    prompt = f"""
+You are an expert grocery list extractor.
+Extract all ingredients or grocery items from the following text.
+For each item, determine the most likely grocery department.
+Return ONLY a valid JSON array of objects. Do not include markdown formatting or backticks.
+
+Department must be one of: Produce, Meat, Dairy, Pantry, Frozen, Bakery, Household, Personal Care, Pet, Other
+
+Format each object as:
+{{
+  "name": "chicken breast",
+  "qty": "2 lbs",
+  "department": "Meat"
+}}
+
+Text:
+{text}
+"""
+    try:
+        response_text = await call_gemini(prompt)
+        parsed = _extract_json(response_text)
+        if isinstance(parsed, list):
+            return parsed
+        if isinstance(parsed, dict) and "items" in parsed:
+            return parsed["items"]
+        return []
+    except Exception as e:
+        logger.error(f"[Pop] Bulk parse failed: {e}")
+        return []
+
+
 async def make_pop_decision(ctx: ChatContext) -> UnifiedDecision:
     """
     Pop-specific decision engine for grocery list management.

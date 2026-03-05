@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import PopItemEditor from './PopItemEditor';
 import HouseholdModal from './HouseholdModal';
+import BulkParseModal from './BulkParseModal';
 
 interface Deal {
   id: number;
@@ -66,6 +67,8 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [editingItem, setEditingItem] = useState<ListItem | null>(null);
   const [showHousehold, setShowHousehold] = useState(false);
+  const [showBulkParse, setShowBulkParse] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
     async function fetchList() {
@@ -104,6 +107,42 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
     } finally {
       setIsJoining(false);
     }
+  };
+
+  const handleClearCompleted = async () => {
+    if (checkedItems.size === 0) return;
+    setIsClearing(true);
+    try {
+      const res = await fetch(`/api/pop/projects/${list?.project_id}/clear_completed`, {
+        method: 'POST',
+      });
+      if (!res.ok) throw new Error('Failed to clear completed items');
+      
+      // Update local state by removing checked items
+      setList((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          items: prev.items.filter((item: any) => !checkedItems.has(item.id))
+        };
+      });
+      setCheckedItems(new Set());
+    } catch (e: any) {
+      setError(e.message || 'An error occurred');
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
+  const handleBulkParsed = (newItems: any[]) => {
+    setList((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        items: [...newItems, ...prev.items]
+      };
+    });
+    setShowBulkParse(false);
   };
 
   const toggleChecked = (itemId: number) => {
@@ -178,20 +217,41 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <span>🛒</span> {list.title}
             </h1>
-            {isLoggedIn && (
+            <div className="flex items-center gap-2">
+              {isLoggedIn && (
+                <button
+                  onClick={() => setShowBulkParse(true)}
+                  className="text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1"
+                >
+                  📋 Paste Recipe
+                </button>
+              )}
+              {isLoggedIn && (
+                <button
+                  onClick={() => setShowHousehold(true)}
+                  className="text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1"
+                >
+                  👨‍👩‍👧 Household
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-sm text-gray-500">
+              {checkedCount > 0
+                ? `${checkedCount} of ${totalItems} checked off`
+                : `${totalItems} item${totalItems !== 1 ? 's' : ''}`}
+            </p>
+            {checkedCount > 0 && isLoggedIn && (
               <button
-                onClick={() => setShowHousehold(true)}
-                className="text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1"
+                onClick={handleClearCompleted}
+                disabled={isClearing}
+                className="text-xs font-medium text-gray-500 hover:text-red-600 transition-colors flex items-center gap-1 disabled:opacity-50"
               >
-                👨‍👩‍👧 Household
+                {isClearing ? 'Clearing...' : '🗑️ Clear Completed'}
               </button>
             )}
           </div>
-          <p className="text-sm text-gray-500 mt-1">
-            {checkedCount > 0
-              ? `${checkedCount} of ${totalItems} checked off`
-              : `${totalItems} item${totalItems !== 1 ? 's' : ''}`}
-          </p>
         </div>
 
         {/* Savings Summary Banner */}
@@ -552,6 +612,15 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
         <HouseholdModal
           projectId={list.project_id}
           onClose={() => setShowHousehold(false)}
+        />
+      )}
+
+      {/* Bulk Parse Modal */}
+      {showBulkParse && list && (
+        <BulkParseModal
+          projectId={list.project_id}
+          onClose={() => setShowBulkParse(false)}
+          onParsed={handleBulkParsed}
         />
       )}
 

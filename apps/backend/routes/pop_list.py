@@ -19,6 +19,8 @@ from services.llm import call_gemini
 from routes.pop_helpers import POP_DOMAIN, _get_pop_user, _ensure_project_member, _build_item_with_deals
 from models.rows import ProjectMember
 from services.coupon_provider import get_coupon_provider
+from services.llm_pop import parse_bulk_grocery_text
+from routes.chat_helpers import _create_row
 
 logger = logging.getLogger(__name__)
 list_router = APIRouter()
@@ -584,6 +586,91 @@ async def remove_project_member(
     await session.delete(member)
     await session.commit()
     return {"removed": True, "user_id": member_user_id}
+
+
+class BulkParseRequest(BaseModel):
+    text: str
+
+
+@list_router.post("/projects/{project_id}/bulk_parse")
+async def bulk_parse_items(
+    project_id: int,
+    body: BulkParseRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Parse a wall of text into multiple grocery list items."""
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    await _ensure_project_member(session, project.id, user.id, channel="web")
+
+    from routes.chat_helpers import _create_row
+
+    items = await parse_bulk_grocery_text(body.text)
+    if not items:
+        return {"parsed_items": 0, "rows": []}
+
+    created_rows = []
+    for item in items:
+        name = item.get("name")
+        if not name:
+            continue
+        
+        constraints = {}
+        if item.get("qty"):
+            constraints["quantity"] = str(item["qty"])
+        if item.get("department"):
+            constraints["department"] = str(item["department"])
+
+        row = await _create_row(
+            session=session,
+            user_id=user.id,
+            title=name,
+            project_id=project.id,
+            is_service=False,
+            service_category=None,
+            constraints=constraints,
+            origin_channel="web"
+        )
+        created_rows.append(_item_response(row))
+
+    return {"parsed_items": len(created_rows), "rows": created_rows}
+
+
+@list_router.post("/projects/{project_id}/clear_completed")
+async def clear_completed_items(
+    project_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Sweep all 'closed' (completed) items from the active view."""
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    await _ensure_project_member(session, project.id, user.id, channel="web")
+
+    from sqlalchemy import update
+    stmt = (
+        update(Row)
+        .where(Row.project_id == project_id)
+        .where(Row.status == "closed")
+        .values(status="archived", updated_at=datetime.utcnow())
+    )
+    result = await session.execute(stmt)
+    await session.commit()
+    
+    return {"cleared": result.rowcount}
 
 
 # Offer claim/unclaim endpoints moved to routes/pop_offers.py

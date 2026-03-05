@@ -533,3 +533,72 @@ async def test_non_owner_cannot_remove_member(
     assert resp.status_code == 403
 
 
+# ---------------------------------------------------------------------------
+# PRD-04: Bulk Actions (Parse & Clear)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_clear_completed_items(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    pop_project: Project,
+):
+    """POST /projects/{id}/clear_completed archives closed items."""
+    user, token = pop_user
+    
+    # Create two rows, one closed, one open
+    from routes.chat_helpers import _create_row
+    await _create_row(session, user.id, "Open Item", pop_project.id, False, None, {})
+    closed_row = await _create_row(session, user.id, "Closed Item", pop_project.id, False, None, {})
+    closed_row.status = "closed"
+    session.add(closed_row)
+    await session.commit()
+
+    resp = await client.post(
+        f"/pop/projects/{pop_project.id}/clear_completed",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["cleared"] == 1
+
+    # Verify only open item remains active
+    from sqlmodel import select
+    from models.rows import Row
+    stmt = select(Row).where(Row.project_id == pop_project.id).where(Row.status != "archived")
+    result = await session.execute(stmt)
+    rows = result.scalars().all()
+    assert len(rows) == 1
+    assert rows[0].title == "Open Item"
+
+
+@pytest.mark.asyncio
+@patch("routes.pop_list.parse_bulk_grocery_text")
+async def test_bulk_parse_items(
+    mock_parse,
+    client: AsyncClient,
+    pop_user,
+    pop_project: Project,
+):
+    """POST /projects/{id}/bulk_parse extracts text into rows."""
+    user, token = pop_user
+    mock_parse.return_value = [
+        {"name": "Milk", "qty": "1 gal", "department": "Dairy"},
+        {"name": "Bread", "qty": "2 loaves", "department": "Bakery"},
+    ]
+
+    resp = await client.post(
+        f"/pop/projects/{pop_project.id}/bulk_parse",
+        json={"text": "Need milk and bread"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["parsed_items"] == 2
+    assert len(data["rows"]) == 2
+    assert data["rows"][0]["title"] == "Milk"
+    assert data["rows"][0]["department"] == "Dairy"
+    assert data["rows"][0]["quantity"] == "1 gal"
+
+
+
