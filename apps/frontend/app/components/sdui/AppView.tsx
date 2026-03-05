@@ -220,8 +220,9 @@ export function AppView({ children }: AppViewProps) {
       )}
 
       {/* Chat Pane */}
+      {/* On mobile: hide when a row is expanded so the list pane can go full-screen */}
       <div
-        className="flex-[0_0_50vh] lg:flex-none min-h-0 flex flex-col border-b lg:border-b-0 z-10"
+        className={`${expandedRowId !== null ? 'hidden' : 'flex flex-[0_0_50vh]'} lg:flex lg:flex-none min-h-0 flex-col border-b lg:border-b-0 z-10`}
         style={isDesktop ? { width: chatWidth, flexBasis: chatWidth } : undefined}
       >
         {children}
