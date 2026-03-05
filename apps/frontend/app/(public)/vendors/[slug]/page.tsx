@@ -1,7 +1,9 @@
-import { notFound } from 'next/navigation';
-import { Store, ExternalLink, Tag, ArrowLeft } from 'lucide-react';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { Store, ExternalLink, Tag, ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import type { Metadata } from 'next';
 
 interface VendorSeoContent {
   summary?: string;
@@ -28,31 +30,6 @@ interface VendorDetail {
   schema_markup?: Record<string, unknown> | null;
 }
 
-async function fetchVendor(slug: string): Promise<VendorDetail | null> {
-  const backendBase = (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
-  const res = await fetch(`${backendBase}/api/public/vendors/slug/${encodeURIComponent(slug)}`, {
-    cache: 'no-store',
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) return null;
-  return (await res.json()) as VendorDetail;
-}
-
-export async function generateMetadata(
-  { params }: { params: Promise<{ slug: string }> }
-): Promise<Metadata> {
-  const resolvedParams = await params;
-  const vendor = await fetchVendor(resolvedParams.slug);
-  if (!vendor) {
-    return { title: 'Vendor Not Found' };
-  }
-  const summary = vendor?.seo_content?.summary || vendor?.description || vendor?.tagline || '';
-  return {
-    title: `${vendor.name} | Vendor Directory`,
-    description: typeof summary === 'string' ? summary.slice(0, 155) : undefined,
-  };
-}
-
 function normalizeToStringArray(val: unknown): string[] {
   if (!val) return [];
   if (Array.isArray(val)) return val.map((v) => String(v)).filter(Boolean);
@@ -71,11 +48,52 @@ function normalizeToStringArray(val: unknown): string[] {
   return [String(val)];
 }
 
-export default async function VendorDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const resolvedParams = await params;
-  const vendor = await fetchVendor(resolvedParams.slug);
-  if (!vendor) {
-    notFound();
+export default function VendorDetailPage() {
+  const params = useParams<{ slug: string }>();
+  const slug = params.slug;
+  const [vendor, setVendor] = useState<VendorDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    if (!slug) return;
+    setLoading(true);
+    fetch(`/api/proxy/public-vendors/slug/${encodeURIComponent(slug)}`)
+      .then(async (res) => {
+        if (res.status === 404 || !res.ok) {
+          setNotFound(true);
+          return;
+        }
+        const data = await res.json();
+        setVendor(data);
+        if (data.name) {
+          document.title = `${data.name} | Vendor Directory`;
+        }
+      })
+      .catch(() => setNotFound(true))
+      .finally(() => setLoading(false));
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
+        <Loader2 className="w-8 h-8 animate-spin text-navy mx-auto mb-4" />
+        <p className="text-ink-muted">Loading vendor details...</p>
+      </div>
+    );
+  }
+
+  if (notFound || !vendor) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
+        <Store className="w-12 h-12 text-ink-muted mx-auto mb-4" />
+        <h1 className="text-xl font-bold text-navy mb-2">Vendor Not Found</h1>
+        <p className="text-ink-muted mb-6">The vendor you&apos;re looking for doesn&apos;t exist or has been removed.</p>
+        <Link href="/vendors" className="text-sm text-navy hover:text-navy-light font-medium underline">
+          Browse all vendors
+        </Link>
+      </div>
+    );
   }
 
   const specialties = normalizeToStringArray(vendor.specialties);
@@ -90,48 +108,48 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ s
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaMarkup) }}
         />
       )}
-      <Link href="/vendors" className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline mb-6">
+      <Link href="/vendors" className="inline-flex items-center gap-1 text-sm text-navy hover:underline mb-6">
         <ArrowLeft size={14} /> Back to directory
       </Link>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-8">
+      <div className="bg-white rounded-xl border border-warm-grey overflow-hidden">
+        <div className="bg-gradient-to-r from-navy to-navy-light px-6 py-8">
           <div className="flex items-center gap-3 mb-2">
-            <Store size={20} className="text-blue-200" />
+            <Store size={20} className="text-gold-light" />
             {vendor.category && (
-              <span className="text-xs font-medium uppercase tracking-wider text-blue-200">{vendor.category}</span>
+              <span className="text-xs font-medium uppercase tracking-wider text-gold-light">{vendor.category}</span>
             )}
             {vendor.is_verified && (
-              <span className="text-xs bg-green-500/20 text-green-200 px-2 py-0.5 rounded-full">Verified</span>
+              <span className="text-xs bg-status-success/20 text-green-200 px-2 py-0.5 rounded-full">Verified</span>
             )}
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white">{vendor.name}</h1>
           {vendor.tagline && (
-            <p className="text-blue-100 mt-2">{vendor.tagline}</p>
+            <p className="text-white/80 mt-2">{vendor.tagline}</p>
           )}
         </div>
 
         <div className="p-6 space-y-6">
           {typeof seo.summary === 'string' && seo.summary && (
             <div>
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Summary</h2>
-              <p className="text-gray-700 leading-relaxed whitespace-pre-line">{seo.summary}</p>
+              <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider mb-2">Summary</h2>
+              <p className="text-navy leading-relaxed whitespace-pre-line">{seo.summary}</p>
             </div>
           )}
 
           {vendor.description && (
             <div>
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">About</h2>
-              <p className="text-gray-700 leading-relaxed whitespace-pre-line">{vendor.description}</p>
+              <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider mb-2">About</h2>
+              <p className="text-navy leading-relaxed whitespace-pre-line">{vendor.description}</p>
             </div>
           )}
 
           {Array.isArray(seo.services_list) && seo.services_list.length > 0 && (
             <div>
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Services</h2>
+              <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider mb-2">Services</h2>
               <ul className="space-y-2">
                 {seo.services_list.map((s: unknown, i: number) => (
-                  <li key={i} className="text-gray-700">{String(s)}</li>
+                  <li key={i} className="text-navy">{String(s)}</li>
                 ))}
               </ul>
             </div>
@@ -139,15 +157,15 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ s
 
           {Array.isArray(seo.features_matrix) && seo.features_matrix.length > 0 && (
             <div>
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Features</h2>
+              <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider mb-2">Features</h2>
               <div className="space-y-3">
                 {seo.features_matrix.map((f, i: number) => (
-                  <div key={i} className="rounded-lg border border-gray-100 p-3">
-                    <div className="font-medium text-gray-900 text-sm">
+                  <div key={i} className="rounded-lg border border-warm-grey p-3">
+                    <div className="font-medium text-navy text-sm">
                       {String(f?.feature || '')}
                     </div>
                     {f?.details && (
-                      <div className="text-gray-700 text-sm mt-1">{String(f.details)}</div>
+                      <div className="text-ink-muted text-sm mt-1">{String(f.details)}</div>
                     )}
                   </div>
                 ))}
@@ -157,10 +175,10 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ s
 
           {specialties.length > 0 && (
             <div>
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Specialties</h2>
+              <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider mb-2">Specialties</h2>
               <div className="flex flex-wrap gap-2">
                 {specialties.map((s, i) => (
-                  <span key={i} className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full">
+                  <span key={i} className="inline-flex items-center gap-1 px-3 py-1 bg-canvas-dark text-navy text-sm rounded-full">
                     <Tag size={12} /> {s}
                   </span>
                 ))}
@@ -168,13 +186,13 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ s
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-100">
+          <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-warm-grey">
             {vendor.website && (
               <a
                 href={`/api/out?url=${encodeURIComponent(vendor.website)}&merchant=${encodeURIComponent(vendor.name)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-navy hover:bg-navy-light text-white font-medium rounded-lg transition-colors"
               >
                 <ExternalLink size={16} /> Visit Website
               </a>

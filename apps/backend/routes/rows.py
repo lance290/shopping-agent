@@ -11,9 +11,7 @@ from sqlalchemy.orm import selectinload, defer, joinedload
 
 from database import get_session
 from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project, User
-from dependencies import get_current_session, resolve_user_id
-
-GUEST_EMAIL = "guest@buy-anything.com"
+from dependencies import get_current_session, resolve_user_id, resolve_user_id_and_guest_flag, GUEST_EMAIL
 from routes.rows_search import router as rows_search_router
 from sourcing.safety import SafetyService
 from utils.json_utils import safe_json_loads
@@ -179,18 +177,29 @@ async def create_row(
 @router.get("/rows", response_model=List[RowReadWithBids])
 async def read_rows(
     authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
     include_archived: bool = Query(False),
     session: AsyncSession = Depends(get_session)
 ):
     
-    user_id = await resolve_user_id(authorization, session)
+    user_id, is_guest = await resolve_user_id_and_guest_flag(authorization, session)
+
+    # Build where clauses
+    where_clauses = [
+        Row.user_id == user_id,
+        True if include_archived else (Row.status != "archived"),
+    ]
+
+    # For guest users, scope to their browser session
+    if is_guest and x_anonymous_session_id:
+        where_clauses.append(Row.anonymous_session_id == x_anonymous_session_id)
+    elif is_guest:
+        # No session ID provided — return empty to avoid leaking all guest rows
+        return []
 
     result = await session.exec(
         select(Row)
-        .where(
-            Row.user_id == user_id,
-            True if include_archived else (Row.status != "archived"),
-        )
+        .where(*where_clauses)
         .options(
             selectinload(Row.bids).options(
                 joinedload(Bid.seller),

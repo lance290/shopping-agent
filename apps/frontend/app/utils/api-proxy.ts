@@ -80,6 +80,10 @@ async function proxyRequest(
   const forwardedProto = request.headers.get('x-forwarded-proto') || request.nextUrl.protocol.replace(':', '');
   if (forwardedProto) headers['X-Forwarded-Proto'] = forwardedProto;
 
+  // Forward anonymous session ID for scoping guest rows to browser session
+  const anonSessionId = request.headers.get('X-Anonymous-Session-Id');
+  if (anonSessionId) headers['X-Anonymous-Session-Id'] = anonSessionId;
+
   const url = `${BACKEND_URL}${backendPath}`;
 
   try {

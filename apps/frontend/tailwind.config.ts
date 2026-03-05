@@ -9,28 +9,38 @@ const config: Config = {
     extend: {
       colors: {
         canvas: {
-          DEFAULT: "#202124",
-          dark: "#171717",
+          DEFAULT: "#FDFBF7",
+          dark: "#F5F0E8",
         },
         onyx: {
-          DEFAULT: "#E8EAED",
-          muted: "#9AA0A6",
+          DEFAULT: "#1B2A4A",
+          muted: "#6B7B99",
         },
         ink: {
-          DEFAULT: "#202124",
-          muted: "#5F6368",
+          DEFAULT: "#1B2A4A",
+          muted: "#8090AB",
         },
         warm: {
-          grey: "#3C4043",
-          light: "#2B2F33",
+          grey: "#D4CFC6",
+          light: "#F9F6F0",
         },
         agent: {
-          blurple: "#1A73E8",
-          camel: "#8AB4F8",
+          blurple: "#1B2A4A",
+          camel: "#C5A46D",
+        },
+        navy: {
+          DEFAULT: "#1B2A4A",
+          light: "#2D4166",
+          dark: "#0F1B33",
+        },
+        gold: {
+          DEFAULT: "#C5A46D",
+          light: "#DCC9A3",
+          dark: "#A88B55",
         },
         status: {
-          success: "#34C759",
-          error: "#FF3B30",
+          success: "#2D8A56",
+          error: "#C53030",
         },
       },
       fontFamily: {
@@ -58,7 +68,7 @@ const config: Config = {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "gradient-conic":
           "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
-        "ai-glow": "linear-gradient(135deg, #1A73E8 0%, #8AB4F8 100%)",
+        "ai-glow": "linear-gradient(135deg, #1B2A4A 0%, #C5A46D 100%)",
       },
     },
   },

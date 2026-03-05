@@ -26,31 +26,31 @@ export default function PublicHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-gray-200">
+    <header className="sticky top-0 z-40 bg-navy text-white shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
+        <div className="flex items-center justify-between h-14 gap-4">
           <Link href="/" className="flex items-center gap-2 shrink-0">
-            <span className="text-xl font-bold text-gray-900">BuyAnything</span>
+            <span className="text-lg font-bold tracking-tight">BuyAnything</span>
           </Link>
 
           <form onSubmit={handleSearch} className="flex-1 max-w-xl hidden sm:block">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-navy/40" />
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="What are you looking for?"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
+                className="w-full pl-10 pr-4 py-2 border border-white/20 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent bg-white/10 text-white placeholder:text-white/50"
               />
             </div>
           </form>
 
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
             {isAuthenticated ? (
               <a
                 href="/app"
-                className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-4 py-2 rounded-full"
+                className="inline-flex items-center gap-2 text-sm font-medium text-gold-light hover:text-white transition-colors px-3 py-1.5 rounded-full border border-gold/30 hover:border-gold"
               >
                 <LayoutGrid size={16} />
                 Workspace
@@ -58,7 +58,7 @@ export default function PublicHeader() {
             ) : (
               <a
                 href="/login"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                className="text-sm font-medium text-white/80 hover:text-white transition-colors"
               >
                 Sign In
               </a>

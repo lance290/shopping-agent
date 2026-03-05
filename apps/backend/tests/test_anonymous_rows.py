@@ -34,6 +34,7 @@ async def guest_row(session: AsyncSession, guest_user: User) -> Row:
         title="Guest power stations",
         status="sourcing",
         desire_tier="commodity",
+        anonymous_session_id="test-session-aaa",
     )
     session.add(row)
     await session.commit()
@@ -142,11 +143,14 @@ async def test_select_option_anonymous_cannot_access_other_users_row(
 
 
 @pytest.mark.asyncio
-async def test_get_rows_anonymous_returns_200(
+async def test_get_rows_anonymous_with_session_id_returns_scoped_rows(
     client: AsyncClient, session: AsyncSession, guest_user: User, guest_row: Row
 ):
-    """Anonymous GET /rows should return 200 with guest's rows."""
-    response = await client.get("/rows")
+    """Anonymous GET /rows with matching session ID should return that session's rows."""
+    response = await client.get(
+        "/rows",
+        headers={"X-Anonymous-Session-Id": "test-session-aaa"},
+    )
     assert response.status_code == 200
     data = response.json()
     titles = [r["title"] for r in data]
@@ -154,13 +158,68 @@ async def test_get_rows_anonymous_returns_200(
 
 
 @pytest.mark.asyncio
-async def test_get_rows_anonymous_empty_when_no_guest_rows(
-    client: AsyncClient, session: AsyncSession, guest_user: User
+async def test_get_rows_anonymous_without_session_id_returns_empty(
+    client: AsyncClient, session: AsyncSession, guest_user: User, guest_row: Row
 ):
-    """Anonymous GET /rows with no guest rows should return empty list, not 401."""
+    """Anonymous GET /rows without session ID should return empty list (no leak)."""
     response = await client.get("/rows")
     assert response.status_code == 200
     assert response.json() == []
+
+
+@pytest.mark.asyncio
+async def test_get_rows_anonymous_wrong_session_id_returns_empty(
+    client: AsyncClient, session: AsyncSession, guest_user: User, guest_row: Row
+):
+    """Anonymous GET /rows with a different session ID should not see other sessions' rows."""
+    response = await client.get(
+        "/rows",
+        headers={"X-Anonymous-Session-Id": "different-session-bbb"},
+    )
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@pytest.mark.asyncio
+async def test_get_rows_anonymous_no_guest_rows_returns_empty(
+    client: AsyncClient, session: AsyncSession, guest_user: User
+):
+    """Anonymous GET /rows with no guest rows should return empty list, not 401."""
+    response = await client.get(
+        "/rows",
+        headers={"X-Anonymous-Session-Id": "some-session"},
+    )
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@pytest.mark.asyncio
+async def test_get_rows_anonymous_session_isolation(
+    client: AsyncClient, session: AsyncSession, guest_user: User
+):
+    """Two different anonymous sessions should each only see their own rows."""
+    row_a = Row(
+        user_id=guest_user.id, title="Session A item", status="sourcing",
+        anonymous_session_id="session-alpha",
+    )
+    row_b = Row(
+        user_id=guest_user.id, title="Session B item", status="sourcing",
+        anonymous_session_id="session-beta",
+    )
+    session.add_all([row_a, row_b])
+    await session.commit()
+
+    resp_a = await client.get("/rows", headers={"X-Anonymous-Session-Id": "session-alpha"})
+    assert resp_a.status_code == 200
+    titles_a = [r["title"] for r in resp_a.json()]
+    assert "Session A item" in titles_a
+    assert "Session B item" not in titles_a
+
+    resp_b = await client.get("/rows", headers={"X-Anonymous-Session-Id": "session-beta"})
+    assert resp_b.status_code == 200
+    titles_b = [r["title"] for r in resp_b.json()]
+    assert "Session B item" in titles_b
+    assert "Session A item" not in titles_b
 
 
 @pytest.mark.asyncio

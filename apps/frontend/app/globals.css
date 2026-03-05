@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 232, 234, 237;
-  --background-start-rgb: 32, 33, 36;
-  --background-end-rgb: 32, 33, 36;
+  --foreground-rgb: 27, 42, 74;
+  --background-start-rgb: 253, 251, 247;
+  --background-end-rgb: 253, 251, 247;
 }
 
 body {
@@ -43,15 +43,15 @@ body {
 
 @layer components {
   .btn-primary {
-    @apply bg-agent-blurple text-white border border-agent-blurple px-6 py-3 rounded-full hover:bg-agent-blurple/90 transition-colors duration-200 font-semibold;
+    @apply bg-navy text-white border border-navy px-6 py-3 rounded-full hover:bg-navy-light transition-colors duration-200 font-semibold;
   }
   
   .btn-secondary {
-    @apply bg-[#2B2F33] border border-warm-grey text-onyx px-6 py-3 rounded-full hover:border-onyx-muted hover:bg-[#303134] transition-colors duration-200 font-medium;
+    @apply bg-white border border-warm-grey text-navy px-6 py-3 rounded-full hover:border-navy/30 hover:bg-canvas-dark transition-colors duration-200 font-medium;
   }
   
   .btn-ai {
-    @apply bg-[#303134] text-onyx border border-[#3C4043] px-6 py-3 rounded-full hover:bg-[#35363A] transition-colors duration-200 font-semibold;
+    @apply bg-navy-dark text-white border border-navy px-6 py-3 rounded-full hover:bg-navy-light transition-colors duration-200 font-semibold;
   }
 
   .card-hover {

@@ -7,6 +7,7 @@ import { fetchRowsFromDb, fetchProjectsFromDb, fetchSingleRowFromDb, saveChatHis
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { logout, getMe } from '../utils/auth';
+import { getAnonymousSessionId } from '../utils/anonymous-session';
 import ChatHeader from './ChatHeader';
 import ChatMessages, { type Message } from './ChatMessages';
 
@@ -156,7 +157,10 @@ export default function Chat() {
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Anonymous-Session-Id': getAnonymousSessionId(),
+        },
         body: JSON.stringify({ 
           messages: [...messages, userMessage],
           activeRowId: effectiveActiveRowId,
@@ -504,11 +508,10 @@ export default function Chat() {
   const handleLogout = async () => {
     try {
       await logout();
-      window.location.href = '/login';
+      window.location.href = '/login?logged_out=1';
     } catch (err) {
       console.error('Logout failed', err);
-      // Force redirect anyway
-      window.location.href = '/login';
+      window.location.href = '/login?logged_out=1';
     }
   };
 

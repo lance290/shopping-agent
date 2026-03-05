@@ -1,11 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { startAuth, verifyAuth } from '../utils/auth';
+import { CheckCircle } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isLoggedOut = searchParams.get('logged_out') === '1';
   const [mounted, setMounted] = useState(false);
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
@@ -16,6 +19,41 @@ export default function LoginPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  if (mounted && isLoggedOut) {
+    return (
+      <div className="min-h-screen bg-canvas">
+      <header className="sticky top-0 z-40 bg-navy text-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center h-14">
+            <a href="/" className="text-lg font-bold tracking-tight">BuyAnything</a>
+          </div>
+        </div>
+      </header>
+      <main className="flex items-center justify-center p-4" style={{ minHeight: 'calc(100vh - 56px)' }}>
+        <div className="w-full max-w-md bg-white text-navy rounded-lg shadow-md p-8 text-center">
+          <CheckCircle className="w-12 h-12 text-status-success mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-navy mb-2">You&apos;ve been signed out</h1>
+          <p className="text-ink-muted mb-6">Thanks for using BuyAnything. See you next time!</p>
+          <div className="flex flex-col gap-3">
+            <a
+              href="/"
+              className="w-full inline-block bg-navy text-white py-2.5 px-4 rounded-md hover:bg-navy-light transition-colors font-medium"
+            >
+              Back to Home
+            </a>
+            <button
+              onClick={() => router.replace('/login')}
+              className="text-sm text-ink-muted hover:text-navy transition-colors"
+            >
+              Sign in again
+            </button>
+          </div>
+        </div>
+      </main>
+      </div>
+    );
+  }
 
   const handleStart = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,27 +90,44 @@ export default function LoginPage() {
 
   if (!mounted) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="w-full max-w-md bg-white text-gray-900 rounded-lg shadow-md p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">Sign in to Shopping Agent</h1>
-            <p className="text-gray-600 mt-2">Loading...</p>
+      <div className="min-h-screen bg-canvas">
+        <header className="sticky top-0 z-40 bg-navy text-white shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center h-14">
+              <a href="/" className="text-lg font-bold tracking-tight">BuyAnything</a>
+            </div>
           </div>
-        </div>
-      </main>
+        </header>
+        <main className="flex items-center justify-center p-4" style={{ minHeight: 'calc(100vh - 56px)' }}>
+          <div className="w-full max-w-md bg-white text-navy rounded-lg shadow-md p-8">
+            <div className="text-center mb-8">
+              <h1 className="text-2xl font-bold text-navy">Sign in to BuyAnything</h1>
+              <p className="text-ink-muted mt-2">Loading...</p>
+            </div>
+          </div>
+        </main>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-md bg-white text-gray-900 rounded-lg shadow-md p-8">
+    <div className="min-h-screen bg-canvas">
+      <header className="sticky top-0 z-40 bg-navy text-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center h-14">
+            <a href="/" className="text-lg font-bold tracking-tight">BuyAnything</a>
+          </div>
+        </div>
+      </header>
+    <main className="flex items-center justify-center p-4" style={{ minHeight: 'calc(100vh - 56px)' }}>
+      <div className="w-full max-w-md bg-white text-navy rounded-lg shadow-md p-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Sign in to Shopping Agent</h1>
-          <p className="text-gray-600 mt-2">Enter your phone number to get started</p>
+          <h1 className="text-2xl font-bold text-navy">Sign in to BuyAnything</h1>
+          <p className="text-ink-muted mt-2">Enter your phone number to get started</p>
         </div>
 
         {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-md mb-6 text-sm">
+          <div className="bg-red-50 text-status-error p-3 rounded-md mb-6 text-sm">
             {error}
           </div>
         )}
@@ -89,14 +144,14 @@ export default function LoginPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+1 555 555 5555"
-                className="w-full bg-white text-gray-900 placeholder:text-gray-400 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full bg-white text-gray-900 placeholder:text-gray-400 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent"
                 required
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
+              className="w-full bg-navy text-white py-2 px-4 rounded-md hover:bg-navy-light focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 disabled:opacity-50 transition-colors"
             >
               {loading ? 'Sending...' : 'Continue'}
             </button>
@@ -113,18 +168,18 @@ export default function LoginPage() {
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="123456"
-                className="w-full bg-white text-gray-900 placeholder:text-gray-400 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent tracking-widest text-lg"
+                className="w-full bg-white text-gray-900 placeholder:text-gray-400 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent tracking-widest text-lg"
                 required
                 maxLength={6}
               />
               <p className="mt-2 text-sm text-gray-500">
-                Sent to {phone}. <button type="button" onClick={() => setStep('start')} className="text-blue-600 hover:text-blue-800">Change?</button>
+                Sent to {phone}. <button type="button" onClick={() => setStep('start')} className="text-navy hover:text-navy-light">Change?</button>
               </p>
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
+              className="w-full bg-navy text-white py-2 px-4 rounded-md hover:bg-navy-light focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 disabled:opacity-50 transition-colors"
             >
               {loading ? 'Verifying...' : 'Sign In'}
             </button>
@@ -132,5 +187,6 @@ export default function LoginPage() {
         )}
       </div>
     </main>
+    </div>
   );
 }

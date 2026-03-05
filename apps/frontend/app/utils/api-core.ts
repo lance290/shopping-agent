@@ -3,6 +3,8 @@
  * All domain-specific API modules import from here.
  */
 
+import { getAnonymousSessionId } from './anonymous-session';
+
 export const AUTH_REQUIRED = 'auth_required' as const;
 
 export function getAuthToken(): string {
@@ -17,7 +19,11 @@ export function getAuthToken(): string {
 export async function fetchWithAuth(url: string, init: RequestInit = {}): Promise<Response> {
   const baseHeaders = init.headers ? { ...(init.headers as Record<string, string>) } : {};
   const token = getAuthToken();
-  const headers = token ? { ...baseHeaders, Authorization: `Bearer ${token}` } : baseHeaders;
+  const headers: Record<string, string> = token ? { ...baseHeaders, Authorization: `Bearer ${token}` } : { ...baseHeaders };
+
+  // Include anonymous session ID for scoping guest rows to browser session
+  const anonId = getAnonymousSessionId();
+  if (anonId) headers['X-Anonymous-Session-Id'] = anonId;
 
   const res = await fetch(url, { ...init, headers, credentials: 'same-origin' });
   

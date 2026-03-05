@@ -137,6 +137,7 @@ async def _create_row(
     constraints: Dict[str, Any],
     search_query: Optional[str] = None,
     desire_tier: Optional[str] = None,
+    anonymous_session_id: Optional[str] = None,
 ) -> Row:
     """Create a new Row directly in DB."""
     row = Row(
@@ -149,6 +150,7 @@ async def _create_row(
         desire_tier=desire_tier,
         structured_constraints=json.dumps(constraints) if constraints else None,
         search_intent=_build_search_intent_json(title, search_query or title, constraints, service_category),
+        anonymous_session_id=anonymous_session_id,
     )
     session.add(row)
     await session.flush()

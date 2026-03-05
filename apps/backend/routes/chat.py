@@ -64,6 +64,7 @@ class ChatRequest(BaseModel):
 async def chat_endpoint(
     body: ChatRequest,
     authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -205,6 +206,7 @@ async def chat_endpoint(
                         session, user_id, item_title, project_id,
                         False, None, {}, item_query,
                         desire_tier=item_tier,
+                        anonymous_session_id=x_anonymous_session_id,
                     )
                     created_rows.append((row, item_query, item_tier))
                     yield sse_event("row_created", {"row": row_to_dict(row)})
@@ -248,6 +250,7 @@ async def chat_endpoint(
                     session, user_id, title, project_id,
                     is_service, service_category, constraints, search_query,
                     desire_tier=tier,
+                    anonymous_session_id=x_anonymous_session_id,
                 )
                 yield sse_event(event_name, {"row": row_to_dict(row)})
                 yield sse_event("desire_tier_classified", {
@@ -306,6 +309,7 @@ async def chat_endpoint(
                         session, user_id, title, project_id,
                         is_service, service_category, constraints, search_query,
                         desire_tier=tier,
+                        anonymous_session_id=x_anonymous_session_id,
                     )
                     yield sse_event("row_created", {"row": row_to_dict(row)})
                     yield sse_event("desire_tier_classified", {
@@ -424,6 +428,7 @@ async def chat_endpoint(
                         session, user_id, title, project_id,
                         is_service, service_category, constraints, search_query,
                         desire_tier=decision.desire_tier,
+                        anonymous_session_id=x_anonymous_session_id,
                     )
                     yield sse_event("row_created", {"row": row_to_dict(row)})
                     active_row_id = row.id

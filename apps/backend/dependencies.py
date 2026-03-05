@@ -4,7 +4,7 @@ Centralized FastAPI dependencies to eliminate duplicated auth patterns.
 This module consolidates authentication and authorization logic.
 """
 
-from typing import Optional
+from typing import Optional, Tuple
 from fastapi import Header, HTTPException, Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
@@ -65,9 +65,22 @@ async def resolve_user_id(
 
     Use this when an endpoint should work for both authenticated and anonymous users.
     """
+    user_id, _ = await resolve_user_id_and_guest_flag(authorization, session)
+    return user_id
+
+
+async def resolve_user_id_and_guest_flag(
+    authorization: Optional[str],
+    session: AsyncSession,
+) -> Tuple[int, bool]:
+    """
+    Like resolve_user_id but also returns whether the user is the guest.
+
+    Returns (user_id, is_guest).
+    """
     auth_session = await get_current_session(authorization, session)
     if auth_session:
-        return auth_session.user_id
+        return auth_session.user_id, False
 
     guest_result = await session.exec(select(User).where(User.email == GUEST_EMAIL))
     guest_user = guest_result.first()
@@ -76,7 +89,7 @@ async def resolve_user_id(
         session.add(guest_user)
         await session.commit()
         await session.refresh(guest_user)
-    return guest_user.id
+    return guest_user.id, True
 
 
 async def require_admin(
