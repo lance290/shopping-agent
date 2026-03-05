@@ -362,18 +362,37 @@ async def search_row_listings_stream(
                             desire_tier=row.desire_tier,
                         )
 
-                        # Quantum reranking: score batch against user intent embedding
+                        # Quantum reranking: embed ALL results + score against user intent
                         if quantum_reranker and query_embedding:
                             try:
-                                results_for_quantum = []
-                                for idx, res in enumerate(normalized_batch):
-                                    rd = {
-                                        "_idx": idx,
-                                        "title": res.title,
-                                        "embedding": res.raw_data.get("embedding") if res.raw_data else None,
-                                    }
-                                    results_for_quantum.append(rd)
+                                from sourcing.vendor_provider import _embed_texts as _batch_embed
 
+                                # Build result dicts — reuse existing embeddings, collect texts to embed
+                                results_for_quantum = []
+                                texts_to_embed = []  # (idx_in_batch, text)
+                                for idx, res in enumerate(normalized_batch):
+                                    existing_emb = res.raw_data.get("embedding") if res.raw_data else None
+                                    rd = {"_idx": idx, "title": res.title, "embedding": existing_emb}
+                                    results_for_quantum.append(rd)
+                                    if not existing_emb:
+                                        # Rich text: title + merchant + description for better semantic matching
+                                        desc = ""
+                                        if res.raw_data:
+                                            desc = str(res.raw_data.get("snippet", "") or res.raw_data.get("description", "") or "")
+                                        parts = [res.title, res.merchant_name]
+                                        if desc:
+                                            parts.append(desc[:200])
+                                        texts_to_embed.append((idx, " | ".join(parts)))
+
+                                # Batch-embed titles that don't have embeddings (one API call)
+                                if texts_to_embed:
+                                    embed_texts = [t for _, t in texts_to_embed]
+                                    new_embeddings = await _batch_embed(embed_texts)
+                                    if new_embeddings and len(new_embeddings) == len(texts_to_embed):
+                                        for (idx, _), emb in zip(texts_to_embed, new_embeddings):
+                                            results_for_quantum[idx]["embedding"] = emb
+
+                                # Run quantum reranker on ALL results with embeddings
                                 if any(r.get("embedding") for r in results_for_quantum):
                                     reranked = await quantum_reranker.rerank_results(
                                         query_embedding=query_embedding,
@@ -391,7 +410,10 @@ async def search_row_listings_stream(
                                             res.provenance["blended_score"] = qr.get("blended_score", 0.0)
                                             res.provenance["novelty_score"] = qr.get("novelty_score", 0.0)
                                             res.provenance["coherence_score"] = qr.get("coherence_score", 0.0)
-                                    logger.info(f"[SEARCH STREAM] Quantum reranked {len(score_map)}/{len(normalized_batch)} results from {provider_name}")
+                                    q_count = len(score_map)
+                                    emb_new = len(texts_to_embed) if texts_to_embed else 0
+                                    emb_reused = len(normalized_batch) - emb_new
+                                    logger.info(f"[SEARCH STREAM] Quantum reranked {q_count}/{len(normalized_batch)} from {provider_name} (embedded {emb_new} new, reused {emb_reused})")
                             except Exception as qe:
                                 logger.warning(f"[SEARCH STREAM] Quantum reranking failed for {provider_name}: {qe}")
 
