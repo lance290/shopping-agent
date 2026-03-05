@@ -292,27 +292,28 @@ async def search_row_listings_stream(
         all_statuses: List[ProviderStatusSnapshot] = []
         all_persisted_bid_ids: set[int] = set()
 
-        # Initialize quantum reranker ONCE — scores each batch against user intent
-        quantum_reranker = None
+        # Compute query embedding ONCE — shared by vendor_provider (vector search) and quantum reranker
         query_embedding = None
+        quantum_reranker = None
         try:
-            from sourcing.quantum.reranker import QuantumReranker
             from sourcing.vendor_provider import _embed_texts
-            quantum_reranker = QuantumReranker()
-            if quantum_reranker.is_available():
-                # Generate query embedding from the search query (same API as vendor_provider)
-                embed_text = vendor_query or sanitized_query
-                vecs = await _embed_texts([embed_text])
-                if vecs and len(vecs) > 0:
-                    query_embedding = vecs[0]
-                    logger.info(f"[SEARCH STREAM] Quantum reranker active for row {row_id} (embedded '{embed_text[:50]}')")
-                else:
-                    quantum_reranker = None
-            else:
-                quantum_reranker = None
+            embed_text = vendor_query or sanitized_query
+            vecs = await _embed_texts([embed_text])
+            if vecs and len(vecs) > 0:
+                query_embedding = vecs[0]
+                logger.info(f"[SEARCH STREAM] Query embedding computed for '{embed_text[:50]}' (shared with vendor_provider + quantum reranker)")
         except Exception as e:
-            logger.warning(f"[SEARCH STREAM] Quantum reranker init failed (graceful degradation): {e}")
-            quantum_reranker = None
+            logger.warning(f"[SEARCH STREAM] Query embedding failed: {e}")
+
+        # Initialize quantum reranker (uses the shared query embedding)
+        if query_embedding:
+            try:
+                from sourcing.quantum.reranker import QuantumReranker
+                quantum_reranker = QuantumReranker()
+                if not quantum_reranker.is_available():
+                    quantum_reranker = None
+            except Exception as e:
+                logger.warning(f"[SEARCH STREAM] Quantum reranker init failed (graceful degradation): {e}")
 
         async for provider_name, results, status, providers_remaining in sourcing_repo.search_streaming(
             sanitized_query,
@@ -321,6 +322,7 @@ async def search_row_listings_stream(
             max_price=max_price_filter,
             desire_tier=row.desire_tier,
             vendor_query=vendor_query,
+            query_embedding=query_embedding,  # shared — vendor_provider skips its own embed call
         ):
             all_statuses.append(status)
 

@@ -102,6 +102,9 @@ class VendorDirectoryProvider(SourcingProvider):
     async def search(self, query: str, **kwargs) -> List[SearchResult]:
         """Embed query, cosine search vendor table, return SearchResults.
 
+        If query_embedding is provided via kwargs, uses it directly (avoids
+        duplicate API call — the orchestration layer already computed it).
+
         If a context_query kwarg is provided (the full user query with locations
         etc.), we blend two embeddings:
           - 70% intent query (product_name from LLM, e.g. 'Private jet charter')
@@ -109,10 +112,14 @@ class VendorDirectoryProvider(SourcingProvider):
         This keeps intent dominant while still boosting vendors that match context.
         """
         context_query = kwargs.get("context_query")
+        pre_computed = kwargs.get("query_embedding")
         t0 = time.monotonic()
 
-        # 1. Embed — batched if we have both intent + context
-        if context_query and context_query.strip().lower() != query.strip().lower():
+        # 1. Embed — reuse pre-computed if available, otherwise call API
+        if pre_computed:
+            embedding = pre_computed
+            logger.info(f"[VendorProvider] Using pre-computed query embedding (skipped API call)")
+        elif context_query and context_query.strip().lower() != query.strip().lower():
             vecs = await _embed_texts([query, context_query])
             if not vecs or len(vecs) < 2:
                 logger.info("[VendorProvider] No embedding — skipping vector search")
