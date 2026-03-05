@@ -26,6 +26,7 @@ export default function Chat() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const lastRowIdRef = useRef<number | null>(null);
   
   const store = useShoppingStore();
@@ -490,16 +491,15 @@ export default function Chat() {
   
   useEffect(() => {
     const cardClickQuery = store.cardClickQuery;
-    if (cardClickQuery) {
-      const cardMessage: Message = {
-        id: Date.now().toString(),
-        role: 'user',
-        content: cardClickQuery,
-      };
-      setMessages(prev => [...prev, cardMessage]);
+    if (cardClickQuery && !isLoading) {
       store.setCardClickQuery(null);
+      setInput(cardClickQuery);
+      // Defer submit so React flushes the input state first
+      setTimeout(() => {
+        formRef.current?.requestSubmit();
+      }, 0);
     }
-  }, [store.cardClickQuery]);
+  }, [store.cardClickQuery, isLoading]);
 
   const handleLogout = async () => {
     try {
@@ -528,7 +528,7 @@ export default function Chat() {
       />
 
       <div className="px-6 py-5 bg-white border-t border-warm-grey">
-        <form onSubmit={handleSubmit} className="flex gap-3 items-end">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex gap-3 items-end">
           <Input
             ref={inputRef}
             value={input}
