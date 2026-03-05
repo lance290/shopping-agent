@@ -461,6 +461,31 @@ class SourcingService:
         logger.info(f"[SourcingService] Row {row_id}: Created {new_bids_count}, Updated {updated_bids_count}, Total {len(all_bids)} bids")
         return all_bids
 
+    async def supersede_stale_bids(self, row_id: int, keep_bid_ids: set[int]) -> int:
+        """Supersede bids that were NOT part of the latest search results.
+
+        Called AFTER persist so that only truly stale bids are retired.
+        Liked/selected bids are always preserved.
+
+        Returns the number of bids superseded.
+        """
+        from sqlalchemy import update as sql_update
+
+        result = await self.session.exec(
+            sql_update(Bid).where(
+                Bid.row_id == row_id,
+                Bid.id.notin_(keep_bid_ids) if keep_bid_ids else True,
+                Bid.is_liked == False,
+                Bid.is_selected == False,
+                Bid.is_superseded == False,
+            ).values(is_superseded=True, superseded_at=datetime.utcnow())
+        )
+        await self.session.commit()
+        count = result.rowcount  # type: ignore[union-attr]
+        if count:
+            logger.info(f"[SourcingService] Row {row_id}: Superseded {count} stale bids (kept {len(keep_bid_ids)})")
+        return count
+
     async def _get_or_create_seller(self, name: str, domain: str) -> Seller:
         stmt = select(Seller).where(Seller.name == name)
         result = await self.session.exec(stmt)

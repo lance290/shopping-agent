@@ -253,25 +253,33 @@ class TestNewSearchReplacesBids:
     """When a new search fires, old non-liked/non-selected bids get soft-deleted."""
 
     def test_search_stream_endpoint_supersedes_old_bids(self):
-        """The /rows/{id}/search/stream endpoint must set is_superseded=True on old bids.
+        """The /rows/{id}/search/stream endpoint must supersede stale bids AFTER providers complete.
 
         This is a structural test — we verify the code path exists in rows_search.py.
+        Supersede happens post-search via supersede_stale_bids() so good results from
+        providers that return different URLs on refinement are preserved.
         """
         import inspect
         from routes.rows_search import search_row_listings_stream
 
         source = inspect.getsource(search_row_listings_stream)
 
-        # Must soft-delete old bids before streaming new ones
-        assert "is_superseded" in source, (
-            "search_row_listings_stream must soft-delete old bids (is_superseded=True)"
+        # Must call supersede_stale_bids after streaming completes
+        assert "supersede_stale_bids" in source, (
+            "search_row_listings_stream must call supersede_stale_bids after providers complete"
         )
-        assert "is_liked == False" in source or "is_liked==False" in source, (
-            "Must only supersede bids that are NOT liked"
+        assert "all_persisted_bid_ids" in source, (
+            "Must track persisted bid IDs to know which bids to keep"
         )
-        assert "is_selected == False" in source or "is_selected==False" in source, (
-            "Must only supersede bids that are NOT selected"
-        )
+
+    def test_supersede_stale_bids_protects_liked_and_selected(self):
+        """supersede_stale_bids must only retire bids that are not liked/selected."""
+        import inspect
+        from sourcing.service import SourcingService
+
+        source = inspect.getsource(SourcingService.supersede_stale_bids)
+        assert "is_liked" in source, "Must check is_liked before superseding"
+        assert "is_selected" in source, "Must check is_selected before superseding"
 
     def test_update_row_resets_bids_when_requirements_change(self):
         """_update_row with reset_bids=True must supersede old bids.

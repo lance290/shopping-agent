@@ -8,6 +8,8 @@ import { createProjectInDb, duplicateProjectInDb } from '../../utils/api';
 import { Bug, FolderPlus, Copy } from 'lucide-react';
 import { VerticalListRow } from './VerticalListRow';
 import { getMe } from '../../utils/auth';
+import MobileBottomSheet from '../MobileBottomSheet';
+import type { SnapPoint } from '../MobileBottomSheet';
 
 interface AppViewProps {
   children?: React.ReactNode;
@@ -64,6 +66,9 @@ export function AppView({ children }: AppViewProps) {
   const [isProd, setIsProd] = useState(true);
   const [isTipJarLoading, setIsTipJarLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  // Mobile bottom sheet state
+  const [mobileSheetSnap, setMobileSheetSnap] = useState<SnapPoint>('peek');
 
   // Chat panel resize state (desktop only)
   const [chatWidth, setChatWidth] = useState(400);
@@ -193,8 +198,17 @@ export function AppView({ children }: AppViewProps) {
       offers={rowResults[row.id] || []}
       isActive={row.id === activeRowId}
       isExpanded={row.id === expandedRowId}
-      onSelect={() => setActiveRowId(row.id)}
-      onToggleExpand={() => setExpandedRowId(expandedRowId === row.id ? null : row.id)}
+      onSelect={() => {
+        setActiveRowId(row.id);
+      }}
+      onToggleExpand={() => {
+        const willExpand = expandedRowId !== row.id;
+        setExpandedRowId(willExpand ? row.id : null);
+        // On mobile, snap sheet to full when expanding so results get max space
+        if (!isDesktop && willExpand) {
+          setMobileSheetSnap('full');
+        }
+      }}
     />
   );
 
@@ -202,50 +216,28 @@ export function AppView({ children }: AppViewProps) {
     setCardClickQuery(query);
   };
 
-  return (
-    <div className="flex flex-col lg:flex-row h-[100dvh] w-full overflow-hidden relative">
-      {/* Undo Toast */}
-      {pendingRowDelete && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-navy text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
-          <div className="text-sm font-medium">
-            Deleted &quot;{pendingRowDelete.row.title}&quot;
-          </div>
-          <button
-            onClick={undoDeleteRow}
-            className="text-sm font-bold text-gold hover:text-gold-dark transition-colors bg-white/10 px-3 py-1.5 rounded-lg"
-          >
-            Undo
-          </button>
-        </div>
-      )}
+  // Peek label: show active row info or generic label
+  const activeRowForLabel = rows.find(r => r.id === activeRowId);
+  const peekLabel = activeRowForLabel
+    ? activeRowForLabel.title
+    : activeRows.length > 0
+      ? 'Your Lists'
+      : 'No items yet';
+  const peekSublabel = activeRows.length > 0
+    ? `${activeRows.length} item${activeRows.length !== 1 ? 's' : ''}`
+    : undefined;
 
-      {/* Chat Pane */}
-      {/* On mobile: hide when a row is expanded so the list pane can go full-screen */}
-      <div
-        className={`${expandedRowId !== null ? 'hidden' : 'flex flex-[0_0_50vh]'} lg:flex lg:flex-none min-h-0 flex-col border-b lg:border-b-0 z-10`}
-        style={isDesktop ? { width: chatWidth, flexBasis: chatWidth } : undefined}
-      >
-        {children}
-      </div>
-
-      {/* Resize Handle - desktop only */}
-      <div
-        className="hidden lg:flex flex-shrink-0 w-1 cursor-col-resize z-20 group items-center justify-center bg-warm-grey hover:bg-gold active:bg-gold-dark transition-colors"
-        onMouseDown={handleResizeStart}
-        title="Drag to resize"
-      >
-        <div className="w-0.5 h-8 rounded-full bg-onyx-muted group-hover:bg-gold-dark transition-colors" />
-      </div>
-
-      {/* List Pane */}
-      <div className="flex-1 min-w-0 overflow-y-auto bg-canvas-dark/50">
-        {isAuthenticated !== true && !activeRowId ? (
+  // Extracted list content — rendered in desktop pane or mobile sheet
+  const listContent = (
+    <>
+      {isAuthenticated !== true && !activeRowId ? (
+        isDesktop ? (
           <div className="p-6 space-y-8 bg-gradient-to-b from-[#111827] via-[#1f2937] to-[#111827] text-white min-h-full">
             <section className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm p-7 shadow-2xl">
               <p className="text-xs uppercase tracking-[0.35em] text-white/50 mb-3">BuyAnything</p>
               <h2 className="text-3xl font-semibold text-white leading-tight">Every purchase decision, handled.</h2>
               <p className="mt-3 text-sm text-white/70 max-w-2xl">
-                Tell the chat what you need. We’ll infer intent, compare options, and keep your shortlist
+                Tell the chat what you need. We&apos;ll infer intent, compare options, and keep your shortlist
                 tidy once you sign in.
               </p>
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -297,36 +289,26 @@ export function AppView({ children }: AppViewProps) {
                       <img src={guide.image} alt={guide.title} className="h-full w-full object-cover opacity-90" />
                     </div>
                     <div className="p-4">
-                    <Link
-                      href={`/guides/${guide.slug}`}
-                      className="block text-sm font-medium text-white hover:text-sky-200"
-                    >
-                      {guide.title}
-                    </Link>
-                    <div className="mt-3 flex items-center gap-3 text-xs">
-                      <Link href={`/guides/${guide.slug}`} className="text-sky-200 hover:text-sky-100">
-                        Read guide
+                      <Link href={`/guides/${guide.slug}`} className="block text-sm font-medium text-white hover:text-sky-200">
+                        {guide.title}
                       </Link>
-                      <button
-                        type="button"
-                        onClick={() => handleIntentClick(guide.title)}
-                        className="text-white/70 hover:text-white"
-                      >
-                        Ask chat →
-                      </button>
-                    </div>
+                      <div className="mt-3 flex items-center gap-3 text-xs">
+                        <Link href={`/guides/${guide.slug}`} className="text-sky-200 hover:text-sky-100">Read guide</Link>
+                        <button type="button" onClick={() => handleIntentClick(guide.title)} className="text-white/70 hover:text-white">
+                          Ask chat →
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             </section>
           </div>
-        ) : (
+        ) : null
+      ) : (
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wide">
-              Your List
-            </h2>
+            <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wide">Your List</h2>
             <div className="flex items-center gap-2">
               <button
                 onClick={async () => {
@@ -335,12 +317,8 @@ export function AppView({ children }: AppViewProps) {
                   try {
                     const res = await fetch('/api/tip-jar', { method: 'POST' });
                     const data = await res.json();
-                    if (!res.ok) {
-                      throw new Error(data?.detail || 'Failed to create tip jar session');
-                    }
-                    if (data?.checkout_url) {
-                      window.location.href = data.checkout_url;
-                    }
+                    if (!res.ok) throw new Error(data?.detail || 'Failed to create tip jar session');
+                    if (data?.checkout_url) window.location.href = data.checkout_url;
                   } catch (error) {
                     console.error('[tip-jar] failed to create session', error);
                   } finally {
@@ -380,31 +358,21 @@ export function AppView({ children }: AppViewProps) {
             </div>
           )}
 
-          {/* Project-grouped rows */}
           {projects.map((project) => {
             const projectRows = grouped[project.id];
             if (!projectRows || projectRows.length === 0) return null;
             const isCollapsed = collapsedProjects[project.id];
-            
             return (
               <div key={project.id} className="mb-4">
-                <div
-                  role="group"
-                  className="w-full flex items-center justify-between mb-2 pb-1 border-b border-warm-grey group hover:border-gold transition-colors"
-                >
-                  <button
-                    onClick={() => setCollapsedProjects(prev => ({ ...prev, [project.id]: !isCollapsed }))}
-                    className="flex items-center gap-2 text-left"
-                  >
+                <div role="group" className="w-full flex items-center justify-between mb-2 pb-1 border-b border-warm-grey group hover:border-gold transition-colors">
+                  <button onClick={() => setCollapsedProjects(prev => ({ ...prev, [project.id]: !isCollapsed }))} className="flex items-center gap-2 text-left">
                     <svg className="w-4 h-4 text-gold-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                     </svg>
                     <span className="text-xs font-semibold text-ink uppercase tracking-wide group-hover:text-gold-dark transition-colors">{project.title}</span>
                     <span className="text-xs text-onyx-muted">{projectRows.length} item{projectRows.length !== 1 ? 's' : ''}</span>
                     {targetProjectId === project.id && (
-                      <span className="ml-2 px-1.5 py-0.5 rounded bg-gold/20 text-gold-dark text-[10px] font-bold uppercase tracking-wider">
-                        Active
-                      </span>
+                      <span className="ml-2 px-1.5 py-0.5 rounded bg-gold/20 text-gold-dark text-[10px] font-bold uppercase tracking-wider">Active</span>
                     )}
                     <svg className={`w-4 h-4 text-onyx-muted transition-transform ${isCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -412,13 +380,7 @@ export function AppView({ children }: AppViewProps) {
                   </button>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => {
-                        if (targetProjectId === project.id) {
-                          setTargetProjectId(null);
-                        } else {
-                          setTargetProjectId(project.id);
-                        }
-                      }}
+                      onClick={() => { if (targetProjectId === project.id) { setTargetProjectId(null); } else { setTargetProjectId(project.id); } }}
                       className="opacity-0 group-hover:opacity-100 px-2 py-1 text-xs text-accent-blue hover:bg-accent-blue/10 rounded transition-all"
                     >
                       {targetProjectId === project.id ? 'Cancel Add' : '+ Add Item'}
@@ -441,7 +403,6 @@ export function AppView({ children }: AppViewProps) {
             );
           })}
 
-          {/* Ungrouped rows */}
           {ungrouped.length > 0 && (() => {
             const isCollapsed = collapsedProjects['ungrouped'];
             return (
@@ -469,8 +430,60 @@ export function AppView({ children }: AppViewProps) {
             );
           })()}
         </div>
-        )}
+      )}
+    </>
+  );
+
+  return (
+    <div className="flex flex-col lg:flex-row h-[100dvh] w-full overflow-hidden relative">
+      {/* Undo Toast */}
+      {pendingRowDelete && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-navy text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
+          <div className="text-sm font-medium">
+            Deleted &quot;{pendingRowDelete.row.title}&quot;
+          </div>
+          <button
+            onClick={undoDeleteRow}
+            className="text-sm font-bold text-gold hover:text-gold-dark transition-colors bg-white/10 px-3 py-1.5 rounded-lg"
+          >
+            Undo
+          </button>
+        </div>
+      )}
+
+      {/* Chat Pane — full-screen on mobile, resizable on desktop */}
+      <div
+        className="flex-1 lg:flex-none min-h-0 flex flex-col z-10"
+        style={isDesktop ? { width: chatWidth, flexBasis: chatWidth } : undefined}
+      >
+        {children}
       </div>
+
+      {/* Resize Handle - desktop only */}
+      <div
+        className="hidden lg:flex flex-shrink-0 w-1 cursor-col-resize z-20 group items-center justify-center bg-warm-grey hover:bg-gold active:bg-gold-dark transition-colors"
+        onMouseDown={handleResizeStart}
+        title="Drag to resize"
+      >
+        <div className="w-0.5 h-8 rounded-full bg-onyx-muted group-hover:bg-gold-dark transition-colors" />
+      </div>
+
+      {/* Desktop List Pane — hidden on mobile */}
+      <div className="hidden lg:block flex-1 min-w-0 overflow-y-auto bg-canvas-dark/50">
+        {listContent}
+      </div>
+
+      {/* Mobile Bottom Sheet — hidden on desktop */}
+      {!isDesktop && (
+        <MobileBottomSheet
+          peekLabel={peekLabel}
+          peekSublabel={peekSublabel}
+          snapTo={mobileSheetSnap}
+          onSnapChange={setMobileSheetSnap}
+        >
+          {listContent}
+        </MobileBottomSheet>
+      )}
     </div>
   );
 }
