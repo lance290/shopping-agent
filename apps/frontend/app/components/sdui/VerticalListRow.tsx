@@ -40,10 +40,13 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
     if (!a.is_liked && b.is_liked) return 1;
     if (a.is_selected && !b.is_selected) return -1;
     if (!a.is_selected && b.is_selected) return 1;
-    // Then sort by combined_score (match_score) descending
-    const sa = a.match_score ?? 0;
-    const sb = b.match_score ?? 0;
-    return sb - sa;
+    // Sort by combined_score descending — only when both have scores (stable otherwise)
+    const sa = a.match_score;
+    const sb = b.match_score;
+    if (sa != null && sb != null) return sb - sa;
+    if (sa != null) return -1;  // scored items above unscored
+    if (sb != null) return 1;
+    return 0;  // preserve original order for unscored items
   });
   
   const requestDeleteRow = useShoppingStore((s) => s.requestDeleteRow);

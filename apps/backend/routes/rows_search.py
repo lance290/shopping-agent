@@ -477,8 +477,22 @@ async def search_row_listings_stream(
                             except Exception as qe:
                                 logger.warning(f"[SEARCH STREAM] Quantum reranking failed for {provider_name}: {qe}")
 
-                        persisted_bids = await sourcing_service._persist_results(row_id, normalized_batch)
-                        all_persisted_bid_ids.update(b.id for b in persisted_bids if b.id)
+                        # Filter out low-quality vendor_directory results after scoring.
+                        # Vendors with near-zero relevance for product queries are noise.
+                        VENDOR_MIN_SCORE = 0.15
+                        if provider_name == "vendor_directory":
+                            before_count = len(normalized_batch)
+                            normalized_batch = [
+                                r for r in normalized_batch
+                                if (r.provenance.get("score", {}).get("combined", 1.0) >= VENDOR_MIN_SCORE)
+                            ]
+                            dropped = before_count - len(normalized_batch)
+                            if dropped:
+                                logger.info(f"[SEARCH STREAM] Filtered {dropped} low-score vendor results (< {VENDOR_MIN_SCORE})")
+
+                        if normalized_batch:
+                            persisted_bids = await sourcing_service._persist_results(row_id, normalized_batch)
+                            all_persisted_bid_ids.update(b.id for b in persisted_bids if b.id)
                 except Exception as err:
                     logger.error(f"[SEARCH STREAM] Failed to persist results for provider {provider_name}: {err}")
 
