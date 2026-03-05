@@ -70,22 +70,28 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
           </p>
         </div>
         
-        {/* Quick Actions (visible on hover) */}
+        {/* Quick Actions (visible on hover) — use div+role to avoid nested <button> */}
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pr-2">
-          <button 
-            onClick={handleRerunSearch}
-            className="p-1.5 text-onyx-muted hover:text-accent-blue rounded-md hover:bg-accent-blue/10 transition-colors"
+          <div 
+            role="button"
+            tabIndex={0}
+            onClick={(e) => handleRerunSearch(e as React.MouseEvent)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleRerunSearch(e as unknown as React.MouseEvent); }}
+            className="p-1.5 text-onyx-muted hover:text-accent-blue rounded-md hover:bg-accent-blue/10 transition-colors cursor-pointer"
             title="Rerun Search"
           >
             <RotateCw size={14} />
-          </button>
-          <button 
-            onClick={handleDelete}
-            className="p-1.5 text-onyx-muted hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
+          </div>
+          <div 
+            role="button"
+            tabIndex={0}
+            onClick={(e) => handleDelete(e as React.MouseEvent)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleDelete(e as unknown as React.MouseEvent); }}
+            className="p-1.5 text-onyx-muted hover:text-red-600 rounded-md hover:bg-red-50 transition-colors cursor-pointer"
             title="Delete Request"
           >
             <Trash2 size={14} />
-          </button>
+          </div>
         </div>
 
         <svg className={`w-4 h-4 text-onyx-muted transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
