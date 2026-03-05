@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useShoppingStore, mapBidToOffer } from '../../store';
 import type { Row, Offer } from '../../store';
-import { runSearchApiWithStatus } from '../../utils/api';
+import { runSearchApiWithStatus, fetchSingleRowFromDb } from '../../utils/api';
 import { Trash2, RotateCw } from 'lucide-react';
 import { DynamicRenderer } from './DynamicRenderer';
 import { validateUISchema } from '../../sdui/types';
@@ -64,13 +64,16 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
   const requestDeleteRow = useShoppingStore((s) => s.requestDeleteRow);
   const setIsSearching = useShoppingStore((s) => s.setIsSearching);
   const setRowResults = useShoppingStore((s) => s.setRowResults);
+  const updateRow = useShoppingStore((s) => s.updateRow);
 
   const handleRerunSearch = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       setIsSearching(true);
-      const res = await runSearchApiWithStatus(null, row.id);
+      const res = await runSearchApiWithStatus(row.title, row.id);
       setRowResults(row.id, res.results, res.providerStatuses);
+      const freshRow = await fetchSingleRowFromDb(row.id);
+      if (freshRow) updateRow(row.id, freshRow);
     } catch (err) {
       console.error('Failed to rerun search', err);
     } finally {
