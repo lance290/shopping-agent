@@ -50,6 +50,8 @@ from models.bids import (
 from models.social import (
     Comment,
     ShareLink,
+    RowReaction,
+    RowComment,
     ClickoutEvent,
     PurchaseEvent,
 )

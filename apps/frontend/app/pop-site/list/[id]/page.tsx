@@ -72,6 +72,10 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
   const [showHousehold, setShowHousehold] = useState(false);
   const [showBulkParse, setShowBulkParse] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [itemLikes, setItemLikes] = useState<Record<number, { liked: boolean; count: number }>>({});
+  const [commentingItemId, setCommentingItemId] = useState<number | null>(null);
+  const [commentText, setCommentText] = useState('');
+  const [itemComments, setItemComments] = useState<Record<number, { id: number; user_name: string; text: string; created_at: string | null }[]>>({});
 
   useEffect(() => {
     async function fetchList() {
@@ -193,6 +197,57 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
   const getItemTab = (itemId: number): TabType => activeTab[itemId] || 'deals';
   const setItemTab = (itemId: number, tab: TabType) =>
     setActiveTab((prev) => ({ ...prev, [itemId]: tab }));
+
+  const handleToggleLike = async (rowId: number) => {
+    // Optimistic update
+    setItemLikes((prev) => {
+      const cur = prev[rowId] || { liked: false, count: 0 };
+      return { ...prev, [rowId]: { liked: !cur.liked, count: cur.liked ? Math.max(0, cur.count - 1) : cur.count + 1 } };
+    });
+    try {
+      const res = await fetch(`/api/pop/item/${rowId}/react`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setItemLikes((prev) => ({ ...prev, [rowId]: { liked: data.liked, count: data.like_count } }));
+      }
+    } catch { /* revert handled by next poll */ }
+  };
+
+  const handleLoadComments = async (rowId: number) => {
+    try {
+      const res = await fetch(`/api/pop/item/${rowId}/comments`);
+      if (res.ok) {
+        const data = await res.json();
+        setItemComments((prev) => ({ ...prev, [rowId]: data.comments }));
+      }
+    } catch { /* silent */ }
+  };
+
+  const handleToggleComments = (rowId: number) => {
+    if (commentingItemId === rowId) {
+      setCommentingItemId(null);
+    } else {
+      setCommentingItemId(rowId);
+      handleLoadComments(rowId);
+    }
+    setCommentText('');
+  };
+
+  const handleSubmitComment = async (rowId: number) => {
+    const text = commentText.trim();
+    if (!text) return;
+    try {
+      const res = await fetch(`/api/pop/item/${rowId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (res.ok) {
+        setCommentText('');
+        handleLoadComments(rowId);
+      }
+    } catch { /* silent */ }
+  };
 
   if (loading) {
     return (
@@ -417,6 +472,80 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
                       </svg>
                     </button>
                   </div>
+
+                  {/* Social Action Bar (PRD-07) */}
+                  {isLoggedIn && (
+                    <div className="flex items-center gap-4 px-4 py-1.5 border-t border-gray-50" data-testid={`social-bar-${item.id}`}>
+                      <button
+                        data-testid={`like-btn-${item.id}`}
+                        onClick={() => handleToggleLike(item.id)}
+                        className={`flex items-center gap-1 text-xs transition-colors ${
+                          (itemLikes[item.id]?.liked) ? 'text-red-500' : 'text-gray-400 hover:text-red-400'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill={(itemLikes[item.id]?.liked) ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                        {(itemLikes[item.id]?.count || 0) > 0 && (
+                          <span>{itemLikes[item.id].count}</span>
+                        )}
+                      </button>
+                      <button
+                        data-testid={`comment-btn-${item.id}`}
+                        onClick={() => handleToggleComments(item.id)}
+                        className={`flex items-center gap-1 text-xs transition-colors ${
+                          commentingItemId === item.id ? 'text-green-600' : 'text-gray-400 hover:text-green-500'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        {(itemComments[item.id]?.length || 0) > 0 && (
+                          <span>{itemComments[item.id].length}</span>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Inline Comment Thread (PRD-07) */}
+                  {commentingItemId === item.id && (
+                    <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50" data-testid={`comment-thread-${item.id}`}>
+                      {(itemComments[item.id] || []).map((c) => (
+                        <div key={c.id} className="flex gap-2 mb-2">
+                          <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                            <span className="text-[10px] font-bold text-green-700">{(c.user_name || '?')[0].toUpperCase()}</span>
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-medium text-gray-700">{c.user_name}</span>
+                            {c.created_at && (
+                              <span className="text-[10px] text-gray-400 ml-1">{new Date(c.created_at).toLocaleDateString()}</span>
+                            )}
+                            <p className="text-xs text-gray-600 mt-0.5">{c.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                      <form
+                        className="flex gap-2 mt-2"
+                        onSubmit={(e) => { e.preventDefault(); handleSubmitComment(item.id); }}
+                      >
+                        <input
+                          type="text"
+                          value={commentText}
+                          onChange={(e) => setCommentText(e.target.value)}
+                          placeholder="Add a comment..."
+                          className="flex-1 text-xs px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-1 focus:ring-green-500 text-gray-900 placeholder-gray-400"
+                          maxLength={500}
+                        />
+                        <button
+                          type="submit"
+                          disabled={!commentText.trim()}
+                          className="text-xs font-medium text-green-600 hover:text-green-700 disabled:text-gray-300 disabled:cursor-not-allowed px-2"
+                        >
+                          Send
+                        </button>
+                      </form>
+                    </div>
+                  )}
 
                   {/* Expanded Section */}
                   {isExpanded && (item.deals.length > 0 || item.swaps.length > 0) && (

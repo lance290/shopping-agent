@@ -58,6 +58,29 @@ class ShareLink(SQLModel, table=True):
     signup_conversion_count: int = Field(default=0)  # Signups attributed to this share
 
 
+class RowReaction(SQLModel, table=True):
+    """Per-item like/reaction on a Pop shopping list item (PRD-07)."""
+    __tablename__ = "row_reaction"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    row_id: int = Field(foreign_key="row.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    reaction_type: str = Field(default="like")  # "like" for now; extensible later
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class RowComment(SQLModel, table=True):
+    """Per-item comment on a Pop shopping list item (PRD-07)."""
+    __tablename__ = "row_comment"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    row_id: int = Field(foreign_key="row.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    text: str
+    status: str = Field(default="active")  # "active", "deleted"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class ClickoutEvent(SQLModel, table=True):
     """Logs every outbound click for affiliate tracking and auditing."""
     __tablename__ = "clickout_event"
