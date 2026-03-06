@@ -241,6 +241,7 @@ async def get_pop_list(
     return {
         "project_id": project_id,
         "title": project.title,
+        "shopping_mode": project.shopping_mode or False,
         "items": items,
     }
 
@@ -291,7 +292,7 @@ async def get_my_pop_list(
     rows = rows_result.scalars().all()
 
     items = [await _build_item_with_deals(session, r) for r in rows]
-    return {"project_id": project.id, "title": project.title, "items": items}
+    return {"project_id": project.id, "title": project.title, "shopping_mode": project.shopping_mode or False, "items": items}
 
 
 @list_router.get("/lists")
@@ -377,6 +378,52 @@ async def create_pop_list(
     await session.commit()
     await session.refresh(project)
     return {"project_id": project.id, "title": project.title}
+
+
+class PatchProjectRequest(BaseModel):
+    shopping_mode: Optional[bool] = None
+    title: Optional[str] = None
+
+
+@list_router.patch("/projects/{project_id}")
+async def patch_pop_project(
+    project_id: int,
+    body: PatchProjectRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Toggle shopping_mode or rename a project. Any member can toggle shopping mode."""
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    member_stmt = select(ProjectMember).where(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id == user.id,
+    )
+    member_result = await session.execute(member_stmt)
+    if not member_result.scalar_one_or_none() and project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not a member of this list")
+
+    if body.shopping_mode is not None:
+        project.shopping_mode = body.shopping_mode
+    if body.title is not None:
+        project.title = body.title.strip()
+
+    project.updated_at = datetime.utcnow()
+    session.add(project)
+    await session.commit()
+    await session.refresh(project)
+
+    return {
+        "project_id": project.id,
+        "title": project.title,
+        "shopping_mode": project.shopping_mode or False,
+    }
 
 
 @list_router.post("/list/{project_id}/invite")

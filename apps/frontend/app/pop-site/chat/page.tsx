@@ -8,6 +8,7 @@ import PopListSidebar from './PopListSidebar';
 
 const LS_ITEMS_KEY = 'pop_guest_list_items';
 const LS_GUEST_PROJECT_KEY = 'pop_guest_project_id';
+const LS_GUEST_SESSION_TOKEN_KEY = 'pop_guest_session_token';
 
 interface Message {
   id: string;
@@ -25,11 +26,22 @@ interface Deal {
   is_selected: boolean;
 }
 
+interface Swap {
+  id: number;
+  title: string;
+  price: number | null;
+  source: string;
+  url: string | null;
+  image_url: string | null;
+  savings_vs_first: number | null;
+}
+
 interface ListItem {
   id: number;
   title: string;
   status: string;
   deals?: Deal[];
+  swaps?: Swap[];
   lowest_price?: number | null;
   deal_count?: number;
   ui_schema?: Record<string, unknown> | null;
@@ -54,6 +66,7 @@ function PopChatInner() {
   const [activeRequests, setActiveRequests] = useState(0);
   const isLoading = activeRequests > 0;
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [guestSessionToken, setGuestSessionToken] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
   const [expandedItemIds, setExpandedItemIds] = useState<Set<number>>(new Set());
@@ -61,6 +74,15 @@ function PopChatInner() {
   const inputRef = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const isCommittingRef = useRef(false);
+
+  const applyListItems = useCallback((items: ListItem[]) => {
+    setListItems(items);
+    setExpandedItemIds((prev) => {
+      const next = new Set(prev);
+      items.forEach((item) => next.add(item.id));
+      return next;
+    });
+  }, []);
 
   const handleDuplicateProject = async () => {
     if (!projectId || !isLoggedIn) return;
@@ -190,6 +212,8 @@ function PopChatInner() {
         }
         const savedProjectId = localStorage.getItem(LS_GUEST_PROJECT_KEY);
         if (savedProjectId) setProjectId(Number(savedProjectId));
+        const savedGuestToken = localStorage.getItem(LS_GUEST_SESSION_TOKEN_KEY);
+        if (savedGuestToken) setGuestSessionToken(savedGuestToken);
       } catch {
         // ignore
       }
@@ -202,8 +226,9 @@ function PopChatInner() {
     if (!isLoggedIn) {
       if (listItems.length > 0) localStorage.setItem(LS_ITEMS_KEY, JSON.stringify(listItems));
       if (projectId) localStorage.setItem(LS_GUEST_PROJECT_KEY, String(projectId));
+      if (guestSessionToken) localStorage.setItem(LS_GUEST_SESSION_TOKEN_KEY, guestSessionToken);
     }
-  }, [listItems, isLoggedIn, projectId]);
+  }, [guestSessionToken, listItems, isLoggedIn, projectId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -223,30 +248,93 @@ function PopChatInner() {
     const guestProjectId = !isLoggedIn
       ? projectId ?? (localStorage.getItem(LS_GUEST_PROJECT_KEY) ? Number(localStorage.getItem(LS_GUEST_PROJECT_KEY)) : null)
       : null;
+    const currentGuestSessionToken = !isLoggedIn
+      ? guestSessionToken ?? localStorage.getItem(LS_GUEST_SESSION_TOKEN_KEY)
+      : null;
+    const assistantId = `asst-${Date.now()}`;
 
     try {
+      setMessages((prev) => [...prev, { id: assistantId, role: 'assistant', content: '' }]);
       const res = await fetch('/api/pop/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, ...(guestProjectId ? { guest_project_id: guestProjectId } : {}) }),
+        body: JSON.stringify({
+          message: text,
+          ...(guestProjectId ? { guest_project_id: guestProjectId } : {}),
+          ...(currentGuestSessionToken ? { guest_session_token: currentGuestSessionToken } : {}),
+          ...(isLoggedIn && projectId ? { target_project_id: projectId } : {}),
+          stream: true,
+        }),
       });
-      const data = await res.json();
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let assistantContent = '';
+      let sseBuffer = '';
 
-      setMessages((prev) => [
-        ...prev,
-        { id: `asst-${Date.now()}`, role: 'assistant', content: data.reply || 'Got it!' },
-      ]);
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-      if (data.list_items?.length > 0) {
-        setListItems(data.list_items);
-        setExpandedItemIds(new Set(data.list_items.map((i: ListItem) => i.id)));
+          sseBuffer += decoder.decode(value, { stream: true });
+
+          while (true) {
+            const sepIndex = sseBuffer.indexOf('\n\n');
+            if (sepIndex === -1) break;
+
+            const frame = sseBuffer.slice(0, sepIndex);
+            sseBuffer = sseBuffer.slice(sepIndex + 2);
+
+            const lines = frame.split('\n');
+            let eventName = 'message';
+            const dataLines: string[] = [];
+
+            for (const line of lines) {
+              if (line.startsWith('event:')) {
+                eventName = line.slice('event:'.length).trim();
+              } else if (line.startsWith('data:')) {
+                dataLines.push(line.slice('data:'.length).trim());
+              }
+            }
+
+            let payload: Record<string, unknown> = {};
+            const dataRaw = dataLines.join('\n');
+            try {
+              payload = dataRaw ? JSON.parse(dataRaw) : {};
+            } catch {
+              payload = {};
+            }
+
+            if (eventName === 'assistant_message') {
+              assistantContent = typeof payload.text === 'string' ? payload.text : assistantContent;
+              setMessages((prev) => prev.map((msg) => msg.id === assistantId ? { ...msg, content: assistantContent } : msg));
+            } else if (eventName === 'project_ready') {
+              if (typeof payload.project_id === 'number') setProjectId(payload.project_id);
+              if (typeof payload.guest_session_token === 'string' && payload.guest_session_token) {
+                setGuestSessionToken(payload.guest_session_token);
+              }
+            } else if (eventName === 'list_items') {
+              if (typeof payload.project_id === 'number') setProjectId(payload.project_id);
+              if (Array.isArray(payload.list_items)) applyListItems(payload.list_items as ListItem[]);
+            } else if (eventName === 'error') {
+              const message = typeof payload.message === 'string' ? payload.message : 'Oops, something went wrong. Try again!';
+              assistantContent = message;
+              setMessages((prev) => prev.map((msg) => msg.id === assistantId ? { ...msg, content: message } : msg));
+            } else if (eventName === 'done') {
+              if (typeof payload.project_id === 'number') setProjectId(payload.project_id);
+              if (typeof payload.guest_session_token === 'string' && payload.guest_session_token) {
+                setGuestSessionToken(payload.guest_session_token);
+              }
+            }
+          }
+        }
       }
-      if (data.project_id) setProjectId(data.project_id);
+
+      if (!assistantContent.trim()) {
+        setMessages((prev) => prev.map((msg) => msg.id === assistantId ? { ...msg, content: 'Got it!' } : msg));
+      }
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { id: `err-${Date.now()}`, role: 'assistant', content: 'Oops, something went wrong. Try again!' },
-      ]);
+      setMessages((prev) => prev.map((msg) => msg.id === assistantId ? { ...msg, content: 'Oops, something went wrong. Try again!' } : msg));
     } finally {
       setActiveRequests((prev) => Math.max(0, prev - 1));
       setTimeout(() => {
@@ -338,6 +426,8 @@ function PopChatInner() {
     return map[source] || 'bg-gray-100 text-gray-700';
   };
 
+  const selectedItemCount = listItems.filter((item) => item.deals?.some((deal) => deal.is_selected)).length;
+
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Nav */}
@@ -348,6 +438,12 @@ function PopChatInner() {
             <span className="text-lg font-bold text-green-700">Pop</span>
           </Link>
           <div className="flex items-center gap-3">
+            <Link
+              href="/pop-site/wallet"
+              className="text-xs flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+            >
+              <span>📸</span> Scan Receipt
+            </Link>
             <a
               href="https://buy.stripe.com/test_dRm5kEcSC6lWc0NeUh1ck00"
               target="_blank"
@@ -358,11 +454,16 @@ function PopChatInner() {
             </a>
             {listItems.length > 0 && (
               <Link
-                href={projectId ? `/list/${projectId}` : '#'}
+                href={projectId ? `/pop-site/list/${projectId}` : '#'}
                 className="text-xs bg-green-100 text-green-800 px-2.5 py-1 rounded-full font-medium hover:bg-green-200 transition-colors"
               >
                 {listItems.length} item{listItems.length !== 1 ? 's' : ''} on list →
               </Link>
+            )}
+            {selectedItemCount > 0 && (
+              <span className="text-xs bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-medium">
+                {selectedItemCount} picked
+              </span>
             )}
             <Link
               href="/login"

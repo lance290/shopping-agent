@@ -95,6 +95,9 @@ class Project(ProjectBase, table=True):
     ui_schema: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
     ui_schema_version: int = Field(default=0)
 
+    # Shopping mode — shared project-level lock (Ready to Shop / Edit List)
+    shopping_mode: bool = Field(default=False)
+
     rows: List["Row"] = Relationship(back_populates="project")
 
 class ProjectMember(SQLModel, table=True):
