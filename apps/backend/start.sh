@@ -63,16 +63,20 @@ print(asyncio.run(check()))
         if su fastapi -s /bin/sh -c "alembic stamp heads 2>&1"; then
             echo "[STARTUP] Alembic heads stamped successfully."
         else
-            echo "[STARTUP] WARNING: Alembic stamp failed, but continuing startup."
+            echo "[STARTUP] ERROR: Alembic stamp failed. Refusing to start with unknown schema state."
+            exit 1
         fi
     else
         echo "[STARTUP] Existing DB — running Alembic upgrade..."
         if su fastapi -s /bin/sh -c "alembic upgrade heads 2>&1"; then
             echo "[STARTUP] Migrations completed successfully."
         else
-            echo "[STARTUP] WARNING: Migrations returned non-zero. Continuing anyway."
+            echo "[STARTUP] ERROR: Migrations returned non-zero. Refusing to start with stale schema."
+            exit 1
         fi
     fi
+
+    echo "[STARTUP] Running startup data integrity check..."
 
     # Run schema fix again AFTER migrations (catch anything migrations missed)
     echo "[STARTUP] Running schema fix (post-migration)..."
