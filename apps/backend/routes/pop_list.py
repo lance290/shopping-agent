@@ -189,6 +189,19 @@ async def get_pop_list(
                 "savings_vs_first": s.savings_cents / 100,
             })
 
+        # Best coupon badge (PRD-08)
+        coupon_badge = None
+        if provider_swaps:
+            best = provider_swaps[0]
+            coupon_badge = {
+                "swap_id": best.swap_id,
+                "savings_cents": best.savings_cents,
+                "savings_display": f"${best.savings_cents / 100:.2f} Off",
+                "brand_name": best.brand_name,
+                "product_name": best.swap_product_name,
+                "url": best.swap_product_url,
+            }
+
         taxonomy = _extract_taxonomy(row)
         items.append({
             "id": row.id,
@@ -200,6 +213,7 @@ async def get_pop_list(
             "like_count": like_count,
             "user_liked": user_liked,
             "comment_count": comment_count,
+            "coupon": coupon_badge,
             **taxonomy,
             "deals": deals,
             "swaps": swaps[:3],

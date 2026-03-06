@@ -21,6 +21,7 @@ from routes.pop_chat import chat_router
 from routes.pop_referral import referral_router
 from routes.pop_swaps import swaps_router
 from routes.pop_social import social_router
+from routes.pop_brand_portal import brand_portal_router
 
 try:
     from twilio.request_validator import RequestValidator as TwilioValidator
@@ -37,6 +38,7 @@ router.include_router(chat_router)
 router.include_router(referral_router)
 router.include_router(swaps_router)
 router.include_router(social_router)
+router.include_router(brand_portal_router)
 
 
 

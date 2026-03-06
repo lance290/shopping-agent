@@ -44,6 +44,14 @@ interface ListItem {
   like_count?: number;
   user_liked?: boolean;
   comment_count?: number;
+  coupon?: {
+    swap_id: number;
+    savings_cents: number;
+    savings_display: string;
+    brand_name: string | null;
+    product_name: string;
+    url: string | null;
+  } | null;
 }
 
 interface PopList {
@@ -503,6 +511,27 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
                       </svg>
                     </button>
                   </div>
+
+                  {/* Coupon Badge (PRD-08) */}
+                  {item.coupon && (
+                    <div className="px-4 py-2 border-t border-gray-50" data-testid={`coupon-badge-${item.id}`}>
+                      <a
+                        href={item.coupon.url || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className="text-sm">🎟️</span>
+                        <span className="text-xs font-semibold text-amber-800">
+                          {item.coupon.savings_display}
+                        </span>
+                        <span className="text-[10px] text-amber-600">
+                          Clip Coupon{item.coupon.brand_name ? ` — ${item.coupon.brand_name}` : ''}
+                        </span>
+                      </a>
+                    </div>
+                  )}
 
                   {/* Social Action Bar (PRD-07) */}
                   {isLoggedIn && (

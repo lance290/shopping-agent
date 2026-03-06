@@ -92,6 +92,8 @@ from models.pop import (
 from models.coupons import (
     PopSwap,
     PopSwapClaim,
+    CouponCampaign,
+    BrandPortalToken,
 )
 
 # Admin models
@@ -156,6 +158,8 @@ __all__ = [
     # Coupons
     "PopSwap",
     "PopSwapClaim",
+    "CouponCampaign",
+    "BrandPortalToken",
     # Admin
     "BugReport",
     "Notification",
