@@ -1,70 +1,52 @@
-# Test Completeness Report - 2026-03-06T04:40:00Z
+# Test Completeness Report - 2026-03-06T06:25:00Z
 
 ## Session Scope
 - Branch: dev
-- Changed implementation files: 8
-- Frontend changed: yes (list page, landing page, auth utils, BFF routes)
-- Backend changed: yes (pop_list.py, pop_referral.py, auth.py, pop_social.py, models/social.py)
+- Changed implementation files: 2
+- Frontend changed: no
+- Backend changed: yes
 
 ## Obligation Matrix
 
 | Surface | Changed File | Behavior | Unit | Integration | E2E | Scenario | Notes |
 |---|---|---|---|---|---|---|---|
-| frontend | apps/frontend/app/pop-site/chat/page.tsx | PRD-05 Speed UX (concurrent submissions, chat focus) | covered | n/a | missing | n/a | 9 tests in pop-chat-focus.test.ts |
-| frontend | apps/frontend/app/pop-site/list/[id]/page.tsx | PRD-06 Dual CopyLink + PRD-07 Social action bar | covered | n/a | missing | n/a | 16 + 20 tests |
-| frontend | apps/frontend/app/pop-site/page.tsx | PRD-06 Ref param capture + signup link wiring | covered | n/a | missing | n/a | pop-dual-copylink.test.ts |
-| frontend | apps/frontend/app/utils/auth.ts | PRD-06 pass `ref_code` to auth verification | covered | n/a | missing | n/a | pop-dual-copylink.test.ts |
-| backend | apps/backend/routes/pop_list.py | Bugfixes: membership, deals on PATCH | covered | covered | n/a | n/a | test_pop_list.py |
-| backend | apps/backend/routes/pop_referral.py | PRD-06 Referral GET/POST | covered | covered | n/a | covered | 11 tests |
-| backend | apps/backend/routes/auth.py | PRD-06 ref_code on signup | covered | covered | n/a | covered | 1 test in test_auth_referral.py |
-| backend | apps/backend/routes/pop_social.py | PRD-07 Reactions + Comments CRUD | covered | covered | n/a | covered | 14 tests in test_pop_social.py |
-| backend | apps/backend/models/social.py | PRD-07 RowReaction + RowComment models | covered | covered | n/a | n/a | Tested via route tests |
+| backend | apps/backend/alembic/versions/7d2c4e1f9ab3_add_user_referred_by_id.py | add missing `user.referred_by_id` schema required by `/auth/verify` referral attribution | n/a | covered | n/a | covered | validated by auth/referral regression tests plus `alembic heads` |
+| backend | apps/backend/start.sh | fail startup on Alembic stamp/upgrade errors instead of serving stale schema | n/a | n/a | n/a | n/a | shell entrypoint has no runtime harness in repo; syntax validated with `bash -n start.sh` |
+| backend | apps/backend/routes/auth.py | choose deterministic referrer when duplicate `ref_code` rows exist during `/auth/verify` | n/a | covered | n/a | covered | covered by `test_auth_referral.py` duplicate-code regression |
+| backend | apps/backend/routes/pop_referral.py | choose deterministic referrer when duplicate `ref_code` rows exist during `/pop/referral/signup` | n/a | covered | n/a | covered | covered by `test_pop_referral.py` duplicate-code regression |
 
-## Tests Created Across Sessions
-
-### Frontend (82 new tests across 7 files)
-- `pop-chat-focus.test.ts` — 9 tests: submit refocus, concurrent submissions, sidebar expansion
-- `pop-list-page-logic.test.ts` — 17 tests: expanded state, toggle, clear completed, bulk parse, taxonomy
-- `pop-bulk-parse-modal.test.tsx` — 7 tests: render, disabled state, API call, error handling
-- `pop-item-editor.test.tsx` — 7 tests: form fields, PATCH delta, departments, attribution
-- `pop-household-modal.test.tsx` — 6 tests: member list, remove member, empty state
-- `pop-dual-copylink.test.ts` — 16 tests: ref param capture, signup href, share/referral links
-- `pop-social-layer.test.ts` — 20 tests: optimistic like toggle, like/comment count display, comment thread toggle, comment validation, acceptance criteria
-
-### Backend (26 new tests in 3 files)
-- `test_pop_referral.py` — 11 tests: GET referral, POST signup, wallet credit, idempotency, self-referral, invalid codes
-- `test_auth_referral.py` — 1 test: /auth/verify with ref_code → referral attribution + wallet
-- `test_pop_social.py` — 14 tests: toggle like on/off, get reactions, add/list/delete comments, empty/long text validation, 401/403/404 guards, cross-user delete block
+## Tests Created/Updated
+- Unit: none
+- Integration: `apps/backend/tests/test_auth_referral.py`, `apps/backend/tests/test_pop_referral.py`
+- E2E: none
+- Scenario: `apps/backend/tests/test_auth_referral.py`, `apps/backend/tests/test_pop_referral.py`
 
 ## Verification Commands
-
 ### Backend
-```bash
-cd apps/backend && uv run pytest tests/test_pop_*.py tests/test_auth_*.py -q
-```
+- `uv run pytest tests/test_auth_referral.py -q`
+- `uv run pytest tests/test_pop_referral.py -q`
+- `uv run pytest tests/test_auth_referral.py tests/test_pop_referral.py -q && uv run alembic heads`
+- `bash -n start.sh`
+- `uv run alembic heads`
 
 ### Frontend
-```bash
-cd apps/frontend && pnpm vitest run app/tests/pop-*.test.ts*
-```
+- n/a (no frontend implementation changes in this session)
 
 ## Results
-
 ### Backend
-- Unit: pass
-- Integration: pass (26 new + pre-existing pop tests)
+- Unit: n/a
+- Integration: pass
 - E2E: n/a
-- Scenario: pass (referral + social happy/edge paths)
+- Scenario: pass
 
 ### Frontend
-- Unit: pass (126 Pop tests)
+- Unit: n/a
 - Integration: n/a
-- E2E: missing (Playwright not configured for Pop pages)
+- E2E: n/a
 - Scenario: n/a
 
 ## Open Blockers
-- **E2E tests**: Playwright is installed but no Pop-specific E2E specs exist.
+- none
 
 ## Verdict
-- **PASS** for unit + integration + scenario layers
-- **BLOCKED** on E2E layer only (Playwright setup for Pop pages)
+- PASS

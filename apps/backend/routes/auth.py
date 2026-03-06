@@ -342,9 +342,13 @@ async def auth_verify(
         ref_code = (request.ref_code or "").strip().upper()
         referrer: Optional[User] = None
         if ref_code:
-            referrer_stmt = select(User).where(User.ref_code == ref_code)
-            referrer_result = await session.execute(referrer_stmt)
-            referrer = referrer_result.scalar_one_or_none()
+            referrer_stmt = (
+                select(User)
+                .where(User.ref_code == ref_code)
+                .order_by(User.id)
+                .limit(1)
+            )
+            referrer = (await session.exec(referrer_stmt)).first()
             if referrer:
                 signup_source = "referral"
 

@@ -68,9 +68,13 @@ async def record_referral_signup(
         raise HTTPException(status_code=400, detail="ref_code required")
 
     # Find referrer
-    referrer_stmt = select(User).where(User.ref_code == ref_code)
-    referrer_result = await session.execute(referrer_stmt)
-    referrer = referrer_result.scalar_one_or_none()
+    referrer_stmt = (
+        select(User)
+        .where(User.ref_code == ref_code)
+        .order_by(User.id)
+        .limit(1)
+    )
+    referrer = (await session.exec(referrer_stmt)).first()
 
     if not referrer or referrer.id == new_user.id:
         raise HTTPException(status_code=404, detail="Invalid referral code")

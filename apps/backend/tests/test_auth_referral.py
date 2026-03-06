@@ -80,3 +80,47 @@ async def test_auth_verify_creates_referral_and_credits_wallet(
     txn = txn_result.scalar_one_or_none()
     assert txn is not None
     assert txn.amount_cents == 100
+
+
+@pytest.mark.asyncio
+async def test_auth_verify_uses_oldest_matching_referrer_when_ref_code_is_duplicated(
+    client: AsyncClient,
+    session: AsyncSession,
+):
+    primary_referrer = User(email="primary_referrer_auth@example.com", is_admin=False, ref_code="AUTHREF1")
+    duplicate_referrer = User(email="duplicate_referrer_auth@example.com", is_admin=False, ref_code="AUTHREF1")
+    session.add(primary_referrer)
+    session.add(duplicate_referrer)
+    await session.commit()
+    await session.refresh(primary_referrer)
+
+    phone = "+16505550333"
+    code = "123456"
+    login_code = AuthLoginCode(
+        email=None,
+        phone_number=phone,
+        code_hash=hash_token(code),
+        is_active=True,
+    )
+    session.add(login_code)
+    await session.commit()
+
+    resp = await client.post(
+        "/auth/verify",
+        json={
+            "phone": phone,
+            "code": code,
+            "ref_code": "AUTHREF1",
+        },
+    )
+    assert resp.status_code == 200
+
+    result = await session.execute(select(User).where(User.phone_number == phone))
+    new_user = result.scalars().first()
+    assert new_user is not None
+    assert new_user.referred_by_id == primary_referrer.id
+
+    ref_result = await session.execute(select(Referral).where(Referral.referred_user_id == new_user.id))
+    referral = ref_result.scalar_one_or_none()
+    assert referral is not None
+    assert referral.referrer_user_id == primary_referrer.id

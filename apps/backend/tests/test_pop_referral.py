@@ -191,6 +191,36 @@ async def test_referral_signup_creates_wallet_transaction(
     assert txn.amount_cents == 100
 
 
+@pytest.mark.asyncio
+async def test_referral_signup_uses_oldest_matching_referrer_when_ref_code_is_duplicated(
+    client: AsyncClient,
+    session: AsyncSession,
+    new_user,
+):
+    primary_referrer = User(email="primary_referrer@example.com", is_admin=False, ref_code="REFTEST1")
+    duplicate_referrer = User(email="duplicate_referrer@example.com", is_admin=False, ref_code="REFTEST1")
+    session.add(primary_referrer)
+    session.add(duplicate_referrer)
+    await session.commit()
+    await session.refresh(primary_referrer)
+
+    nu, new_token = new_user
+
+    resp = await client.post(
+        "/pop/referral/signup",
+        json={"ref_code": "REFTEST1"},
+        headers={"Authorization": f"Bearer {new_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["referrer_id"] == primary_referrer.id
+
+    from sqlmodel import select
+    result = await session.execute(select(Referral).where(Referral.referred_user_id == nu.id))
+    referral = result.scalar_one_or_none()
+    assert referral is not None
+    assert referral.referrer_user_id == primary_referrer.id
+
+
 # ---------------------------------------------------------------------------
 # POST /pop/referral/signup — edge cases
 # ---------------------------------------------------------------------------
