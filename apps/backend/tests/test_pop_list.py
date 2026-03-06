@@ -170,6 +170,40 @@ async def test_my_list_returns_active_project(
     assert any(i["title"] == "Whole milk" for i in data["items"])
 
 
+@pytest.mark.asyncio
+async def test_patch_project_updates_shopping_mode_and_list_response(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    pop_project: Project,
+):
+    user, token = pop_user
+    from routes.pop_helpers import _ensure_project_member
+    await _ensure_project_member(session, pop_project.id, user.id, channel="web")
+
+    patch_resp = await client.patch(
+        f"/pop/projects/{pop_project.id}",
+        json={"shopping_mode": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert patch_resp.status_code == 200
+    patch_data = patch_resp.json()
+    assert patch_data["project_id"] == pop_project.id
+    assert patch_data["shopping_mode"] is True
+
+    await session.refresh(pop_project)
+    assert pop_project.shopping_mode is True
+
+    list_resp = await client.get(
+        f"/pop/list/{pop_project.id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert list_resp.status_code == 200
+    list_data = list_resp.json()
+    assert list_data["project_id"] == pop_project.id
+    assert list_data["shopping_mode"] is True
+
+
 # ---------------------------------------------------------------------------
 # 4. POST /pop/list/{project_id}/invite  (requires auth, must own project)
 # ---------------------------------------------------------------------------

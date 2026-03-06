@@ -14,11 +14,22 @@ interface Deal {
   is_selected: boolean;
 }
 
+interface Swap {
+  id: number;
+  title: string;
+  price: number | null;
+  source: string;
+  url: string | null;
+  image_url: string | null;
+  savings_vs_first: number | null;
+}
+
 interface ListItem {
   id: number;
   title: string;
   status: string;
   deals?: Deal[];
+  swaps?: Swap[];
   lowest_price?: number | null;
   deal_count?: number;
   ui_schema?: Record<string, unknown> | null;
@@ -72,21 +83,29 @@ export default function PopListSidebar({
   sourceLabel,
 }: PopListSidebarProps) {
   const [showProjectMenu, setShowProjectMenu] = useState(false);
+  const selectedCount = listItems.filter((item) => item.deals?.some((deal) => deal.is_selected)).length;
 
   return (
     <div className="lg:w-96 border-t lg:border-t-0 lg:border-l border-gray-100 bg-gray-50/50 p-4 flex flex-col h-[calc(100vh-56px)]">
       <div className="flex items-center justify-between mb-3 relative flex-shrink-0">
-        <button 
-          onClick={() => isLoggedIn && setShowProjectMenu(!showProjectMenu)}
-          className={`flex items-center gap-2 text-sm font-semibold text-gray-900 ${isLoggedIn ? 'hover:bg-gray-200 px-2 py-1 rounded -ml-2' : ''}`}
-        >
-          <span>🛒</span> {projectTitle}
-          {isLoggedIn && (
-            <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
+        <div className="min-w-0">
+          <button 
+            onClick={() => isLoggedIn && setShowProjectMenu(!showProjectMenu)}
+            className={`flex items-center gap-2 text-sm font-semibold text-gray-900 ${isLoggedIn ? 'hover:bg-gray-200 px-2 py-1 rounded -ml-2' : ''}`}
+          >
+            <span>🛒</span> {projectTitle}
+            {isLoggedIn && (
+              <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+          </button>
+          {selectedCount > 0 && (
+            <div className="mt-1 text-[11px] text-emerald-700 font-medium">
+              {selectedCount} picked item{selectedCount !== 1 ? 's' : ''}
+            </div>
           )}
-        </button>
+        </div>
         
         {showProjectMenu && isLoggedIn && (
           <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
@@ -151,6 +170,8 @@ export default function PopListSidebar({
                 const isExpanded = expandedItemIds.has(item.id);
                 const selectedDeal = item.deals?.find((d) => d.is_selected);
                 const hasDealChoices = (item.deal_count ?? 0) > 0;
+                const hasSwaps = (item.swaps?.length ?? 0) > 0;
+                const hasOfferChoices = hasDealChoices || hasSwaps;
 
                 return (
                   <li key={item.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -162,7 +183,7 @@ export default function PopListSidebar({
                         }`}
                         title={selectedDeal ? 'Deal picked' : 'No deal picked yet'}
                         onClick={() => {
-                          if (hasDealChoices) {
+                          if (hasOfferChoices) {
                             setExpandedItemIds((prev) => {
                               const next = new Set(prev);
                               if (next.has(item.id)) next.delete(item.id);
@@ -195,7 +216,7 @@ export default function PopListSidebar({
                         <button
                           className="flex-1 text-left min-w-0"
                           onClick={() => {
-                            if (hasDealChoices) {
+                            if (hasOfferChoices) {
                               setExpandedItemIds((prev) => {
                                 const next = new Set(prev);
                                 if (next.has(item.id)) next.delete(item.id);
@@ -208,20 +229,22 @@ export default function PopListSidebar({
                           }}
                         >
                           <span className="text-sm font-medium text-gray-900 truncate block">{item.title}</span>
-                          {hasDealChoices && (
+                          {hasOfferChoices && (
                             <span className="text-xs text-gray-500">
-                              {item.deal_count} deal{item.deal_count !== 1 ? 's' : ''}
+                              {hasDealChoices && `${item.deal_count} deal${item.deal_count !== 1 ? 's' : ''}`}
+                              {hasDealChoices && hasSwaps && ' · '}
+                              {hasSwaps && `${item.swaps?.length ?? 0} swap${(item.swaps?.length ?? 0) !== 1 ? 's' : ''}`}
                               {item.lowest_price != null && ` from $${item.lowest_price.toFixed(2)}`}
                             </span>
                           )}
-                          {!hasDealChoices && (
+                          {!hasOfferChoices && (
                             <span className="text-xs text-gray-400 italic">Searching for deals...</span>
                           )}
                         </button>
                       )}
 
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        {hasDealChoices && (
+                        {hasOfferChoices && (
                           <button
                             onClick={() => {
                             setExpandedItemIds((prev) => {
@@ -266,6 +289,7 @@ export default function PopListSidebar({
 
                         {item.deals && item.deals.length > 0 && (
                           <div className="space-y-2">
+                            <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Deals</div>
                             {item.deals.map((deal) => (
                               <button
                                 key={deal.id}
@@ -305,6 +329,50 @@ export default function PopListSidebar({
                                   </svg>
                                 )}
                               </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {item.swaps && item.swaps.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Swaps</div>
+                            {item.swaps.map((swap) => (
+                              <a
+                                key={swap.id}
+                                href={swap.url || '#'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full flex items-center gap-2.5 p-2 rounded-lg text-left transition-colors hover:bg-amber-50"
+                              >
+                                {swap.image_url ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={swap.image_url}
+                                    alt={swap.title}
+                                    className="w-10 h-10 rounded-md object-cover flex-shrink-0 bg-gray-100"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-md bg-amber-100 flex-shrink-0 flex items-center justify-center text-amber-700">
+                                    🔄
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-gray-800 truncate">{swap.title}</p>
+                                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                    {swap.price != null && (
+                                      <span className="text-sm font-semibold text-gray-900">${swap.price.toFixed(2)}</span>
+                                    )}
+                                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${sourceColor(swap.source)}`}>
+                                      {sourceLabel(swap.source)}
+                                    </span>
+                                    {swap.savings_vs_first != null && (
+                                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                                        Save ${swap.savings_vs_first.toFixed(2)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </a>
                             ))}
                           </div>
                         )}

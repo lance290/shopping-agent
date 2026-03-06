@@ -3,6 +3,7 @@ import pytest
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 from models import Row, Bid, Project, User, ProjectMember, AuthSession
+from routes.pop_helpers import _build_item_with_deals
 
 
 @pytest.mark.asyncio
@@ -156,5 +157,50 @@ async def test_deleted_item_excluded_from_list(
     )
     titles = [i["title"] for i in resp.json()["items"]]
     assert "Whole milk" not in titles
+
+
+@pytest.mark.asyncio
+async def test_build_item_with_deals_prefers_selected_then_quantum_blended_score(
+    session: AsyncSession,
+    pop_row: Row,
+):
+    selected_bid = Bid(
+        row_id=pop_row.id,
+        price=4.99,
+        total_cost=4.99,
+        item_title="Selected Pick",
+        source="kroger",
+        is_selected=True,
+        combined_score=0.10,
+        provenance={"blended_score": 0.05},
+    )
+    top_quantum_bid = Bid(
+        row_id=pop_row.id,
+        price=3.99,
+        total_cost=3.99,
+        item_title="Quantum Winner",
+        source="rainforest_amazon",
+        combined_score=0.40,
+        provenance={"blended_score": 0.91},
+    )
+    lower_quantum_bid = Bid(
+        row_id=pop_row.id,
+        price=2.99,
+        total_cost=2.99,
+        item_title="Lower Quantum",
+        source="ebay_browse",
+        combined_score=0.95,
+        provenance={"blended_score": 0.33},
+    )
+    session.add_all([selected_bid, top_quantum_bid, lower_quantum_bid])
+    await session.commit()
+
+    item = await _build_item_with_deals(session, pop_row)
+
+    assert [deal["title"] for deal in item["deals"][:3]] == [
+        "Selected Pick",
+        "Quantum Winner",
+        "Lower Quantum",
+    ]
 
 

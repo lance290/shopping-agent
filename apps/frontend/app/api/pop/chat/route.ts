@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
   try {
     const auth = getAuthHeader(request);
     const body = await request.json();
-    const { message, email } = body;
+    const { message, email, guest_project_id, guest_session_token, target_project_id, stream } = body;
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     };
     if (auth) headers['Authorization'] = auth;
 
-    const url = `${BACKEND_URL}/pop/chat`;
+    const url = `${BACKEND_URL}/pop/chat${stream ? '/stream' : ''}`;
     console.log(`[pop/chat] POST ${url}`);
 
     const response = await fetch(url, {
@@ -26,8 +26,22 @@ export async function POST(request: NextRequest) {
         message,
         email: email || undefined,
         channel: 'web',
+        guest_project_id: guest_project_id || undefined,
+        guest_session_token: guest_session_token || undefined,
+        target_project_id: target_project_id || undefined,
+        stream: Boolean(stream),
       }),
     });
+
+    if (stream) {
+      return new Response(response.body, {
+        status: response.status,
+        headers: {
+          'Content-Type': response.headers.get('Content-Type') || 'text/event-stream; charset=utf-8',
+          'Cache-Control': response.headers.get('Cache-Control') || 'no-cache, no-transform',
+        },
+      });
+    }
 
     if (!response.ok) {
       const text = await response.text();

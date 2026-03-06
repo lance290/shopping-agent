@@ -28,6 +28,33 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
 
 
+def _pop_bid_sort_score(bid: Bid) -> float:
+    provenance = getattr(bid, "provenance", None)
+    if isinstance(provenance, str):
+        try:
+            provenance = json.loads(provenance)
+        except (json.JSONDecodeError, TypeError):
+            provenance = None
+    if isinstance(provenance, dict):
+        blended = provenance.get("blended_score")
+        if isinstance(blended, (int, float)):
+            return float(blended)
+    if isinstance(getattr(bid, "combined_score", None), (int, float)):
+        return float(bid.combined_score)
+    return -1.0
+
+
+def _sort_pop_bids(bids: List[Bid]) -> List[Bid]:
+    return sorted(
+        bids,
+        key=lambda bid: (
+            0 if bid.is_selected else 1,
+            -_pop_bid_sort_score(bid),
+            bid.id or 0,
+        ),
+    )
+
+
 async def _get_pop_user(request: Request, session: AsyncSession) -> Optional[User]:
     """Resolve the current user from a Bearer token, or return None."""
     auth_header = request.headers.get("Authorization", "")
@@ -113,11 +140,9 @@ async def _build_item_with_deals(session: AsyncSession, row: Row) -> dict:
     bids_stmt = (
         select(Bid)
         .where(Bid.row_id == row.id)
-        .order_by(Bid.combined_score.desc().nullslast())
-        .limit(5)
     )
     bids_result = await session.execute(bids_stmt)
-    bids = bids_result.scalars().all()
+    bids = _sort_pop_bids(list(bids_result.scalars().all()))[:5]
 
     deals = []
     swaps = []
