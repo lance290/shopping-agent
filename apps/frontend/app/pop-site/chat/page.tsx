@@ -391,12 +391,44 @@ function PopChatInner() {
       await fetch(`/api/pop/offer/${dealId}/claim`, { method: 'POST' });
       setListItems((prev) =>
         prev.map((item) => {
-          if (item.id !== itemId || !item.deals) return item;
+          if (item.id !== itemId) return item;
           return {
             ...item,
-            deals: item.deals.map((d) => ({
+            deals: item.deals?.map((d) => ({
               ...d,
               is_selected: d.id === dealId,
+            })),
+            swaps: item.swaps?.map((swap) => ({
+              ...swap,
+              is_selected: false,
+            })),
+          };
+        })
+      );
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleClaimSwap = useCallback(async (itemId: number, swapId: number) => {
+    try {
+      await fetch(`/api/pop/swap/${swapId}/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row_id: itemId }),
+      });
+      setListItems((prev) =>
+        prev.map((item) => {
+          if (item.id !== itemId) return item;
+          return {
+            ...item,
+            deals: item.deals?.map((d) => ({
+              ...d,
+              is_selected: false,
+            })),
+            swaps: item.swaps?.map((swap) => ({
+              ...swap,
+              is_selected: swap.id === swapId,
             })),
           };
         })
@@ -560,6 +592,7 @@ function PopChatInner() {
             handleDuplicateProject={handleDuplicateProject}
             handleDeleteItem={handleDeleteItem}
             handleClaimDeal={handleClaimDeal}
+            handleClaimSwap={handleClaimSwap}
             sourceColor={sourceColor}
             sourceLabel={sourceLabel}
           />

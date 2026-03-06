@@ -13,6 +13,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from database import get_session
 from models.rows import Row
 from models.bids import Bid
+from models.coupons import PopSwap, PopSwapClaim
 from services.llm import call_gemini
 from routes.pop_helpers import _get_pop_user
 
@@ -23,8 +24,6 @@ offers_router = APIRouter()
 async def _classify_swaps_llm(row_title: str, bids: list) -> set:
     """
     Ask Gemini to classify which bids are swap alternatives for a list item.
-    Returns a set of bid IDs classified as swaps.
-    Bids not in the returned set are direct matches.
     """
     try:
         lines = "\n".join(
@@ -56,10 +55,7 @@ async def claim_pop_offer(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ):
-    """
-    Claim a swap offer (mark bid as selected for this household).
-    Only the row owner can claim. One active claim per row.
-    """
+    """Claim a regular bid offer."""
     user = await _get_pop_user(request, session)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -67,7 +63,6 @@ async def claim_pop_offer(
     bid = await session.get(Bid, bid_id)
     if not bid:
         raise HTTPException(status_code=404, detail="Offer not found")
-
     row = await session.get(Row, bid.row_id)
     if not row or row.user_id != user.id:
         raise HTTPException(status_code=404, detail="Offer not found")
@@ -75,46 +70,30 @@ async def claim_pop_offer(
     if row.status == "canceled":
         raise HTTPException(status_code=409, detail="Cannot claim offer on a canceled item")
 
-    # Clear any prior selection on this row (one active claim per item)
-    prior_stmt = select(Bid).where(Bid.row_id == bid.row_id, Bid.is_selected == True)
-    prior_result = await session.execute(prior_stmt)
-    for prior in prior_result.scalars().all():
+    # Clear prior selection on this row
+    prior_stmt = select(Bid).where(Bid.row_id == row.id, Bid.is_selected == True)
+    for prior in (await session.execute(prior_stmt)).scalars().all():
         prior.is_selected = False
         prior.liked_at = None
         session.add(prior)
 
-        # Cancel any associated swap claims
-        from models.coupons import PopSwapClaim
-        claims_stmt = select(PopSwapClaim).where(PopSwapClaim.row_id == row.id, PopSwapClaim.user_id == user.id)
-        claims_result = await session.execute(claims_stmt)
-        for claim in claims_result.scalars().all():
-            claim.status = "canceled"
-            session.add(claim)
-
-    # Note: Bid IDs > 1,000,000 are synthesized PopSwap objects from CouponProvider,
-    # not actual database Bids. But for real database Bids that have is_swap=True,
-    # we might need a mapping to the underlying PopSwap. For now, we assume the frontend
-    # sends the synthesized ID (1,000,000 + swap_id).
-    swap_id = None
-    if bid_id >= 1000000:
-        swap_id = bid_id - 1000000
-    
-    if swap_id:
-        from models.coupons import PopSwapClaim
-        claim = PopSwapClaim(
-            swap_id=swap_id,
-            user_id=user.id,
-            row_id=row.id,
-            status="claimed",
-        )
+    # Clear swap claims too
+    claims_stmt = select(PopSwapClaim).where(PopSwapClaim.row_id == row.id, PopSwapClaim.user_id == user.id)
+    for claim in (await session.execute(claims_stmt)).scalars().all():
+        claim.status = "canceled"
         session.add(claim)
-    else:
-        bid.is_selected = True
-        bid.liked_at = datetime.utcnow()
-        session.add(bid)
+    
+    bid.is_selected = True
+    bid.liked_at = datetime.utcnow()
+    session.add(bid)
         
     await session.commit()
-    return {"claimed": True, "bid_id": bid_id, "title": bid.item_title if not swap_id else "Swap Offer", "price": bid.price if not swap_id else None}
+    return {
+        "claimed": True,
+        "bid_id": bid_id,
+        "title": bid.item_title,
+        "price": bid.price,
+    }
 
 
 @offers_router.delete("/offer/{bid_id}/claim")
@@ -123,7 +102,7 @@ async def unclaim_pop_offer(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ):
-    """Cancel (unclaim) a previously claimed swap offer."""
+    """Cancel a previously claimed bid offer."""
     user = await _get_pop_user(request, session)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -131,7 +110,6 @@ async def unclaim_pop_offer(
     bid = await session.get(Bid, bid_id)
     if not bid:
         raise HTTPException(status_code=404, detail="Offer not found")
-
     row = await session.get(Row, bid.row_id)
     if not row or row.user_id != user.id:
         raise HTTPException(status_code=404, detail="Offer not found")
@@ -139,18 +117,85 @@ async def unclaim_pop_offer(
     bid.is_selected = False
     bid.liked_at = None
     session.add(bid)
-
-    swap_id = None
-    if bid_id >= 1000000:
-        swap_id = bid_id - 1000000
         
-    if swap_id:
-        from models.coupons import PopSwapClaim
-        claims_stmt = select(PopSwapClaim).where(PopSwapClaim.row_id == row.id, PopSwapClaim.user_id == user.id, PopSwapClaim.swap_id == swap_id)
-        claims_result = await session.execute(claims_stmt)
-        for claim in claims_result.scalars().all():
-            claim.status = "canceled"
-            session.add(claim)
-
     await session.commit()
     return {"claimed": False, "bid_id": bid_id}
+
+
+@offers_router.post("/swap/{swap_id}/claim")
+async def claim_pop_swap(
+    swap_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Claim a provider-generated swap offer."""
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    row_id = body.get("row_id")
+    if not isinstance(row_id, int):
+        raise HTTPException(status_code=400, detail="row_id is required for swap claims")
+
+    row = await session.get(Row, row_id)
+    swap = await session.get(PopSwap, swap_id)
+    if not row or row.user_id != user.id or not swap or not swap.is_active:
+        raise HTTPException(status_code=404, detail="Offer not found")
+
+    if row.status == "canceled":
+        raise HTTPException(status_code=409, detail="Cannot claim offer on a canceled item")
+
+    # Clear prior selection on this row
+    prior_stmt = select(Bid).where(Bid.row_id == row.id, Bid.is_selected == True)
+    for prior in (await session.execute(prior_stmt)).scalars().all():
+        prior.is_selected = False
+        prior.liked_at = None
+        session.add(prior)
+
+    # Clear prior swap claims
+    claims_stmt = select(PopSwapClaim).where(PopSwapClaim.row_id == row.id, PopSwapClaim.user_id == user.id)
+    for claim in (await session.execute(claims_stmt)).scalars().all():
+        claim.status = "canceled"
+        session.add(claim)
+    
+    claim = PopSwapClaim(
+        swap_id=swap_id,
+        user_id=user.id,
+        row_id=row.id,
+        status="claimed",
+    )
+    session.add(claim)
+        
+    await session.commit()
+    return {"claimed": True, "swap_id": swap_id}
+
+
+@offers_router.delete("/swap/{swap_id}/claim")
+async def unclaim_pop_swap(
+    swap_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Cancel a previously claimed provider-generated swap offer."""
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    row_id = body.get("row_id")
+    if not isinstance(row_id, int):
+        raise HTTPException(status_code=400, detail="row_id is required for swap claims")
+
+    row = await session.get(Row, row_id)
+    swap = await session.get(PopSwap, swap_id)
+    if not row or row.user_id != user.id or not swap:
+        raise HTTPException(status_code=404, detail="Offer not found")
+        
+    claims_stmt = select(PopSwapClaim).where(PopSwapClaim.row_id == row.id, PopSwapClaim.user_id == user.id, PopSwapClaim.swap_id == swap_id)
+    for claim in (await session.execute(claims_stmt)).scalars().all():
+        claim.status = "canceled"
+        session.add(claim)
+
+    await session.commit()
+    return {"claimed": False, "swap_id": swap_id}

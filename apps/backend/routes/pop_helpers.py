@@ -13,6 +13,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from database import get_session  # noqa: F401 — re-exported for convenience
 from models.rows import Row, Project, ProjectMember
 from models.bids import Bid
+from models.coupons import PopSwapClaim
 from services.coupon_provider import get_coupon_provider
 from services.sdui_builder import build_ui_schema, build_zero_results_schema
 from models.auth import User
@@ -132,7 +133,7 @@ async def _ensure_project_member(
     return member
 
 
-async def _build_item_with_deals(session: AsyncSession, row: Row) -> dict:
+async def _build_item_with_deals(session: AsyncSession, row: Row, user_id: Optional[int] = None) -> dict:
     """
     Build a list-item dict with deals (bids) attached.
     Used by both the chat response and the list endpoints.
@@ -148,6 +149,20 @@ async def _build_item_with_deals(session: AsyncSession, row: Row) -> dict:
     swaps = []
     lowest_price = None
     priced_bids = [b for b in bids if b.price is not None]
+    selected_swap_ids: set[int] = set()
+
+    if user_id is not None:
+        swap_claims_stmt = select(PopSwapClaim).where(
+            PopSwapClaim.row_id == row.id,
+            PopSwapClaim.user_id == user_id,
+            PopSwapClaim.status == "claimed",
+        )
+        swap_claims_result = await session.execute(swap_claims_stmt)
+        selected_swap_ids = {
+            claim.swap_id
+            for claim in swap_claims_result.scalars().all()
+            if claim.swap_id is not None
+        }
 
     for b in priced_bids:
         deal = {
@@ -171,6 +186,7 @@ async def _build_item_with_deals(session: AsyncSession, row: Row) -> dict:
                 "url": b.canonical_url,
                 "image_url": b.image_url,
                 "savings_vs_first": round(deals[0]["price"] - b.price, 2) if deals and b.price < deals[0]["price"] else None,
+                "is_selected": b.is_selected or False,
             })
 
     provider = get_coupon_provider()
@@ -182,13 +198,14 @@ async def _build_item_with_deals(session: AsyncSession, row: Row) -> dict:
             swap_price = 0.0
         
         swaps.append({
-            "id": s.swap_id + 1000000 if s.swap_id else 0,
+            "id": s.swap_id if s.swap_id else 0,
             "title": f"{s.swap_product_name} ({s.offer_description})" if s.offer_description else s.swap_product_name,
             "price": swap_price,
             "source": f"{s.provider.capitalize()} Offer",
             "url": s.swap_product_url,
             "image_url": s.swap_product_image,
             "savings_vs_first": s.savings_cents / 100,
+            "is_selected": bool(s.swap_id and s.swap_id in selected_swap_ids),
         })
 
     # Build SDUI schema from bids

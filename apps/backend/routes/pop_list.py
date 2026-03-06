@@ -16,6 +16,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from database import get_session
 from models.rows import Row, Project, ProjectInvite
 from models.bids import Bid
+from models.coupons import PopSwapClaim
 from models.social import RowReaction, RowComment
 from services.llm import call_gemini
 from routes.pop_helpers import POP_DOMAIN, _get_pop_user, _ensure_project_member, _build_item_with_deals
@@ -136,8 +137,21 @@ async def get_pop_list(
         deals = []
         swaps = []
         lowest_price = None
+        selected_swap_ids = set()
 
         priced_bids = [b for b in bids if b.price is not None]
+
+        swap_claims_stmt = select(PopSwapClaim).where(
+            PopSwapClaim.row_id == row.id,
+            PopSwapClaim.user_id == user.id,
+            PopSwapClaim.status == "claimed",
+        )
+        swap_claims_result = await session.execute(swap_claims_stmt)
+        selected_swap_ids = {
+            claim.swap_id
+            for claim in swap_claims_result.scalars().all()
+            if claim.swap_id is not None
+        }
 
         # LLM swap classification: classify any unclassified bids in one Gemini call
         unclassified = [b for b in priced_bids if b.is_swap is None]
@@ -156,6 +170,7 @@ async def get_pop_list(
                 "source": b.source,
                 "url": b.canonical_url,
                 "image_url": b.image_url,
+                "is_selected": b.is_selected or False,
             }
             deals.append(deal)
             if lowest_price is None or b.price < lowest_price:
@@ -169,6 +184,7 @@ async def get_pop_list(
                     "url": b.canonical_url,
                     "image_url": b.image_url,
                     "savings_vs_first": round(deals[0]["price"] - b.price, 2) if deals and b.price < deals[0]["price"] else None,
+                    "is_selected": b.is_selected or False,
                 })
 
         # Fetch provider swaps (brand coupons/rebates)
@@ -194,7 +210,7 @@ async def get_pop_list(
 
             is_sponsored = s.swap_id in sponsored_swap_ids
             swaps.append({
-                "id": s.swap_id + 1000000 if s.swap_id else 0,
+                "id": s.swap_id,
                 "title": f"{s.swap_product_name} ({s.offer_description})" if s.offer_description else s.swap_product_name,
                 "price": swap_price,
                 "source": "Sponsored Offer" if is_sponsored else f"{s.provider.capitalize()} Offer",
@@ -202,6 +218,7 @@ async def get_pop_list(
                 "image_url": s.swap_product_image,
                 "savings_vs_first": s.savings_cents / 100,
                 "is_sponsored": is_sponsored,
+                "is_selected": bool(s.swap_id and s.swap_id in selected_swap_ids),
             })
 
         # Best coupon badge (PRD-08) — prefer sponsored coupon if available
@@ -291,7 +308,7 @@ async def get_my_pop_list(
     rows_result = await session.execute(rows_stmt)
     rows = rows_result.scalars().all()
 
-    items = [await _build_item_with_deals(session, r) for r in rows]
+    items = [await _build_item_with_deals(session, r, user.id) for r in rows]
     return {"project_id": project.id, "title": project.title, "shopping_mode": project.shopping_mode or False, "items": items}
 
 

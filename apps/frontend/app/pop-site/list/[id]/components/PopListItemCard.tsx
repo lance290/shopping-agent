@@ -17,6 +17,8 @@ interface PopListItemCardProps {
   onQuantityChange: (itemId: number, qty: number) => void;
   onClaimDeal: (itemId: number, dealId: number) => void;
   onUnclaimDeal: (itemId: number, dealId: number) => void;
+  onClaimSwap: (itemId: number, swapId: number) => void;
+  onUnclaimSwap: (itemId: number, swapId: number) => void;
   onEditItem: (item: ListItem) => void;
   onToggleLike: (rowId: number) => void;
   onToggleComments: (rowId: number) => void;
@@ -55,6 +57,8 @@ export default function PopListItemCard({
   onToggleExpanded,
   onSetItemTab,
   onQuantityChange,
+  onClaimSwap,
+  onUnclaimSwap,
   onClaimDeal,
   onUnclaimDeal,
   onEditItem,
@@ -64,6 +68,8 @@ export default function PopListItemCard({
   onSubmitComment,
 }: PopListItemCardProps) {
   const selectedDeal = item.deals.find((d) => d.is_selected);
+  const selectedSwap = item.swaps.find((swap) => swap.is_selected);
+  const selectedOffer = selectedDeal || selectedSwap;
   const qty = parseInt(item.quantity || '1', 10) || 1;
 
   return (
@@ -105,17 +111,17 @@ export default function PopListItemCard({
                 {item.department}
               </span>
             )}
-            {selectedDeal && (
+            {selectedOffer && (
               <span className="text-[10px] font-medium bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">
-                ✓ {selectedDeal.title.slice(0, 30)}{selectedDeal.title.length > 30 ? '…' : ''} — ${selectedDeal.price?.toFixed(2) ?? '?'}
+                ✓ {selectedOffer.title.slice(0, 30)}{selectedOffer.title.length > 30 ? '…' : ''} — ${selectedOffer.price?.toFixed(2) ?? '?'}
               </span>
             )}
-            {!selectedDeal && item.lowest_price != null && (
+            {!selectedOffer && item.lowest_price != null && (
               <span className="text-xs font-semibold text-green-700">
                 from ${item.lowest_price.toFixed(2)}
               </span>
             )}
-            {!selectedDeal && item.deal_count > 0 && (
+            {!selectedOffer && item.deal_count > 0 && (
               <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
                 🏷️ {item.deal_count} deal{item.deal_count !== 1 ? 's' : ''}
               </span>
@@ -175,10 +181,10 @@ export default function PopListItemCard({
         </button>
       </div>
 
-      {shoppingMode && selectedDeal && (
+      {shoppingMode && selectedOffer && (
         <div className="flex items-center gap-2 px-4 pb-3">
           <a
-            href={selectedDeal.url || '#'}
+            href={selectedOffer.url || '#'}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 text-center text-xs font-semibold py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
@@ -393,32 +399,53 @@ export default function PopListItemCard({
               </p>
               <div className="space-y-2">
                 {item.swaps.map((swap) => (
-                  <a
+                  <div
                     key={swap.id}
-                    href={swap.url || '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 bg-white rounded-xl px-3 py-2.5 hover:shadow-md transition-shadow"
+                    className={`flex items-center gap-3 bg-white rounded-xl px-3 py-2.5 transition-shadow ${
+                      swap.is_selected ? 'ring-2 ring-emerald-400 shadow-sm' : 'hover:shadow-md'
+                    }`}
                   >
-                    {swap.image_url ? (
-                      <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 relative">
-                        <img
-                          src={swap.image_url}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
+                    <button
+                      onClick={() => swap.is_selected ? onUnclaimSwap(item.id, swap.id) : onClaimSwap(item.id, swap.id)}
+                      className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                        swap.is_selected
+                          ? 'bg-emerald-500 border-emerald-500'
+                          : 'border-gray-300 hover:border-emerald-400'
+                      }`}
+                      title={swap.is_selected ? 'Unpick this swap' : 'Pick this swap'}
+                    >
+                      {swap.is_selected && (
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                    <a
+                      href={swap.url || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 flex-1 min-w-0"
+                    >
+                      {swap.image_url ? (
+                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 relative">
+                          <img
+                            src={swap.image_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-lg">🔄</span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm text-gray-900 block truncate">
+                          {swap.title}
+                        </span>
+                        <span className="text-xs text-gray-500">{swap.source}</span>
                       </div>
-                    ) : (
-                      <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                        <span className="text-lg">🔄</span>
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm text-gray-900 block truncate">
-                        {swap.title}
-                      </span>
-                      <span className="text-xs text-gray-500">{swap.source}</span>
-                    </div>
+                    </a>
                     <div className="text-right flex-shrink-0">
                       {swap.price != null && (
                         <span className="text-sm font-semibold text-amber-700 block">
@@ -431,7 +458,7 @@ export default function PopListItemCard({
                         </span>
                       )}
                     </div>
-                  </a>
+                  </div>
                 ))}
               </div>
             </div>

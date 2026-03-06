@@ -20,6 +20,8 @@ interface PopListItemsProps {
   onQuantityChange: (itemId: number, qty: number) => void;
   onClaimDeal: (itemId: number, dealId: number) => void;
   onUnclaimDeal: (itemId: number, dealId: number) => void;
+  onClaimSwap: (itemId: number, swapId: number) => void;
+  onUnclaimSwap: (itemId: number, swapId: number) => void;
   onEditItem: (item: ListItem) => void;
   onToggleLike: (rowId: number) => void;
   onToggleComments: (rowId: number) => void;
@@ -43,6 +45,8 @@ export default function PopListItems({
   getItemTab,
   onSetItemTab,
   onQuantityChange,
+  onClaimSwap,
+  onUnclaimSwap,
   onClaimDeal,
   onUnclaimDeal,
   onEditItem,
@@ -88,6 +92,8 @@ export default function PopListItems({
             onQuantityChange={onQuantityChange}
             onClaimDeal={onClaimDeal}
             onUnclaimDeal={onUnclaimDeal}
+            onClaimSwap={onClaimSwap}
+            onUnclaimSwap={onUnclaimSwap}
             onEditItem={onEditItem}
             onToggleLike={onToggleLike}
             onToggleComments={onToggleComments}
