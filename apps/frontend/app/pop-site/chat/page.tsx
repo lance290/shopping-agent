@@ -55,7 +55,7 @@ function PopChatInner() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [expandedItemId, setExpandedItemId] = useState<number | null>(null);
+  const [expandedItemIds, setExpandedItemIds] = useState<Set<number>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -419,8 +419,8 @@ function PopChatInner() {
             projectId={projectId}
             projectTitle={projectTitle}
             allProjects={allProjects}
-            expandedItemId={expandedItemId}
-            setExpandedItemId={setExpandedItemId}
+            expandedItemIds={expandedItemIds}
+            setExpandedItemIds={setExpandedItemIds}
             editingId={editingId}
             editValue={editValue}
             setEditValue={setEditValue}

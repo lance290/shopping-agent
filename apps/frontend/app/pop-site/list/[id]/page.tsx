@@ -56,7 +56,8 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
   const [list, setList] = useState<PopList | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedItem, setExpandedItem] = useState<number | null>(null);
+  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
+  const [hasInitializedExpanded, setHasInitializedExpanded] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
   const [activeTab, setActiveTab] = useState<Record<number, TabType>>({});
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -77,6 +78,11 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
         if (!res.ok) throw new Error('List not found');
         const data = await res.json();
         setList(data);
+        
+        if (!hasInitializedExpanded && data.items) {
+          setExpandedItems(new Set(data.items.map((i: any) => i.id)));
+          setHasInitializedExpanded(true);
+        }
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Failed to load list');
       } finally {
@@ -143,6 +149,15 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
       };
     });
     setShowBulkParse(false);
+  };
+
+  const toggleExpanded = (itemId: number) => {
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
   };
 
   const toggleChecked = (itemId: number) => {
@@ -290,7 +305,7 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
           <ul className="space-y-3">
             {list.items.map((item) => {
               const isChecked = checkedItems.has(item.id);
-              const isExpanded = expandedItem === item.id;
+              const isExpanded = expandedItems.has(item.id);
               const tab = getItemTab(item.id);
 
               return (
@@ -319,7 +334,7 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
 
                     <button
                       className="flex-1 min-w-0 text-left"
-                      onClick={() => setExpandedItem(isExpanded ? null : item.id)}
+                      onClick={() => toggleExpanded(item.id)}
                     >
                       <span
                         className={`text-sm font-medium block truncate ${
@@ -368,7 +383,7 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
                     </button>
 
                     <button
-                      onClick={() => setExpandedItem(isExpanded ? null : item.id)}
+                      onClick={() => toggleExpanded(item.id)}
                       className="p-1 flex-shrink-0"
                     >
                       <svg

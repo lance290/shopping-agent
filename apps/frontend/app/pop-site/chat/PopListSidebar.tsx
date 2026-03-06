@@ -30,8 +30,8 @@ interface PopListSidebarProps {
   projectId: number | null;
   projectTitle: string;
   allProjects: { id: number; title: string }[];
-  expandedItemId: number | null;
-  setExpandedItemId: (id: number | null) => void;
+  expandedItemIds: Set<number>;
+  setExpandedItemIds: (ids: Set<number> | ((prev: Set<number>) => Set<number>)) => void;
   editingId: number | null;
   editValue: string;
   setEditValue: (v: string) => void;
@@ -54,8 +54,8 @@ export default function PopListSidebar({
   projectId,
   projectTitle,
   allProjects,
-  expandedItemId,
-  setExpandedItemId,
+  expandedItemIds,
+  setExpandedItemIds,
   editingId,
   editValue,
   setEditValue,
@@ -148,7 +148,7 @@ export default function PopListSidebar({
           <>
             <ul className="space-y-3">
               {listItems.map((item) => {
-                const isExpanded = expandedItemId === item.id;
+                const isExpanded = expandedItemIds.has(item.id);
                 const selectedDeal = item.deals?.find((d) => d.is_selected);
                 const hasDealChoices = (item.deal_count ?? 0) > 0;
 
@@ -161,7 +161,16 @@ export default function PopListSidebar({
                           selectedDeal ? 'bg-green-500 border-green-500' : 'border-gray-300'
                         }`}
                         title={selectedDeal ? 'Deal picked' : 'No deal picked yet'}
-                        onClick={() => hasDealChoices && setExpandedItemId(isExpanded ? null : item.id)}
+                        onClick={() => {
+                          if (hasDealChoices) {
+                            setExpandedItemIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(item.id)) next.delete(item.id);
+                              else next.add(item.id);
+                              return next;
+                            });
+                          }
+                        }}
                       >
                         {selectedDeal && (
                           <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -185,7 +194,18 @@ export default function PopListSidebar({
                       ) : (
                         <button
                           className="flex-1 text-left min-w-0"
-                          onClick={() => hasDealChoices ? setExpandedItemId(isExpanded ? null : item.id) : startEdit(item)}
+                          onClick={() => {
+                            if (hasDealChoices) {
+                              setExpandedItemIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(item.id)) next.delete(item.id);
+                                else next.add(item.id);
+                                return next;
+                              });
+                            } else {
+                              startEdit(item);
+                            }
+                          }}
                         >
                           <span className="text-sm font-medium text-gray-900 truncate block">{item.title}</span>
                           {hasDealChoices && (
@@ -203,7 +223,14 @@ export default function PopListSidebar({
                       <div className="flex items-center gap-1 flex-shrink-0">
                         {hasDealChoices && (
                           <button
-                            onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
+                            onClick={() => {
+                            setExpandedItemIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(item.id)) next.delete(item.id);
+                              else next.add(item.id);
+                              return next;
+                            });
+                          }}
                             className="p-1 text-gray-400 hover:text-green-600 transition-colors"
                             title="Show deals"
                           >
