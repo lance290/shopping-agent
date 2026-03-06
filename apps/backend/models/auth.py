@@ -43,6 +43,9 @@ class User(SQLModel, table=True):
     referral_share_token: Optional[str] = Field(default=None, index=True)
     signup_source: Optional[str] = Field(default=None)  # "share", "direct", etc.
 
+    # TeamPop Referral (PRD 06)
+    referred_by_id: Optional[int] = Field(foreign_key="user.id", default=None)
+
     # Anti-Fraud & Reputation (PRD 10)
     trust_level: str = "standard"  # "new", "standard", "trusted"
 

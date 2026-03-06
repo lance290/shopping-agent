@@ -21,17 +21,25 @@ class RowBase(SQLModel):
     # Choice factors — JSONB in DB (migration s01)
     choice_factors: Optional[Any] = None  # JSON array of ChoiceFactor objects
     choice_answers: Optional[Any] = None  # JSON object of factor_name -> answer
-    provider_query: Optional[str] = None
 
-    # Search Architecture v2 — JSONB in DB (migration s01)
-    search_intent: Optional[Any] = None  # JSON of SearchIntent
-    provider_query_map: Optional[Any] = None  # JSON of ProviderQueryMap
+    # Agent state — JSONB
+    search_intent: Optional[Any] = None
+    provider_query_map: Optional[Any] = None
+    chat_history: Optional[Any] = None
+
+    # Origin context
+    origin_channel: Optional[str] = None
+    origin_message_id: Optional[str] = None
+    origin_user_id: Optional[int] = None
+    
+    # CPG Network metadata (PRD-08)
+    retailer_sku: Optional[str] = None
+    brand_name: Optional[str] = None
 
     # Outreach tracking (Phase 2)
     outreach_status: Optional[str] = None  # none, in_progress, complete
     outreach_count: int = 0
 
-    # Chat history for this row — JSONB in DB (migration s01)
     chat_history: Optional[Any] = None
 
     # Service detection - set by LLM, persisted on row
