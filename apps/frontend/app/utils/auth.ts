@@ -40,9 +40,15 @@ export const startAuth = async (phone: string): Promise<AuthStartResponse> => {
 export const verifyAuth = async (phone: string, code: string): Promise<AuthVerifyResponse> => {
   // Viral Flywheel (PRD 06): include referral token if user arrived via share link
   const referralToken = typeof window !== 'undefined' ? localStorage.getItem('referral_token') : null;
+  // TeamPop Referral (PRD 06): include affiliate code if user arrived via /?ref=XYZ
+  const refCode = typeof window !== 'undefined' ? localStorage.getItem('pop_ref_code') : null;
+
   const body: Record<string, string> = { phone, code };
   if (referralToken) {
     body.referral_token = referralToken;
+  }
+  if (refCode) {
+    body.ref_code = refCode;
   }
 
   const res = await fetch('/api/auth/verify', {
@@ -56,9 +62,10 @@ export const verifyAuth = async (phone: string, code: string): Promise<AuthVerif
     throw new Error(error.detail || 'Failed to verify code');
   }
 
-  // Clear referral token after successful signup
-  if (referralToken && typeof window !== 'undefined') {
-    localStorage.removeItem('referral_token');
+  // Clear tokens after successful signup
+  if (typeof window !== 'undefined') {
+    if (referralToken) localStorage.removeItem('referral_token');
+    if (refCode) localStorage.removeItem('pop_ref_code');
   }
 
   return res.json();

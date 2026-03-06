@@ -1,7 +1,8 @@
 """Coupon/swap offer models for Pop savings agent."""
 
+import secrets
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlmodel import Field, SQLModel
 
 
@@ -75,3 +76,51 @@ class PopSwapClaim(SQLModel, table=True):
     verified_at: Optional[datetime] = None
     paid_at: Optional[datetime] = None
     receipt_id: Optional[str] = Field(default=None, foreign_key="receipt.id")
+
+
+class CouponCampaign(SQLModel, table=True):
+    """
+    Tracks a brand outreach campaign (PRD-08).
+
+    When high-velocity items lack active coupons, the system creates a campaign
+    and sends a magic link to the brand PM. The PM uses the link to submit a
+    coupon via the brand portal.
+    """
+    __tablename__ = "coupon_campaign"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    brand_name: str = Field(index=True)
+    brand_contact_email: Optional[str] = None
+    category: str                              # e.g. "laundry detergent"
+    target_product: Optional[str] = None       # e.g. "Tide Pods 42ct"
+    intent_count: int = 0                      # how many users want this product
+    status: str = "pending"                    # pending, sent, claimed, expired
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
+    swap_id: Optional[int] = Field(default=None, foreign_key="pop_swap.id")
+
+
+def _default_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def _default_expiry() -> datetime:
+    return datetime.utcnow() + timedelta(days=7)
+
+
+class BrandPortalToken(SQLModel, table=True):
+    """
+    Magic-link token for brand portal access (PRD-08).
+
+    A PM receives a URL like /brands/claim?token=XYZ. The token maps to
+    a campaign so the PM can submit a coupon for the right product.
+    """
+    __tablename__ = "brand_portal_token"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    token: str = Field(default_factory=_default_token, index=True, unique=True)
+    campaign_id: int = Field(foreign_key="coupon_campaign.id")
+    brand_email: Optional[str] = None
+    is_used: bool = False
+    expires_at: datetime = Field(default_factory=_default_expiry)
+    created_at: datetime = Field(default_factory=datetime.utcnow)

@@ -44,7 +44,7 @@ async def test_join_list_creates_member(
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["status"] == "joined"
+    assert data["joined"] is True
 
     from sqlmodel import select
     result = await session.exec(
@@ -70,7 +70,7 @@ async def test_join_list_invalid_token_403(
         json={"token": "bogus-token-abc"},
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -92,4 +92,4 @@ async def test_join_list_expired_invite_403(
         json={"token": pop_invite.id},
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 410

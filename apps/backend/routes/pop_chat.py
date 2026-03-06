@@ -236,6 +236,7 @@ async def pop_web_chat(
                     session, user.id, item_title, project.id,
                     False, None, {}, item_query,
                     desire_tier="commodity",
+                    origin_channel="web",
                 )
                 created_rows.append((row, item_query))
             # Search for deals on each created row
@@ -256,6 +257,7 @@ async def pop_web_chat(
                 session, user.id, title, project.id,
                 is_service, service_category, constraints, search_query,
                 desire_tier=intent.desire_tier,
+                origin_channel="web",
             )
             target_row = row
 

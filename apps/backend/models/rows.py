@@ -21,17 +21,25 @@ class RowBase(SQLModel):
     # Choice factors — JSONB in DB (migration s01)
     choice_factors: Optional[Any] = None  # JSON array of ChoiceFactor objects
     choice_answers: Optional[Any] = None  # JSON object of factor_name -> answer
-    provider_query: Optional[str] = None
 
-    # Search Architecture v2 — JSONB in DB (migration s01)
-    search_intent: Optional[Any] = None  # JSON of SearchIntent
-    provider_query_map: Optional[Any] = None  # JSON of ProviderQueryMap
+    # Agent state — JSONB
+    search_intent: Optional[Any] = None
+    provider_query_map: Optional[Any] = None
+    chat_history: Optional[Any] = None
+
+    # Origin context
+    origin_channel: Optional[str] = None
+    origin_message_id: Optional[str] = None
+    origin_user_id: Optional[int] = None
+    
+    # CPG Network metadata (PRD-08)
+    retailer_sku: Optional[str] = None
+    brand_name: Optional[str] = None
 
     # Outreach tracking (Phase 2)
     outreach_status: Optional[str] = None  # none, in_progress, complete
     outreach_count: int = 0
 
-    # Chat history for this row — JSONB in DB (migration s01)
     chat_history: Optional[Any] = None
 
     # Service detection - set by LLM, persisted on row
@@ -47,6 +55,10 @@ class RowBase(SQLModel):
 
     # SDUI schema (Phase 0.2)
     ui_schema_version: int = 0  # 0 = never had a schema; increments on each replacement
+
+    # Attribution (PRD-02: Grocery Taxonomy & History UI)
+    origin_channel: Optional[str] = None  # "sms", "email", "web"
+    origin_user_id: Optional[int] = None  # user who added this item (may differ from project owner)
 
     # Anonymous session scoping — browser-generated UUID stored in localStorage
     # Used to filter rows so each anonymous browser session only sees its own rows
@@ -107,6 +119,17 @@ class ProjectInvite(SQLModel, table=True):
     invited_by: int = Field(foreign_key="user.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     expires_at: Optional[datetime] = Field(default=None)
+
+
+class GroupThread(SQLModel, table=True):
+    """Maps a group MMS thread (hash of sorted phone numbers) to a Project."""
+    __tablename__ = "group_thread"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    thread_hash: str = Field(index=True, unique=True)
+    project_id: int = Field(foreign_key="project.id", index=True)
+    phone_numbers: str = ""  # comma-separated sorted phone numbers for debugging
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class Row(RowBase, table=True):

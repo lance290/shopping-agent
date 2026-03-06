@@ -124,3 +124,32 @@
 - **Gap**: `outreach_monitor.py::send_followup()` called `send_reminder_email()` with wrong keyword args (`vendor_name`, `row_id`), which would cause TypeError at runtime.
 - **Resolution**: Fixed to use correct params (`to_name`, `company_name`, `request_summary`, `quote_token`). Added `Row` fetch to get `request_summary`.
 - **Confidence**: High
+
+---
+# PRD-01-multimodal Build-All (2026-03-05)
+
+## Architecture Discovery
+- **Backend**: FastAPI + SQLModel + asyncpg, Python 3.11, uv package manager
+- **Frontend**: Next.js 15 App Router, React 18, Tailwind, Zustand, pnpm
+- **LLM**: OpenRouter primary (google/gemini-3-flash-preview), Gemini direct fallback, circuit breaker on 402
+- **DB**: PostgreSQL 5437, pgvector, Alembic migrations
+
+## Implementation Status Assessment
+| PRD Requirement | Status | File(s) |
+|:---|:---|:---|
+| Twilio MMS parsing (`NumMedia`/`MediaUrlX`) | ✅ Done | `routes/pop.py` `_extract_twilio_media_urls()` |
+| Resend attachment parsing | ✅ Done | `routes/pop.py` `_extract_resend_image_urls()` |
+| Image-only synthetic prompt | ✅ Done | `routes/pop.py` lines 128-129, 180-181 |
+| Nested Resend `data` envelope | ✅ Done | `routes/pop.py` line 113 |
+| `ChatContext.image_urls` model field | ✅ Done | `services/llm_models.py` line 65 |
+| `pop_processor` accepts/passes image_urls | ✅ Done | `routes/pop_processor.py` line 38, 128 |
+| OpenRouter multimodal content array | ✅ Done | `services/llm_core.py` lines 87-98 |
+| Gemini direct fallback (text-only graceful) | ✅ Done | `services/llm_core.py` lines 42-46 |
+| LLM prompt instructs image extraction | ✅ Done | `services/llm_pop.py` line 65 (rule 8) |
+| Webhook tests (14 total) | ✅ Done | `tests/test_pop_webhooks.py` |
+
+## Gaps Found
+1. **Missing unit tests for helper functions** — `_extract_twilio_media_urls()` and `_extract_resend_image_urls()` have no direct unit tests. Edge cases (non-image media, malformed data, multiple images) are untested.
+2. **Missing unit test for OpenRouter multimodal formatting** — no test verifies the content array `[{type:text}, {type:image_url}]` structure.
+3. **Missing mixed text+image test** — webhook tests cover image-only but not text + image combo.
+4. **Confidence**: High — core implementation is complete, only test coverage gaps remain.

@@ -351,3 +351,255 @@ async def test_delete_item_soft_deletes_row(
     assert pop_row.status == "canceled", "Row must be soft-deleted (status=canceled)"
 
 
+# ---------------------------------------------------------------------------
+# PRD-02: Grocery Taxonomy & Attribution
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_patch_item_taxonomy_fields(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    pop_row: Row,
+):
+    """PATCH /pop/item/{id} accepts and persists taxonomy fields in choice_answers."""
+    _, token = pop_user
+    resp = await client.patch(
+        f"/pop/item/{pop_row.id}",
+        json={"department": "Dairy", "brand": "Tillamook", "quantity": "2", "size": "gallon"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["department"] == "Dairy"
+    assert data["brand"] == "Tillamook"
+    assert data["quantity"] == "2"
+    assert data["size"] == "gallon"
+
+    await session.refresh(pop_row)
+    answers = pop_row.choice_answers or {}
+    assert answers["department"] == "Dairy"
+    assert answers["brand"] == "Tillamook"
+
+
+@pytest.mark.asyncio
+async def test_patch_item_title_and_taxonomy(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    pop_row: Row,
+):
+    """PATCH /pop/item/{id} can update title and taxonomy in one request."""
+    _, token = pop_user
+    resp = await client.patch(
+        f"/pop/item/{pop_row.id}",
+        json={"title": "Organic Whole Milk", "department": "Dairy"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["title"] == "Organic Whole Milk"
+    assert data["department"] == "Dairy"
+
+
+@pytest.mark.asyncio
+async def test_patch_item_returns_attribution(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    pop_row: Row,
+):
+    """PATCH response includes origin_channel and origin_user_id."""
+    user, token = pop_user
+    pop_row.origin_channel = "sms"
+    pop_row.origin_user_id = user.id
+    session.add(pop_row)
+    await session.commit()
+
+    resp = await client.patch(
+        f"/pop/item/{pop_row.id}",
+        json={"department": "Produce"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["origin_channel"] == "sms"
+    assert data["origin_user_id"] == user.id
+
+
+# ---------------------------------------------------------------------------
+# PRD-03: Household Member Management
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_get_project_members(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    pop_project: Project,
+):
+    """GET /pop/projects/{id}/members returns members list."""
+    user, token = pop_user
+    from routes.pop_helpers import _ensure_project_member
+    await _ensure_project_member(session, pop_project.id, user.id, channel="web", role="owner")
+
+    resp = await client.get(
+        f"/pop/projects/{pop_project.id}/members",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["project_id"] == pop_project.id
+    assert isinstance(data["members"], list)
+    assert len(data["members"]) >= 1
+    assert any(m["user_id"] == user.id for m in data["members"])
+
+
+@pytest.mark.asyncio
+async def test_get_project_members_401_without_auth(
+    client: AsyncClient,
+    pop_project: Project,
+):
+    resp = await client.get(f"/pop/projects/{pop_project.id}/members")
+    assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_remove_project_member(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    other_user,
+    pop_project: Project,
+):
+    """Owner can remove a member from the household."""
+    user, token = pop_user
+    other, _ = other_user
+    from routes.pop_helpers import _ensure_project_member
+    await _ensure_project_member(session, pop_project.id, user.id, channel="web", role="owner")
+    await _ensure_project_member(session, pop_project.id, other.id, channel="sms", role="member")
+
+    resp = await client.delete(
+        f"/pop/projects/{pop_project.id}/members/{other.id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["removed"] is True
+
+    # Verify member is gone
+    members_resp = await client.get(
+        f"/pop/projects/{pop_project.id}/members",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    member_ids = [m["user_id"] for m in members_resp.json()["members"]]
+    assert other.id not in member_ids
+
+
+@pytest.mark.asyncio
+async def test_remove_self_from_own_list_400(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    pop_project: Project,
+):
+    """Owner cannot remove themselves."""
+    user, token = pop_user
+    resp = await client.delete(
+        f"/pop/projects/{pop_project.id}/members/{user.id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_non_owner_cannot_remove_member(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    other_user,
+    pop_project: Project,
+):
+    """Non-owner gets 403 when trying to remove a member."""
+    user, _ = pop_user
+    other, other_token = other_user
+    from routes.pop_helpers import _ensure_project_member
+    await _ensure_project_member(session, pop_project.id, user.id, channel="web", role="owner")
+    await _ensure_project_member(session, pop_project.id, other.id, channel="web", role="member")
+
+    resp = await client.delete(
+        f"/pop/projects/{pop_project.id}/members/{user.id}",
+        headers={"Authorization": f"Bearer {other_token}"},
+    )
+    assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# PRD-04: Bulk Actions (Parse & Clear)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_clear_completed_items(
+    client: AsyncClient,
+    session: AsyncSession,
+    pop_user,
+    pop_project: Project,
+):
+    """POST /projects/{id}/clear_completed archives closed items."""
+    user, token = pop_user
+    
+    # Create two rows, one closed, one open
+    from routes.chat_helpers import _create_row
+    await _create_row(session, user.id, "Open Item", pop_project.id, False, None, {})
+    closed_row = await _create_row(session, user.id, "Closed Item", pop_project.id, False, None, {})
+    closed_row.status = "closed"
+    session.add(closed_row)
+    await session.commit()
+
+    resp = await client.post(
+        f"/pop/projects/{pop_project.id}/clear_completed",
+        json={"row_ids": [closed_row.id]},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["cleared"] == 1
+
+    # Verify only open item remains active
+    from sqlmodel import select
+    from models.rows import Row
+    stmt = select(Row).where(Row.project_id == pop_project.id).where(Row.status != "archived")
+    result = await session.execute(stmt)
+    rows = result.scalars().all()
+    assert len(rows) == 1
+    assert rows[0].title == "Open Item"
+
+
+@pytest.mark.asyncio
+@patch("routes.pop_list.parse_bulk_grocery_text")
+async def test_bulk_parse_items(
+    mock_parse,
+    client: AsyncClient,
+    pop_user,
+    pop_project: Project,
+):
+    """POST /projects/{id}/bulk_parse extracts text into rows."""
+    user, token = pop_user
+    mock_parse.return_value = [
+        {"name": "Milk", "qty": "1 gal", "department": "Dairy"},
+        {"name": "Bread", "qty": "2 loaves", "department": "Bakery"},
+    ]
+
+    resp = await client.post(
+        f"/pop/projects/{pop_project.id}/bulk_parse",
+        json={"text": "Need milk and bread"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["parsed_items"] == 2
+    assert len(data["rows"]) == 2
+    assert data["rows"][0]["title"] == "Milk"
+    assert data["rows"][0]["department"] == "Dairy"
+    assert data["rows"][0]["quantity"] == "1 gal"
+
+
+

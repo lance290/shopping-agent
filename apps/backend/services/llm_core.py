@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import time
+from typing import Optional, List, Any
 
 import httpx
 
@@ -29,7 +30,7 @@ def _get_openrouter_api_key() -> str:
     return os.getenv("OPENROUTER_API_KEY") or ""
 
 
-async def _call_gemini_direct(prompt: str, timeout: float = 30.0) -> str:
+async def _call_gemini_direct(prompt: str, timeout: float = 30.0, image_urls: Optional[List[str]] = None) -> str:
     """Call Gemini REST API directly."""
     api_key = _get_gemini_api_key()
     if not api_key:
@@ -37,8 +38,31 @@ async def _call_gemini_direct(prompt: str, timeout: float = 30.0) -> str:
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
+    parts = [{"text": prompt}]
+    
+    if image_urls:
+        import base64
+        import mimetypes
+        
+        async with httpx.AsyncClient() as dl_client:
+            for img_url in image_urls:
+                try:
+                    resp = await dl_client.get(img_url, timeout=10.0)
+                    resp.raise_for_status()
+                    b64_data = base64.b64encode(resp.content).decode("utf-8")
+                    mime_type = mimetypes.guess_type(img_url)[0] or "image/jpeg"
+                    
+                    parts.append({
+                        "inlineData": {
+                            "mimeType": mime_type,
+                            "data": b64_data
+                        }
+                    })
+                except Exception as e:
+                    logger.warning(f"[LLM] Failed to download image {img_url} for Gemini fallback: {e}")
+
     payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
+        "contents": [{"parts": parts}],
         "generationConfig": {
             "temperature": 0.2,
             "maxOutputTokens": 4096,
@@ -64,7 +88,7 @@ async def _call_gemini_direct(prompt: str, timeout: float = 30.0) -> str:
     return parts[0].get("text", "")
 
 
-async def _call_openrouter(prompt: str, timeout: float = 30.0) -> str:
+async def _call_openrouter(prompt: str, timeout: float = 30.0, image_urls: Optional[List[str]] = None) -> str:
     """Call OpenRouter API (OpenAI-compatible)."""
     api_key = _get_openrouter_api_key()
     if not api_key:
@@ -75,9 +99,23 @@ async def _call_openrouter(prompt: str, timeout: float = 30.0) -> str:
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
+    content: Any = prompt
+    if image_urls:
+        multimodal_content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+        for image_url in image_urls:
+            if not image_url:
+                continue
+            multimodal_content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": image_url},
+                }
+            )
+        content = multimodal_content
+
     payload = {
         "model": OPENROUTER_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [{"role": "user", "content": content}],
         "temperature": 0.2,
         "max_tokens": 4096,
     }
@@ -93,7 +131,7 @@ async def _call_openrouter(prompt: str, timeout: float = 30.0) -> str:
     return choices[0].get("message", {}).get("content", "")
 
 
-async def call_gemini(prompt: str, timeout: float = 30.0) -> str:
+async def call_gemini(prompt: str, timeout: float = 30.0, image_urls: Optional[List[str]] = None) -> str:
     """Call LLM: try OpenRouter first, fall back to Gemini direct. Circuit-breaker on 402."""
     global _openrouter_backoff_until
     t0 = time.monotonic()
@@ -101,7 +139,7 @@ async def call_gemini(prompt: str, timeout: float = 30.0) -> str:
     # Primary: OpenRouter (skip if circuit breaker is active)
     if _get_openrouter_api_key() and time.monotonic() >= _openrouter_backoff_until:
         try:
-            result = await _call_openrouter(prompt, timeout)
+            result = await _call_openrouter(prompt, timeout, image_urls=image_urls)
             elapsed = time.monotonic() - t0
             logger.info(f"[LLM] OpenRouter responded in {elapsed:.1f}s")
             return result
@@ -120,7 +158,7 @@ async def call_gemini(prompt: str, timeout: float = 30.0) -> str:
     # Fallback: Gemini direct API
     if _get_gemini_api_key():
         try:
-            result = await _call_gemini_direct(prompt, timeout)
+            result = await _call_gemini_direct(prompt, timeout, image_urls=image_urls)
             elapsed = time.monotonic() - t0
             logger.info(f"[LLM] Gemini direct responded in {elapsed:.1f}s")
             return result

@@ -33,6 +33,7 @@ from models.rows import (
     Project,
     ProjectMember,
     ProjectInvite,
+    GroupThread,
     Row,
     RequestSpec,
 )
@@ -49,6 +50,8 @@ from models.bids import (
 from models.social import (
     Comment,
     ShareLink,
+    RowReaction,
+    RowComment,
     ClickoutEvent,
     PurchaseEvent,
 )
@@ -89,6 +92,8 @@ from models.pop import (
 from models.coupons import (
     PopSwap,
     PopSwapClaim,
+    CouponCampaign,
+    BrandPortalToken,
 )
 
 # Admin models
@@ -153,6 +158,8 @@ __all__ = [
     # Coupons
     "PopSwap",
     "PopSwapClaim",
+    "CouponCampaign",
+    "BrandPortalToken",
     # Admin
     "BugReport",
     "Notification",

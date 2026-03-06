@@ -98,7 +98,7 @@ async def test_chat_authenticated_creates_family_shopping_list(
     from sqlmodel import select
     proj = await session.get(Project, data["project_id"])
     assert proj is not None
-    assert proj.title == "Family Shopping List"
+    assert proj.title == "My Shopping List"
 
 
 @pytest.mark.asyncio
@@ -107,7 +107,7 @@ async def test_chat_authenticated_reuses_existing_project(
     pop_user,
     pop_project: Project,
 ):
-    """Chat must reuse an existing 'Family Shopping List', not create a duplicate."""
+    """Chat must reuse an existing 'My Shopping List', not create a duplicate."""
     _, token = pop_user
     with patch("routes.pop_chat.make_pop_decision", new_callable=AsyncMock, return_value=_mock_pop_decision()):
         with patch("routes.pop_chat._trigger_search_local", return_value=_empty_async_gen()):

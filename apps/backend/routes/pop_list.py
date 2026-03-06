@@ -7,7 +7,8 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
+from sqlalchemy import update
 from pydantic import BaseModel
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -15,15 +16,50 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from database import get_session
 from models.rows import Row, Project, ProjectInvite
 from models.bids import Bid
+from models.social import RowReaction, RowComment
 from services.llm import call_gemini
 from routes.pop_helpers import POP_DOMAIN, _get_pop_user, _ensure_project_member, _build_item_with_deals
 from models.rows import ProjectMember
 from services.coupon_provider import get_coupon_provider
+from services.llm_pop import parse_bulk_grocery_text
+from routes.chat_helpers import _create_row
 
 logger = logging.getLogger(__name__)
 list_router = APIRouter()
 
 from routes.pop_offers import _classify_swaps_llm  # noqa: F401 — re-exported for backward compat
+
+
+def _extract_taxonomy(row: Row) -> dict:
+    """Extract taxonomy fields (department, brand, size, quantity) from choice_answers."""
+    answers = row.choice_answers if isinstance(row.choice_answers, dict) else {}
+    return {
+        "department": answers.get("department"),
+        "brand": answers.get("brand"),
+        "size": answers.get("size"),
+        "quantity": answers.get("quantity"),
+    }
+
+
+def _item_response(row: Row, like_count: int = 0, user_liked: bool = False, comment_count: int = 0) -> dict:
+    """Build a single-item response dict with taxonomy + attribution."""
+    taxonomy = _extract_taxonomy(row)
+    return {
+        "id": row.id,
+        "title": row.title,
+        "status": row.status,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "origin_channel": row.origin_channel,
+        "origin_user_id": row.origin_user_id,
+        "like_count": like_count,
+        "user_liked": user_liked,
+        "comment_count": comment_count,
+        "deals": [],
+        "swaps": [],
+        "lowest_price": None,
+        "deal_count": 0,
+        **taxonomy,
+    }
 
 
 @list_router.get("/list/{project_id}")
@@ -63,9 +99,31 @@ async def get_pop_list(
     rows_result = await session.execute(rows_stmt)
     rows = rows_result.scalars().all()
 
+    # Bulk fetch social data (PRD-07)
+    row_ids = [r.id for r in rows] if rows else []
+    reactions_by_row = {}
+    comments_by_row = {}
+    if row_ids:
+        # Reactions
+        react_stmt = select(RowReaction).where(RowReaction.row_id.in_(row_ids))
+        react_res = await session.execute(react_stmt)
+        for r in react_res.scalars().all():
+            reactions_by_row.setdefault(r.row_id, []).append(r)
+        
+        # Comments
+        comm_stmt = select(RowComment).where(RowComment.row_id.in_(row_ids), RowComment.status == "active")
+        comm_res = await session.execute(comm_stmt)
+        for c in comm_res.scalars().all():
+            comments_by_row.setdefault(c.row_id, []).append(c)
+
     provider = get_coupon_provider()
     items = []
     for row in rows:
+        row_likes = reactions_by_row.get(row.id, [])
+        like_count = len(row_likes)
+        user_liked = any(r.user_id == user.id for r in row_likes)
+        comment_count = len(comments_by_row.get(row.id, []))
+
         bids_stmt = (
             select(Bid)
             .where(Bid.row_id == row.id)
@@ -115,27 +173,65 @@ async def get_pop_list(
 
         # Fetch provider swaps (brand coupons/rebates)
         provider_swaps = await provider.search_swaps(category=row.title, product_name=row.title, session=session)
+
+        # Sponsored Deal Slot Logic (PRD-08): if the user was referred by a Brand Manager,
+        # sort that brand's coupons to the top and flag them as sponsored.
+        referrer_brand_user_id: Optional[int] = user.referred_by_id
+        if referrer_brand_user_id and provider_swaps:
+            sponsored = [s for s in provider_swaps if s.brand_user_id == referrer_brand_user_id]
+            non_sponsored = [s for s in provider_swaps if s.brand_user_id != referrer_brand_user_id]
+            provider_swaps = sponsored + non_sponsored
+        else:
+            sponsored = []
+
+        sponsored_swap_ids = {s.swap_id for s in sponsored} if sponsored else set()
+
         for s in provider_swaps:
             base_price = deals[0]["price"] if deals else None
             swap_price = base_price - (s.savings_cents / 100) if base_price else None
             if swap_price is not None and swap_price < 0:
                 swap_price = 0.0
-            
+
+            is_sponsored = s.swap_id in sponsored_swap_ids
             swaps.append({
                 "id": s.swap_id + 1000000 if s.swap_id else 0,
                 "title": f"{s.swap_product_name} ({s.offer_description})" if s.offer_description else s.swap_product_name,
                 "price": swap_price,
-                "source": f"{s.provider.capitalize()} Offer",
+                "source": "Sponsored Offer" if is_sponsored else f"{s.provider.capitalize()} Offer",
                 "url": s.swap_product_url,
                 "image_url": s.swap_product_image,
                 "savings_vs_first": s.savings_cents / 100,
+                "is_sponsored": is_sponsored,
             })
 
+        # Best coupon badge (PRD-08) — prefer sponsored coupon if available
+        coupon_badge = None
+        if provider_swaps:
+            best = provider_swaps[0]
+            is_best_sponsored = best.swap_id in sponsored_swap_ids
+            coupon_badge = {
+                "swap_id": best.swap_id,
+                "savings_cents": best.savings_cents,
+                "savings_display": f"${best.savings_cents / 100:.2f} Off",
+                "brand_name": best.brand_name,
+                "product_name": best.swap_product_name,
+                "url": best.swap_product_url,
+                "is_sponsored": is_best_sponsored,
+            }
+
+        taxonomy = _extract_taxonomy(row)
         items.append({
             "id": row.id,
             "title": row.title,
             "status": row.status,
             "created_at": row.created_at.isoformat() if row.created_at else None,
+            "origin_channel": row.origin_channel,
+            "origin_user_id": row.origin_user_id,
+            "like_count": like_count,
+            "user_liked": user_liked,
+            "comment_count": comment_count,
+            "coupon": coupon_badge,
+            **taxonomy,
             "deals": deals,
             "swaps": swaps[:3],
             "lowest_price": lowest_price,
@@ -390,8 +486,18 @@ async def join_pop_list(
     return {"joined": True, "project_id": project.id, "title": project.title}
 
 
+GROCERY_DEPARTMENTS = [
+    "Produce", "Meat", "Dairy", "Pantry", "Frozen",
+    "Bakery", "Household", "Personal Care", "Pet", "Other",
+]
+
+
 class PatchItemRequest(BaseModel):
-    title: str
+    title: Optional[str] = None
+    department: Optional[str] = None
+    brand: Optional[str] = None
+    size: Optional[str] = None
+    quantity: Optional[str] = None
 
 
 @list_router.patch("/item/{row_id}")
@@ -401,20 +507,53 @@ async def patch_pop_item(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ):
-    """Rename a list item."""
+    """Update a list item's title and/or taxonomy fields (department, brand, size, quantity)."""
     user = await _get_pop_user(request, session)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     row = await session.get(Row, row_id)
-    if not row or row.user_id != user.id:
+    if not row:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    row.title = body.title.strip()
+    # Verify the user is a member of the item's project (not just the creator)
+    if row.project_id:
+        member_stmt = select(ProjectMember).where(
+            ProjectMember.project_id == row.project_id,
+            ProjectMember.user_id == user.id,
+        )
+        member_result = await session.execute(member_stmt)
+        project = await session.get(Project, row.project_id)
+        is_owner = project and project.user_id == user.id
+        if not member_result.scalar_one_or_none() and not is_owner:
+            raise HTTPException(status_code=404, detail="Item not found")
+    elif row.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    if body.title is not None:
+        row.title = body.title.strip()
+
+    answers = dict(row.choice_answers) if isinstance(row.choice_answers, dict) else {}
+    changed = False
+    for key in ("department", "brand", "size", "quantity"):
+        val = getattr(body, key, None)
+        if val is not None:
+            val_clean = val.strip()
+            if not val_clean and key in answers:
+                del answers[key]
+                changed = True
+            elif val_clean and answers.get(key) != val_clean:
+                answers[key] = val_clean
+                changed = True
+    if changed:
+        row.choice_answers = answers
+
     row.updated_at = datetime.utcnow()
     session.add(row)
     await session.commit()
-    return {"id": row.id, "title": row.title, "status": row.status}
+    await session.refresh(row)
+
+    return await _build_item_with_deals(session, row)
 
 
 @list_router.delete("/item/{row_id}")
@@ -429,7 +568,21 @@ async def delete_pop_item(
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     row = await session.get(Row, row_id)
-    if not row or row.user_id != user.id:
+    if not row:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    # Verify the user is a member of the item's project (not just the creator)
+    if row.project_id:
+        member_stmt = select(ProjectMember).where(
+            ProjectMember.project_id == row.project_id,
+            ProjectMember.user_id == user.id,
+        )
+        member_result = await session.execute(member_stmt)
+        project = await session.get(Project, row.project_id)
+        is_owner = project and project.user_id == user.id
+        if not member_result.scalar_one_or_none() and not is_owner:
+            raise HTTPException(status_code=404, detail="Item not found")
+    elif row.user_id != user.id:
         raise HTTPException(status_code=404, detail="Item not found")
 
     row.status = "canceled"
@@ -437,6 +590,201 @@ async def delete_pop_item(
     session.add(row)
     await session.commit()
     return {"deleted": True}
+
+
+# ---------------------------------------------------------------------------
+# Household Member Management (PRD-03)
+# ---------------------------------------------------------------------------
+
+@list_router.get("/projects/{project_id}/members")
+async def get_project_members(
+    project_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """List all members of a household/project."""
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Must be owner or member to view members
+    member_stmt = select(ProjectMember).where(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id == user.id,
+    )
+    member_result = await session.execute(member_stmt)
+    if not member_result.scalar_one_or_none() and project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not a member of this list")
+
+    from models.auth import User as AuthUser
+    stmt = (
+        select(ProjectMember, AuthUser)
+        .join(AuthUser, ProjectMember.user_id == AuthUser.id)
+        .where(ProjectMember.project_id == project_id)
+        .order_by(ProjectMember.joined_at.asc())
+    )
+    result = await session.execute(stmt)
+    rows = result.all()
+
+    members = []
+    for pm, u in rows:
+        members.append({
+            "user_id": u.id,
+            "name": u.name or u.email,
+            "email": u.email,
+            "role": pm.role,
+            "channel": pm.channel,
+            "joined_at": pm.joined_at.isoformat() if pm.joined_at else None,
+            "is_owner": project.user_id == u.id,
+        })
+
+    return {"project_id": project_id, "members": members}
+
+
+@list_router.delete("/projects/{project_id}/members/{member_user_id}")
+async def remove_project_member(
+    project_id: int,
+    member_user_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Remove a member from the household. Only the project owner can do this."""
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the list owner can remove members")
+
+    if member_user_id == user.id:
+        raise HTTPException(status_code=400, detail="Cannot remove yourself from your own list")
+
+    stmt = select(ProjectMember).where(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id == member_user_id,
+    )
+    result = await session.execute(stmt)
+    member = result.scalar_one_or_none()
+
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    await session.delete(member)
+    await session.commit()
+    return {"removed": True, "user_id": member_user_id}
+
+
+class BulkParseRequest(BaseModel):
+    text: str
+
+
+@list_router.post("/projects/{project_id}/bulk_parse")
+async def bulk_parse_items(
+    project_id: int,
+    body: BulkParseRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+):
+    """Parse a wall of text into multiple grocery list items."""
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    await _ensure_project_member(session, project.id, user.id, channel="web")
+
+    items = await parse_bulk_grocery_text(body.text)
+    if not items:
+        return {"parsed_items": 0, "rows": []}
+
+    created_rows = []
+    
+    # helper for background task
+    async def _source_item_bg(row_id: int, query: str):
+        from routes.chat import _stream_search
+        try:
+            async for _batch in _stream_search(row_id, query, authorization=None):
+                pass
+        except Exception as e:
+            logger.error(f"[Pop] Error in bulk parse background sourcing for row {row_id}: {e}")
+
+    for item in items:
+        name = item.get("name")
+        if not name:
+            continue
+        
+        constraints = {}
+        if item.get("qty"):
+            constraints["quantity"] = str(item["qty"])
+        if item.get("department"):
+            constraints["department"] = str(item["department"])
+
+        row = await _create_row(
+            session=session,
+            user_id=user.id,
+            title=name,
+            project_id=project.id,
+            is_service=False,
+            service_category=None,
+            constraints=constraints,
+            origin_channel="web"
+        )
+        created_rows.append(_item_response(row))
+        
+        # trigger background sourcing for each item so deals show up
+        search_query = f"{name} grocery deals"
+        background_tasks.add_task(_source_item_bg, row.id, search_query)
+
+    return {"parsed_items": len(created_rows), "rows": created_rows}
+
+
+class ClearCompletedRequest(BaseModel):
+    row_ids: list[int]
+
+
+@list_router.post("/projects/{project_id}/clear_completed")
+async def clear_completed_items(
+    project_id: int,
+    body: ClearCompletedRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Sweep specified items from the active view."""
+    user = await _get_pop_user(request, session)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    project = await session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    await _ensure_project_member(session, project.id, user.id, channel="web")
+
+    if not body.row_ids:
+        return {"cleared": 0}
+
+    stmt = (
+        update(Row)
+        .where(Row.project_id == project_id)
+        .where(Row.id.in_(body.row_ids))
+        .values(status="archived", updated_at=datetime.utcnow())
+    )
+    result = await session.execute(stmt)
+    await session.commit()
+    
+    return {"cleared": result.rowcount}
 
 
 # Offer claim/unclaim endpoints moved to routes/pop_offers.py

@@ -3,6 +3,9 @@
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import PopItemEditor from './PopItemEditor';
+import HouseholdModal from './HouseholdModal';
+import BulkParseModal from './BulkParseModal';
 
 interface Deal {
   id: number;
@@ -32,6 +35,24 @@ interface ListItem {
   swaps: Swap[];
   lowest_price: number | null;
   deal_count: number;
+  department?: string | null;
+  brand?: string | null;
+  size?: string | null;
+  quantity?: string | null;
+  origin_channel?: string | null;
+  origin_user_id?: number | null;
+  like_count?: number;
+  user_liked?: boolean;
+  comment_count?: number;
+  coupon?: {
+    swap_id: number;
+    savings_cents: number;
+    savings_display: string;
+    brand_name: string | null;
+    product_name: string;
+    url: string | null;
+    is_sponsored?: boolean;
+  } | null;
 }
 
 interface PopList {
@@ -42,12 +63,29 @@ interface PopList {
 
 type TabType = 'deals' | 'swaps';
 
+function timeAgo(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const seconds = Math.floor((new Date().getTime() - new Date(dateStr).getTime()) / 1000);
+  let interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + 'y ago';
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + 'mo ago';
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + 'd ago';
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + 'h ago';
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + 'm ago';
+  return Math.floor(seconds) + 's ago';
+}
+
 export default function PopListPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [list, setList] = useState<PopList | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedItem, setExpandedItem] = useState<number | null>(null);
+  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
+  const [hasInitializedExpanded, setHasInitializedExpanded] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
   const [activeTab, setActiveTab] = useState<Record<number, TabType>>({});
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -56,6 +94,16 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
   const [hasJoined, setHasJoined] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [copiedReferral, setCopiedReferral] = useState(false);
+  const [referralLink, setReferralLink] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<ListItem | null>(null);
+  const [showHousehold, setShowHousehold] = useState(false);
+  const [showBulkParse, setShowBulkParse] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [itemLikes, setItemLikes] = useState<Record<number, { liked: boolean; count: number }>>({});
+  const [commentingItemId, setCommentingItemId] = useState<number | null>(null);
+  const [commentText, setCommentText] = useState('');
+  const [itemComments, setItemComments] = useState<Record<number, { id: number; user_name: string; text: string; created_at: string | null }[]>>({});
 
   useEffect(() => {
     async function fetchList() {
@@ -64,6 +112,23 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
         if (!res.ok) throw new Error('List not found');
         const data = await res.json();
         setList(data);
+        
+        // Initialize social states
+        if (data.items) {
+          const initialLikes: Record<number, { liked: boolean; count: number }> = {};
+          data.items.forEach((item: ListItem) => {
+            initialLikes[item.id] = { 
+              liked: item.user_liked || false, 
+              count: item.like_count || 0 
+            };
+          });
+          setItemLikes(initialLikes);
+        }
+
+        if (!hasInitializedExpanded && data.items) {
+          setExpandedItems(new Set(data.items.map((i: any) => i.id)));
+          setHasInitializedExpanded(true);
+        }
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Failed to load list');
       } finally {
@@ -73,7 +138,19 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
     async function checkAuth() {
       try {
         const res = await fetch('/api/pop/my-list');
-        setIsLoggedIn(res.ok);
+        const loggedIn = res.ok;
+        setIsLoggedIn(loggedIn);
+        if (loggedIn) {
+          try {
+            const refRes = await fetch('/api/pop/referral');
+            if (refRes.ok) {
+              const refData = await refRes.json();
+              setReferralLink(refData.referral_link || null);
+            }
+          } catch {
+            // non-fatal: referral link is optional
+          }
+        }
       } catch {
         setIsLoggedIn(false);
       }
@@ -96,6 +173,58 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
     }
   };
 
+  const handleClearCompleted = async () => {
+    if (checkedItems.size === 0) return;
+    setIsClearing(true);
+    try {
+      const res = await fetch(`/api/pop/projects/${list?.project_id}/clear_completed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row_ids: Array.from(checkedItems) }),
+      });
+      if (!res.ok) throw new Error('Failed to clear completed items');
+      
+      // Update local state by removing checked items
+      setList((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          items: prev.items.filter((item: any) => !checkedItems.has(item.id))
+        };
+      });
+      setCheckedItems(new Set());
+    } catch (e: any) {
+      setError(e.message || 'An error occurred');
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
+  const handleBulkParsed = (newItems: any[]) => {
+    setList((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        items: [...newItems, ...prev.items]
+      };
+    });
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      newItems.forEach((item: any) => next.add(item.id));
+      return next;
+    });
+    setShowBulkParse(false);
+  };
+
+  const toggleExpanded = (itemId: number) => {
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
+
   const toggleChecked = (itemId: number) => {
     setCheckedItems((prev) => {
       const next = new Set(prev);
@@ -108,6 +237,57 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
   const getItemTab = (itemId: number): TabType => activeTab[itemId] || 'deals';
   const setItemTab = (itemId: number, tab: TabType) =>
     setActiveTab((prev) => ({ ...prev, [itemId]: tab }));
+
+  const handleToggleLike = async (rowId: number) => {
+    // Optimistic update
+    setItemLikes((prev) => {
+      const cur = prev[rowId] || { liked: false, count: 0 };
+      return { ...prev, [rowId]: { liked: !cur.liked, count: cur.liked ? Math.max(0, cur.count - 1) : cur.count + 1 } };
+    });
+    try {
+      const res = await fetch(`/api/pop/item/${rowId}/react`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setItemLikes((prev) => ({ ...prev, [rowId]: { liked: data.liked, count: data.like_count } }));
+      }
+    } catch { /* revert handled by next poll */ }
+  };
+
+  const handleLoadComments = async (rowId: number) => {
+    try {
+      const res = await fetch(`/api/pop/item/${rowId}/comments`);
+      if (res.ok) {
+        const data = await res.json();
+        setItemComments((prev) => ({ ...prev, [rowId]: data.comments }));
+      }
+    } catch { /* silent */ }
+  };
+
+  const handleToggleComments = (rowId: number) => {
+    if (commentingItemId === rowId) {
+      setCommentingItemId(null);
+    } else {
+      setCommentingItemId(rowId);
+      handleLoadComments(rowId);
+    }
+    setCommentText('');
+  };
+
+  const handleSubmitComment = async (rowId: number) => {
+    const text = commentText.trim();
+    if (!text) return;
+    try {
+      const res = await fetch(`/api/pop/item/${rowId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (res.ok) {
+        setCommentText('');
+        handleLoadComments(rowId);
+      }
+    } catch { /* silent */ }
+  };
 
   if (loading) {
     return (
@@ -164,14 +344,45 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
       <div className="max-w-2xl mx-auto px-4 py-6">
         {/* List Header */}
         <div className="mb-4">
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <span>🛒</span> {list.title}
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {checkedCount > 0
-              ? `${checkedCount} of ${totalItems} checked off`
-              : `${totalItems} item${totalItems !== 1 ? 's' : ''}`}
-          </p>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <span>🛒</span> {list.title}
+            </h1>
+            <div className="flex items-center gap-2">
+              {isLoggedIn && (
+                <button
+                  onClick={() => setShowBulkParse(true)}
+                  className="text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1"
+                >
+                  📋 Paste Recipe
+                </button>
+              )}
+              {isLoggedIn && (
+                <button
+                  onClick={() => setShowHousehold(true)}
+                  className="text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1"
+                >
+                  👨‍👩‍👧 Household
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-sm text-gray-500">
+              {checkedCount > 0
+                ? `${checkedCount} of ${totalItems} checked off`
+                : `${totalItems} item${totalItems !== 1 ? 's' : ''}`}
+            </p>
+            {checkedCount > 0 && isLoggedIn && (
+              <button
+                onClick={handleClearCompleted}
+                disabled={isClearing}
+                className="text-xs font-medium text-gray-500 hover:text-red-600 transition-colors flex items-center gap-1 disabled:opacity-50"
+              >
+                {isClearing ? 'Clearing...' : '🗑️ Clear Completed'}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Savings Summary Banner */}
@@ -210,7 +421,7 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
           <ul className="space-y-3">
             {list.items.map((item) => {
               const isChecked = checkedItems.has(item.id);
-              const isExpanded = expandedItem === item.id;
+              const isExpanded = expandedItems.has(item.id);
               const tab = getItemTab(item.id);
 
               return (
@@ -239,7 +450,7 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
 
                     <button
                       className="flex-1 min-w-0 text-left"
-                      onClick={() => setExpandedItem(isExpanded ? null : item.id)}
+                      onClick={() => toggleExpanded(item.id)}
                     >
                       <span
                         className={`text-sm font-medium block truncate ${
@@ -249,6 +460,16 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
                         {item.title}
                       </span>
                       <div className="flex items-center gap-2 mt-0.5">
+                        {item.department && (
+                          <span className="text-[10px] font-medium bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">
+                            {item.department}
+                          </span>
+                        )}
+                        {item.origin_channel && (
+                          <span className="text-[10px] text-gray-400">
+                            via {item.origin_channel}
+                          </span>
+                        )}
                         {item.lowest_price != null && (
                           <span className="text-xs font-semibold text-green-700">
                             from ${item.lowest_price.toFixed(2)}
@@ -268,7 +489,17 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
                     </button>
 
                     <button
-                      onClick={() => setExpandedItem(isExpanded ? null : item.id)}
+                      onClick={(e) => { e.stopPropagation(); setEditingItem(item); }}
+                      className="p-1.5 flex-shrink-0 text-gray-300 hover:text-green-600 transition-colors"
+                      title="Edit item"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+
+                    <button
+                      onClick={() => toggleExpanded(item.id)}
                       className="p-1 flex-shrink-0"
                     >
                       <svg
@@ -281,6 +512,105 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
                       </svg>
                     </button>
                   </div>
+
+                  {/* Coupon Badge (PRD-08) */}
+                  {item.coupon && (
+                    <div className="px-4 py-2 border-t border-gray-50" data-testid={`coupon-badge-${item.id}`}>
+                      <a
+                        href={item.coupon.url || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 transition-colors border ${
+                          item.coupon.is_sponsored
+                            ? 'bg-blue-50 border-blue-200 hover:bg-blue-100'
+                            : 'bg-amber-50 border-amber-200 hover:bg-amber-100'
+                        }`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className="text-sm">{item.coupon.is_sponsored ? '⭐' : '🎟️'}</span>
+                        <span className={`text-xs font-semibold ${item.coupon.is_sponsored ? 'text-blue-800' : 'text-amber-800'}`}>
+                          {item.coupon.savings_display}
+                        </span>
+                        <span className={`text-[10px] ${item.coupon.is_sponsored ? 'text-blue-600' : 'text-amber-600'}`}>
+                          {item.coupon.is_sponsored ? 'Sponsored' : 'Clip Coupon'}{item.coupon.brand_name ? ` — ${item.coupon.brand_name}` : ''}
+                        </span>
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Social Action Bar (PRD-07) */}
+                  {isLoggedIn && (
+                    <div className="flex items-center gap-4 px-4 py-1.5 border-t border-gray-50" data-testid={`social-bar-${item.id}`}>
+                      <button
+                        data-testid={`like-btn-${item.id}`}
+                        onClick={() => handleToggleLike(item.id)}
+                        className={`flex items-center gap-1 text-xs transition-colors ${
+                          (itemLikes[item.id]?.liked) ? 'text-red-500' : 'text-gray-400 hover:text-red-400'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill={(itemLikes[item.id]?.liked) ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                        {(itemLikes[item.id]?.count || 0) > 0 && (
+                          <span>{itemLikes[item.id].count}</span>
+                        )}
+                      </button>
+                      <button
+                        data-testid={`comment-btn-${item.id}`}
+                        onClick={() => handleToggleComments(item.id)}
+                        className={`flex items-center gap-1 text-xs transition-colors ${
+                          commentingItemId === item.id ? 'text-green-600' : 'text-gray-400 hover:text-green-500'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        {Math.max(item.comment_count || 0, itemComments[item.id]?.length || 0) > 0 && (
+                          <span>{Math.max(item.comment_count || 0, itemComments[item.id]?.length || 0)}</span>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Inline Comment Thread (PRD-07) */}
+                  {commentingItemId === item.id && (
+                    <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50" data-testid={`comment-thread-${item.id}`}>
+                      {(itemComments[item.id] || []).map((c) => (
+                        <div key={c.id} className="flex gap-2 mb-2">
+                          <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                            <span className="text-[10px] font-bold text-green-700">{(c.user_name || '?')[0].toUpperCase()}</span>
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-medium text-gray-700">{c.user_name}</span>
+                            {c.created_at && (
+                              <span className="text-[10px] text-gray-400 ml-1">• {timeAgo(c.created_at)}</span>
+                            )}
+                            <p className="text-xs text-gray-600 mt-0.5">{c.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                      <form
+                        className="flex gap-2 mt-2"
+                        onSubmit={(e) => { e.preventDefault(); handleSubmitComment(item.id); }}
+                      >
+                        <input
+                          type="text"
+                          value={commentText}
+                          onChange={(e) => setCommentText(e.target.value)}
+                          placeholder="Add a comment..."
+                          className="flex-1 text-xs px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-1 focus:ring-green-500 text-gray-900 placeholder-gray-400"
+                          maxLength={500}
+                        />
+                        <button
+                          type="submit"
+                          disabled={!commentText.trim()}
+                          className="text-xs font-medium text-green-600 hover:text-green-700 disabled:text-gray-300 disabled:cursor-not-allowed px-2"
+                        >
+                          Send
+                        </button>
+                      </form>
+                    </div>
+                  )}
 
                   {/* Expanded Section */}
                   {isExpanded && (item.deals.length > 0 || item.swaps.length > 0) && (
@@ -450,40 +780,103 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
             </Link>
           </div>
         )}
-        {/* Share List CTA */}
+        {/* Dual CopyLink System (PRD-06) */}
         {totalItems > 0 && (
-          <div className="mt-6 text-center">
-            <button
-              disabled={isSharing}
-              onClick={async () => {
-                setIsSharing(true);
-                try {
-                  let shareUrl = window.location.href;
-                  if (isLoggedIn) {
-                    const res = await fetch(`/api/pop/invite/${id}`, { method: 'POST' });
-                    if (res.ok) {
-                      const data = await res.json();
-                      shareUrl = data.invite_url || shareUrl;
+          <div className="mt-6 space-y-3">
+            <p className="text-center text-xs text-gray-500 font-medium uppercase tracking-wide">United we save</p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3" data-testid="dual-copylink">
+              {/* Share List Link */}
+              <button
+                data-testid="copy-list-link"
+                disabled={isSharing}
+                onClick={async () => {
+                  setIsSharing(true);
+                  try {
+                    let shareUrl = window.location.href;
+                    if (isLoggedIn) {
+                      const res = await fetch(`/api/pop/invite/${id}`, { method: 'POST' });
+                      if (res.ok) {
+                        const data = await res.json();
+                        shareUrl = data.invite_url || shareUrl;
+                      }
                     }
+                    if (navigator.share) {
+                      await navigator.share({ title: list.title, text: `Join my grocery list on Pop! United we save.`, url: shareUrl });
+                    } else {
+                      await navigator.clipboard.writeText(shareUrl);
+                      setCopiedInvite(true);
+                      setTimeout(() => setCopiedInvite(false), 2500);
+                    }
+                  } finally {
+                    setIsSharing(false);
                   }
-                  if (navigator.share) {
-                    await navigator.share({ title: list.title, text: `Join my grocery list on Pop!`, url: shareUrl });
-                  } else {
-                    await navigator.clipboard.writeText(shareUrl);
-                    setCopiedInvite(true);
-                    setTimeout(() => setCopiedInvite(false), 2500);
-                  }
-                } finally {
-                  setIsSharing(false);
-                }
-              }}
-              className="inline-flex items-center gap-2 text-sm text-green-700 bg-green-50 hover:bg-green-100 font-medium px-5 py-2.5 rounded-full transition-colors disabled:opacity-50"
-            >
-              {copiedInvite ? '✓ Invite link copied!' : isSharing ? 'Creating link...' : '📤 Share List with Family'}
-            </button>
+                }}
+                className="inline-flex items-center gap-2 text-sm text-green-700 bg-green-50 hover:bg-green-100 font-medium px-5 py-2.5 rounded-full transition-colors disabled:opacity-50"
+              >
+                {copiedInvite ? '✓ List link copied!' : isSharing ? 'Creating link...' : '🏠 Share List with Family'}
+              </button>
+
+              {/* Refer Friends / TeamPop Link */}
+              {isLoggedIn && referralLink && (
+                <button
+                  data-testid="copy-referral-link"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(referralLink);
+                      setCopiedReferral(true);
+                      setTimeout(() => setCopiedReferral(false), 2500);
+                    } catch {
+                      // fallback: ignore
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 font-medium px-5 py-2.5 rounded-full transition-colors"
+                >
+                  {copiedReferral ? '✓ Referral link copied!' : '🤝 Refer Friends — Save $100/mo'}
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
+
+      {/* Edit Item Modal */}
+      {editingItem && (
+        <PopItemEditor
+          item={editingItem}
+          onClose={() => setEditingItem(null)}
+          onSaved={(updated) => {
+            setList((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                items: prev.items.map((it) =>
+                  it.id === editingItem.id
+                    ? { ...it, ...updated }
+                    : it
+                ),
+              };
+            });
+            setEditingItem(null);
+          }}
+        />
+      )}
+
+      {/* Household Modal */}
+      {showHousehold && list && (
+        <HouseholdModal
+          projectId={list.project_id}
+          onClose={() => setShowHousehold(false)}
+        />
+      )}
+
+      {/* Bulk Parse Modal */}
+      {showBulkParse && list && (
+        <BulkParseModal
+          projectId={list.project_id}
+          onClose={() => setShowBulkParse(false)}
+          onParsed={handleBulkParsed}
+        />
+      )}
 
       {/* Footer */}
       <footer className="mt-12 py-6 text-center text-xs text-gray-400">

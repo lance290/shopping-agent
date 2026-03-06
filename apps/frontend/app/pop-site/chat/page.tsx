@@ -51,11 +51,12 @@ function PopChatInner() {
   const [projectId, setProjectId] = useState<number | null>(null);
   const [projectTitle, setProjectTitle] = useState<string>('My Shopping List');
   const [allProjects, setAllProjects] = useState<{id: number, title: string}[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [activeRequests, setActiveRequests] = useState(0);
+  const isLoading = activeRequests > 0;
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [expandedItemId, setExpandedItemId] = useState<number | null>(null);
+  const [expandedItemIds, setExpandedItemIds] = useState<Set<number>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -73,7 +74,9 @@ function PopChatInner() {
         const listRes = await fetch(`/api/pop/my-list?project_id=${data.project_id}`);
         if (listRes.ok) {
           const listData = await listRes.json();
-          setListItems(listData.items || []);
+          const items = listData.items || [];
+          setListItems(items);
+          setExpandedItemIds(new Set(items.map((i: ListItem) => i.id)));
         }
         // refresh all projects
         const listsRes = await fetch('/api/pop/lists');
@@ -93,7 +96,9 @@ function PopChatInner() {
         const listData = await listRes.json();
         setProjectId(listData.project_id);
         setProjectTitle(listData.title || 'My Shopping List');
-        setListItems(listData.items || []);
+        const items = listData.items || [];
+        setListItems(items);
+        setExpandedItemIds(new Set(items.map((i: ListItem) => i.id)));
       }
     } catch (err) {
       console.error(err);
@@ -147,7 +152,10 @@ function PopChatInner() {
             const data = await sharedRes.json();
             setIsLoggedIn(true);
             setProjectId(data.project_id);
-            if (data.items?.length > 0) setListItems(data.items);
+            if (data.items?.length > 0) {
+              setListItems(data.items);
+              setExpandedItemIds(new Set(data.items.map((i: ListItem) => i.id)));
+            }
             return;
           }
         }
@@ -157,7 +165,10 @@ function PopChatInner() {
           setIsLoggedIn(true);
           if (data.project_id) {
             setProjectId(data.project_id);
-            if (data.items?.length > 0) setListItems(data.items);
+            if (data.items?.length > 0) {
+              setListItems(data.items);
+              setExpandedItemIds(new Set(data.items.map((i: ListItem) => i.id)));
+            }
           }
           return;
         }
@@ -172,7 +183,10 @@ function PopChatInner() {
         const raw = localStorage.getItem(LS_ITEMS_KEY);
         if (raw) {
           const saved: ListItem[] = JSON.parse(raw);
-          if (saved.length > 0) setListItems(saved);
+          if (saved.length > 0) {
+            setListItems(saved);
+            setExpandedItemIds(new Set(saved.map((i) => i.id)));
+          }
         }
         const savedProjectId = localStorage.getItem(LS_GUEST_PROJECT_KEY);
         if (savedProjectId) setProjectId(Number(savedProjectId));
@@ -194,12 +208,17 @@ function PopChatInner() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
-    if (!text || isLoading) return;
+    if (!text) return;
 
     const userMsg: Message = { id: `user-${Date.now()}`, role: 'user', content: text };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
-    setIsLoading(true);
+    setActiveRequests((prev) => prev + 1);
+
+    // Refocus immediately using setTimeout to sidestep React render loop
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
 
     const guestProjectId = !isLoggedIn
       ? projectId ?? (localStorage.getItem(LS_GUEST_PROJECT_KEY) ? Number(localStorage.getItem(LS_GUEST_PROJECT_KEY)) : null)
@@ -218,7 +237,10 @@ function PopChatInner() {
         { id: `asst-${Date.now()}`, role: 'assistant', content: data.reply || 'Got it!' },
       ]);
 
-      if (data.list_items?.length > 0) setListItems(data.list_items);
+      if (data.list_items?.length > 0) {
+        setListItems(data.list_items);
+        setExpandedItemIds(new Set(data.list_items.map((i: ListItem) => i.id)));
+      }
       if (data.project_id) setProjectId(data.project_id);
     } catch {
       setMessages((prev) => [
@@ -226,8 +248,10 @@ function PopChatInner() {
         { id: `err-${Date.now()}`, role: 'assistant', content: 'Oops, something went wrong. Try again!' },
       ]);
     } finally {
-      setIsLoading(false);
-      inputRef.current?.focus();
+      setActiveRequests((prev) => Math.max(0, prev - 1));
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0);
     }
   };
 
@@ -394,14 +418,16 @@ function PopChatInner() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="What do you need from the store?"
-                disabled={isLoading}
-                className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm text-gray-900 placeholder-gray-400 disabled:opacity-50"
+                className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm text-gray-900 placeholder-gray-400"
               />
               <button
                 type="submit"
-                disabled={isLoading || !input.trim()}
-                className="bg-green-600 text-white px-5 py-3 rounded-xl hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+                disabled={!input.trim()}
+                className="bg-green-600 text-white px-5 py-3 rounded-xl hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm flex items-center gap-2"
               >
+                {isLoading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : null}
                 Send
               </button>
             </form>
@@ -419,8 +445,8 @@ function PopChatInner() {
             projectId={projectId}
             projectTitle={projectTitle}
             allProjects={allProjects}
-            expandedItemId={expandedItemId}
-            setExpandedItemId={setExpandedItemId}
+            expandedItemIds={expandedItemIds}
+            setExpandedItemIds={setExpandedItemIds}
             editingId={editingId}
             editValue={editValue}
             setEditValue={setEditValue}
