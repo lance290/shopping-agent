@@ -173,26 +173,42 @@ async def get_pop_list(
 
         # Fetch provider swaps (brand coupons/rebates)
         provider_swaps = await provider.search_swaps(category=row.title, product_name=row.title, session=session)
+
+        # Sponsored Deal Slot Logic (PRD-08): if the user was referred by a Brand Manager,
+        # sort that brand's coupons to the top and flag them as sponsored.
+        referrer_brand_user_id: Optional[int] = user.referred_by_id
+        if referrer_brand_user_id and provider_swaps:
+            sponsored = [s for s in provider_swaps if s.brand_user_id == referrer_brand_user_id]
+            non_sponsored = [s for s in provider_swaps if s.brand_user_id != referrer_brand_user_id]
+            provider_swaps = sponsored + non_sponsored
+        else:
+            sponsored = []
+
+        sponsored_swap_ids = {s.swap_id for s in sponsored} if sponsored else set()
+
         for s in provider_swaps:
             base_price = deals[0]["price"] if deals else None
             swap_price = base_price - (s.savings_cents / 100) if base_price else None
             if swap_price is not None and swap_price < 0:
                 swap_price = 0.0
-            
+
+            is_sponsored = s.swap_id in sponsored_swap_ids
             swaps.append({
                 "id": s.swap_id + 1000000 if s.swap_id else 0,
                 "title": f"{s.swap_product_name} ({s.offer_description})" if s.offer_description else s.swap_product_name,
                 "price": swap_price,
-                "source": f"{s.provider.capitalize()} Offer",
+                "source": "Sponsored Offer" if is_sponsored else f"{s.provider.capitalize()} Offer",
                 "url": s.swap_product_url,
                 "image_url": s.swap_product_image,
                 "savings_vs_first": s.savings_cents / 100,
+                "is_sponsored": is_sponsored,
             })
 
-        # Best coupon badge (PRD-08)
+        # Best coupon badge (PRD-08) — prefer sponsored coupon if available
         coupon_badge = None
         if provider_swaps:
             best = provider_swaps[0]
+            is_best_sponsored = best.swap_id in sponsored_swap_ids
             coupon_badge = {
                 "swap_id": best.swap_id,
                 "savings_cents": best.savings_cents,
@@ -200,6 +216,7 @@ async def get_pop_list(
                 "brand_name": best.brand_name,
                 "product_name": best.swap_product_name,
                 "url": best.swap_product_url,
+                "is_sponsored": is_best_sponsored,
             }
 
         taxonomy = _extract_taxonomy(row)

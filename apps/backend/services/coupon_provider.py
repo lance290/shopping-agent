@@ -42,6 +42,7 @@ class SwapOffer:
         savings_cents: int,
         offer_description: Optional[str] = None,
         brand_name: Optional[str] = None,
+        brand_user_id: Optional[int] = None,
         swap_product_image: Optional[str] = None,
         swap_product_url: Optional[str] = None,
         provider: str = "unknown",
@@ -56,6 +57,7 @@ class SwapOffer:
         self.savings_cents = savings_cents
         self.offer_description = offer_description
         self.brand_name = brand_name
+        self.brand_user_id = brand_user_id
         self.swap_product_image = swap_product_image
         self.swap_product_url = swap_product_url
         self.provider = provider
@@ -353,6 +355,7 @@ def _swap_to_offer(swap: PopSwap) -> SwapOffer:
         savings_cents=swap.savings_cents,
         offer_description=swap.offer_description,
         brand_name=swap.brand_name,
+        brand_user_id=swap.brand_user_id,
         swap_product_image=swap.swap_product_image,
         swap_product_url=swap.swap_product_url,
         provider=swap.provider,

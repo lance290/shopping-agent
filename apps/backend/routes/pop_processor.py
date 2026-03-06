@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+from datetime import datetime
 from typing import Optional, List
 
 from sqlmodel import select
@@ -10,6 +11,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models.rows import Row, Project
 from models.auth import User
+from models.bids import Bid
+from models.coupons import CouponCampaign, PopSwap
 from services.llm import make_pop_decision, ChatContext, generate_choice_factors
 from routes.chat import _create_row, _update_row, _save_choice_factors, _stream_search
 from services.sdui_builder import build_ui_schema
@@ -27,6 +30,128 @@ from routes.pop_notify import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def _enrich_row_cpg(session: AsyncSession, row: Row) -> None:
+    """
+    PRD-08: Post-sourcing CPG enrichment.
+
+    1. Reads the top Kroger bid for the row and saves retailer_sku + brand_name
+       back to the Row model so downstream coupon matching is brand-aware.
+    2. If no active PopSwap exists for that brand, creates a CouponCampaign
+       (Outreach Queue) so Scout/Tod can reach out to the CPG brand manager.
+
+    This is a best-effort, fire-and-forget step — any failure is logged and
+    swallowed so it never disrupts the core message-processing flow.
+    """
+    try:
+        # 1. Find the best Kroger bid (source == "kroger")
+        kroger_bid_stmt = (
+            select(Bid)
+            .where(Bid.row_id == row.id)
+            .where(Bid.source == "kroger")
+            .order_by(Bid.combined_score.desc().nullslast())
+            .limit(1)
+        )
+        kroger_result = await session.execute(kroger_bid_stmt)
+        kroger_bid = kroger_result.scalar_one_or_none()
+
+        if not kroger_bid:
+            return
+
+        # Extract brand_name and retailer_sku from the bid
+        # KrogerProvider stores title as "{brand} {description}"; item_url encodes productId
+        inferred_brand = None
+        inferred_sku = None
+
+        # retailer_sku: extract Kroger productId from item URL
+        # URL pattern: https://www.kroger.com/p/{slug}/{productId}
+        if kroger_bid.item_url:
+            url_parts = kroger_bid.item_url.rstrip("/").rsplit("/", 1)
+            if len(url_parts) == 2 and url_parts[1]:
+                inferred_sku = url_parts[1]
+
+        # brand_name: use the seller name if it's the Kroger vendor, otherwise
+        # try to extract from the source_payload (raw provider data)
+        if kroger_bid.source_payload and isinstance(kroger_bid.source_payload, dict):
+            inferred_brand = kroger_bid.source_payload.get("brand")
+        if not inferred_brand and kroger_bid.item_title:
+            # KrogerProvider sets title as "Brand Description" — grab first word(s)
+            # as a heuristic when no structured brand field is available
+            title_parts = kroger_bid.item_title.split()
+            if title_parts:
+                inferred_brand = title_parts[0]
+
+        changed = False
+        if inferred_sku and not row.retailer_sku:
+            row.retailer_sku = inferred_sku
+            changed = True
+        if inferred_brand and not row.brand_name:
+            row.brand_name = inferred_brand
+            changed = True
+
+        if changed:
+            row.updated_at = datetime.utcnow()
+            session.add(row)
+            await session.commit()
+            logger.info(
+                f"[Pop CPG] Row {row.id}: brand_name={row.brand_name!r}, "
+                f"retailer_sku={row.retailer_sku!r}"
+            )
+
+        # 2. Outreach Queue — queue a CouponCampaign if brand has no active swap
+        brand = row.brand_name
+        if not brand:
+            return
+
+        active_swap_stmt = (
+            select(PopSwap)
+            .where(PopSwap.brand_name == brand)
+            .where(PopSwap.is_active == True)
+            .limit(1)
+        )
+        active_swap_result = await session.execute(active_swap_stmt)
+        if active_swap_result.scalar_one_or_none():
+            return  # brand already has an active coupon — nothing to queue
+
+        # Check if a pending/sent campaign already exists for this brand
+        existing_campaign_stmt = (
+            select(CouponCampaign)
+            .where(CouponCampaign.brand_name == brand)
+            .where(CouponCampaign.status.in_(["pending", "sent"]))
+            .limit(1)
+        )
+        existing_result = await session.execute(existing_campaign_stmt)
+        existing_campaign = existing_result.scalar_one_or_none()
+
+        if existing_campaign:
+            # Increment intent_count so the brand sees growing demand
+            existing_campaign.intent_count = (existing_campaign.intent_count or 0) + 1
+            existing_campaign.updated_at = datetime.utcnow()
+            session.add(existing_campaign)
+            await session.commit()
+            logger.info(
+                f"[Pop CPG] Incremented intent_count for campaign "
+                f"{existing_campaign.id} (brand={brand!r})"
+            )
+        else:
+            # Create a new CouponCampaign for outreach
+            campaign = CouponCampaign(
+                brand_name=brand,
+                category=row.title or brand,
+                target_product=row.title,
+                intent_count=1,
+                status="pending",
+            )
+            session.add(campaign)
+            await session.commit()
+            logger.info(
+                f"[Pop CPG] Created CouponCampaign for brand={brand!r} "
+                f"(row_id={row.id})"
+            )
+
+    except Exception as exc:
+        logger.warning(f"[Pop CPG] Enrichment failed for row {row.id}: {exc}")
 
 
 async def process_pop_message(
@@ -184,6 +309,9 @@ async def process_pop_message(
                 if item_search_query:
                     async for _batch in _stream_search(row.id, item_search_query, authorization=None):
                         pass
+
+                    # CPG enrichment: capture Kroger SKU/brand + queue outreach (PRD-08)
+                    await _enrich_row_cpg(session, row)
                     
                     try:
                         from sqlmodel import select as sql_select
@@ -218,6 +346,9 @@ async def process_pop_message(
                 async for _batch in _stream_search(target_row.id, search_query, authorization=None):
                     pass
 
+                # CPG enrichment: capture Kroger SKU/brand + queue outreach (PRD-08)
+                await _enrich_row_cpg(session, target_row)
+
                 # Build and persist SDUI schema after sourcing
                 try:
                     from sqlmodel import select as sql_select
@@ -247,6 +378,9 @@ async def process_pop_message(
             if search_query:
                 async for _batch in _stream_search(target_row.id, search_query, authorization=None):
                     pass
+
+                # CPG enrichment: capture Kroger SKU/brand + queue outreach (PRD-08)
+                await _enrich_row_cpg(session, target_row)
 
                 # Build and persist SDUI schema after sourcing
                 try:

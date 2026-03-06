@@ -51,6 +51,7 @@ interface ListItem {
     brand_name: string | null;
     product_name: string;
     url: string | null;
+    is_sponsored?: boolean;
   } | null;
 }
 
@@ -519,15 +520,19 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
                         href={item.coupon.url || '#'}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors"
+                        className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 transition-colors border ${
+                          item.coupon.is_sponsored
+                            ? 'bg-blue-50 border-blue-200 hover:bg-blue-100'
+                            : 'bg-amber-50 border-amber-200 hover:bg-amber-100'
+                        }`}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <span className="text-sm">🎟️</span>
-                        <span className="text-xs font-semibold text-amber-800">
+                        <span className="text-sm">{item.coupon.is_sponsored ? '⭐' : '🎟️'}</span>
+                        <span className={`text-xs font-semibold ${item.coupon.is_sponsored ? 'text-blue-800' : 'text-amber-800'}`}>
                           {item.coupon.savings_display}
                         </span>
-                        <span className="text-[10px] text-amber-600">
-                          Clip Coupon{item.coupon.brand_name ? ` — ${item.coupon.brand_name}` : ''}
+                        <span className={`text-[10px] ${item.coupon.is_sponsored ? 'text-blue-600' : 'text-amber-600'}`}>
+                          {item.coupon.is_sponsored ? 'Sponsored' : 'Clip Coupon'}{item.coupon.brand_name ? ` — ${item.coupon.brand_name}` : ''}
                         </span>
                       </a>
                     </div>
