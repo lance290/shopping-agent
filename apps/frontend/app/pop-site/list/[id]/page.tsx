@@ -66,6 +66,8 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
   const [hasJoined, setHasJoined] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [copiedReferral, setCopiedReferral] = useState(false);
+  const [referralLink, setReferralLink] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<ListItem | null>(null);
   const [showHousehold, setShowHousehold] = useState(false);
   const [showBulkParse, setShowBulkParse] = useState(false);
@@ -92,7 +94,19 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
     async function checkAuth() {
       try {
         const res = await fetch('/api/pop/my-list');
-        setIsLoggedIn(res.ok);
+        const loggedIn = res.ok;
+        setIsLoggedIn(loggedIn);
+        if (loggedIn) {
+          try {
+            const refRes = await fetch('/api/pop/referral');
+            if (refRes.ok) {
+              const refData = await refRes.json();
+              setReferralLink(refData.referral_link || null);
+            }
+          } catch {
+            // non-fatal: referral link is optional
+          }
+        }
       } catch {
         setIsLoggedIn(false);
       }
@@ -572,37 +586,61 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
             </Link>
           </div>
         )}
-        {/* Share List CTA */}
+        {/* Dual CopyLink System (PRD-06) */}
         {totalItems > 0 && (
-          <div className="mt-6 text-center">
-            <button
-              disabled={isSharing}
-              onClick={async () => {
-                setIsSharing(true);
-                try {
-                  let shareUrl = window.location.href;
-                  if (isLoggedIn) {
-                    const res = await fetch(`/api/pop/invite/${id}`, { method: 'POST' });
-                    if (res.ok) {
-                      const data = await res.json();
-                      shareUrl = data.invite_url || shareUrl;
+          <div className="mt-6 space-y-3">
+            <p className="text-center text-xs text-gray-500 font-medium uppercase tracking-wide">United we save</p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3" data-testid="dual-copylink">
+              {/* Share List Link */}
+              <button
+                data-testid="copy-list-link"
+                disabled={isSharing}
+                onClick={async () => {
+                  setIsSharing(true);
+                  try {
+                    let shareUrl = window.location.href;
+                    if (isLoggedIn) {
+                      const res = await fetch(`/api/pop/invite/${id}`, { method: 'POST' });
+                      if (res.ok) {
+                        const data = await res.json();
+                        shareUrl = data.invite_url || shareUrl;
+                      }
                     }
+                    if (navigator.share) {
+                      await navigator.share({ title: list.title, text: `Join my grocery list on Pop! United we save.`, url: shareUrl });
+                    } else {
+                      await navigator.clipboard.writeText(shareUrl);
+                      setCopiedInvite(true);
+                      setTimeout(() => setCopiedInvite(false), 2500);
+                    }
+                  } finally {
+                    setIsSharing(false);
                   }
-                  if (navigator.share) {
-                    await navigator.share({ title: list.title, text: `Join my grocery list on Pop!`, url: shareUrl });
-                  } else {
-                    await navigator.clipboard.writeText(shareUrl);
-                    setCopiedInvite(true);
-                    setTimeout(() => setCopiedInvite(false), 2500);
-                  }
-                } finally {
-                  setIsSharing(false);
-                }
-              }}
-              className="inline-flex items-center gap-2 text-sm text-green-700 bg-green-50 hover:bg-green-100 font-medium px-5 py-2.5 rounded-full transition-colors disabled:opacity-50"
-            >
-              {copiedInvite ? '✓ Invite link copied!' : isSharing ? 'Creating link...' : '📤 Share List with Family'}
-            </button>
+                }}
+                className="inline-flex items-center gap-2 text-sm text-green-700 bg-green-50 hover:bg-green-100 font-medium px-5 py-2.5 rounded-full transition-colors disabled:opacity-50"
+              >
+                {copiedInvite ? '✓ List link copied!' : isSharing ? 'Creating link...' : '🏠 Share List with Family'}
+              </button>
+
+              {/* Refer Friends / TeamPop Link */}
+              {isLoggedIn && referralLink && (
+                <button
+                  data-testid="copy-referral-link"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(referralLink);
+                      setCopiedReferral(true);
+                      setTimeout(() => setCopiedReferral(false), 2500);
+                    } catch {
+                      // fallback: ignore
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 font-medium px-5 py-2.5 rounded-full transition-colors"
+                >
+                  {copiedReferral ? '✓ Referral link copied!' : '🤝 Refer Friends — Save $100/mo'}
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

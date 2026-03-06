@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -34,11 +35,30 @@ const HOW_IT_WORKS = [
   { step: '4', title: 'Shop & earn', desc: 'Buy the swapped item, snap your receipt, and Pop adds cash to your wallet.' },
 ];
 
+function RefCapture() {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) {
+      localStorage.setItem('pop_ref_code', ref);
+    }
+  }, [searchParams]);
+  return null;
+}
+
 export default function PopHomePage() {
   const [phone, setPhone] = useState('');
+  const [refCode, setRefCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRefCode(localStorage.getItem('pop_ref_code'));
+  }, []);
+
+  const signupHref = refCode ? `/login?brand=pop&ref=${encodeURIComponent(refCode)}` : '/login?brand=pop';
 
   return (
     <div className="min-h-screen bg-white">
+      <Suspense fallback={null}><RefCapture /></Suspense>
       {/* Nav */}
       <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -47,11 +67,11 @@ export default function PopHomePage() {
             <span className="text-xl font-bold text-green-700">Pop</span>
           </Link>
           <div className="flex items-center gap-4">
-            <Link href="/chat" className="text-sm text-gray-600 hover:text-green-700 transition-colors">
+            <Link href="/pop-site/chat" className="text-sm text-gray-600 hover:text-green-700 transition-colors">
               Chat with Pop
             </Link>
             <Link
-              href="/login"
+              href={signupHref}
               className="text-sm bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 transition-colors"
             >
               Sign Up Free
@@ -173,7 +193,8 @@ export default function PopHomePage() {
             className="flex gap-3"
             onSubmit={(e) => {
               e.preventDefault();
-              window.location.href = `/login?phone=${encodeURIComponent(phone)}&brand=pop`;
+              const refParam = refCode ? `&ref=${encodeURIComponent(refCode)}` : '';
+              window.location.href = `/login?phone=${encodeURIComponent(phone)}&brand=pop${refParam}`;
             }}
           >
             <input
