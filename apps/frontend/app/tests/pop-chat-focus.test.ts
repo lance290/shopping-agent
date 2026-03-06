@@ -42,13 +42,12 @@ function syncListAndExpand(
 // We test this structurally — the ref pattern is correct if focus() is called in finally block
 function simulateSubmitFlow(
   input: string,
-  isLoading: boolean,
 ): { shouldCallFetch: boolean; shouldRefocusInput: boolean } {
   const text = input.trim();
-  if (!text || isLoading) {
+  if (!text) {
     return { shouldCallFetch: false, shouldRefocusInput: false };
   }
-  // In the real code, fetch happens, then finally { inputRef.current?.focus() }
+  // In the real code, fetch happens, then finally { setTimeout(focus) }
   return { shouldCallFetch: true, shouldRefocusInput: true };
 }
 
@@ -58,31 +57,33 @@ function simulateSubmitFlow(
 
 describe('PRD-05: Persistent chat focus', () => {
   test('submit with valid text should refocus input', () => {
-    const result = simulateSubmitFlow('I need milk', false);
+    const result = simulateSubmitFlow('I need milk');
     expect(result.shouldCallFetch).toBe(true);
     expect(result.shouldRefocusInput).toBe(true);
   });
 
   test('submit with empty text should not trigger fetch or refocus', () => {
-    const result = simulateSubmitFlow('', false);
+    const result = simulateSubmitFlow('');
     expect(result.shouldCallFetch).toBe(false);
     expect(result.shouldRefocusInput).toBe(false);
   });
 
   test('submit with whitespace-only should not trigger fetch', () => {
-    const result = simulateSubmitFlow('   ', false);
+    const result = simulateSubmitFlow('   ');
     expect(result.shouldCallFetch).toBe(false);
   });
 
-  test('submit while loading should not trigger fetch', () => {
-    const result = simulateSubmitFlow('eggs', true);
-    expect(result.shouldCallFetch).toBe(false);
+  test('submit while loading IS allowed (concurrent submissions)', () => {
+    // We removed the `isLoading` param from simulateSubmitFlow since it's no longer checked
+    const result = simulateSubmitFlow('eggs');
+    expect(result.shouldCallFetch).toBe(true);
+    expect(result.shouldRefocusInput).toBe(true);
   });
 
   test('5 sequential submits should all refocus (acceptance criteria)', () => {
     const inputs = ['milk', 'eggs', 'bread', 'butter', 'cheese'];
     for (const input of inputs) {
-      const result = simulateSubmitFlow(input, false);
+      const result = simulateSubmitFlow(input);
       expect(result.shouldCallFetch).toBe(true);
       expect(result.shouldRefocusInput).toBe(true);
     }
