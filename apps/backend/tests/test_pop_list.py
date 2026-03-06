@@ -557,6 +557,7 @@ async def test_clear_completed_items(
 
     resp = await client.post(
         f"/pop/projects/{pop_project.id}/clear_completed",
+        json={"row_ids": [closed_row.id]},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200

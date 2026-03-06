@@ -7,7 +7,8 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
+from sqlalchemy import update
 from pydantic import BaseModel
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -46,8 +47,13 @@ def _item_response(row: Row) -> dict:
         "id": row.id,
         "title": row.title,
         "status": row.status,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
         "origin_channel": row.origin_channel,
         "origin_user_id": row.origin_user_id,
+        "deals": [],
+        "swaps": [],
+        "lowest_price": None,
+        "deal_count": 0,
         **taxonomy,
     }
 
@@ -597,6 +603,7 @@ async def bulk_parse_items(
     project_id: int,
     body: BulkParseRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
 ):
     """Parse a wall of text into multiple grocery list items."""
@@ -610,13 +617,21 @@ async def bulk_parse_items(
 
     await _ensure_project_member(session, project.id, user.id, channel="web")
 
-    from routes.chat_helpers import _create_row
-
     items = await parse_bulk_grocery_text(body.text)
     if not items:
         return {"parsed_items": 0, "rows": []}
 
     created_rows = []
+    
+    # helper for background task
+    async def _source_item_bg(row_id: int, query: str):
+        from routes.chat import _stream_search
+        try:
+            async for _batch in _stream_search(row_id, query, authorization=None):
+                pass
+        except Exception as e:
+            logger.error(f"[Pop] Error in bulk parse background sourcing for row {row_id}: {e}")
+
     for item in items:
         name = item.get("name")
         if not name:
@@ -639,17 +654,26 @@ async def bulk_parse_items(
             origin_channel="web"
         )
         created_rows.append(_item_response(row))
+        
+        # trigger background sourcing for each item so deals show up
+        search_query = f"{name} grocery deals"
+        background_tasks.add_task(_source_item_bg, row.id, search_query)
 
     return {"parsed_items": len(created_rows), "rows": created_rows}
+
+
+class ClearCompletedRequest(BaseModel):
+    row_ids: list[int]
 
 
 @list_router.post("/projects/{project_id}/clear_completed")
 async def clear_completed_items(
     project_id: int,
+    body: ClearCompletedRequest,
     request: Request,
     session: AsyncSession = Depends(get_session),
 ):
-    """Sweep all 'closed' (completed) items from the active view."""
+    """Sweep specified items from the active view."""
     user = await _get_pop_user(request, session)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -660,11 +684,13 @@ async def clear_completed_items(
 
     await _ensure_project_member(session, project.id, user.id, channel="web")
 
-    from sqlalchemy import update
+    if not body.row_ids:
+        return {"cleared": 0}
+
     stmt = (
         update(Row)
         .where(Row.project_id == project_id)
-        .where(Row.status == "closed")
+        .where(Row.id.in_(body.row_ids))
         .values(status="archived", updated_at=datetime.utcnow())
     )
     result = await session.execute(stmt)

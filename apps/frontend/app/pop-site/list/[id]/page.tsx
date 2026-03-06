@@ -121,6 +121,8 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
     try {
       const res = await fetch(`/api/pop/projects/${list?.project_id}/clear_completed`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row_ids: Array.from(checkedItems) }),
       });
       if (!res.ok) throw new Error('Failed to clear completed items');
       
@@ -147,6 +149,11 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
         ...prev,
         items: [...newItems, ...prev.items]
       };
+    });
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      newItems.forEach((item: any) => next.add(item.id));
+      return next;
     });
     setShowBulkParse(false);
   };
