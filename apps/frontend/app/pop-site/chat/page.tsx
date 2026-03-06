@@ -73,7 +73,9 @@ function PopChatInner() {
         const listRes = await fetch(`/api/pop/my-list?project_id=${data.project_id}`);
         if (listRes.ok) {
           const listData = await listRes.json();
-          setListItems(listData.items || []);
+          const items = listData.items || [];
+          setListItems(items);
+          setExpandedItemIds(new Set(items.map((i: ListItem) => i.id)));
         }
         // refresh all projects
         const listsRes = await fetch('/api/pop/lists');
@@ -93,7 +95,9 @@ function PopChatInner() {
         const listData = await listRes.json();
         setProjectId(listData.project_id);
         setProjectTitle(listData.title || 'My Shopping List');
-        setListItems(listData.items || []);
+        const items = listData.items || [];
+        setListItems(items);
+        setExpandedItemIds(new Set(items.map((i: ListItem) => i.id)));
       }
     } catch (err) {
       console.error(err);
@@ -147,7 +151,10 @@ function PopChatInner() {
             const data = await sharedRes.json();
             setIsLoggedIn(true);
             setProjectId(data.project_id);
-            if (data.items?.length > 0) setListItems(data.items);
+            if (data.items?.length > 0) {
+              setListItems(data.items);
+              setExpandedItemIds(new Set(data.items.map((i: ListItem) => i.id)));
+            }
             return;
           }
         }
@@ -157,7 +164,10 @@ function PopChatInner() {
           setIsLoggedIn(true);
           if (data.project_id) {
             setProjectId(data.project_id);
-            if (data.items?.length > 0) setListItems(data.items);
+            if (data.items?.length > 0) {
+              setListItems(data.items);
+              setExpandedItemIds(new Set(data.items.map((i: ListItem) => i.id)));
+            }
           }
           return;
         }
@@ -172,7 +182,10 @@ function PopChatInner() {
         const raw = localStorage.getItem(LS_ITEMS_KEY);
         if (raw) {
           const saved: ListItem[] = JSON.parse(raw);
-          if (saved.length > 0) setListItems(saved);
+          if (saved.length > 0) {
+            setListItems(saved);
+            setExpandedItemIds(new Set(saved.map((i) => i.id)));
+          }
         }
         const savedProjectId = localStorage.getItem(LS_GUEST_PROJECT_KEY);
         if (savedProjectId) setProjectId(Number(savedProjectId));
@@ -218,7 +231,10 @@ function PopChatInner() {
         { id: `asst-${Date.now()}`, role: 'assistant', content: data.reply || 'Got it!' },
       ]);
 
-      if (data.list_items?.length > 0) setListItems(data.list_items);
+      if (data.list_items?.length > 0) {
+        setListItems(data.list_items);
+        setExpandedItemIds(new Set(data.list_items.map((i: ListItem) => i.id)));
+      }
       if (data.project_id) setProjectId(data.project_id);
     } catch {
       setMessages((prev) => [
