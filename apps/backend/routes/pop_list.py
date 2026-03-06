@@ -453,7 +453,21 @@ async def patch_pop_item(
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     row = await session.get(Row, row_id)
-    if not row or row.user_id != user.id:
+    if not row:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    # Verify the user is a member of the item's project (not just the creator)
+    if row.project_id:
+        member_stmt = select(ProjectMember).where(
+            ProjectMember.project_id == row.project_id,
+            ProjectMember.user_id == user.id,
+        )
+        member_result = await session.execute(member_stmt)
+        project = await session.get(Project, row.project_id)
+        is_owner = project and project.user_id == user.id
+        if not member_result.scalar_one_or_none() and not is_owner:
+            raise HTTPException(status_code=404, detail="Item not found")
+    elif row.user_id != user.id:
         raise HTTPException(status_code=404, detail="Item not found")
 
     if body.title is not None:
@@ -479,7 +493,7 @@ async def patch_pop_item(
     await session.commit()
     await session.refresh(row)
 
-    return _item_response(row)
+    return await _build_item_with_deals(session, row)
 
 
 @list_router.delete("/item/{row_id}")
@@ -494,7 +508,21 @@ async def delete_pop_item(
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     row = await session.get(Row, row_id)
-    if not row or row.user_id != user.id:
+    if not row:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    # Verify the user is a member of the item's project (not just the creator)
+    if row.project_id:
+        member_stmt = select(ProjectMember).where(
+            ProjectMember.project_id == row.project_id,
+            ProjectMember.user_id == user.id,
+        )
+        member_result = await session.execute(member_stmt)
+        project = await session.get(Project, row.project_id)
+        is_owner = project and project.user_id == user.id
+        if not member_result.scalar_one_or_none() and not is_owner:
+            raise HTTPException(status_code=404, detail="Item not found")
+    elif row.user_id != user.id:
         raise HTTPException(status_code=404, detail="Item not found")
 
     row.status = "canceled"
