@@ -33,10 +33,18 @@ async def session_fixture():
         main_url = env_url
     parsed = urlparse(main_url)
 
-    # Replace DB name: /shopping_agent -> /shopping_agent_test
-    test_path = parsed.path
-    if "/shopping_agent" in test_path and "_test" not in test_path:
-        test_path = test_path.replace("/shopping_agent", "/shopping_agent_test")
+    db_name = parsed.path.rsplit("/", 1)[-1]
+    if db_name == "shopping_agent":
+        test_db_name = "shopping_agent_test"
+    elif db_name.endswith("_test"):
+        test_db_name = db_name
+    else:
+        raise RuntimeError(
+            f"Refusing to run tests against non-test database '{db_name}'. "
+            "Set DATABASE_URL to a *_test database, or use the standard shopping_agent DB so tests can derive shopping_agent_test safely."
+        )
+
+    test_path = f"/{test_db_name}"
     test_url = urlunparse(parsed._replace(path=test_path))
 
     # Admin URL: swap DB name to /postgres (keep query params like ?ssl=disable)
@@ -45,10 +53,11 @@ async def session_fixture():
     try:
         async with admin_engine.connect() as conn:
             result = await conn.execute(
-                sqlalchemy.text("SELECT 1 FROM pg_database WHERE datname = 'shopping_agent_test'")
+                sqlalchemy.text("SELECT 1 FROM pg_database WHERE datname = :db_name"),
+                {"db_name": test_db_name},
             )
             if not result.scalar():
-                await conn.execute(sqlalchemy.text("CREATE DATABASE shopping_agent_test"))
+                await conn.execute(sqlalchemy.text(f'CREATE DATABASE "{test_db_name}"'))
     finally:
         await admin_engine.dispose()
 

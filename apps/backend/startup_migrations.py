@@ -15,6 +15,9 @@ async def run_startup_migrations(engine) -> None:
         # Row columns
         await conn.execute(text("ALTER TABLE row ADD COLUMN IF NOT EXISTS chat_history TEXT;"))
         await conn.execute(text("ALTER TABLE row ADD COLUMN IF NOT EXISTS selected_providers TEXT;"))
+        await conn.execute(text("ALTER TABLE row ADD COLUMN IF NOT EXISTS origin_channel VARCHAR;"))
+        await conn.execute(text("ALTER TABLE row ADD COLUMN IF NOT EXISTS origin_message_id VARCHAR;"))
+        await conn.execute(text("ALTER TABLE row ADD COLUMN IF NOT EXISTS origin_user_id INTEGER;"))
 
         # User columns
         await conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS name TEXT;'))

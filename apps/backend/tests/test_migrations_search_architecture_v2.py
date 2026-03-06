@@ -1,9 +1,11 @@
 import pytest
+import inspect
 from sqlalchemy import text
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from models import Row, Bid, Seller, RequestSpec
 from database import engine
+from startup_migrations import run_startup_migrations
 
 @pytest.mark.asyncio
 async def test_search_architecture_v2_columns_exist(session: AsyncSession):
@@ -12,13 +14,16 @@ async def test_search_architecture_v2_columns_exist(session: AsyncSession):
     result = await session.exec(
         text(
             "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name = 'row' AND column_name IN ('search_intent', 'provider_query_map')"
+            "WHERE table_name = 'row' AND column_name IN ('search_intent', 'provider_query_map', 'origin_channel', 'origin_message_id', 'origin_user_id')"
         )
     )
     columns = result.all()
     column_names = [col[0] for col in columns]
     assert "search_intent" in column_names
     assert "provider_query_map" in column_names
+    assert "origin_channel" in column_names
+    assert "origin_message_id" in column_names
+    assert "origin_user_id" in column_names
 
     # Check 'bid' table columns
     result = await session.exec(
@@ -45,6 +50,9 @@ async def test_persist_search_architecture_v2_fields(session: AsyncSession):
         title="Migration Test Row",
         search_intent='{"product_category": "electronics"}',
         provider_query_map='{"rainforest": {"query": "test"}}',
+        origin_channel="web",
+        origin_message_id="msg-test-123",
+        origin_user_id=42,
         request_spec=spec
     )
     session.add(row)
@@ -54,6 +62,9 @@ async def test_persist_search_architecture_v2_fields(session: AsyncSession):
 
     assert row.search_intent == '{"product_category": "electronics"}'
     assert row.provider_query_map == '{"rainforest": {"query": "test"}}'
+    assert row.origin_channel == "web"
+    assert row.origin_message_id == "msg-test-123"
+    assert row.origin_user_id == 42
     
     # Create a test bid with new fields
     # Need a seller first
@@ -82,3 +93,10 @@ async def test_persist_search_architecture_v2_fields(session: AsyncSession):
     assert bid.normalized_at is None # Default is None
     
     # No explicit cleanup needed if we don't commit (fixture handles rollback)
+
+
+def test_startup_migrations_cover_row_origin_columns():
+    source = inspect.getsource(run_startup_migrations)
+    assert 'ALTER TABLE row ADD COLUMN IF NOT EXISTS origin_channel VARCHAR;' in source
+    assert 'ALTER TABLE row ADD COLUMN IF NOT EXISTS origin_message_id VARCHAR;' in source
+    assert 'ALTER TABLE row ADD COLUMN IF NOT EXISTS origin_user_id INTEGER;' in source
