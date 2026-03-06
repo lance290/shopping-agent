@@ -41,6 +41,9 @@ interface ListItem {
   quantity?: string | null;
   origin_channel?: string | null;
   origin_user_id?: number | null;
+  like_count?: number;
+  user_liked?: boolean;
+  comment_count?: number;
 }
 
 interface PopList {
@@ -50,6 +53,22 @@ interface PopList {
 }
 
 type TabType = 'deals' | 'swaps';
+
+function timeAgo(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const seconds = Math.floor((new Date().getTime() - new Date(dateStr).getTime()) / 1000);
+  let interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + 'y ago';
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + 'mo ago';
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + 'd ago';
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + 'h ago';
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + 'm ago';
+  return Math.floor(seconds) + 's ago';
+}
 
 export default function PopListPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -85,6 +104,18 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
         const data = await res.json();
         setList(data);
         
+        // Initialize social states
+        if (data.items) {
+          const initialLikes: Record<number, { liked: boolean; count: number }> = {};
+          data.items.forEach((item: ListItem) => {
+            initialLikes[item.id] = { 
+              liked: item.user_liked || false, 
+              count: item.like_count || 0 
+            };
+          });
+          setItemLikes(initialLikes);
+        }
+
         if (!hasInitializedExpanded && data.items) {
           setExpandedItems(new Set(data.items.map((i: any) => i.id)));
           setHasInitializedExpanded(true);
@@ -500,8 +531,8 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                         </svg>
-                        {(itemComments[item.id]?.length || 0) > 0 && (
-                          <span>{itemComments[item.id].length}</span>
+                        {Math.max(item.comment_count || 0, itemComments[item.id]?.length || 0) > 0 && (
+                          <span>{Math.max(item.comment_count || 0, itemComments[item.id]?.length || 0)}</span>
                         )}
                       </button>
                     </div>
@@ -518,7 +549,7 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
                           <div className="min-w-0">
                             <span className="text-xs font-medium text-gray-700">{c.user_name}</span>
                             {c.created_at && (
-                              <span className="text-[10px] text-gray-400 ml-1">{new Date(c.created_at).toLocaleDateString()}</span>
+                              <span className="text-[10px] text-gray-400 ml-1">• {timeAgo(c.created_at)}</span>
                             )}
                             <p className="text-xs text-gray-600 mt-0.5">{c.text}</p>
                           </div>

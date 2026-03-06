@@ -16,6 +16,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from database import get_session
 from models.rows import Row, Project, ProjectInvite
 from models.bids import Bid
+from models.social import RowReaction, RowComment
 from services.llm import call_gemini
 from routes.pop_helpers import POP_DOMAIN, _get_pop_user, _ensure_project_member, _build_item_with_deals
 from models.rows import ProjectMember
@@ -40,7 +41,7 @@ def _extract_taxonomy(row: Row) -> dict:
     }
 
 
-def _item_response(row: Row) -> dict:
+def _item_response(row: Row, like_count: int = 0, user_liked: bool = False, comment_count: int = 0) -> dict:
     """Build a single-item response dict with taxonomy + attribution."""
     taxonomy = _extract_taxonomy(row)
     return {
@@ -50,6 +51,9 @@ def _item_response(row: Row) -> dict:
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "origin_channel": row.origin_channel,
         "origin_user_id": row.origin_user_id,
+        "like_count": like_count,
+        "user_liked": user_liked,
+        "comment_count": comment_count,
         "deals": [],
         "swaps": [],
         "lowest_price": None,
@@ -95,9 +99,31 @@ async def get_pop_list(
     rows_result = await session.execute(rows_stmt)
     rows = rows_result.scalars().all()
 
+    # Bulk fetch social data (PRD-07)
+    row_ids = [r.id for r in rows] if rows else []
+    reactions_by_row = {}
+    comments_by_row = {}
+    if row_ids:
+        # Reactions
+        react_stmt = select(RowReaction).where(RowReaction.row_id.in_(row_ids))
+        react_res = await session.execute(react_stmt)
+        for r in react_res.scalars().all():
+            reactions_by_row.setdefault(r.row_id, []).append(r)
+        
+        # Comments
+        comm_stmt = select(RowComment).where(RowComment.row_id.in_(row_ids), RowComment.status == "active")
+        comm_res = await session.execute(comm_stmt)
+        for c in comm_res.scalars().all():
+            comments_by_row.setdefault(c.row_id, []).append(c)
+
     provider = get_coupon_provider()
     items = []
     for row in rows:
+        row_likes = reactions_by_row.get(row.id, [])
+        like_count = len(row_likes)
+        user_liked = any(r.user_id == user.id for r in row_likes)
+        comment_count = len(comments_by_row.get(row.id, []))
+
         bids_stmt = (
             select(Bid)
             .where(Bid.row_id == row.id)
@@ -171,6 +197,9 @@ async def get_pop_list(
             "created_at": row.created_at.isoformat() if row.created_at else None,
             "origin_channel": row.origin_channel,
             "origin_user_id": row.origin_user_id,
+            "like_count": like_count,
+            "user_liked": user_liked,
+            "comment_count": comment_count,
             **taxonomy,
             "deals": deals,
             "swaps": swaps[:3],
