@@ -72,6 +72,17 @@ if [ -f "$ROOT_DIR/Makefile" ] && command -v make >/dev/null 2>&1; then
   fi
 fi
 
+# TypeScript type-check for monorepo frontend (catches cross-component type mismatches)
+if [ -f "$ROOT_DIR/apps/frontend/tsconfig.json" ] && command -v npx >/dev/null 2>&1; then
+  echo "[pre-push] 🔍 TypeScript: type-checking apps/frontend…"
+  if (cd "$ROOT_DIR/apps/frontend" && npx tsc --noEmit 2>&1); then
+    echo "[pre-push] ✅ TypeScript type-check passed"
+  else
+    echo "[pre-push] ❌ TypeScript type-check failed"
+    BUILD_FAILED=true
+  fi
+fi
+
 if [ "$BUILD_FAILED" = true ]; then
   echo "[pre-push] ❌ One or more builds failed"
   exit 1
