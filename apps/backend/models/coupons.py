@@ -78,6 +78,48 @@ class PopSwapClaim(SQLModel, table=True):
     receipt_id: Optional[str] = Field(default=None, foreign_key="receipt.id")
 
 
+class Campaign(SQLModel, table=True):
+    """
+    A funded rebate campaign where a CPG brand pre-pays credits to conquest
+    competitor products. When a shopper buys the swap product and scans their
+    receipt, the campaign budget is debited and the shopper's wallet is credited.
+
+    Distinct from CouponCampaign (outreach tracking) — this model holds real money.
+    """
+    __tablename__ = "campaign"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    vendor_id: int = Field(foreign_key="vendor.id", index=True)
+    name: str
+    swap_product_name: str
+    swap_product_image: Optional[str] = None
+    swap_product_url: Optional[str] = None
+    budget_total_cents: int = 0
+    budget_remaining_cents: int = 0
+    payout_per_swap_cents: int = 0
+    target_categories: Optional[str] = None
+    target_competitors: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    status: str = "active"  # active, paused, depleted, expired
+    stripe_payment_intent_id: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
+
+    @property
+    def is_active_now(self) -> bool:
+        now = datetime.utcnow()
+        if self.status != "active":
+            return False
+        if self.budget_remaining_cents <= 0:
+            return False
+        if self.start_date and now < self.start_date:
+            return False
+        if self.end_date and now > self.end_date:
+            return False
+        return True
+
+
 class CouponCampaign(SQLModel, table=True):
     """
     Tracks a brand outreach campaign (PRD-08).

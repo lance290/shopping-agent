@@ -75,19 +75,18 @@ async def test_claim_provider_swap_marks_swap_selected(
     await session.commit()
     await session.refresh(swap)
 
-    synthetic_id = swap.id + 1000000
     resp = await client.post(
-        f"/pop/offer/{synthetic_id}/claim",
+        f"/pop/swap/{swap.id}/claim",
         json={"row_id": pop_row.id},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
     assert resp.json()["claimed"] is True
-    assert resp.json()["bid_id"] == synthetic_id
+    assert resp.json()["swap_id"] == swap.id
 
     item = await _build_item_with_deals(session, pop_row, user.id)
-    selected_swaps = [swap for swap in item["swaps"] if swap.get("is_selected")]
-    assert any(swap["id"] == synthetic_id for swap in selected_swaps)
+    selected_swaps = [selected for selected in item["swaps"] if selected.get("is_selected")]
+    assert any(selected["id"] == swap.id for selected in selected_swaps)
 
 
 @pytest.mark.asyncio

@@ -24,7 +24,7 @@ from typing import List, Optional
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from models.coupons import PopSwap
+from models.coupons import PopSwap, Campaign
 
 logger = logging.getLogger(__name__)
 
@@ -252,6 +252,85 @@ class HomeBrewProvider(CouponProvider):
         )
 
 
+class CampaignProvider(CouponProvider):
+    """
+    Queries active funded Campaign records (PRD: PopSwaps Rebate Flow).
+
+    When a brand pre-pays campaign credits, their swap offers surface here.
+    Matches campaigns against list item categories/product names.
+    """
+
+    @property
+    def name(self) -> str:
+        return "campaign"
+
+    async def search_swaps(
+        self,
+        category: str,
+        product_name: Optional[str] = None,
+        session: Optional[AsyncSession] = None,
+    ) -> List[SwapOffer]:
+        if session is None:
+            logger.warning("[CampaignProvider] No DB session provided")
+            return []
+
+        now = datetime.utcnow()
+        stmt = (
+            select(Campaign)
+            .where(Campaign.status == "active")
+            .where(Campaign.budget_remaining_cents > 0)
+            .where(
+                (Campaign.start_date == None) | (Campaign.start_date <= now)
+            )
+            .where(
+                (Campaign.end_date == None) | (Campaign.end_date > now)
+            )
+        )
+        result = await session.execute(stmt)
+        campaigns = result.scalars().all()
+
+        if not campaigns:
+            return []
+
+        search_lower = category.lower()
+        product_lower = product_name.lower() if product_name else ""
+        matched: List[SwapOffer] = []
+
+        for c in campaigns:
+            # Match against target_categories (comma-separated)
+            cats = (c.target_categories or "").lower()
+            competitors = (c.target_competitors or "").lower()
+
+            cat_match = any(
+                cat.strip() in search_lower or search_lower in cat.strip()
+                for cat in cats.split(",") if cat.strip()
+            )
+            competitor_match = any(
+                comp.strip() in search_lower or comp.strip() in product_lower
+                for comp in competitors.split(",") if comp.strip()
+            )
+
+            if cat_match or competitor_match:
+                matched.append(SwapOffer(
+                    swap_id=None,
+                    category=cats,
+                    target_product=competitors,
+                    swap_product_name=c.swap_product_name,
+                    offer_type="rebate",
+                    savings_cents=c.payout_per_swap_cents,
+                    offer_description=f"Save ${c.payout_per_swap_cents / 100:.2f} — keep your receipt!",
+                    brand_name=None,
+                    brand_user_id=None,
+                    swap_product_image=c.swap_product_image,
+                    swap_product_url=c.swap_product_url,
+                    provider="campaign",
+                    provider_offer_id=f"campaign_{c.id}",
+                    expires_at=c.end_date,
+                ))
+
+        return sorted(matched, key=lambda o: o.savings_cents, reverse=True)
+
+
 class IbottaProvider(CouponProvider):
     """
     Stub for Ibotta Performance Network (IPN) integration.
@@ -299,6 +378,7 @@ class AggregateProvider:
         self.providers: List[CouponProvider] = providers or [
             ManualProvider(),
             HomeBrewProvider(),
+            CampaignProvider(),
         ]
 
     async def search_swaps(
