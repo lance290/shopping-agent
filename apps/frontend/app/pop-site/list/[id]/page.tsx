@@ -181,7 +181,6 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
             return {
               ...item,
               deals: item.deals.map((d) => ({ ...d, is_selected: d.id === dealId })),
-              swaps: item.swaps.map((swap) => ({ ...swap, is_selected: false })),
             };
           }),
         };
@@ -201,53 +200,6 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
             return {
               ...item,
               deals: item.deals.map((d) => ({ ...d, is_selected: false })),
-            };
-          }),
-        };
-      });
-    } catch { /* silent */ }
-  };
-
-  const handleClaimSwap = async (itemId: number, swapId: number) => {
-    try {
-      await fetch(`/api/pop/swap/${swapId}/claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ row_id: itemId }),
-      });
-      setList((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          items: prev.items.map((item) => {
-            if (item.id !== itemId) return item;
-            return {
-              ...item,
-              deals: item.deals.map((d) => ({ ...d, is_selected: false })),
-              swaps: item.swaps.map((swap) => ({ ...swap, is_selected: swap.id === swapId })),
-            };
-          }),
-        };
-      });
-    } catch { /* silent */ }
-  };
-
-  const handleUnclaimSwap = async (itemId: number, swapId: number) => {
-    try {
-      await fetch(`/api/pop/swap/${swapId}/claim`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ row_id: itemId }),
-      });
-      setList((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          items: prev.items.map((item) => {
-            if (item.id !== itemId) return item;
-            return {
-              ...item,
-              swaps: item.swaps.map((swap) => ({ ...swap, is_selected: false })),
             };
           }),
         };
@@ -351,10 +303,10 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
   const itemsWithDeals = list.items.filter((i) => i.deal_count > 0).length;
   const itemsWithSwaps = list.items.filter((i) => i.swaps.length > 0).length;
 
-  const selectedItems = list.items.filter(
-    (item) => item.deals.some((deal) => deal.is_selected) || item.swaps.some((swap) => swap.is_selected)
-  );
+  // Items with at least one selected deal
+  const selectedItems = list.items.filter((item) => item.deals.some((d) => d.is_selected));
   const selectedCount = selectedItems.length;
+  // In shopping mode, show only selected items
   const visibleItems = shoppingMode ? selectedItems : list.items;
 
   return (
@@ -415,8 +367,6 @@ export default function PopListPage({ params }: { params: Promise<{ id: string }
           onQuantityChange={handleQuantityChange}
           onClaimDeal={handleClaimDeal}
           onUnclaimDeal={handleUnclaimDeal}
-          onClaimSwap={handleClaimSwap}
-          onUnclaimSwap={handleUnclaimSwap}
           onEditItem={setEditingItem}
           onToggleLike={handleToggleLike}
           onToggleComments={handleToggleComments}

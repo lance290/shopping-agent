@@ -22,7 +22,6 @@ interface Swap {
   url: string | null;
   image_url: string | null;
   savings_vs_first: number | null;
-  is_selected?: boolean;
 }
 
 interface ListItem {
@@ -56,7 +55,6 @@ interface PopListSidebarProps {
   handleDuplicateProject: () => void;
   handleDeleteItem: (item: ListItem) => void;
   handleClaimDeal: (itemId: number, dealId: number) => void;
-  handleClaimSwap: (itemId: number, swapId: number) => void;
   sourceColor: (source: string) => string;
   sourceLabel: (source: string) => string;
 }
@@ -81,14 +79,11 @@ export default function PopListSidebar({
   handleDuplicateProject,
   handleDeleteItem,
   handleClaimDeal,
-  handleClaimSwap,
   sourceColor,
   sourceLabel,
 }: PopListSidebarProps) {
   const [showProjectMenu, setShowProjectMenu] = useState(false);
-  const selectedCount = listItems.filter(
-    (item) => item.deals?.some((deal) => deal.is_selected) || item.swaps?.some((swap) => swap.is_selected)
-  ).length;
+  const selectedCount = listItems.filter((item) => item.deals?.some((deal) => deal.is_selected)).length;
 
   return (
     <div className="lg:w-96 border-t lg:border-t-0 lg:border-l border-gray-100 bg-gray-50/50 p-4 flex flex-col h-[calc(100vh-56px)]">
@@ -342,63 +337,42 @@ export default function PopListSidebar({
                           <div className="space-y-2">
                             <div className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Swaps</div>
                             {item.swaps.map((swap) => (
-                              <div
+                              <a
                                 key={swap.id}
-                                className={`w-full flex items-center gap-2.5 p-2 rounded-lg text-left transition-colors ${
-                                  swap.is_selected
-                                    ? 'bg-amber-50 ring-1 ring-amber-300'
-                                    : 'hover:bg-amber-50'
-                                }`}
+                                href={swap.url || '#'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full flex items-center gap-2.5 p-2 rounded-lg text-left transition-colors hover:bg-amber-50"
                               >
-                                <button
-                                  onClick={() => handleClaimSwap(item.id, swap.id)}
-                                  className="flex-shrink-0"
-                                  title={swap.is_selected ? 'Swap picked' : 'Pick this swap'}
-                                >
-                                  {swap.is_selected ? (
-                                    <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                  ) : (
-                                    <span className="block w-5 h-5 rounded-full border-2 border-gray-300" />
-                                  )}
-                                </button>
-                                <a
-                                  href={swap.url || '#'}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="w-full flex items-center gap-2.5 text-left"
-                                >
-                                  {swap.image_url ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                      src={swap.image_url}
-                                      alt={swap.title}
-                                      className="w-10 h-10 rounded-md object-cover flex-shrink-0 bg-gray-100"
-                                    />
-                                  ) : (
-                                    <div className="w-10 h-10 rounded-md bg-amber-100 flex-shrink-0 flex items-center justify-center text-amber-700">
-                                      🔄
-                                    </div>
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs text-gray-800 truncate">{swap.title}</p>
-                                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                      {swap.price != null && (
-                                        <span className="text-sm font-semibold text-gray-900">${swap.price.toFixed(2)}</span>
-                                      )}
-                                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${sourceColor(swap.source)}`}>
-                                        {sourceLabel(swap.source)}
-                                      </span>
-                                      {swap.savings_vs_first != null && (
-                                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                                          Save ${swap.savings_vs_first.toFixed(2)}
-                                        </span>
-                                      )}
-                                    </div>
+                                {swap.image_url ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={swap.image_url}
+                                    alt={swap.title}
+                                    className="w-10 h-10 rounded-md object-cover flex-shrink-0 bg-gray-100"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-md bg-amber-100 flex-shrink-0 flex items-center justify-center text-amber-700">
+                                    🔄
                                   </div>
-                                </a>
-                              </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-gray-800 truncate">{swap.title}</p>
+                                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                    {swap.price != null && (
+                                      <span className="text-sm font-semibold text-gray-900">${swap.price.toFixed(2)}</span>
+                                    )}
+                                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${sourceColor(swap.source)}`}>
+                                      {sourceLabel(swap.source)}
+                                    </span>
+                                    {swap.savings_vs_first != null && (
+                                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                                        Save ${swap.savings_vs_first.toFixed(2)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </a>
                             ))}
                           </div>
                         )}

@@ -16,7 +16,6 @@ export interface Swap {
   url: string | null;
   image_url: string | null;
   savings_vs_first: number | null;
-  is_selected?: boolean;
 }
 
 export interface CouponBadge {
