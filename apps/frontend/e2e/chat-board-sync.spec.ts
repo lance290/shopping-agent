@@ -32,11 +32,11 @@ test.describe('Chat-Board Synchronization Flow', () => {
     // NOTE: This test requires a working LLM API (GEMINI_API_KEY) to process chat messages.
     // Skip in CI/test environments where the LLM is not available.
     // Wait for the page to load
-    await page.waitForSelector('text=Shopping Agent', { timeout: 15000 });
+    await page.waitForSelector('input[placeholder], textarea[placeholder]', { timeout: 15000 });
     console.log('Page loaded');
 
     // Find the chat input - using the actual placeholder text
-    const chatInput = page.locator('input[placeholder="What are you looking for?"]');
+    const chatInput = page.locator('input[placeholder], textarea[placeholder]').first();
     await expect(chatInput).toBeVisible({ timeout: 10000 });
     console.log('Chat input found');
 
@@ -170,7 +170,7 @@ test.describe('Chat-Board Synchronization Flow', () => {
     // 2. Frontend should show the row after refresh
 
     // Wait for page to load
-    await page.waitForSelector('text=Shopping Agent', { timeout: 15000 });
+    await page.waitForSelector('input[placeholder], textarea[placeholder]', { timeout: 15000 });
     
     // Create a row via API (simulating what the LLM createRow tool does)
     const rowTitle = `API Created Row ${Date.now()}`;

@@ -10,10 +10,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload, defer, joinedload
 
 from database import get_session
-from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project, User
+from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project, User, Vendor
+from models.deals import Deal, DealMessage
 from dependencies import get_current_session, resolve_user_id, resolve_user_id_and_guest_flag, GUEST_EMAIL
 from routes.rows_search import router as rows_search_router
 from sourcing.safety import SafetyService
+from services.sdui_builder import augment_schema_with_active_deal
 from utils.json_utils import safe_json_loads
 
 router = APIRouter(tags=["rows"])
@@ -71,12 +73,31 @@ class BidRead(BaseModel):
     seller: Optional[SellerRead] = None
 
 
+class ActiveDealRead(BaseModel):
+    id: int
+    row_id: int
+    status: str
+    vendor_id: Optional[int] = None
+    vendor_name: Optional[str] = None
+    bid_id: Optional[int] = None
+    vendor_quoted_price: Optional[float] = None
+    buyer_total: Optional[float] = None
+    currency: str = "USD"
+    agreed_terms_summary: Optional[str] = None
+    agreement_source: Optional[str] = None
+    stripe_payment_intent_id: Optional[str] = None
+    terms_agreed_at: Optional[datetime] = None
+    funded_at: Optional[datetime] = None
+    vendor_stripe_onboarded: Optional[bool] = None
+
+
 class RowReadWithBids(RowBase):
     id: int
     user_id: int
     project_id: Optional[int] = None
     bids: List[BidRead] = []
     ui_schema: Optional[Any] = None  # SDUI schema (JSONB)
+    active_deal: Optional[ActiveDealRead] = None
 
 
 class RequestSpecUpdate(BaseModel):
@@ -104,6 +125,108 @@ class RowUpdate(BaseModel):
 def _default_choice_factors_for_row(row: Row) -> list:
     """Return empty factors — LLM generates proper contextual factors via regenerate_choice_factors."""
     return []
+
+
+_DEAL_STATUS_PRIORITY = {
+    "terms_agreed": 0,
+    "funded": 1,
+    "in_transit": 2,
+    "completed": 3,
+    "negotiating": 4,
+    "disputed": 5,
+}
+
+
+def _infer_agreement_source(content_text: Optional[str]) -> Optional[str]:
+    if not content_text:
+        return None
+    lowered = content_text.lower()
+    if "source: auto_detected" in lowered:
+        return "auto_detected"
+    if "source: manual_reopen" in lowered:
+        return "manual_reopen"
+    if "source: manual" in lowered:
+        return "manual"
+    return None
+
+
+def _choose_active_deal(deals: List[Deal]) -> Optional[Deal]:
+    if not deals:
+        return None
+    return sorted(
+        deals,
+        key=lambda deal: (
+            _DEAL_STATUS_PRIORITY.get(deal.status, 99),
+            -(deal.updated_at or deal.created_at).timestamp(),
+        ),
+    )[0]
+
+
+async def _load_active_deal_summaries(session: AsyncSession, rows: List[Row]) -> dict[int, dict]:
+    row_ids = [row.id for row in rows if row.id is not None]
+    if not row_ids:
+        return {}
+
+    deal_result = await session.exec(
+        select(Deal).where(Deal.row_id.in_(row_ids), Deal.status != "canceled")
+    )
+    deals = deal_result.all()
+    deals_by_row: dict[int, List[Deal]] = {}
+    for deal in deals:
+        deals_by_row.setdefault(deal.row_id, []).append(deal)
+
+    selected_deals = [chosen for chosen in (_choose_active_deal(group) for group in deals_by_row.values()) if chosen]
+    if not selected_deals:
+        return {}
+
+    selected_deal_ids = [deal.id for deal in selected_deals if deal.id is not None]
+    vendor_ids = [deal.vendor_id for deal in selected_deals if deal.vendor_id is not None]
+
+    vendor_names: dict[int, str] = {}
+    vendor_onboarded: dict[int, bool] = {}
+    if vendor_ids:
+        vendors = (await session.exec(select(Vendor).where(Vendor.id.in_(vendor_ids)))).all()
+        vendor_names = {vendor.id: vendor.name for vendor in vendors if vendor.id is not None}
+        vendor_onboarded = {vendor.id: bool(vendor.stripe_onboarding_complete) for vendor in vendors if vendor.id is not None}
+
+    source_by_deal: dict[int, Optional[str]] = {}
+    if selected_deal_ids:
+        message_result = await session.exec(
+            select(DealMessage)
+            .where(DealMessage.deal_id.in_(selected_deal_ids), DealMessage.sender_type == "system")
+            .order_by(DealMessage.created_at.desc())
+        )
+        for message in message_result.all():
+            if message.deal_id not in source_by_deal:
+                source_by_deal[message.deal_id] = _infer_agreement_source(message.content_text)
+
+    summaries: dict[int, dict] = {}
+    for deal in selected_deals:
+        summaries[deal.row_id] = {
+            "id": deal.id,
+            "row_id": deal.row_id,
+            "status": deal.status,
+            "vendor_id": deal.vendor_id,
+            "vendor_name": vendor_names.get(deal.vendor_id) if deal.vendor_id else None,
+            "bid_id": deal.bid_id,
+            "vendor_quoted_price": deal.vendor_quoted_price,
+            "buyer_total": deal.buyer_total,
+            "currency": deal.currency,
+            "agreed_terms_summary": deal.agreed_terms_summary,
+            "agreement_source": source_by_deal.get(deal.id),
+            "stripe_payment_intent_id": deal.stripe_payment_intent_id,
+            "terms_agreed_at": deal.terms_agreed_at,
+            "funded_at": deal.funded_at,
+            "vendor_stripe_onboarded": vendor_onboarded.get(deal.vendor_id, None) if deal.vendor_id else None,
+        }
+    return summaries
+
+
+def _serialize_row(row: Row, active_deal: Optional[dict]) -> dict:
+    payload = RowReadWithBids.model_validate(row, from_attributes=True).model_dump()
+    payload["active_deal"] = active_deal
+    payload["ui_schema"] = augment_schema_with_active_deal(payload.get("ui_schema"), active_deal, row)
+    return payload
 
 
 @router.post("/rows", response_model=Row)
@@ -217,8 +340,9 @@ async def read_rows(
     for row in rows:
         row.bids = [b for b in row.bids if not b.is_superseded]
         row.bids = filter_bids_by_price(row)
-    
-    return rows
+
+    active_deals = await _load_active_deal_summaries(session, rows)
+    return [_serialize_row(row, active_deals.get(row.id)) for row in rows]
 
 
 @router.get("/rows/{row_id}", response_model=RowReadWithBids)
@@ -249,8 +373,9 @@ async def read_row(
     # Apply price filter from choice_answers
     row.bids = [b for b in row.bids if not b.is_superseded]
     row.bids = filter_bids_by_price(row)
-    
-    return row
+
+    active_deals = await _load_active_deal_summaries(session, [row])
+    return _serialize_row(row, active_deals.get(row.id))
 
 
 @router.delete("/rows/{row_id}")

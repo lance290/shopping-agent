@@ -16,6 +16,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models import User, Row, Bid, Project
+from models.deals import Deal, DealMessage
 
 
 # ---------------------------------------------------------------------------
@@ -169,6 +170,57 @@ async def test_api_get_single_row_with_null_fields(
     assert resp.status_code == 200
     data = resp.json()
     assert data["id"] == row.id
+
+
+@pytest.mark.asyncio
+async def test_api_get_single_row_includes_active_deal_summary_and_actions(
+    client: AsyncClient, auth_user_and_token, session: AsyncSession
+):
+    """GET /rows/{id} exposes active_deal and injects deal actions into ui_schema."""
+    user, token = auth_user_and_token
+    row = Row(
+        title="Executive assistant charter",
+        status="sourcing",
+        user_id=user.id,
+        choice_answers=None,
+        choice_factors=None,
+        ui_schema={"version": 1, "layout": "ROW_COMPACT", "blocks": [{"type": "MarkdownText", "content": "Deal row"}]},
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    deal = Deal(
+        row_id=row.id,
+        buyer_user_id=user.id,
+        status="terms_agreed",
+        vendor_quoted_price=15000.0,
+        buyer_total=15150.0,
+        agreed_terms_summary="Vendor confirmed the quote and ready to proceed.",
+    )
+    session.add(deal)
+    await session.commit()
+    await session.refresh(deal)
+
+    msg = DealMessage(
+        deal_id=deal.id,
+        sender_type="system",
+        content_text="Deal status changed to terms_agreed (source: manual).",
+    )
+    session.add(msg)
+    await session.commit()
+
+    resp = await client.get(f"/rows/{row.id}", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["active_deal"]["id"] == deal.id
+    assert data["active_deal"]["status"] == "terms_agreed"
+    assert data["active_deal"]["agreement_source"] == "manual"
+
+    action_rows = [block for block in data["ui_schema"]["blocks"] if block["type"] == "ActionRow"]
+    intents = [action["intent"] for block in action_rows for action in block["actions"]]
+    assert "fund_escrow" in intents
+    assert "continue_negotiation" in intents
 
 
 # ---------------------------------------------------------------------------

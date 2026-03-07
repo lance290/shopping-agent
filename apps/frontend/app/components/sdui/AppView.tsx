@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useShoppingStore } from '../../store';
 import type { Row } from '../../store';
-import { createProjectInDb, duplicateProjectInDb } from '../../utils/api';
-import { Bug, FolderPlus, Copy } from 'lucide-react';
+import { createProjectInDb, duplicateProjectInDb, fetchSingleRowFromDb, fundDealEscrowInDb } from '../../utils/api';
+import { Bug, FolderPlus, Copy, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { VerticalListRow } from './VerticalListRow';
 import { getMe } from '../../utils/auth';
 import MobileBottomSheet from '../MobileBottomSheet';
@@ -49,11 +49,39 @@ const GUIDE_LINKS = [
   },
 ];
 
+const HERO_SLIDES = [
+  {
+    eyebrow: 'Agent-led commerce',
+    title: 'Tell the chat what to buy. It does the legwork.',
+    description: 'Start with a sentence. BuyAnything searches retail offers, specialist vendors, and relevant guides in one place.',
+    cta: 'Find the best carry-on under $300',
+    image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1200&q=80',
+    highlight: 'Products, vendors, and editorial context together',
+  },
+  {
+    eyebrow: 'High-consideration sourcing',
+    title: 'Use chat for the purchases that normally become a project.',
+    description: 'From private aviation to relocation and bespoke services, the home screen should feel like the start of a real sourcing workflow.',
+    cta: 'Need a private jet charter from San Diego to Las Vegas next Friday',
+    image: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1200&q=80',
+    highlight: 'Built for complex requests, not just keyword search',
+  },
+  {
+    eyebrow: 'Browse into action',
+    title: 'Use hero content like merchandising, not decoration.',
+    description: 'Let people click from an inspiring moment straight into a live chat request, the same way a great storefront hands off from discovery to intent.',
+    cta: 'Find a relocation concierge for a cross-country move',
+    image: 'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80',
+    highlight: 'A more shoppable first impression without a separate homepage',
+  },
+];
+
 export function AppView({ children }: AppViewProps) {
   const rows = useShoppingStore((s) => s.rows);
   const projects = useShoppingStore((s) => s.projects);
   const activeRowId = useShoppingStore((s) => s.activeRowId);
   const setActiveRowId = useShoppingStore((s) => s.setActiveRowId);
+  const updateRow = useShoppingStore((s) => s.updateRow);
   const rowResults = useShoppingStore((s) => s.rowResults);
   const addProject = useShoppingStore((s) => s.addProject);
   const setCardClickQuery = useShoppingStore((s) => s.setCardClickQuery);
@@ -66,6 +94,8 @@ export function AppView({ children }: AppViewProps) {
   const [isProd, setIsProd] = useState(true);
   const [isTipJarLoading, setIsTipJarLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [activeHeroIndex, setActiveHeroIndex] = useState(0);
+  const [dealBanner, setDealBanner] = useState<{ tone: 'success' | 'warning' | 'error'; message: string } | null>(null);
 
   // Mobile bottom sheet state
   const [mobileSheetSnap, setMobileSheetSnap] = useState<SnapPoint>('peek');
@@ -76,6 +106,7 @@ export function AppView({ children }: AppViewProps) {
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
+  const handledDealLinkRef = useRef<string | null>(null);
 
   // Auto-expand the active row when it changes so users immediately see results
   useEffect(() => {
@@ -115,6 +146,69 @@ export function AppView({ children }: AppViewProps) {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const rowParam = params.get('row');
+    const dealParam = params.get('deal');
+    const fundParam = params.get('fund');
+    const checkoutState = params.get('deal_checkout');
+    const rowId = rowParam ? Number(rowParam) : null;
+    const dealId = dealParam ? Number(dealParam) : null;
+
+    if (rowId && Number.isFinite(rowId)) {
+      setActiveRowId(rowId);
+      setExpandedRowId(rowId);
+    }
+
+    if (checkoutState && rowId && Number.isFinite(rowId)) {
+      void fetchSingleRowFromDb(rowId).then((freshRow) => {
+        if (freshRow) {
+          updateRow(rowId, freshRow);
+        }
+      });
+      if (checkoutState === 'success') {
+        setDealBanner({ tone: 'success', message: 'Escrow funding completed. The row has been refreshed.' });
+      } else {
+        setDealBanner({ tone: 'warning', message: 'Checkout was canceled. The deal is still ready to fund.' });
+      }
+      window.history.replaceState({}, '', '/app');
+      return;
+    }
+
+    const dealLinkKey = `${dealId ?? 'none'}:${rowId ?? 'none'}:${fundParam ?? '0'}:${isAuthenticated}`;
+    if (handledDealLinkRef.current === dealLinkKey) return;
+    if (fundParam !== '1') {
+      handledDealLinkRef.current = dealLinkKey;
+      return;
+    }
+    if (!dealId || !Number.isFinite(dealId)) return;
+    if (isAuthenticated !== true) {
+      if (isAuthenticated === false) {
+        handledDealLinkRef.current = dealLinkKey;
+        setDealBanner({ tone: 'error', message: 'Sign in to fund this deal.' });
+      }
+      return;
+    }
+
+    handledDealLinkRef.current = dealLinkKey;
+    void fundDealEscrowInDb(dealId).then((result) => {
+      if (result?.checkout_url) {
+        window.location.assign(result.checkout_url);
+        return;
+      }
+      setDealBanner({ tone: 'error', message: 'Unable to launch checkout for this deal.' });
+      window.history.replaceState({}, '', '/app');
+    });
+  }, [isAuthenticated, setActiveRowId, updateRow]);
+
+  useEffect(() => {
+    if (!isDesktop || isAuthenticated === true || activeRowId) return;
+    const interval = window.setInterval(() => {
+      setActiveHeroIndex((current) => (current + 1) % HERO_SLIDES.length);
+    }, 5200);
+    return () => window.clearInterval(interval);
+  }, [activeRowId, isAuthenticated, isDesktop]);
 
   // Detect desktop breakpoint for resize handle visibility
   useEffect(() => {
@@ -223,6 +317,8 @@ export function AppView({ children }: AppViewProps) {
     setCardClickQuery(query);
   };
 
+  const activeHero = HERO_SLIDES[activeHeroIndex];
+
   // Peek label: show active row info or generic label
   const activeRowForLabel = rows.find(r => r.id === activeRowId);
   const peekLabel = activeRowForLabel
@@ -237,33 +333,148 @@ export function AppView({ children }: AppViewProps) {
   // Extracted list content — rendered in desktop pane or mobile sheet
   const listContent = (
     <>
+      {dealBanner && (
+        <div
+          className={`mx-4 mt-4 rounded-xl border px-4 py-3 text-sm ${dealBanner.tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : dealBanner.tone === 'warning' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-rose-200 bg-rose-50 text-rose-800'}`}
+        >
+          {dealBanner.message}
+        </div>
+      )}
       {isAuthenticated !== true && !activeRowId ? (
         isDesktop ? (
-          <div className="p-6 space-y-8 bg-gradient-to-b from-[#111827] via-[#1f2937] to-[#111827] text-white min-h-full">
-            <section className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm p-7 shadow-2xl">
-              <p className="text-xs uppercase tracking-[0.35em] text-white/50 mb-3">BuyAnything</p>
-              <h2 className="text-3xl font-semibold text-white leading-tight">Every purchase decision, handled.</h2>
-              <p className="mt-3 text-sm text-white/70 max-w-2xl">
-                Tell the chat what you need. We&apos;ll infer intent, compare options, and keep your shortlist
-                tidy once you sign in.
-              </p>
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl bg-gradient-to-br from-sky-500/20 to-cyan-500/10 border border-sky-300/20 p-4">
-                  <p className="text-xs uppercase tracking-wider text-sky-200/80">Intent-first</p>
-                  <p className="mt-1 text-sm font-medium text-white">Natural language prompts</p>
+          <div className="p-6 space-y-6 bg-gradient-to-b from-[#0b1220] via-[#111827] to-[#172033] text-white min-h-full">
+            <section className="relative overflow-hidden rounded-[28px] border border-white/10 shadow-2xl">
+              <div className="absolute inset-0">
+                <img src={activeHero.image} alt={activeHero.title} className="h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#09111d] via-[#09111d]/92 to-[#09111d]/55" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.22),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(96,165,250,0.18),transparent_28%)]" />
+              </div>
+              <div className="relative grid gap-6 xl:grid-cols-[1.3fr_0.7fr] p-7 xl:p-8">
+                <div className="max-w-3xl">
+                  <p className="text-[11px] uppercase tracking-[0.35em] text-white/55">{activeHero.eyebrow}</p>
+                  <h2 className="mt-4 text-4xl font-semibold leading-tight text-white xl:text-5xl">
+                    {activeHero.title}
+                  </h2>
+                  <p className="mt-4 max-w-2xl text-base leading-7 text-white/75">
+                    {activeHero.description}
+                  </p>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleIntentClick(activeHero.cta)}
+                      className="inline-flex items-center gap-2 rounded-2xl bg-gold px-5 py-3 text-sm font-semibold text-navy transition hover:bg-gold-dark"
+                    >
+                      Ask chat now
+                      <ArrowRight size={16} />
+                    </button>
+                    <Link className="inline-flex items-center rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/15" href="/guides">
+                      Browse guides
+                    </Link>
+                    <Link className="inline-flex items-center rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/15" href="/vendors">
+                      Explore vendors
+                    </Link>
+                  </div>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleIntentClick(activeHero.cta)}
+                      className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/15"
+                    >
+                      {activeHero.cta}
+                    </button>
+                  </div>
                 </div>
-                <div className="rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10 border border-violet-300/20 p-4">
-                  <p className="text-xs uppercase tracking-wider text-violet-200/80">Multi-source</p>
-                  <p className="mt-1 text-sm font-medium text-white">Retail + specialist vendors</p>
-                </div>
-                <div className="rounded-2xl bg-gradient-to-br from-emerald-500/20 to-green-500/10 border border-emerald-300/20 p-4">
-                  <p className="text-xs uppercase tracking-wider text-emerald-200/80">Anonymous-first</p>
-                  <p className="mt-1 text-sm font-medium text-white">Search now, save later</p>
+                <div className="rounded-[24px] border border-white/10 bg-[#09111d]/55 p-5 backdrop-blur-sm">
+                  <p className="text-[11px] uppercase tracking-[0.3em] text-white/45">Why this feels different</p>
+                  <div className="mt-4 space-y-3">
+                    <div className="rounded-2xl border border-sky-300/15 bg-sky-400/10 p-4">
+                      <p className="text-xs uppercase tracking-wider text-sky-100/75">Intent-first</p>
+                      <p className="mt-1 text-sm font-medium text-white">Start with natural language, not filters.</p>
+                    </div>
+                    <div className="rounded-2xl border border-violet-300/15 bg-violet-400/10 p-4">
+                      <p className="text-xs uppercase tracking-wider text-violet-100/75">Multi-source</p>
+                      <p className="mt-1 text-sm font-medium text-white">Pull from retail listings and specialist vendors together.</p>
+                    </div>
+                    <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/10 p-4">
+                      <p className="text-xs uppercase tracking-wider text-emerald-100/75">Anonymous-first</p>
+                      <p className="mt-1 text-sm font-medium text-white">Search now, save your shortlist once you&apos;re ready.</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+                    {activeHero.highlight}
+                  </div>
                 </div>
               </div>
-              <div className="mt-5 flex flex-wrap gap-3">
-                <Link className="btn-secondary" href="/guides">Browse guides</Link>
-                <Link className="btn-secondary" href="/vendors">Explore vendors</Link>
+              <div className="absolute right-4 top-4 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveHeroIndex((current) => (current - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-[#09111d]/60 text-white transition hover:bg-[#09111d]/80"
+                  aria-label="Previous hero"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveHeroIndex((current) => (current + 1) % HERO_SLIDES.length)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-[#09111d]/60 text-white transition hover:bg-[#09111d]/80"
+                  aria-label="Next hero"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+              <div className="absolute bottom-4 left-7 flex items-center gap-2">
+                {HERO_SLIDES.map((slide, index) => (
+                  <button
+                    key={slide.title}
+                    type="button"
+                    onClick={() => setActiveHeroIndex(index)}
+                    className={`h-2.5 rounded-full transition-all ${index === activeHeroIndex ? 'w-8 bg-gold' : 'w-2.5 bg-white/35 hover:bg-white/55'}`}
+                    aria-label={`Show hero ${index + 1}`}
+                  />
+                ))}
+              </div>
+            </section>
+
+            <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-white/75">Start faster</h3>
+                    <p className="mt-1 text-sm text-white/55">Turn merchandising into action with one click into chat.</p>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-[0.25em] text-white/35">Tap to ask</span>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {TRENDING_SEARCHES.slice(0, 4).map((label) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => handleIntentClick(label)}
+                      className="group rounded-2xl border border-white/10 bg-[#0d1728] px-4 py-4 text-left transition hover:border-gold/40 hover:bg-[#12203a]"
+                    >
+                      <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">Popular prompt</div>
+                      <div className="mt-2 text-sm font-medium text-white group-hover:text-gold-light">{label}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-white/75">What the home screen should communicate</h3>
+                <div className="mt-4 grid gap-3">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p className="text-sm font-medium text-white">You can start immediately.</p>
+                    <p className="mt-1 text-sm text-white/60">No setup wall before intent.</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p className="text-sm font-medium text-white">There&apos;s real inventory behind the experience.</p>
+                    <p className="mt-1 text-sm text-white/60">Retail offers, affiliates, and specialist vendors make the page feel alive.</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p className="text-sm font-medium text-white">Editorial content should hand off into chat.</p>
+                    <p className="mt-1 text-sm text-white/60">Guides shouldn&apos;t be a dead end; they should become prompts.</p>
+                  </div>
+                </div>
               </div>
             </section>
 

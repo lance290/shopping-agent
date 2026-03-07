@@ -108,8 +108,8 @@ test.describe('Anonymous user — no crash', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    const chatInput = page.locator('input[placeholder*="looking for"], input[placeholder*="search"], textarea');
-    await expect(chatInput.first()).toBeVisible({ timeout: 10000 });
+    const chatInput = page.locator('input[placeholder], textarea[placeholder]').first();
+    await expect(chatInput).toBeVisible({ timeout: 10000 });
   });
 });
 

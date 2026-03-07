@@ -61,7 +61,7 @@ test.describe('Scenario 1: Empty & Invalid Inputs', () => {
     await setupAuthenticatedPage(page, ctx);
 
     // Try to submit empty input
-    const chatInput = page.locator('input[placeholder*="looking for"], input[placeholder*="Refine"]');
+    const chatInput = page.locator('input[placeholder], textarea[placeholder]').first();
     await expect(chatInput).toBeVisible({ timeout: 10000 });
     
     // Press Enter with empty input

@@ -313,8 +313,8 @@ describe('Security: affiliate tags not in schema', () => {
 // =========================================================================
 
 describe('ActionObject intents', () => {
-  test('all 8 intents recognized', () => {
-    expect(ACTION_INTENTS).toHaveLength(8);
+  test('all 11 intents recognized', () => {
+    expect(ACTION_INTENTS).toHaveLength(11);
     for (const intent of ACTION_INTENTS) {
       expect(typeof intent).toBe('string');
       expect(intent.length).toBeGreaterThan(0);

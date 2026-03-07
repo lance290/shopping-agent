@@ -367,6 +367,12 @@ async def resend_inbound_webhook(
                 agreed_terms_summary=ai_result.get("summary"),
             )
             deal_transitioned = True
+            await record_message(
+                session=session,
+                deal_id=deal.id,
+                sender_type="system",
+                content_text="Deal status changed to terms_agreed (source: auto_detected).",
+            )
             logger.info(f"[ResendWebhook] Auto-transitioned deal {deal.id} to terms_agreed")
         except Exception as e:
             logger.warning(f"[ResendWebhook] Auto-transition failed: {e}")

@@ -32,6 +32,13 @@ type SsePayload = {
   message?: string;
 };
 
+const STARTER_PROMPTS = [
+  'Find the best carry-on under $300',
+  'Source a private jet charter from San Diego to Vegas',
+  'Compare espresso machines under $500',
+  'Find a relocation concierge for a cross-country move',
+];
+
 export default function Chat() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -40,6 +47,7 @@ export default function Chat() {
   const [isProd, setIsProd] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userPhone, setUserPhone] = useState<string | null>(null);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
   // Track pending clarification context for multi-turn flows (e.g., aviation)
   const [pendingClarification, setPendingClarification] = useState<{
     type: string;
@@ -94,6 +102,14 @@ export default function Chat() {
     // Auto-focus the input on mount so the keyboard appears on mobile
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (activeRowId || input.trim().length > 0) return;
+    const interval = window.setInterval(() => {
+      setPlaceholderIndex((current) => (current + 1) % STARTER_PROMPTS.length);
+    }, 2800);
+    return () => window.clearInterval(interval);
+  }, [activeRowId, input]);
 
   useEffect(() => {
     // Handle "New Request" - clear the chat when activeRowId becomes null
@@ -588,6 +604,15 @@ export default function Chat() {
     }
   };
 
+  const handlePromptSelect = (prompt: string) => {
+    if (isLoading) return;
+    setInput(prompt);
+    inputRef.current?.focus();
+    window.setTimeout(() => {
+      formRef.current?.requestSubmit();
+    }, 0);
+  };
+
   return (
     <div className="flex flex-col h-full bg-warm-light border-r border-warm-grey/70">
       <ChatHeader
@@ -630,6 +655,8 @@ export default function Chat() {
         ref={messagesEndRef}
         messages={messages}
         isLoading={isLoading}
+        promptSuggestions={STARTER_PROMPTS}
+        onPromptSelect={handlePromptSelect}
       />
 
       <div className="px-6 py-5 bg-white border-t border-warm-grey">
@@ -638,7 +665,7 @@ export default function Chat() {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={activeRow ? `Refine "${activeRow.title}"...` : "What are you looking for?"}
+            placeholder={activeRow ? `Refine "${activeRow.title}"...` : STARTER_PROMPTS[placeholderIndex]}
             className="flex-1"
           />
           <Button

@@ -76,6 +76,7 @@ class DealResponse(BaseModel):
     buyer_total: Optional[float]
     currency: str
     agreed_terms_summary: Optional[str]
+    agreement_source: Optional[str] = None
     created_at: str
     updated_at: Optional[str]
     terms_agreed_at: Optional[str]
@@ -110,6 +111,7 @@ def _deal_to_response(deal: Deal) -> dict:
         "buyer_total": deal.buyer_total,
         "currency": deal.currency,
         "agreed_terms_summary": deal.agreed_terms_summary,
+        "agreement_source": None,
         "created_at": deal.created_at.isoformat() if deal.created_at else None,
         "updated_at": deal.updated_at.isoformat() if deal.updated_at else None,
         "terms_agreed_at": deal.terms_agreed_at.isoformat() if deal.terms_agreed_at else None,
@@ -130,6 +132,26 @@ def _msg_to_response(msg: DealMessage) -> dict:
         "ai_confidence": msg.ai_confidence,
         "created_at": msg.created_at.isoformat() if msg.created_at else None,
     }
+
+
+def _get_app_base(request: Request) -> str:
+    forwarded_host = request.headers.get("x-forwarded-host")
+    if forwarded_host:
+        proto = request.headers.get("x-forwarded-proto", "https")
+        return f"{proto}://{forwarded_host}"
+
+    origin = request.headers.get("origin")
+    if origin:
+        return origin.rstrip("/")
+
+    referer = request.headers.get("referer")
+    if referer:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(referer)
+        return f"{parsed.scheme}://{parsed.netloc}"
+
+    return os.getenv("APP_BASE_URL", "http://localhost:3003")
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
@@ -262,6 +284,8 @@ async def transition_deal(
     if deal.buyer_user_id != auth_session.user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    previous_status = deal.status
+
     try:
         deal = await transition_deal_status(
             session=session,
@@ -275,11 +299,21 @@ async def transition_deal(
         raise HTTPException(status_code=400, detail=str(e))
 
     # Record system message for the transition
+    transition_source = None
+    if request.new_status == "terms_agreed":
+        transition_source = "manual"
+    elif request.new_status == "negotiating" and previous_status == "terms_agreed":
+        transition_source = "manual_reopen"
+
+    message_text = f"Deal status changed to {request.new_status}."
+    if transition_source:
+        message_text = f"Deal status changed to {request.new_status} (source: {transition_source})."
+
     await record_message(
         session=session,
         deal_id=deal.id,
         sender_type="system",
-        content_text=f"Deal status changed to {request.new_status}.",
+        content_text=message_text,
     )
 
     return {"deal": _deal_to_response(deal)}
@@ -318,13 +352,14 @@ async def get_deal_messages(
 @router.post("/{deal_id}/fund")
 async def fund_deal_escrow(
     deal_id: int,
+    request: Request,
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
     """
-    Create a Stripe PaymentIntent to fund the deal escrow.
-    The buyer pays buyer_total (vendor quote + platform fee).
-    Funds are captured immediately but held — payout to vendor happens on release.
+    Create a Stripe Checkout Session to fund the deal escrow.
+    The buyer pays buyer_total (vendor quote + platform fee) and lands in Stripe Checkout.
+    The deal transitions to funded only after the checkout.session.completed webhook fires.
     """
     auth_session = await get_current_session(authorization, session)
     if not auth_session:
@@ -344,64 +379,58 @@ async def fund_deal_escrow(
         raise HTTPException(status_code=400, detail="No buyer total computed on deal")
 
     stripe = _get_stripe()
-    app_base = os.getenv("APP_BASE_URL", "http://localhost:3003")
+    app_base = _get_app_base(request)
 
     amount_cents = int(round(deal.buyer_total * 100))
     fee_cents = int(round((deal.platform_fee_amount or 0) * 100))
     currency = (deal.currency or "USD").lower()
 
-    # Build PaymentIntent params
-    pi_params = {
-        "amount": amount_cents,
-        "currency": currency,
+    session_params = {
+        "mode": "payment",
+        "line_items": [{
+            "price_data": {
+                "currency": currency,
+                "unit_amount": amount_cents,
+                "product_data": {
+                    "name": f"BuyAnything Deal #{deal.id} escrow",
+                    "description": deal.agreed_terms_summary or f"Escrow funding for {deal.currency} {deal.buyer_total:,.2f}",
+                },
+            },
+            "quantity": 1,
+        }],
+        "success_url": f"{app_base}/app?deal_checkout=success&deal={deal.id}&row={deal.row_id}",
+        "cancel_url": f"{app_base}/app?deal_checkout=cancel&deal={deal.id}&row={deal.row_id}",
         "metadata": {
             "deal_id": str(deal.id),
             "row_id": str(deal.row_id),
             "user_id": str(deal.buyer_user_id),
             "vendor_quoted_price": str(deal.vendor_quoted_price),
             "platform_fee": str(deal.platform_fee_amount),
+            "commission_rate": str(deal.platform_fee_pct),
             "type": "deal_escrow",
         },
-        "description": f"BuyAnything Deal #{deal.id} escrow",
     }
 
     # If the vendor has a connected Stripe account, use Connect with application_fee
     if deal.vendor_id:
         vendor = await session.get(Vendor, deal.vendor_id)
         if vendor and vendor.stripe_account_id and vendor.stripe_onboarding_complete:
-            pi_params["transfer_data"] = {"destination": vendor.stripe_account_id}
-            pi_params["application_fee_amount"] = fee_cents
-            deal.stripe_connect_account_id = vendor.stripe_account_id
+            session_params["payment_intent_data"] = {
+                "application_fee_amount": fee_cents,
+                "transfer_data": {"destination": vendor.stripe_account_id},
+            }
+            session_params["metadata"]["connected_account"] = vendor.stripe_account_id
 
     try:
-        payment_intent = stripe.PaymentIntent.create(**pi_params)
+        checkout_session = stripe.checkout.Session.create(**session_params)
     except Exception as e:
-        logger.error(f"[DealEscrow] PaymentIntent creation failed: {e}")
-        raise HTTPException(status_code=502, detail="Failed to create payment intent")
-
-    # Transition deal to funded
-    deal.stripe_payment_intent_id = payment_intent.id
-    try:
-        deal = await transition_deal_status(
-            session=session,
-            deal=deal,
-            new_status="funded",
-            stripe_payment_intent_id=payment_intent.id,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    await record_message(
-        session=session,
-        deal_id=deal.id,
-        sender_type="system",
-        content_text=f"Escrow funded: {deal.currency} {deal.buyer_total:,.2f}. Vendor has been notified.",
-    )
+        logger.error(f"[DealEscrow] Checkout session creation failed: {e}")
+        raise HTTPException(status_code=502, detail="Failed to create checkout session")
 
     return {
         "deal": _deal_to_response(deal),
-        "client_secret": payment_intent.client_secret,
-        "payment_intent_id": payment_intent.id,
+        "checkout_url": checkout_session.url,
+        "session_id": checkout_session.id,
     }
 
 

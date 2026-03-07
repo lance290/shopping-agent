@@ -74,8 +74,8 @@ class TestConstants:
     def test_block_types_are_thirteen(self):
         assert len(BLOCK_TYPES) == 13
 
-    def test_action_intents_are_eight(self):
-        assert len(ACTION_INTENTS) == 8
+    def test_action_intents_are_eleven(self):
+        assert len(ACTION_INTENTS) == 11
         assert "outbound_affiliate" in ACTION_INTENTS
         assert "claim_swap" in ACTION_INTENTS
         assert "fund_escrow" in ACTION_INTENTS
@@ -84,6 +84,9 @@ class TestConstants:
         assert "view_all_bids" in ACTION_INTENTS
         assert "view_raw" in ACTION_INTENTS
         assert "edit_request" in ACTION_INTENTS
+        assert "mark_terms_agreed" in ACTION_INTENTS
+        assert "continue_negotiation" in ACTION_INTENTS
+        assert "invite_vendor_connect" in ACTION_INTENTS
 
     def test_value_vectors(self):
         assert len(VALUE_VECTORS) == 5

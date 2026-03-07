@@ -350,6 +350,54 @@ class TestBuildUISchema:
         validated = validate_ui_schema(result)
         assert validated is not None
 
+    def test_terms_agreed_active_deal_injects_payment_actions(self):
+        row = make_row(
+            active_deal={
+                "id": 88,
+                "row_id": 1,
+                "status": "terms_agreed",
+                "buyer_total": 15150.0,
+                "currency": "USD",
+                "agreed_terms_summary": "Vendor confirmed the quote and timing.",
+                "agreement_source": "manual",
+            }
+        )
+        result = build_ui_schema(
+            {
+                "layout": "ROW_COMPACT",
+                "blocks": ["MarkdownText", "ActionRow"],
+            },
+            row,
+            [],
+        )
+        action_rows = [block for block in result["blocks"] if block["type"] == "ActionRow"]
+        intents = [action["intent"] for block in action_rows for action in block["actions"]]
+        assert "fund_escrow" in intents
+        assert "continue_negotiation" in intents
+        assert any(block["type"] == "BadgeList" for block in result["blocks"])
+
+    def test_negotiating_active_deal_injects_manual_agreement_action(self):
+        row = make_row(
+            active_deal={
+                "id": 89,
+                "row_id": 1,
+                "status": "negotiating",
+                "vendor_quoted_price": 14500.0,
+                "currency": "USD",
+            }
+        )
+        result = build_ui_schema(
+            {
+                "layout": "ROW_COMPACT",
+                "blocks": ["MarkdownText", "ActionRow"],
+            },
+            row,
+            [],
+        )
+        action_rows = [block for block in result["blocks"] if block["type"] == "ActionRow"]
+        intents = [action["intent"] for block in action_rows for action in block["actions"]]
+        assert "mark_terms_agreed" in intents
+
 
 # =========================================================================
 # build_project_ui_schema

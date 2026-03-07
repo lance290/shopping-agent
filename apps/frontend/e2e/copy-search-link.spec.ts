@@ -30,7 +30,7 @@ test.describe('Copy Search Link Feature', () => {
     await page.waitForLoadState('networkidle');
 
     // Find the chat input
-    const chatInput = page.locator('input[placeholder="What are you looking for?"]');
+    const chatInput = page.locator('input[placeholder], textarea[placeholder]').first();
     await expect(chatInput).toBeVisible({ timeout: 10000 });
 
     // Create a search

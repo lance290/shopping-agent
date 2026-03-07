@@ -92,7 +92,7 @@ async def test_reset_db(session: AsyncSession = Depends(get_session)):
         await session.execute(
             text(
                 'TRUNCATE TABLE outreach_event, seller_quote, deal_handoff, '
-                'seller_bookmark, comment, "like", bid, request_spec, '
+                'comment, purchase_event, bid, request_spec, '
                 'clickout_event, bug_report, audit_log, auth_login_code, '
                 'auth_session, "row", project '
                 'RESTART IDENTITY;'

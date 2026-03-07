@@ -54,6 +54,46 @@ TRUST_FOOTER_TEXT = (
 )
 
 
+def build_deal_funding_url(deal: Deal) -> str:
+    return f"{APP_BASE_URL}/app?row={deal.row_id}&deal={deal.id}&fund=1"
+
+
+def build_deal_payment_handoff(deal: Deal) -> tuple[str, str]:
+    amount = deal.buyer_total if deal.buyer_total is not None else deal.vendor_quoted_price
+    if amount is None:
+        return "", ""
+
+    amount_text = f"{deal.currency} {amount:,.2f}"
+    summary_html = (
+        f"<p style=\"margin: 8px 0 0; color: #4b5563; font-size: 13px;\">{deal.agreed_terms_summary}</p>"
+        if deal.agreed_terms_summary
+        else ""
+    )
+    summary_text = f"\n{deal.agreed_terms_summary}\n" if deal.agreed_terms_summary else "\n"
+    funding_url = build_deal_funding_url(deal)
+
+    html = (
+        "<div style=\"margin: 20px 0; padding: 16px; border: 1px solid #d8b4fe; "
+        "border-radius: 12px; background: #faf5ff;\">"
+        f"<p style=\"margin: 0; font-size: 14px; font-weight: 600; color: #581c87;\">"
+        f"Your quote is ready to fund: {amount_text}</p>"
+        f"{summary_html}"
+        f"<a href=\"{funding_url}\" style=\"display: inline-block; margin-top: 12px; "
+        "background: #7c3aed; color: #fff; padding: 10px 16px; border-radius: 8px; "
+        "text-decoration: none; font-weight: 600;\">Fund Escrow</a>"
+        "<p style=\"margin: 10px 0 0; color: #6b7280; font-size: 12px;\">"
+        "Payment secures the order and buyer protection. The deal is not treated as fully closed until funding succeeds."
+        "</p></div>"
+    )
+    text = (
+        f"\n\nYour quote is ready to fund: {amount_text}\n"
+        f"{summary_text}"
+        f"Fund Escrow: {funding_url}\n"
+        "Payment secures the order and buyer protection. The deal is not treated as fully closed until funding succeeds."
+    )
+    return html, text
+
+
 def _build_legible_alias(vendor_name: str, deal_id: int) -> str:
     """
     Build a human-readable proxy alias like 'netjets-deal-284'.
@@ -205,11 +245,21 @@ async def relay_email(
         subject = f"[DEV → {to_email}] {subject}"
         to_email = DEV_EMAIL_OVERRIDE
 
+    payment_handoff_html = ""
+    payment_handoff_text = ""
+    if sender_type == "vendor" and deal.status == "terms_agreed":
+        payment_handoff_html, payment_handoff_text = build_deal_payment_handoff(deal)
+
     # Build HTML with trust footer
     html_body = original_html or f"<pre>{original_text}</pre>"
+    if payment_handoff_html:
+        html_body += payment_handoff_html
     html_body += trust_footer_h
 
-    text_body = original_text + trust_footer_t
+    text_body = original_text
+    if payment_handoff_text:
+        text_body += payment_handoff_text
+    text_body += trust_footer_t
 
     # Send via Resend
     if RESEND_API_KEY and resend is not None:
@@ -319,7 +369,7 @@ async def transition_deal_status(
     """
     valid_transitions = {
         "negotiating": {"terms_agreed", "disputed", "canceled"},
-        "terms_agreed": {"funded", "disputed", "canceled"},
+        "terms_agreed": {"negotiating", "funded", "disputed", "canceled"},
         "funded": {"in_transit", "completed", "disputed", "canceled"},
         "in_transit": {"completed", "disputed", "canceled"},
         "completed": {"disputed"},
@@ -341,8 +391,11 @@ async def transition_deal_status(
         if "vendor_quoted_price" in kwargs and kwargs["vendor_quoted_price"] is not None:
             deal.vendor_quoted_price = kwargs["vendor_quoted_price"]
             deal.compute_buyer_total()
-        if "agreed_terms_summary" in kwargs:
+        if "agreed_terms_summary" in kwargs and kwargs["agreed_terms_summary"] is not None:
             deal.agreed_terms_summary = kwargs["agreed_terms_summary"]
+    elif new_status == "negotiating":
+        deal.terms_agreed_at = None
+        deal.stripe_payment_intent_id = None
     elif new_status == "funded":
         deal.funded_at = datetime.utcnow()
         if "stripe_payment_intent_id" in kwargs:

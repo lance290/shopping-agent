@@ -33,7 +33,10 @@ export type ActionIntent =
   | 'contact_vendor'
   | 'view_all_bids'
   | 'view_raw'
-  | 'edit_request';
+  | 'edit_request'
+  | 'mark_terms_agreed'
+  | 'continue_negotiation'
+  | 'invite_vendor_connect';
 
 export const ACTION_INTENTS: ActionIntent[] = [
   'outbound_affiliate',
@@ -44,6 +47,9 @@ export const ACTION_INTENTS: ActionIntent[] = [
   'view_all_bids',
   'view_raw',
   'edit_request',
+  'mark_terms_agreed',
+  'continue_negotiation',
+  'invite_vendor_connect',
 ];
 
 // ---------------------------------------------------------------------------
@@ -164,10 +170,13 @@ export interface ActionObject {
   label: string;
   intent: ActionIntent;
   bid_id?: string;
+  deal_id?: string;
+  row_id?: string;
   url?: string;
   merchant_id?: string;
   product_id?: string;
   amount?: number;
+  currency?: string;
   count?: number;
 }
 
