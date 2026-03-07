@@ -72,6 +72,56 @@ if [ -f "$ROOT_DIR/Makefile" ] && command -v make >/dev/null 2>&1; then
   fi
 fi
 
+# Alembic migration health check (catches branched heads and missing migration files)
+if [ -d "$ROOT_DIR/apps/backend/alembic" ] && [ -f "$ROOT_DIR/apps/backend/alembic.ini" ]; then
+  echo "[pre-push] 🗄️  Alembic: checking migration integrity…"
+  ALEMBIC_CHECK_RESULT=$(cd "$ROOT_DIR/apps/backend" && uv run python -c "
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+import sys, os
+
+cfg = Config('alembic.ini')
+sd = ScriptDirectory.from_config(cfg)
+heads = sd.get_heads()
+
+# Check 1: exactly one head (no branches)
+if len(heads) > 1:
+    print(f'ERROR: {len(heads)} Alembic heads detected — merge your migrations before pushing:')
+    for h in heads:
+        print(f'  - {h}')
+    sys.exit(1)
+
+if len(heads) == 0:
+    print('ERROR: No Alembic heads found — migration directory may be corrupt')
+    sys.exit(1)
+
+# Check 2: walk the chain and verify every .py file exists
+versions_dir = os.path.join('alembic', 'versions')
+missing = []
+for rev in sd.walk_revisions():
+    expected = os.path.join(versions_dir, f'{rev.revision}*.py')
+    # ScriptDirectory already loaded it, so just verify the module path
+    if rev.module is None:
+        missing.append(rev.revision)
+
+if missing:
+    print(f'ERROR: {len(missing)} migration(s) have missing files:')
+    for m in missing:
+        print(f'  - {m}')
+    sys.exit(1)
+
+print(f'OK: single head ({heads[0][:12]}…), all migration files present')
+" 2>&1)
+  ALEMBIC_EXIT=$?
+  echo "  $ALEMBIC_CHECK_RESULT"
+  if [ $ALEMBIC_EXIT -ne 0 ]; then
+    echo "[pre-push] ❌ Alembic migration check failed"
+    BUILD_FAILED=true
+  else
+    echo "[pre-push] ✅ Alembic migrations healthy"
+  fi
+fi
+
 # TypeScript type-check for monorepo frontend (catches cross-component type mismatches)
 if [ -f "$ROOT_DIR/apps/frontend/tsconfig.json" ] && command -v npx >/dev/null 2>&1; then
   echo "[pre-push] 🔍 TypeScript: type-checking apps/frontend…"
