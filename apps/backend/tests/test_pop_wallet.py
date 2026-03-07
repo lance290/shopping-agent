@@ -178,11 +178,12 @@ async def test_receipt_scan_applies_campaign_rebate_and_decrements_budget(
     assert data["status"] == "verified"
     assert data["credits_earned_cents"] == 75
 
-    await session.refresh(campaign)
-    assert campaign.budget_remaining_cents == 450
+    updated_camp = await session.get(Campaign, campaign.id)
+    assert updated_camp.budget_remaining_cents == 450
 
-    await session.refresh(user)
-    assert user.wallet_balance_cents == 75
+    from models import User
+    updated_user = await session.get(User, user.id)
+    assert updated_user.wallet_balance_cents == 75
 
 
 @pytest.mark.asyncio
@@ -234,7 +235,7 @@ async def test_receipt_scan_triggers_referral_revenue_share(
 
     # 4. Check referrer's wallet balance
     # Base 1000 + (25 * 0.3) = 1000 + 7 = 1007
-    await session.refresh(referrer)
-    assert referrer.wallet_balance_cents == 1007
+    updated_referrer = await session.get(User, referrer.id)
+    assert updated_referrer.wallet_balance_cents == 1007
 
 
