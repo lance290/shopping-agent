@@ -40,7 +40,7 @@ const GUIDE_LINKS = [
   {
     title: 'Art acquisition for new collectors',
     slug: 'art-acquisition',
-    image: 'https://images.unsplash.com/photo-1544413158-b64db6e64ec6?auto=format&fit=crop&w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80',
   },
   {
     title: 'Executive relocation: vendor vetting checklist',
@@ -76,6 +76,13 @@ export function AppView({ children }: AppViewProps) {
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
+
+  // Auto-expand the active row when it changes so users immediately see results
+  useEffect(() => {
+    if (activeRowId) {
+      setExpandedRowId(activeRowId);
+    }
+  }, [activeRowId]);
 
   // Check environment on mount
   useEffect(() => {

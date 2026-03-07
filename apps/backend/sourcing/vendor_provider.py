@@ -143,14 +143,14 @@ class VendorDirectoryProvider(SourcingProvider):
         fts_weight = 1.0 - vector_weight
         final_limit = kwargs.get("limit", 15)
 
-        # Build OR-based tsquery for FTS resilience.
-        # plainto_tsquery does AND — "yacht charter San Diego" requires ALL words,
-        # killing matches when location/date words are included.
-        # We use to_tsquery with OR (|) so any word match counts,
-        # but more matching words rank higher via ts_rank_cd.
-        fts_words = [w.strip() for w in query.split() if w.strip() and len(w.strip()) > 1]
+        # Build AND-based tsquery for FTS precision.
+        # Previously we used OR (|), but that caused "house cleaning in Denver" 
+        # to match any vendor with "Denver" in the name (e.g. Denver Art Museum).
+        # Vector search handles fuzzy semantic matches; FTS should handle precise keyword overlap.
+        stop_words = {"in", "the", "for", "a", "an", "and", "or", "with", "at", "to", "of", "on"}
+        fts_words = [w.strip() for w in query.split() if w.strip() and len(w.strip()) > 1 and w.strip().lower() not in stop_words]
         if fts_words:
-            fts_query_str = " | ".join(fts_words)
+            fts_query_str = " & ".join(fts_words)
         else:
             fts_query_str = query
 
