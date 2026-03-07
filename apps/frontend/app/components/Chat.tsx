@@ -33,10 +33,10 @@ type SsePayload = {
 };
 
 const STARTER_PROMPTS = [
-  'Find the best carry-on under $300',
-  'Source a private jet charter from San Diego to Vegas',
-  'Compare espresso machines under $500',
-  'Find a relocation concierge for a cross-country move',
+  'What should I treat myself to?',
+  'Suggest my next read',
+  'What are some good gift ideas for an 8-year-old boy?',
+  'What are the best noise-cancelling headphones right now?',
 ];
 
 export default function Chat() {
@@ -47,7 +47,6 @@ export default function Chat() {
   const [isProd, setIsProd] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userPhone, setUserPhone] = useState<string | null>(null);
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
   // Track pending clarification context for multi-turn flows (e.g., aviation)
   const [pendingClarification, setPendingClarification] = useState<{
     type: string;
@@ -102,14 +101,6 @@ export default function Chat() {
     // Auto-focus the input on mount so the keyboard appears on mobile
     inputRef.current?.focus();
   }, []);
-
-  useEffect(() => {
-    if (activeRowId || input.trim().length > 0) return;
-    const interval = window.setInterval(() => {
-      setPlaceholderIndex((current) => (current + 1) % STARTER_PROMPTS.length);
-    }, 2800);
-    return () => window.clearInterval(interval);
-  }, [activeRowId, input]);
 
   useEffect(() => {
     // Handle "New Request" - clear the chat when activeRowId becomes null
@@ -665,7 +656,7 @@ export default function Chat() {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={activeRow ? `Refine "${activeRow.title}"...` : STARTER_PROMPTS[placeholderIndex]}
+            placeholder={activeRow ? `Refine "${activeRow.title}"...` : "Ask Annie a question..."}
             className="flex-1"
           />
           <Button

@@ -82,7 +82,7 @@ describe('Workspace home entry UX', () => {
       />
     );
 
-    expect(screen.getByText('Start with a sentence.')).toBeInTheDocument();
+    expect(screen.getByText('Hi, I\'m Annie!')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Find the best carry-on under $300' }));
     expect(onPromptSelect).toHaveBeenCalledWith('Find the best carry-on under $300');
   });

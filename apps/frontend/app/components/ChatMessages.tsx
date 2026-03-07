@@ -27,14 +27,14 @@ const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
               <Bot className="w-6 h-6 text-gold-dark" />
             </div>
             <div className="text-[10px] uppercase tracking-[0.16em] text-onyx-muted/80 font-medium">Welcome</div>
-            <h3 className="text-xl font-semibold text-onyx mt-2 mb-2">Start with a sentence.</h3>
-            <p className="text-sm max-w-sm leading-relaxed">
-              Describe what you need and I&apos;ll turn it into search, comparison, and vendor outreach.
+            <h3 className="text-xl font-semibold text-onyx mt-2 mb-2">Hi, I&apos;m Annie!</h3>
+            <p className="text-sm max-w-sm leading-relaxed text-onyx-muted">
+              I&apos;m your AI shopping assistant. Describe what you&apos;re looking for, or ask for ideas, and I&apos;ll do the legwork.
             </p>
             {promptSuggestions.length > 0 && (
-              <div className="mt-6 w-full max-w-md space-y-3">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-onyx-muted/70">
-                  Try one of these
+              <div className="mt-8 w-full max-w-md space-y-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-onyx-muted/70 text-left">
+                  Things to try
                 </div>
                 <div className="grid gap-2">
                   {promptSuggestions.map((prompt) => (
