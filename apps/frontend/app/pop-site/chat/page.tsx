@@ -592,7 +592,6 @@ function PopChatInner() {
             handleDuplicateProject={handleDuplicateProject}
             handleDeleteItem={handleDeleteItem}
             handleClaimDeal={handleClaimDeal}
-            handleClaimSwap={handleClaimSwap}
             sourceColor={sourceColor}
             sourceLabel={sourceLabel}
           />

@@ -9,6 +9,7 @@ import { Trash2, RotateCw, Heart, CheckCircle2, MessageSquare, Share2, Copy } fr
 import { DynamicRenderer } from './DynamicRenderer';
 import { validateUISchema } from '../../sdui/types';
 import VendorContactModal from '../VendorContactModal';
+import OutreachQueue from '../OutreachQueue';
 
 interface VerticalListRowProps {
   row: Row;
@@ -207,6 +208,14 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
               <BidCard key={offer.bid_id ?? i} offer={offer} row={row} />
             ))}
           </div>
+
+          {displayOffers.some((o) => o.source === 'vendor_directory') && (
+            <OutreachQueue
+              rowId={row.id}
+              desireTier={row.desire_tier || 'service'}
+              offers={displayOffers}
+            />
+          )}
         </div>
       )}
     </div>
