@@ -559,6 +559,49 @@ async def select_row_option(
     }
 
 
+@router.post("/rows/{row_id}/duplicate", response_model=Row)
+async def duplicate_row(
+    row_id: int,
+    authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """Duplicate a row: copies title, choice answers, and constraints into a fresh row.
+
+    Does NOT copy bids, comments, likes, or selected state.
+    """
+    user_id, is_guest = await resolve_user_id_and_guest_flag(
+        authorization, x_anonymous_session_id, session
+    )
+
+    row = await session.get(Row, row_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    if row.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    new_row = Row(
+        title=row.title,
+        status="open",
+        user_id=user_id,
+        project_id=row.project_id,
+        choice_factors=row.choice_factors,
+        choice_answers=row.choice_answers,
+        budget_max=row.budget_max,
+        currency=row.currency,
+        is_service=row.is_service,
+        service_category=row.service_category,
+        search_intent=row.search_intent,
+        structured_constraints=row.structured_constraints,
+        anonymous_session_id=row.anonymous_session_id if is_guest else None,
+    )
+    session.add(new_row)
+    await session.commit()
+    await session.refresh(new_row)
+    return new_row
+
+
 class ClaimRowsRequest(BaseModel):
     row_ids: List[int]
 

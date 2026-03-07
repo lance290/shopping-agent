@@ -61,18 +61,18 @@ const HERO_SLIDES = [
   {
     eyebrow: 'High-consideration sourcing',
     title: 'Use chat for the purchases that normally become a project.',
-    description: 'From private aviation to relocation and bespoke services, the home screen should feel like the start of a real sourcing workflow.',
+    description: 'From private aviation to relocation and bespoke services, describe what you need and let the agent find your options.',
     cta: 'Need a private jet charter from San Diego to Las Vegas next Friday',
     image: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1200&q=80',
     highlight: 'Built for complex requests, not just keyword search',
   },
   {
     eyebrow: 'Browse into action',
-    title: 'Use hero content like merchandising, not decoration.',
-    description: 'Let people click from an inspiring moment straight into a live chat request, the same way a great storefront hands off from discovery to intent.',
+    title: 'See something you like? Click straight into a search.',
+    description: 'Browse trending categories, editorial guides, or starter projects — then jump into chat to get real options.',
     cta: 'Find a relocation concierge for a cross-country move',
     image: 'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80',
-    highlight: 'A more shoppable first impression without a separate homepage',
+    highlight: 'From browsing to buying in one click',
   },
 ];
 
@@ -342,7 +342,7 @@ export function AppView({ children }: AppViewProps) {
       )}
       {isAuthenticated !== true && !activeRowId ? (
         isDesktop ? (
-          <div className="p-6 space-y-6 bg-gradient-to-b from-[#0b1220] via-[#111827] to-[#172033] text-white min-h-full">
+          <div className="p-6 space-y-6 bg-gradient-to-b from-[#0b1220] via-[#0f1a2e] to-[#162236] text-white min-h-full">
             <section className="relative overflow-hidden rounded-[28px] border border-white/10 shadow-2xl">
               <div className="absolute inset-0">
                 <img src={activeHero.image} alt={activeHero.title} className="h-full w-full object-cover" />
@@ -384,24 +384,25 @@ export function AppView({ children }: AppViewProps) {
                     </button>
                   </div>
                 </div>
-                <div className="rounded-[24px] border border-white/10 bg-[#09111d]/55 p-5 backdrop-blur-sm">
-                  <p className="text-[11px] uppercase tracking-[0.3em] text-white/45">Why this feels different</p>
+                <div className="rounded-[24px] border border-slate-400/20 bg-[#0c1629]/80 p-5 backdrop-blur-sm">
+                  <p className="text-[11px] uppercase tracking-[0.3em] text-white/55">Why people use BuyAnything</p>
                   <div className="mt-4 space-y-3">
-                    <div className="rounded-2xl border border-sky-300/15 bg-sky-400/10 p-4">
-                      <p className="text-xs uppercase tracking-wider text-sky-100/75">Intent-first</p>
-                      <p className="mt-1 text-sm font-medium text-white">Start with natural language, not filters.</p>
+                    <div className="rounded-2xl border border-sky-400/25 bg-sky-500/15 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">Ask once, compare everywhere</p>
+                      <p className="mt-1 text-sm text-white/80">Search retail listings, specialist vendors, and guides in one workflow.</p>
                     </div>
-                    <div className="rounded-2xl border border-violet-300/15 bg-violet-400/10 p-4">
-                      <p className="text-xs uppercase tracking-wider text-violet-100/75">Multi-source</p>
-                      <p className="mt-1 text-sm font-medium text-white">Pull from retail listings and specialist vendors together.</p>
+                    <div className="rounded-2xl border border-violet-400/25 bg-violet-500/15 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-violet-200">Keep everything organized</p>
+                      <p className="mt-1 text-sm text-white/80">Put multiple searches inside a project like a trip, event, or shopping mission.</p>
                     </div>
-                    <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/10 p-4">
-                      <p className="text-xs uppercase tracking-wider text-emerald-100/75">Anonymous-first</p>
-                      <p className="mt-1 text-sm font-medium text-white">Search now, save your shortlist once you&apos;re ready.</p>
+                    <div className="rounded-2xl border border-emerald-400/25 bg-emerald-500/15 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-emerald-200">Share before you decide</p>
+                      <p className="mt-1 text-sm text-white/80">Send a project or search to a spouse, teammate, or client for review.</p>
                     </div>
-                  </div>
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-                    {activeHero.highlight}
+                    <div className="rounded-2xl border border-amber-400/25 bg-amber-500/15 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-amber-200">Save your favorites as you go</p>
+                      <p className="mt-1 text-sm text-white/80">Like, comment on, and select the options worth revisiting.</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -437,11 +438,11 @@ export function AppView({ children }: AppViewProps) {
             </section>
 
             <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+              <div className="rounded-3xl border border-slate-500/25 bg-[#0e1b30]/80 p-5">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-white/75">Start faster</h3>
-                    <p className="mt-1 text-sm text-white/55">Turn merchandising into action with one click into chat.</p>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-white/85">Start faster</h3>
+                    <p className="mt-1 text-sm text-white/60">Turn merchandising into action with one click into chat.</p>
                   </div>
                   <span className="text-[10px] uppercase tracking-[0.25em] text-white/35">Tap to ask</span>
                 </div>
@@ -459,21 +460,33 @@ export function AppView({ children }: AppViewProps) {
                   ))}
                 </div>
               </div>
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-white/75">What the home screen should communicate</h3>
+              <div className="rounded-3xl border border-slate-400/20 bg-[#0c1629]/60 p-5">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-white/85">Start with a real project</h3>
+                <p className="mt-1 text-sm text-white/55">A project groups multiple searches together — like a trip, event, or shopping mission.</p>
                 <div className="mt-4 grid gap-3">
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-sm font-medium text-white">You can start immediately.</p>
-                    <p className="mt-1 text-sm text-white/60">No setup wall before intent.</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-sm font-medium text-white">There&apos;s real inventory behind the experience.</p>
-                    <p className="mt-1 text-sm text-white/60">Retail offers, affiliates, and specialist vendors make the page feel alive.</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-sm font-medium text-white">Editorial content should hand off into chat.</p>
-                    <p className="mt-1 text-sm text-white/60">Guides shouldn&apos;t be a dead end; they should become prompts.</p>
-                  </div>
+                  {[
+                    { name: "Zac's Birthday", prompt: 'I need gifts, party supplies, and a venue for a birthday party', desc: 'Keep gifts, party supplies, and venue ideas in one place.', border: 'border-amber-400/20 hover:border-amber-400/40', bg: 'bg-amber-500/10 hover:bg-amber-500/20', title: 'text-amber-200' },
+                    { name: 'Vegas Trip', prompt: 'I need hotels, flights, outfits, and reservation ideas for a Vegas trip', desc: 'Track hotels, flights, outfits, and reservation ideas together.', border: 'border-violet-400/20 hover:border-violet-400/40', bg: 'bg-violet-500/10 hover:bg-violet-500/20', title: 'text-violet-200' },
+                    { name: 'Kitchen Remodel', prompt: 'I need to compare appliances, fixtures, and contractors for a kitchen remodel', desc: 'Compare appliances, fixtures, contractors, and inspiration links.', border: 'border-sky-400/20 hover:border-sky-400/40', bg: 'bg-sky-500/10 hover:bg-sky-500/20', title: 'text-sky-200' },
+                  ].map((example) => (
+                    <button
+                      key={example.name}
+                      type="button"
+                      onClick={async () => {
+                        const project = await createProjectInDb(example.name);
+                        if (project) {
+                          addProject(project);
+                          setTargetProjectId(project.id);
+                        }
+                        handleIntentClick(example.prompt);
+                      }}
+                      className={`group rounded-2xl border ${example.border} ${example.bg} p-4 text-left transition`}
+                    >
+                      <p className={`text-sm font-semibold ${example.title}`}>{example.name}</p>
+                      <p className="mt-1 text-sm text-white/65">{example.desc}</p>
+                      <p className="mt-2 text-xs font-medium text-gold group-hover:text-gold-light">Start this project &rarr;</p>
+                    </button>
+                  ))}
                 </div>
               </div>
             </section>

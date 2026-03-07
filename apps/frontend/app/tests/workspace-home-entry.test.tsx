@@ -137,4 +137,62 @@ describe('Workspace home entry UX', () => {
     expect(payload.messages[0].content).toBe('Find the best carry-on under $300');
     expect(payload.activeRowId).toBeNull();
   });
+
+  test('home state shows customer-safe project education instead of internal notes', async () => {
+    render(
+      <AppView>
+        <div>Chat Pane</div>
+      </AppView>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Start with a real project/i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Zac's Birthday/i)).toBeInTheDocument();
+    expect(screen.getByText(/Vegas Trip/i)).toBeInTheDocument();
+    expect(screen.getByText(/Kitchen Remodel/i)).toBeInTheDocument();
+
+    expect(screen.queryByText(/What the home screen should communicate/i)).not.toBeInTheDocument();
+  });
+
+  test('home state shows customer-facing sidebar instead of internal strategy copy', async () => {
+    render(
+      <AppView>
+        <div>Chat Pane</div>
+      </AppView>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Why people use BuyAnything/i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Ask once, compare everywhere/i)).toBeInTheDocument();
+    expect(screen.getByText(/Keep everything organized/i)).toBeInTheDocument();
+    expect(screen.getByText(/Share before you decide/i)).toBeInTheDocument();
+    expect(screen.getByText(/Save your favorites as you go/i)).toBeInTheDocument();
+
+    expect(screen.queryByText(/Why this feels different/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Intent-first/i)).not.toBeInTheDocument();
+  });
+
+  test('project education cards route prompts into chat via store', async () => {
+    render(
+      <AppView>
+        <div>Chat Pane</div>
+      </AppView>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Zac's Birthday/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/Zac's Birthday/i).closest('button')!);
+
+    await waitFor(() => {
+      const query = useShoppingStore.getState().cardClickQuery;
+      expect(query).toBeTruthy();
+      expect(query!).toContain('birthday party');
+    });
+  });
 });
