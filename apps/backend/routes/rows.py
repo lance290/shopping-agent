@@ -113,7 +113,7 @@ class RowUpdate(BaseModel):
     request_spec: Optional[RequestSpecUpdate] = None
     choice_factors: Optional[str] = None
     choice_answers: Optional[str] = None
-    provider_query: Optional[str] = None
+    provider_query_map: Optional[dict] = None
     selected_bid_id: Optional[int] = None
     regenerate_choice_factors: Optional[bool] = None
     chat_history: Optional[str] = None
@@ -349,10 +349,11 @@ async def read_rows(
 async def read_row(
     row_id: int,
     authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
     
-    user_id = await resolve_user_id(authorization, session)
+    user_id, is_guest = await resolve_user_id_and_guest_flag(authorization, session)
 
     result = await session.exec(
         select(Row)
@@ -570,9 +571,7 @@ async def duplicate_row(
 
     Does NOT copy bids, comments, likes, or selected state.
     """
-    user_id, is_guest = await resolve_user_id_and_guest_flag(
-        authorization, x_anonymous_session_id, session
-    )
+    user_id, is_guest = await resolve_user_id_and_guest_flag(authorization, session)
 
     row = await session.get(Row, row_id)
     if not row:
@@ -580,6 +579,10 @@ async def duplicate_row(
 
     if row.user_id != user_id:
         raise HTTPException(status_code=404, detail="Row not found")
+
+    if is_guest:
+        if not x_anonymous_session_id or row.anonymous_session_id != x_anonymous_session_id:
+            raise HTTPException(status_code=404, detail="Row not found")
 
     new_row = Row(
         title=row.title,

@@ -7,7 +7,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import Project, ProjectCreate, Row
-from dependencies import get_current_session, resolve_user_id
+from dependencies import get_current_session, resolve_user_id, resolve_user_id_and_guest_flag
 
 router = APIRouter(tags=["projects"])
 
@@ -16,14 +16,16 @@ router = APIRouter(tags=["projects"])
 async def create_project(
     project: ProjectCreate,
     authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
     
-    user_id = await resolve_user_id(authorization, session)
+    user_id, is_guest = await resolve_user_id_and_guest_flag(authorization, session)
 
     db_project = Project(
         title=project.title,
-        user_id=user_id
+        user_id=user_id,
+        anonymous_session_id=x_anonymous_session_id if is_guest else None
     )
     session.add(db_project)
     await session.commit()
@@ -34,14 +36,21 @@ async def create_project(
 @router.get("/projects", response_model=List[Project])
 async def read_projects(
     authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
     
-    user_id = await resolve_user_id(authorization, session)
+    user_id, is_guest = await resolve_user_id_and_guest_flag(authorization, session)
+
+    where_clauses = [Project.user_id == user_id, Project.status != "archived"]
+    if is_guest:
+        if not x_anonymous_session_id:
+            return []
+        where_clauses.append(Project.anonymous_session_id == x_anonymous_session_id)
 
     result = await session.exec(
         select(Project)
-        .where(Project.user_id == user_id, Project.status != "archived")
+        .where(*where_clauses)
         .order_by(Project.created_at.desc())
     )
     return result.all()

@@ -2,29 +2,32 @@
 
 ## Session Scope
 - Branch: dev
-- Changed implementation files: 3
-- Frontend changed: no
+- Changed implementation files: 7
+- Frontend changed: yes
 - Backend changed: yes
 
 ## Obligation Matrix
 | Surface | Changed File | Behavior | Unit | Integration | E2E | Scenario | Notes |
 |---|---|---|---|---|---|---|---|
-| backend | apps/backend/services/veryfi.py | Receipt OCR & fraud parsing | covered | n/a | n/a | n/a | Pure logic/API wrapper tested in `test_veryfi_service.py` |
-| backend | apps/backend/routes/pop_wallet.py | Receipt scan, deduplication, fraud block, wallet credit, campaign debit | n/a | covered | n/a | covered | Tested via HTTP endpoints in `test_pop_wallet.py` |
-| backend | apps/backend/services/coupon_provider.py | Campaign swap generation | covered | covered | n/a | covered | Tested via `test_pop_list_offers.py` and `test_pop_swaps.py` |
+| backend | `apps/backend/dependencies.py` | Add strict session expiry and guest ID isolation | n/a | covered | n/a | covered | Validated by existing test_auth.py |
+| backend | `apps/backend/routes/rows.py` | Fix duplicate TypeError and isolate anonymous reads/writes | n/a | covered | n/a | covered | Evaluated in `test_rows_authorization.py` |
+| backend | `apps/backend/routes/rows_search.py` | Anonymous user isolation for search/streams | n/a | covered | n/a | covered | Evaluated in `test_rows_search.py` |
+| backend | `apps/backend/routes/projects.py` | Scoped anonymous project fetching and creation | n/a | covered | n/a | covered | Addressed in `test_anonymous_projects.py` |
+| backend | `apps/backend/routes/admin_ops.py` | Externalize hardcoded admin credentials | n/a | n/a | n/a | n/a | Purely configuration binding |
+| frontend | `apps/frontend/app/utils/anonymous-session.ts` | Gracefully handle lacking localStorage in environments | covered | n/a | n/a | n/a | Handled implicitly via suite resilience |
 
 ## Tests Created/Updated
-- Unit: `apps/backend/tests/test_veryfi_service.py`
-- Integration: `apps/backend/tests/test_pop_wallet.py`, `apps/backend/tests/test_pop_list_offers.py`
+- Unit: None
+- Integration: `apps/backend/tests/test_rows_authorization.py`, `apps/backend/tests/test_anonymous_projects.py`
 - E2E: n/a
-- Scenario: `apps/backend/tests/test_pop_wallet.py` (campaign deduction end-to-end flow)
+- Scenario: n/a
 
 ## Verification Commands
 ### Backend
-- `cd apps/backend && uv run python3 -m pytest tests/test_pop_wallet.py tests/test_veryfi_service.py tests/test_pop_swaps.py tests/test_pop_list_offers.py`
+- `cd apps/backend && uv run python3 -m pytest tests/test_rows_authorization.py tests/test_anonymous_projects.py tests/test_rows_search.py tests/test_rows_search_intent.py tests/test_rows_search_persistence.py -q`
 
 ### Frontend
-- n/a (no frontend implementation changes in this session)
+- n/a
 
 ## Results
 ### Backend

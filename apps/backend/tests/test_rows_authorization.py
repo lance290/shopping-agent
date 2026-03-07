@@ -271,7 +271,7 @@ async def test_search_query_sanitizes_long_query(client: AsyncClient, session, m
 
 
 @pytest.mark.asyncio
-async def test_provider_query_persists_on_row(client: AsyncClient, session):
+async def test_provider_query_map_persists_on_row(client: AsyncClient, session):
     user = User(email="provider_query@example.com")
     session.add(user)
     await session.commit()
@@ -304,18 +304,18 @@ async def test_provider_query_persists_on_row(client: AsyncClient, session):
 
     patch = await client.patch(
         f"/rows/{row_id}",
-        json={"provider_query": "Roblox gift cards"},
+        json={"provider_query_map": {"some_provider": {"query": "Roblox gift cards"}}},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert patch.status_code == 200
-    assert patch.json().get("provider_query") == "Roblox gift cards"
+    assert patch.json().get("provider_query_map") == {"some_provider": {"query": "Roblox gift cards"}}
 
     get = await client.get(
         f"/rows/{row_id}",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert get.status_code == 200
-    assert get.json().get("provider_query") == "Roblox gift cards"
+    assert get.json().get("provider_query_map") == {"some_provider": {"query": "Roblox gift cards"}}
 
 
 @pytest.mark.asyncio

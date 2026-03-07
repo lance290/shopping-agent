@@ -8,6 +8,8 @@ from typing import Optional, Tuple
 from fastapi import Header, HTTPException, Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
+from sqlalchemy.orm import selectinload
+from datetime import datetime
 
 from database import get_session
 from models import AuthSession, User, hash_token
@@ -20,7 +22,7 @@ async def get_current_session(
     """
     Extract and validate session from Authorization header.
 
-    Returns None if authentication fails.
+    Returns None if authentication fails or if the session is expired.
     """
     if not authorization or not authorization.startswith("Bearer "):
         return None
@@ -32,7 +34,11 @@ async def get_current_session(
 
     result = await session.exec(
         select(AuthSession)
-        .where(AuthSession.session_token_hash == token_hash, AuthSession.revoked_at == None)
+        .where(
+            AuthSession.session_token_hash == token_hash,
+            AuthSession.revoked_at == None,
+            (AuthSession.expires_at == None) | (AuthSession.expires_at > datetime.utcnow())
+        )
     )
     return result.first()
 
