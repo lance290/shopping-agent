@@ -22,8 +22,11 @@ logger = logging.getLogger(__name__)
 wallet_router = APIRouter()
 
 # Velocity limits (PRD fraud Layer 3)
-MAX_RECEIPTS_PER_DAY = 3
-MAX_RECEIPTS_PER_WEEK = 10
+MAX_RECEIPTS_PER_DAY = 5
+MAX_RECEIPTS_PER_WEEK = 20
+
+# Receipt date freshness window (days)
+RECEIPT_MAX_AGE_DAYS = 7
 
 
 @wallet_router.get("/wallet")
@@ -63,6 +66,7 @@ async def get_pop_wallet(
 class ReceiptScanRequest(BaseModel):
     image_base64: str
     project_id: Optional[int] = None
+    source: Optional[str] = "camera"  # "camera" | "camera_roll" | "file_upload"
 
 
 @wallet_router.post("/receipt/scan")
@@ -168,6 +172,23 @@ async def scan_receipt(
             "items": [],
             "credits_earned_cents": 0,
         }
+
+    # ---- Receipt date freshness check ----
+    if veryfi_result.date:
+        try:
+            from datetime import date as date_type
+            receipt_date = veryfi_result.date if isinstance(veryfi_result.date, date_type) else datetime.strptime(str(veryfi_result.date)[:10], "%Y-%m-%d").date()
+            age_days = (now.date() - receipt_date).days
+            if age_days > RECEIPT_MAX_AGE_DAYS:
+                logger.info(f"[Pop Receipt] Stale receipt rejected: user={user.id}, age={age_days}d, limit={RECEIPT_MAX_AGE_DAYS}d")
+                return {
+                    "status": "rejected",
+                    "message": f"This receipt is more than {RECEIPT_MAX_AGE_DAYS} days old. Please submit receipts within a week of purchase.",
+                    "items": [],
+                    "credits_earned_cents": 0,
+                }
+        except (ValueError, TypeError) as e:
+            logger.warning(f"[Pop Receipt] Could not parse receipt date: {veryfi_result.date} — {e}")
 
     # ---- Content-based dedup (store + date + total) ----
     content_hash = hashlib.sha256(
@@ -316,6 +337,7 @@ async def scan_receipt(
         fraud_flags=veryfi_result.fraud_flags,
         raw_veryfi_json=json.dumps(veryfi_result.raw),
         receipt_content_hash=content_hash,
+        upload_source=body.source,
     )
     # Parse transaction_date if available
     if veryfi_result.date:

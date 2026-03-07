@@ -66,9 +66,9 @@ Reference links:
 Every receipt scan must pass a multi-layered defense:
 
 **Layer 1: Device & Context (Client-Side / Edge)**
-- **Live Camera Requirement:** The mobile app must force the user to take a live photo. No uploading from the camera roll.
-- **Geolocation:** Capture GPS coordinates at the time of scan. Reject receipts claiming to be from a NY Kroger if the user's IP/GPS is in Russia.
-- **Time Window:** The receipt date must be within X days of the scan (e.g., 14 days).
+- **Camera + Camera Roll + File Upload:** Users may submit receipts via live camera, camera roll, or file upload (required for online/email receipts). The `upload_source` is tracked on every submission for analytics and risk scoring.
+- **Geolocation (when available):** Capture GPS coordinates at the time of scan. Flag receipts with major geo mismatches for manual review.
+- **Receipt Freshness:** The receipt date must be within **7 days** of submission. Older receipts are rejected automatically.
 
 **Layer 2: Image Forensics (Veryfi API)**
 - Send image to Veryfi Fraud API.
@@ -79,7 +79,7 @@ Every receipt scan must pass a multi-layered defense:
 
 **Layer 3: Deduplication & Velocity (Backend)**
 - **Strict Deduplication:** Hash the receipt data (Store + Date + Total + Transaction ID). If this hash exists in the DB, reject immediately.
-- **Velocity Limits:** Max 3 receipts per day per user. Max 10 receipts per week.
+- **Velocity Limits:** Max 5 receipts per day per user. Max 20 receipts per week.
 - **Cross-Account Checks:** If the same payment card (last 4 digits on receipt) appears across multiple Pop accounts, flag all accounts for manual review.
 
 **Layer 4: Line Item Verification (Business Logic)**

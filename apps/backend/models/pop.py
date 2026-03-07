@@ -61,6 +61,9 @@ class Receipt(SQLModel, table=True):
     # Content-based dedup hash (store + date + total + transaction_id)
     receipt_content_hash: Optional[str] = Field(default=None, index=True)
 
+    # Upload source tracking: "camera" | "camera_roll" | "file_upload"
+    upload_source: Optional[str] = None
+
 
 class Referral(SQLModel, table=True):
     """
