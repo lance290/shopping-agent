@@ -206,7 +206,7 @@ export function AppView({ children }: AppViewProps) {
     if (!isDesktop || isAuthenticated === true || activeRowId) return;
     const interval = window.setInterval(() => {
       setActiveHeroIndex((current) => (current + 1) % HERO_SLIDES.length);
-    }, 5200);
+    }, 12000);
     return () => window.clearInterval(interval);
   }, [activeRowId, isAuthenticated, isDesktop]);
 
