@@ -410,34 +410,6 @@ function PopChatInner() {
     }
   }, []);
 
-  const handleClaimSwap = useCallback(async (itemId: number, swapId: number) => {
-    try {
-      await fetch(`/api/pop/swap/${swapId}/claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ row_id: itemId }),
-      });
-      setListItems((prev) =>
-        prev.map((item) => {
-          if (item.id !== itemId) return item;
-          return {
-            ...item,
-            deals: item.deals?.map((d) => ({
-              ...d,
-              is_selected: false,
-            })),
-            swaps: item.swaps?.map((swap) => ({
-              ...swap,
-              is_selected: swap.id === swapId,
-            })),
-          };
-        })
-      );
-    } catch {
-      // ignore
-    }
-  }, []);
-
   const sourceLabel = (source: string): string => {
     const map: Record<string, string> = {
       kroger: 'Kroger',
