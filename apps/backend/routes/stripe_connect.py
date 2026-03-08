@@ -87,7 +87,7 @@ async def start_onboarding(
             account = stripe.Account.create(
                 type="express",
                 email=merchant.email,
-                business_profile={"name": merchant.business_name},
+                business_profile={"name": merchant.name},
                 metadata={"merchant_id": str(merchant.id)},
             )
             merchant.stripe_account_id = account.id
@@ -252,16 +252,22 @@ async def stripe_connect_webhook(
     sig_header = request.headers.get("stripe-signature", "")
     connect_webhook_secret = os.getenv("STRIPE_CONNECT_WEBHOOK_SECRET", "")
 
-    if connect_webhook_secret:
+    is_production = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("ENVIRONMENT") == "production")
+    
+    if not connect_webhook_secret:
+        if is_production:
+            logger.error("[STRIPE CONNECT WEBHOOK] Missing STRIPE_CONNECT_WEBHOOK_SECRET in production")
+            raise HTTPException(status_code=500, detail="Webhook configuration error")
+        else:
+            import json
+            event = json.loads(payload)
+            logger.warning("[STRIPE CONNECT WEBHOOK] No webhook secret configured — skipping signature verification (dev mode)")
+    else:
         try:
             event = stripe.Webhook.construct_event(payload, sig_header, connect_webhook_secret)
         except Exception as e:
             logger.warning(f"[STRIPE CONNECT WEBHOOK] Signature verification failed: {e}")
             raise HTTPException(status_code=400, detail="Invalid signature")
-    else:
-        import json
-        event = json.loads(payload)
-        logger.warning("[STRIPE CONNECT WEBHOOK] No webhook secret configured — skipping signature verification")
 
     event_type = event.get("type") if isinstance(event, dict) else event.type
     data_object = (event.get("data", {}).get("object", {}) if isinstance(event, dict)

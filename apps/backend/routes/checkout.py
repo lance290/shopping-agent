@@ -151,13 +151,13 @@ async def create_checkout_session(
     # Check for Stripe Connect: look up merchant via bid's seller
     connected_account_id = None
     platform_fee_cents = 0
-    commission_rate = float(os.getenv("DEFAULT_PLATFORM_FEE_RATE", "0.05"))
+    commission_rate = 0.00
     if bid.vendor_id:
         vendor = await session.get(Vendor, bid.vendor_id)
         if vendor and vendor.stripe_account_id and vendor.stripe_onboarding_complete:
             connected_account_id = vendor.stripe_account_id
-            commission_rate = vendor.default_commission_rate
-            platform_fee_cents = int(round(unit_amount * commission_rate))
+            commission_rate = 0.0
+            platform_fee_cents = 0
 
     session_params = {
         "mode": "payment",
@@ -172,11 +172,8 @@ async def create_checkout_session(
         },
     }
 
-    # Add Stripe Connect params if merchant has connected account
+    # Add Stripe Connect params if merchant has connected account (0% platform fee)
     if connected_account_id:
-        session_params["payment_intent_data"] = {
-            "application_fee_amount": platform_fee_cents,
-        }
         session_params["stripe_account"] = connected_account_id
         session_params["metadata"]["connected_account"] = connected_account_id
 
@@ -351,7 +348,19 @@ async def stripe_webhook(request: Request):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
 
-    if webhook_secret:
+    is_production = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("ENVIRONMENT") == "production")
+    
+    if not webhook_secret:
+        if is_production:
+            logger.error("[STRIPE WEBHOOK] Missing STRIPE_WEBHOOK_SECRET in production")
+            raise HTTPException(status_code=500, detail="Webhook configuration error")
+        else:
+            # Dev mode fallback
+            try:
+                event = json.loads(payload)
+            except json.JSONDecodeError:
+                raise HTTPException(status_code=400, detail="Invalid JSON")
+    else:
         try:
             event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
         except stripe.SignatureVerificationError:
@@ -359,12 +368,6 @@ async def stripe_webhook(request: Request):
         except Exception as e:
             logger.error(f"[STRIPE WEBHOOK] Error: {e}")
             raise HTTPException(status_code=400, detail="Webhook error")
-    else:
-        # Dev mode — parse without verification
-        try:
-            event = json.loads(payload)
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid JSON")
 
     event_type = event.get("type") if isinstance(event, dict) else event.type
 
@@ -400,7 +403,7 @@ async def _handle_checkout_completed(event):
     deal_id = metadata.get("deal_id")
     checkout_type = metadata.get("type")
 
-    if checkout_type != "deal_escrow" and (not bid_id or not row_id):
+    if not bid_id or not row_id:
         logger.warning("[STRIPE WEBHOOK] Missing metadata in checkout session")
         return
 
@@ -420,60 +423,6 @@ async def _handle_checkout_completed(event):
             connected = metadata.get("connected_account")
             amount_dollars = amount_total / 100.0
             fee_amount = round(amount_dollars * fee_rate, 2) if fee_rate > 0 else None
-
-            if checkout_type == "deal_escrow" and deal_id and row_id:
-                deal = await db_session.get(Deal, deal_id)
-                if not deal:
-                    logger.warning(f"[STRIPE WEBHOOK] Deal {deal_id} not found for escrow completion")
-                    return
-
-                if deal.status == "terms_agreed":
-                    deal = await transition_deal_status(
-                        session=db_session,
-                        deal=deal,
-                        new_status="funded",
-                        stripe_payment_intent_id=payment_intent_id,
-                    )
-
-                purchase = PurchaseEvent(
-                    user_id=deal.buyer_user_id,
-                    bid_id=deal.bid_id,
-                    row_id=deal.row_id,
-                    amount=amount_dollars,
-                    currency=currency.upper(),
-                    payment_method="stripe_checkout",
-                    stripe_session_id=stripe_session_id,
-                    stripe_payment_intent_id=payment_intent_id,
-                    status="completed",
-                    platform_fee_amount=deal.platform_fee_amount,
-                    commission_rate=deal.platform_fee_pct,
-                    revenue_type="stripe_connect" if connected else "stripe_checkout",
-                )
-                db_session.add(purchase)
-
-                row = await db_session.get(Row, deal.row_id)
-                if row:
-                    row.status = "funded"
-                    db_session.add(row)
-
-                if deal.bid_id:
-                    bid = await db_session.get(Bid, deal.bid_id)
-                    if bid:
-                        bid.is_selected = True
-                        bid.closing_status = "paid"
-                        db_session.add(bid)
-
-                await db_session.commit()
-                await record_message(
-                    session=db_session,
-                    deal_id=deal.id,
-                    sender_type="system",
-                    content_text=f"Escrow funded: {deal.currency} {deal.buyer_total:,.2f}. Vendor has been notified.",
-                )
-                logger.info(
-                    f"[STRIPE WEBHOOK] Deal escrow recorded: deal={deal.id}, row={deal.row_id}, amount={amount_dollars}"
-                )
-                return
 
             purchase = PurchaseEvent(
                 user_id=user_id,

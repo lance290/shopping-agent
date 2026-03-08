@@ -38,7 +38,7 @@ class Deal(SQLModel, table=True):
 
     # Financials
     vendor_quoted_price: Optional[float] = None  # What the vendor quoted
-    platform_fee_pct: float = 0.01  # 1% buyer markup
+    platform_fee_pct: float = 0.0  # ZERO — we do not charge fees yet
     platform_fee_amount: Optional[float] = None  # Computed: vendor_quoted_price * platform_fee_pct
     buyer_total: Optional[float] = None  # Computed: vendor_quoted_price + platform_fee_amount
     currency: str = "USD"

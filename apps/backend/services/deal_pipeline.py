@@ -40,17 +40,15 @@ APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:3003")
 TRUST_FOOTER_HTML = """
 <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
 <p style="color: #999; font-size: 12px; line-height: 1.4;">
-    This message is securely routed through <strong>BuyAnything</strong> to enable
-    1-click escrow payments and buyer protection.<br>
-    <a href="{app_url}/how-it-works" style="color: #999;">Learn more</a>
+    This request was routed via <strong>BuyAnything</strong>, the AI Chief of Staff for sourcing and procurement.<br>
+    Want to save hours on your own purchasing? <a href="{app_url}" style="color: #999;">Try BuyAnything for free</a>.
 </p>
 """.strip()
 
 TRUST_FOOTER_TEXT = (
     "\n---\n"
-    "This message is securely routed through BuyAnything to enable "
-    "1-click escrow payments and buyer protection.\n"
-    "Learn more: {app_url}/how-it-works"
+    "This request was routed via BuyAnything, the AI Chief of Staff for sourcing and procurement.\n"
+    "Want to save hours on your own purchasing? Try BuyAnything for free: {app_url}"
 )
 
 
@@ -76,20 +74,17 @@ def build_deal_payment_handoff(deal: Deal) -> tuple[str, str]:
         "<div style=\"margin: 20px 0; padding: 16px; border: 1px solid #d8b4fe; "
         "border-radius: 12px; background: #faf5ff;\">"
         f"<p style=\"margin: 0; font-size: 14px; font-weight: 600; color: #581c87;\">"
-        f"Your quote is ready to fund: {amount_text}</p>"
+        f"Your quote is ready for review: {amount_text}</p>"
         f"{summary_html}"
         f"<a href=\"{funding_url}\" style=\"display: inline-block; margin-top: 12px; "
         "background: #7c3aed; color: #fff; padding: 10px 16px; border-radius: 8px; "
-        "text-decoration: none; font-weight: 600;\">Fund Escrow</a>"
-        "<p style=\"margin: 10px 0 0; color: #6b7280; font-size: 12px;\">"
-        "Payment secures the order and buyer protection. The deal is not treated as fully closed until funding succeeds."
-        "</p></div>"
+        "text-decoration: none; font-weight: 600;\">Review & Proceed</a>"
+        "</div>"
     )
     text = (
-        f"\n\nYour quote is ready to fund: {amount_text}\n"
+        f"\n\nYour quote is ready for review: {amount_text}\n"
         f"{summary_text}"
-        f"Fund Escrow: {funding_url}\n"
-        "Payment secures the order and buyer protection. The deal is not treated as fully closed until funding succeeds."
+        f"Review & Proceed: {funding_url}\n"
     )
     return html, text
 

@@ -47,6 +47,8 @@ from models.bids import (
 )
 
 # Social models
+from models.bookmarks import VendorBookmark
+
 from models.social import (
     Comment,
     ShareLink,
@@ -64,7 +66,6 @@ from models.marketplace import (
     OutreachEvent,
     DealHandoff,
     Contract,
-    SellerBookmark,
 )
 
 # Outreach models
@@ -134,6 +135,7 @@ __all__ = [
     # Social
     "Comment",
     "ShareLink",
+    "VendorBookmark",
     "ClickoutEvent",
     "PurchaseEvent",
     # Marketplace
@@ -143,7 +145,6 @@ __all__ = [
     "DealHandoff",
     "Merchant",
     "Contract",
-    "SellerBookmark",
     # Outreach
     "OutreachCampaign",
     "OutreachMessage",

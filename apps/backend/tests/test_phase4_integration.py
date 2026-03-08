@@ -324,7 +324,7 @@ async def test_earnings_zero_for_new_merchant(client, session, _make_auth, _make
     data = resp.json()
     assert data["total_earnings"] == 0.0
     assert data["completed_transactions"] == 0
-    assert data["commission_rate"] == 0.05
+    assert data["commission_rate"] == 0.00
 
 
 # ── PRD 09: Admin Metrics ────────────────────────────────────────────
