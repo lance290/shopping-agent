@@ -23,17 +23,20 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 interface TestContext {
   sessionToken: string;
   userId?: number;
-  email: string;
+  phone: string;
 }
 
-async function mintTestSession(request: any, emailPrefix: string): Promise<TestContext> {
-  const email = `${emailPrefix}_${Date.now()}@test.com`;
+async function mintTestSession(request: any, _label: string): Promise<TestContext> {
+  const phone = `+1650555${String(Date.now()).slice(-4)}`;
   const response = await request.post(`${BACKEND_URL}/test/mint-session`, {
-    data: { email },
+    headers: {
+      Authorization: 'Bearer e2e-test',
+    },
+    data: { phone },
   });
   expect(response.ok()).toBeTruthy();
   const data = await response.json();
-  return { sessionToken: data.session_token, email };
+  return { sessionToken: data.session_token, phone };
 }
 
 async function setupAuthenticatedPage(page: Page, ctx: TestContext): Promise<void> {
@@ -55,7 +58,7 @@ async function waitForChatResponse(page: Page, timeout = 30000): Promise<void> {
 }
 
 async function typeInChat(page: Page, message: string): Promise<void> {
-  const chatInput = page.locator('input[placeholder*="looking for"], input[placeholder*="Refine"]');
+  const chatInput = page.locator('input[placeholder], textarea[placeholder]').first();
   await expect(chatInput).toBeVisible({ timeout: 10000 });
   await chatInput.fill(message);
   await chatInput.press('Enter');
@@ -82,7 +85,7 @@ test.describe('Scenario 1: First-Time Buyer Journey', () => {
     await setupAuthenticatedPage(page, ctx);
 
     // Step 1: Verify empty state
-    await expect(page.locator('text=Your Board is Empty')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=Start with a sentence.')).toBeVisible({ timeout: 10000 });
     console.log('✅ Step 1: Empty board state verified');
 
     // Step 2: Create first search via chat
@@ -465,7 +468,7 @@ test.describe('Scenario 6: Complete UI Flow', () => {
     console.log('🚀 Starting full UI flow test');
 
     // 1. Verify initial empty state
-    const isEmpty = await page.locator('text=Your Board is Empty').isVisible({ timeout: 5000 }).catch(() => false);
+    const isEmpty = await page.locator('text=Start with a sentence.').isVisible({ timeout: 5000 }).catch(() => false);
     console.log(`1. Empty state: ${isEmpty ? 'Yes' : 'No (has existing data)'}`);
 
     // 2. Create a search

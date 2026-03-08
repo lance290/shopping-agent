@@ -16,6 +16,7 @@ interface PublicOffer {
   match_score?: number;
   vendor_name?: string | null;
   vendor_company?: string | null;
+  vendor_email?: string | null;
   vendor_website?: string | null;
 }
 

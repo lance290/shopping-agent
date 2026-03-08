@@ -8,7 +8,7 @@ from utils.json_utils import safe_json_loads
 
 def _build_base_query(row: Row, spec: Optional[RequestSpec], explicit_query: Optional[str]) -> tuple[str, bool]:
     """Build the base search query from row data."""
-    base_query = explicit_query or row.provider_query or row.title or (spec.item_name if spec else "")
+    base_query = explicit_query or row.title or (spec.item_name if spec else "")
     user_provided = bool(explicit_query)
     return base_query, user_provided
 

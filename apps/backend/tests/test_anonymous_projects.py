@@ -42,11 +42,13 @@ async def test_get_projects_anonymous_returns_guest_projects(
     client: AsyncClient, session: AsyncSession, guest_user: User
 ):
     """If guest user has projects, anonymous GET should return them."""
-    project = Project(title="Guest Project", user_id=guest_user.id)
+    # Create an anonymous project mapped to a session
+    session_id = "test-session-123"
+    project = Project(title="Guest Project", user_id=guest_user.id, anonymous_session_id=session_id)
     session.add(project)
     await session.commit()
 
-    response = await client.get("/projects")
+    response = await client.get("/projects", headers={"X-Anonymous-Session-Id": session_id})
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1

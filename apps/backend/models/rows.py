@@ -92,8 +92,9 @@ class Project(ProjectBase, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # SDUI schema (Phase 0.2)
-    ui_schema: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
-    ui_schema_version: int = Field(default=0)
+    ui_schema: Optional[str] = Field(default=None, description="Current layout state for this project view")
+    ui_schema_updated_at: Optional[datetime] = None
+    anonymous_session_id: Optional[str] = Field(default=None, index=True, description="Frontend UUID for guest sessions")
 
     # Shopping mode — shared project-level lock (Ready to Shop / Edit List)
     shopping_mode: bool = Field(default=False)

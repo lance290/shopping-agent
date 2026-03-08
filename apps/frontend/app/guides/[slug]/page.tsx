@@ -63,7 +63,7 @@ Keep meticulous records of:
   'art-acquisition': {
     title: 'Art acquisition for new collectors',
     tag: 'Luxury',
-    heroImage: 'https://images.unsplash.com/photo-1544413158-b64db6e64ec6?auto=format&fit=crop&w=2000&q=80',
+    heroImage: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=2000&q=80',
     content: `
 ## Sourcing investment-grade art
 

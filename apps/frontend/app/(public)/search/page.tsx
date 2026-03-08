@@ -75,17 +75,21 @@ function SearchResults() {
       }),
     }).catch(() => {}); // fire-and-forget
 
-    // Open mailto with pre-filled template
-    const vendorName = offer.vendor_company || offer.vendor_name || 'Vendor';
-    const subject = `Quote request — ${query}`;
-    const body = `Hi ${vendorName},\n\nI found you on BuyAnything and I'm looking for: ${query}\n\nCould you provide a quote?\n\nThank you`;
-    const params = new URLSearchParams();
-    params.set('subject', subject);
-    params.set('body', body);
-
-    // If we have vendor email from raw_data, use it; otherwise open generic
-    if (offer.vendor_website) {
+    if (offer.vendor_email) {
+      // Open mailto with pre-filled template
+      const vendorName = offer.vendor_company || offer.vendor_name || 'Vendor';
+      const subject = `Quote request — ${query}`;
+      const body = `Hi ${vendorName},\n\nI found you on BuyAnything and I'm looking for: ${query}\n\nCould you provide a quote?\n\nThank you`;
+      const params = new URLSearchParams();
+      params.set('subject', subject);
+      params.set('body', body);
+      window.open(`mailto:${offer.vendor_email}?${params.toString()}`);
+    } else if (offer.vendor_website) {
       window.open(offer.vendor_website, '_blank', 'noopener');
+    } else if (offer.url) {
+      window.open(offer.url, '_blank', 'noopener');
+    } else {
+      alert('No contact information available for this vendor.');
     }
   };
 

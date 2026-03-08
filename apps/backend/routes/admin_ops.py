@@ -9,10 +9,16 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from database import get_session
 from models import User
 from dependencies import require_admin
+import os
 
 router = APIRouter(tags=["admin"])
 
-OPS_KEY = "sh_ops_2026_secure_key"
+
+def _get_ops_key() -> str:
+    return os.getenv("ADMIN_OPS_KEY", "sh_ops_2026_secure_key")
+
+def _get_restore_key() -> str:
+    return os.getenv("ADMIN_RESTORE_KEY", "sh_restore_vendors_2026_secure_key")
 
 
 @router.post("/admin/ops/restore-vendors")
@@ -24,7 +30,7 @@ async def restore_vendors_endpoint(
     Trigger vendor restoration from bundled dump file.
     Protected by X-Restore-Key header.
     """
-    if x_restore_key != "sh_restore_vendors_2026_secure_key":
+    if x_restore_key != _get_restore_key():
         raise HTTPException(status_code=403, detail="Invalid restore key")
 
     from scripts.restore_vendors import restore_vendors_logic
@@ -43,7 +49,7 @@ async def db_diagnostics(
     x_ops_key: str = Header(None),
 ):
     """DB diagnostics — disk size, table sizes, index status, vendor stats. Key-secured."""
-    if x_ops_key != OPS_KEY:
+    if x_ops_key != _get_ops_key():
         raise HTTPException(status_code=403, detail="Invalid ops key")
 
     from database import engine
@@ -111,7 +117,7 @@ async def create_vector_index(
     x_ops_key: str = Header(None),
 ):
     """Manually create the IVFFlat vector index if startup migrations were skipped."""
-    if x_ops_key != OPS_KEY:
+    if x_ops_key != _get_ops_key():
         raise HTTPException(status_code=403, detail="Invalid ops key")
 
     from database import engine
@@ -145,7 +151,7 @@ async def db_cleanup(
     days: int = 90,
 ):
     """Delete old audit/event rows older than N days + VACUUM. Key-secured."""
-    if x_ops_key != OPS_KEY:
+    if x_ops_key != _get_ops_key():
         raise HTTPException(status_code=403, detail="Invalid ops key")
 
     from database import engine

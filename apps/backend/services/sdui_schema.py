@@ -55,6 +55,9 @@ ACTION_INTENTS = (
     "view_all_bids",
     "view_raw",
     "edit_request",
+    "mark_terms_agreed",
+    "continue_negotiation",
+    "invite_vendor_connect",
 )
 
 # Post-purchase block types that require backend state verification
@@ -163,10 +166,13 @@ class ActionObject(BaseModel):
     label: str
     intent: str
     bid_id: Optional[str] = None
+    deal_id: Optional[str] = None
+    row_id: Optional[str] = None
     url: Optional[str] = None
     merchant_id: Optional[str] = None
     product_id: Optional[str] = None
     amount: Optional[float] = None
+    currency: Optional[str] = None
     count: Optional[int] = None
 
     @field_validator("intent")

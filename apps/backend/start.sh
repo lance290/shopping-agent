@@ -40,40 +40,13 @@ else
         echo "[STARTUP] WARNING: Base table creation failed, but continuing startup."
     fi
 
-    # Determine if DB is fresh or existing for Alembic
     echo "[STARTUP] Running database migrations..."
-    ALEMBIC_ROWS=$(su fastapi -s /bin/sh -c "python -c \"
-import asyncio
-from database import engine
-from sqlalchemy import text
-async def check():
-    try:
-        async with engine.begin() as conn:
-            r = await conn.execute(text('SELECT COUNT(*) FROM alembic_version'))
-            return r.scalar() or 0
-    except:
-        return 0
-print(asyncio.run(check()))
-\"" 2>/dev/null | tail -n 1 || echo "0")
-
-    echo "[STARTUP] Alembic version rows: $ALEMBIC_ROWS"
-
-    if [ "$ALEMBIC_ROWS" = "0" ]; then
-        echo "[STARTUP] Fresh DB detected — stamping Alembic heads..."
-        if su fastapi -s /bin/sh -c "alembic stamp heads 2>&1"; then
-            echo "[STARTUP] Alembic heads stamped successfully."
-        else
-            echo "[STARTUP] ERROR: Alembic stamp failed. Refusing to start with unknown schema state."
-            exit 1
-        fi
+    if su fastapi -s /bin/sh -c "alembic upgrade heads 2>&1"; then
+        echo "[STARTUP] Migrations completed successfully."
+        su fastapi -s /bin/sh -c "alembic current" || true
     else
-        echo "[STARTUP] Existing DB — running Alembic upgrade..."
-        if su fastapi -s /bin/sh -c "alembic upgrade heads 2>&1"; then
-            echo "[STARTUP] Migrations completed successfully."
-        else
-            echo "[STARTUP] ERROR: Migrations returned non-zero. Refusing to start with stale schema."
-            exit 1
-        fi
+        echo "[STARTUP] ERROR: Migrations returned non-zero. Refusing to start with stale schema."
+        exit 1
     fi
 
     echo "[STARTUP] Running startup data integrity check..."

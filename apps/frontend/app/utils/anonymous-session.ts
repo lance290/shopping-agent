@@ -8,18 +8,32 @@
 const STORAGE_KEY = 'ba_anonymous_session_id';
 
 export function getAnonymousSessionId(): string {
-  if (typeof window === 'undefined') return '';
+  if (typeof window === 'undefined' || !window.localStorage) return '';
 
-  let sessionId = localStorage.getItem(STORAGE_KEY);
+  let sessionId: string | null = null;
+  try {
+    sessionId = localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    console.warn('[AnonymousSession] Failed to read from localStorage:', e);
+  }
+
   if (!sessionId) {
     sessionId = crypto.randomUUID();
-    localStorage.setItem(STORAGE_KEY, sessionId);
+    try {
+      localStorage.setItem(STORAGE_KEY, sessionId);
+    } catch (e) {
+      console.warn('[AnonymousSession] Failed to write to localStorage:', e);
+    }
   }
   return sessionId;
 }
 
 export function clearAnonymousSessionId(): void {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(STORAGE_KEY);
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+      console.warn('[AnonymousSession] Failed to remove from localStorage:', e);
+    }
   }
 }

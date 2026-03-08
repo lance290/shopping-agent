@@ -2,6 +2,7 @@
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlmodel import select
 
 
 # ── Batch Social Endpoint ────────────────────────────────────────────────
@@ -222,3 +223,77 @@ def test_provenance_enrichment_chat_excerpts():
     assert len(excerpts) == 2
     assert excerpts[0]["role"] == "user"
     assert "bicycle" in excerpts[0]["content"]
+
+
+# ── Deal Route Regressions ───────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_deal_transition_allows_manual_terms_agreed_and_reopen(client: AsyncClient, auth_user_and_token, session):
+    """Deal transition route supports manual agreement and reversible reopen to negotiating."""
+    from models import Row
+    from models.deals import Deal, DealMessage
+
+    user, token = auth_user_and_token
+    row = Row(title="Executive assistant quote", status="sourcing", user_id=user.id)
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    deal = Deal(row_id=row.id, buyer_user_id=user.id, status="negotiating")
+    session.add(deal)
+    await session.commit()
+    await session.refresh(deal)
+
+    resp = await client.post(
+        f"/deals/{deal.id}/transition",
+        json={
+            "new_status": "terms_agreed",
+            "vendor_quoted_price": 15000.0,
+            "agreed_terms_summary": "Vendor confirmed the quoted rate.",
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["deal"]["status"] == "terms_agreed"
+
+    reopen_resp = await client.post(
+        f"/deals/{deal.id}/transition",
+        json={"new_status": "negotiating"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert reopen_resp.status_code == 200
+    assert reopen_resp.json()["deal"]["status"] == "negotiating"
+
+    messages = (
+        await session.exec(
+            select(DealMessage).where(DealMessage.deal_id == deal.id).order_by(DealMessage.created_at.asc())
+        )
+    ).all()
+    assert any("source: manual" in message.content_text for message in messages)
+    assert any("source: manual_reopen" in message.content_text for message in messages)
+
+
+@pytest.mark.asyncio
+async def test_deal_fund_requires_terms_agreed(client: AsyncClient, auth_user_and_token, session):
+    """Deal funding route rejects deals that have not reached terms_agreed yet."""
+    from models import Row
+    from models.deals import Deal
+
+    user, token = auth_user_and_token
+    row = Row(title="Need charter pricing", status="sourcing", user_id=user.id)
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    deal = Deal(row_id=row.id, buyer_user_id=user.id, status="negotiating", vendor_quoted_price=12000.0, buyer_total=12120.0)
+    session.add(deal)
+    await session.commit()
+    await session.refresh(deal)
+
+    resp = await client.post(
+        f"/deals/{deal.id}/fund",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 400
+    assert "terms_agreed" in resp.json()["detail"]

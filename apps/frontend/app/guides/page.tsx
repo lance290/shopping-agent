@@ -51,12 +51,12 @@ const TAG_STYLES: Record<string, string> = {
 
 export default function GuidesIndexPage() {
   return (
-    <main className="min-h-screen bg-[#151617] text-onyx">
+    <main className="min-h-screen bg-[#151617] text-white">
       <section className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-16">
         <header className="space-y-4">
-          <p className="text-xs uppercase tracking-[0.4em] text-onyx/60">BuyAnything</p>
-          <h1 className="text-4xl font-semibold leading-tight text-onyx md:text-5xl">Guides</h1>
-          <p className="max-w-2xl text-lg text-onyx/75">
+          <p className="text-xs uppercase tracking-[0.4em] text-white/60">BuyAnything</p>
+          <h1 className="text-4xl font-semibold leading-tight text-white md:text-5xl">Guides</h1>
+          <p className="max-w-2xl text-lg text-white/75">
             Practical sourcing playbooks for complex purchases — built for executives and the assistants who support them.
           </p>
         </header>
@@ -69,14 +69,14 @@ export default function GuidesIndexPage() {
               className="group flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-6 transition hover:border-white/20 hover:bg-white/[0.07]"
             >
               <span
-                className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${TAG_STYLES[guide.tag] || 'bg-white/10 text-onyx/70'}`}
+                className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${TAG_STYLES[guide.tag] || 'bg-white/10 text-white/70'}`}
               >
                 {guide.tag}
               </span>
-              <h2 className="text-sm font-semibold leading-snug text-onyx group-hover:text-white transition">
+              <h2 className="text-sm font-semibold leading-snug text-white group-hover:text-white transition">
                 {guide.title}
               </h2>
-              <p className="text-xs text-onyx/55 leading-relaxed">{guide.desc}</p>
+              <p className="text-xs text-white/55 leading-relaxed">{guide.desc}</p>
             </Link>
           ))}
         </div>

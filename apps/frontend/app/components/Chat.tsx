@@ -32,6 +32,13 @@ type SsePayload = {
   message?: string;
 };
 
+const STARTER_PROMPTS = [
+  'What should I treat myself to?',
+  'Suggest my next read',
+  'What are some good gift ideas for an 8-year-old boy?',
+  'What are the best noise-cancelling headphones right now?',
+];
+
 export default function Chat() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -588,6 +595,15 @@ export default function Chat() {
     }
   };
 
+  const handlePromptSelect = (prompt: string) => {
+    if (isLoading) return;
+    setInput(prompt);
+    inputRef.current?.focus();
+    window.setTimeout(() => {
+      formRef.current?.requestSubmit();
+    }, 0);
+  };
+
   return (
     <div className="flex flex-col h-full bg-warm-light border-r border-warm-grey/70">
       <ChatHeader
@@ -630,6 +646,8 @@ export default function Chat() {
         ref={messagesEndRef}
         messages={messages}
         isLoading={isLoading}
+        promptSuggestions={STARTER_PROMPTS}
+        onPromptSelect={handlePromptSelect}
       />
 
       <div className="px-6 py-5 bg-white border-t border-warm-grey">
@@ -638,7 +656,7 @@ export default function Chat() {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={activeRow ? `Refine "${activeRow.title}"...` : "What are you looking for?"}
+            placeholder={activeRow ? `Refine "${activeRow.title}"...` : "Ask Annie a question..."}
             className="flex-1"
           />
           <Button

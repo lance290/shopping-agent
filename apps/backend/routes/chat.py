@@ -155,8 +155,16 @@ async def chat_endpoint(
             # === INTENT-DRIVEN HELPERS ===
             is_service = intent.category == "service"
             service_category = intent.service_type
-            title = intent.what[0].upper() + intent.what[1:] if intent.what else intent.what
-            search_query = intent.search_query
+            title = intent.what[0].upper() + intent.what[1:] if intent.what else "Shopping Request"
+            
+            # If the user is just answering a clarification question, they might provide a fragment.
+            # Merge with pending_clarification title if available.
+            if pending_clarification and pending_clarification.get("title") and len(title) < 15:
+                # E.g. title is "Yes, personalized" but pending is "Anniversary gift"
+                title = f'{pending_clarification.get("title")} ({title})'
+                
+            search_query = intent.search_query or title
+            
             # Strip meta-fields that LLM may accidentally put in constraints
             _META_KEYS = {"what", "is_service", "service_category", "search_query", "title", "category", "desire_tier", "desire_confidence"}
             constraints = {k: v for k, v in (intent.constraints or {}).items() if k not in _META_KEYS}
@@ -478,6 +486,10 @@ async def chat_endpoint(
             # Fallback
             yield sse_event("done", {})
 
+        except ValueError as e:
+            logger.error(f"Chat validation error: {e}", exc_info=True)
+            yield sse_event("error", {"message": "I got a bit confused by that. Could you rephrase your request?"})
+            yield sse_event("done", {})
         except Exception as e:
             logger.error(f"Chat error: {e}", exc_info=True)
             yield sse_event("error", {"message": str(e) or "Chat processing failed"})

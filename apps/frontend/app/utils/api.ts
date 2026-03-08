@@ -8,7 +8,7 @@
 export { AUTH_REQUIRED, fetchWithAuth, backendUrl, getAuthToken, readResponseBodySafe } from './api-core';
 
 // Row / Project / Search
-export type { SearchApiResponse } from './api-rows';
+export type { SearchApiResponse, DealTransitionPayload, DealFundingResponse } from './api-rows';
 export {
   runSearchApiWithStatus,
   persistRowToDb,
@@ -23,6 +23,8 @@ export {
   duplicateProjectInDb,
   saveChoiceAnswerToDb,
   saveChatHistory,
+  transitionDealInDb,
+  fundDealEscrowInDb,
 } from './api-rows';
 
 // Comments

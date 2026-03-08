@@ -49,8 +49,8 @@ describe('SDUI Constants', () => {
     expect(BLOCK_TYPES).toHaveLength(13);
   });
 
-  test('ACTION_INTENTS has 8 intents', () => {
-    expect(ACTION_INTENTS).toHaveLength(8);
+  test('ACTION_INTENTS has 11 intents', () => {
+    expect(ACTION_INTENTS).toHaveLength(11);
     expect(ACTION_INTENTS).toContain('outbound_affiliate');
     expect(ACTION_INTENTS).toContain('claim_swap');
     expect(ACTION_INTENTS).toContain('fund_escrow');
@@ -59,6 +59,9 @@ describe('SDUI Constants', () => {
     expect(ACTION_INTENTS).toContain('view_all_bids');
     expect(ACTION_INTENTS).toContain('view_raw');
     expect(ACTION_INTENTS).toContain('edit_request');
+    expect(ACTION_INTENTS).toContain('mark_terms_agreed');
+    expect(ACTION_INTENTS).toContain('continue_negotiation');
+    expect(ACTION_INTENTS).toContain('invite_vendor_connect');
   });
 
   test('VALUE_VECTORS has 5 vectors', () => {
@@ -120,7 +123,7 @@ describe('isValidBlockType', () => {
 });
 
 describe('isValidActionIntent', () => {
-  test('accepts all 8 intents', () => {
+  test('accepts all 11 intents', () => {
     for (const ai of ACTION_INTENTS) {
       expect(isValidActionIntent(ai)).toBe(true);
     }

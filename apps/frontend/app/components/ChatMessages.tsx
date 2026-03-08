@@ -13,22 +13,43 @@ interface Message {
 interface ChatMessagesProps {
   messages: Message[];
   isLoading: boolean;
+  promptSuggestions?: string[];
+  onPromptSelect?: (prompt: string) => void;
 }
 
 const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
-  function ChatMessages({ messages, isLoading }, ref) {
+  function ChatMessages({ messages, isLoading, promptSuggestions = [], onPromptSelect }, ref) {
     return (
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center px-6 text-onyx-muted">
-            <div className="w-14 h-14 rounded-full bg-white border border-warm-grey flex items-center justify-center mb-5">
+            <div className="w-14 h-14 rounded-full bg-white border border-warm-grey flex items-center justify-center mb-5 shadow-sm">
               <Bot className="w-6 h-6 text-gold-dark" />
             </div>
             <div className="text-[10px] uppercase tracking-[0.16em] text-onyx-muted/80 font-medium">Welcome</div>
-            <h3 className="text-lg font-medium text-onyx mt-2 mb-2">How can I help you today?</h3>
-            <p className="text-sm max-w-xs">
-              I can help you find products, compare prices, and manage your procurement list.
+            <h3 className="text-xl font-semibold text-onyx mt-2 mb-2">Hi, I&apos;m Annie!</h3>
+            <p className="text-sm max-w-sm leading-relaxed text-onyx-muted">
+              I&apos;m your AI shopping assistant. Describe what you&apos;re looking for, or ask for ideas, and I&apos;ll do the legwork.
             </p>
+            {promptSuggestions.length > 0 && (
+              <div className="mt-8 w-full max-w-md space-y-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-onyx-muted/70 text-left">
+                  Things to try
+                </div>
+                <div className="grid gap-2">
+                  {promptSuggestions.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => onPromptSelect?.(prompt)}
+                      className="rounded-2xl border border-warm-grey bg-white px-4 py-3 text-left text-sm text-ink shadow-sm transition hover:border-gold hover:bg-gold/5"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
         

@@ -4,7 +4,12 @@ async function globalTeardown(_config: FullConfig) {
   const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
 
   try {
-    const res = await fetch(`${backendUrl}/test/reset-db`, { method: 'POST' });
+    const res = await fetch(`${backendUrl}/test/reset-db`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer e2e-test',
+      },
+    });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       // eslint-disable-next-line no-console

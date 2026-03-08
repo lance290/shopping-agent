@@ -19,20 +19,9 @@ from dependencies import get_current_session
 GUEST_EMAIL = "guest@buy-anything.com"
 
 
-async def _resolve_user_id(authorization: Optional[str], session: AsyncSession) -> Optional[int]:
-    """Resolve the user_id from auth session, falling back to guest user."""
-    auth_session = await get_current_session(authorization, session)
-    if auth_session:
-        return auth_session.user_id
-    # Fall back to guest user
-    result = await session.exec(select(User).where(User.email == GUEST_EMAIL))
-    guest = result.first()
-    if not guest:
-        guest = User(email=GUEST_EMAIL, is_admin=False)
-        session.add(guest)
-        await session.commit()
-        await session.refresh(guest)
-    return guest.id
+async def _resolve_user_id_and_guest(authorization: Optional[str], session: AsyncSession) -> tuple[int, bool]:
+    from dependencies import resolve_user_id_and_guest_flag
+    return await resolve_user_id_and_guest_flag(authorization, session)
 from sourcing import (
     SourcingRepository,
     SearchResult,
@@ -85,11 +74,12 @@ async def search_row_listings(
     row_id: int,
     body: RowSearchRequest,
     authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
     from routes.rate_limit import check_rate_limit
 
-    user_id = await _resolve_user_id(authorization, session)
+    user_id, is_guest = await _resolve_user_id_and_guest(authorization, session)
 
     rate_key = f"search:{user_id}"
     if not check_rate_limit(rate_key, "search"):
@@ -245,6 +235,7 @@ async def search_row_listings_stream(
     row_id: int,
     body: RowSearchRequest,
     authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
     """
@@ -253,7 +244,7 @@ async def search_row_listings_stream(
     """
     from routes.rate_limit import check_rate_limit
 
-    user_id = await _resolve_user_id(authorization, session)
+    user_id, is_guest = await _resolve_user_id_and_guest(authorization, session)
 
     rate_key = f"search:{user_id}"
     if not check_rate_limit(rate_key, "search"):

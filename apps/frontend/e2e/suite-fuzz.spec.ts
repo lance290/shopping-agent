@@ -117,7 +117,7 @@ const ACTIONS = [
       let createdTitle = title;
       
       // Use UI to create
-      const input = page.locator('input[placeholder*="looking for"], input[placeholder*="Refine"]');
+      const input = page.locator('input[placeholder], textarea[placeholder]').first();
       await input.fill(title);
       await page.keyboard.press('Enter');
       

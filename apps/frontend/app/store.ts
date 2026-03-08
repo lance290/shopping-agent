@@ -4,6 +4,7 @@ export type {
   ProviderStatusType,
   ProviderStatusSnapshot,
   Bid,
+  ActiveDeal,
   Row,
   Project,
   OfferSortMode,

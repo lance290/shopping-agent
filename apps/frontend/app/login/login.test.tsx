@@ -9,6 +9,9 @@ vi.mock('next/navigation', () => ({
     push: vi.fn(),
     refresh: vi.fn(),
   }),
+  useSearchParams: () => ({
+    get: vi.fn().mockReturnValue(null),
+  }),
 }));
 
 vi.mock('../utils/auth', () => ({
@@ -28,7 +31,7 @@ describe('LoginPage - OTP text color visibility (bug #112)', () => {
     // the light body color (text-onyx / #E8EAED) which would be white-on-white
     const card = container.querySelector('.bg-white');
     expect(card).toBeInTheDocument();
-    expect(card?.className).toContain('text-gray-900');
+    expect(card?.className).toContain('text-ink');
   });
 
   it('phone input has explicit dark text color to prevent white-on-white on light background', async () => {
@@ -37,14 +40,14 @@ describe('LoginPage - OTP text color visibility (bug #112)', () => {
     const phoneInput = await screen.findByLabelText(/phone number/i);
     // Without text-gray-900, the input would inherit text-onyx (#E8EAED) from body
     // resulting in white text on white (bg-white) input
-    expect(phoneInput.className).toContain('text-gray-900');
+    expect(phoneInput.className).toContain('text-ink');
   });
 
   it('phone input has explicit placeholder color', async () => {
     render(<LoginPage />);
 
     const phoneInput = await screen.findByLabelText(/phone number/i);
-    expect(phoneInput.className).toContain('placeholder:text-gray-400');
+    expect(phoneInput.className).toContain('placeholder:text-onyx-muted');
   });
 
   it('OTP verification code input has explicit dark text color to prevent white-on-white', async () => {
@@ -60,7 +63,7 @@ describe('LoginPage - OTP text color visibility (bug #112)', () => {
 
     const codeInput = await screen.findByLabelText(/verification code/i);
     // Without text-gray-900, typed OTP digits would be white on white background
-    expect(codeInput.className).toContain('text-gray-900');
+    expect(codeInput.className).toContain('text-ink');
   });
 
   it('OTP verification code input has explicit placeholder color', async () => {
@@ -74,7 +77,7 @@ describe('LoginPage - OTP text color visibility (bug #112)', () => {
     });
 
     const codeInput = await screen.findByLabelText(/verification code/i);
-    expect(codeInput.className).toContain('placeholder:text-gray-400');
+    expect(codeInput.className).toContain('placeholder:text-onyx-muted');
   });
 });
 
@@ -101,7 +104,7 @@ describe('LoginPage - inputs not disabled/inactive (bug #122)', () => {
 
     // After typing, the input must still carry text-gray-900 so typed characters
     // appear dark (not the light body color rgb(232,234,237)) — see bug #122
-    expect(phoneInput.className).toContain('text-gray-900');
+    expect(phoneInput.className).toContain('text-ink');
     expect(phoneInput.className).not.toMatch(/opacity-\d/);
   });
 
@@ -134,7 +137,7 @@ describe('LoginPage - inputs not disabled/inactive (bug #122)', () => {
     fireEvent.change(codeInput, { target: { value: '123456' } });
 
     // Typing digits must not change text styling to something that looks inactive
-    expect(codeInput.className).toContain('text-gray-900');
+    expect(codeInput.className).toContain('text-ink');
     expect(codeInput.className).not.toMatch(/opacity-\d/);
   });
 
@@ -175,6 +178,6 @@ describe('LoginPage - OTP text color on Chrome desktop (bug #126)', () => {
     const codeInput = await screen.findByLabelText(/verification code/i);
     // text-gray-900 resolves to #111827 — the -webkit-text-fill-color: currentColor
     // rule in globals.css ensures Chrome renders typed text using this dark color
-    expect(codeInput.className).toContain('text-gray-900');
+    expect(codeInput.className).toContain('text-ink');
   });
 });

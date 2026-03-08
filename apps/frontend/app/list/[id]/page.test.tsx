@@ -226,7 +226,12 @@ describe('ListPage — Share with Family', () => {
     render(<ListPage />);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/rows?id=5');
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/rows?id=5',
+        expect.objectContaining({
+          credentials: 'same-origin',
+        })
+      );
     });
   });
 });

@@ -391,12 +391,16 @@ function PopChatInner() {
       await fetch(`/api/pop/offer/${dealId}/claim`, { method: 'POST' });
       setListItems((prev) =>
         prev.map((item) => {
-          if (item.id !== itemId || !item.deals) return item;
+          if (item.id !== itemId) return item;
           return {
             ...item,
-            deals: item.deals.map((d) => ({
+            deals: item.deals?.map((d) => ({
               ...d,
               is_selected: d.id === dealId,
+            })),
+            swaps: item.swaps?.map((swap) => ({
+              ...swap,
+              is_selected: false,
             })),
           };
         })

@@ -105,6 +105,7 @@ EXPECTED_COLS = [
     # User — referral + wallet + trust
     ("user", "referral_share_token", "VARCHAR", None),
     ("user", "signup_source", "VARCHAR", None),
+    ("user", "referred_by_id", "INTEGER", None),
     ("user", "trust_level", "VARCHAR", "'standard'"),
     ("user", "wallet_balance_cents", "INTEGER", "0"),
     ("user", "ref_code", "VARCHAR", None),
@@ -400,5 +401,21 @@ async def fix_schema(conn):
         print(f"[SCHEMA-FIX] Fixed {added} schema issue(s).")
     else:
         print("[SCHEMA-FIX] Schema is up to date.")
+
+
+async def main():
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL is not set")
+
+    engine = create_async_engine(DATABASE_URL)
+    try:
+        async with engine.begin() as conn:
+            await fix_schema(conn)
+    finally:
+        await engine.dispose()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
 
 

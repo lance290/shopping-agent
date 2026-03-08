@@ -13,9 +13,25 @@
  * This test verifies that search results appear as visible offer tiles
  * after a chat search completes.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+
+async function mintTestSession(request: APIRequestContext, label: string) {
+  const phone = `+1650555${String(Date.now()).slice(-4)}`;
+  const response = await request.post(`${BACKEND_URL}/test/mint-session`, {
+    headers: {
+      Authorization: 'Bearer e2e-test',
+    },
+    data: { phone },
+  });
+
+  if (!response.ok()) {
+    throw new Error(`mint-session failed for ${label}: ${response.status()} ${await response.text()}`);
+  }
+
+  return response.json() as Promise<{ session_token: string }>;
+}
 
 test.describe('SSE Search Results Display Regression', () => {
   test.setTimeout(120_000);
@@ -26,9 +42,7 @@ test.describe('SSE Search Results Display Regression', () => {
     await page.waitForLoadState('networkidle');
 
     // Find the chat input
-    const chatInput = page.locator(
-      'input[placeholder*="looking for"], input[placeholder*="Refine"], input[placeholder*="search"]'
-    );
+    const chatInput = page.locator('input[placeholder], textarea[placeholder]').first();
     await expect(chatInput).toBeVisible({ timeout: 15_000 });
 
     // Type a search query
@@ -36,16 +50,16 @@ test.describe('SSE Search Results Display Regression', () => {
     await chatInput.press('Enter');
 
     // Wait for the row to appear in the board (row strip with title)
-    const rowStrip = page.locator('[data-testid="row-strip"]').first();
-    await expect(rowStrip).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Your List')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/wireless earbuds/i).last()).toBeVisible({ timeout: 30_000 });
 
     // Wait for at least one offer tile to appear — this is the core regression check.
     // Before the fix, this would time out because setRowResults([]) wiped SSE results.
-    const offerTile = page.locator('[data-testid="offer-tile"]').first();
-    await expect(offerTile).toBeVisible({ timeout: 60_000 });
+    const resultAction = page.getByRole('link', { name: 'View Deal' }).first();
+    await expect(resultAction).toBeVisible({ timeout: 60_000 });
 
     // Verify multiple offer tiles rendered (not just 1 vendor card)
-    const tileCount = await page.locator('[data-testid="offer-tile"]').count();
+    const tileCount = await page.getByRole('link', { name: 'View Deal' }).count();
     expect(tileCount).toBeGreaterThan(1);
 
     console.log(`✓ ${tileCount} offer tiles displayed after anonymous search`);
@@ -56,18 +70,10 @@ test.describe('SSE Search Results Display Regression', () => {
     request,
   }) => {
     // Mint a session
-    const email = `sse_regression_${Date.now()}@test.com`;
-    const mintResp = await request.post(`${BACKEND_URL}/test/mint-session`, {
-      data: { email },
-    });
+    const mintResp = await mintTestSession(request, 'sse_regression');
 
     // Skip if test endpoint not available (CI without backend)
-    if (!mintResp.ok()) {
-      test.skip();
-      return;
-    }
-
-    const { session_token } = await mintResp.json();
+    const { session_token } = mintResp;
     await page.context().addCookies([
       { name: 'sa_session', value: session_token, domain: 'localhost', path: '/' },
     ]);
@@ -75,23 +81,21 @@ test.describe('SSE Search Results Display Regression', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    const chatInput = page.locator(
-      'input[placeholder*="looking for"], input[placeholder*="Refine"], input[placeholder*="search"]'
-    );
+    const chatInput = page.locator('input[placeholder], textarea[placeholder]').first();
     await expect(chatInput).toBeVisible({ timeout: 15_000 });
 
     await chatInput.fill('running shoes under $100');
     await chatInput.press('Enter');
 
     // Wait for row strip
-    const rowStrip = page.locator('[data-testid="row-strip"]').first();
-    await expect(rowStrip).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Your List')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/running shoes/i).last()).toBeVisible({ timeout: 30_000 });
 
     // Core assertion: offer tiles must appear
-    const offerTile = page.locator('[data-testid="offer-tile"]').first();
-    await expect(offerTile).toBeVisible({ timeout: 60_000 });
+    const resultAction = page.getByRole('link', { name: 'View Deal' }).first();
+    await expect(resultAction).toBeVisible({ timeout: 60_000 });
 
-    const tileCount = await page.locator('[data-testid="offer-tile"]').count();
+    const tileCount = await page.getByRole('link', { name: 'View Deal' }).count();
     expect(tileCount).toBeGreaterThan(1);
 
     console.log(`✓ ${tileCount} offer tiles displayed after authenticated search`);
@@ -101,9 +105,7 @@ test.describe('SSE Search Results Display Regression', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    const chatInput = page.locator(
-      'input[placeholder*="looking for"], input[placeholder*="Refine"], input[placeholder*="search"]'
-    );
+    const chatInput = page.locator('input[placeholder], textarea[placeholder]').first();
     await expect(chatInput).toBeVisible({ timeout: 15_000 });
 
     await chatInput.fill('standing desk');
@@ -111,12 +113,12 @@ test.describe('SSE Search Results Display Regression', () => {
 
     // Wait for at least one provider status badge to appear
     // These show provider names like "SerpApi", "Rainforest", "Google CSE"
-    const badge = page.locator('[data-testid="row-strip"]').first();
-    await expect(badge).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Your List')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/standing desk/i).last()).toBeVisible({ timeout: 30_000 });
 
     // Wait for search to complete and tiles to render
-    const offerTile = page.locator('[data-testid="offer-tile"]').first();
-    await expect(offerTile).toBeVisible({ timeout: 60_000 });
+    const resultAction = page.getByRole('link', { name: 'View Deal' }).first();
+    await expect(resultAction).toBeVisible({ timeout: 60_000 });
 
     // After search completes, "Sourcing offers..." should NOT be visible
     const sourcingSpinner = page.locator('text=Sourcing offers...');

@@ -92,6 +92,7 @@ from models.pop import (
 from models.coupons import (
     PopSwap,
     PopSwapClaim,
+    Campaign,
     CouponCampaign,
     BrandPortalToken,
 )

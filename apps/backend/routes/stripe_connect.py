@@ -17,6 +17,8 @@ from database import get_session
 from dependencies import get_current_session
 from models import Vendor
 
+Merchant = Vendor  # Unified model — Merchant is an alias for Vendor
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/stripe-connect", tags=["stripe_connect"])
@@ -165,6 +167,140 @@ async def onboarding_status(
             "account_id": merchant.stripe_account_id,
             "error": "Could not verify with Stripe",
         }
+
+
+class OnboardVendorRequest(BaseModel):
+    vendor_id: int
+
+
+@router.post("/onboard-vendor")
+async def onboard_vendor_direct(
+    body: OnboardVendorRequest,
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Create or reuse a Stripe Express Connected Account for any Vendor by ID.
+    Does NOT require the vendor to have a Merchant/user profile — works for
+    EA-sourced vendors discovered through search or outreach.
+    Returns a Stripe-hosted onboarding URL the EA can share with the vendor.
+    """
+    auth_session = await get_current_session(authorization, session)
+    if not auth_session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    vendor = await session.get(Vendor, body.vendor_id)
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    stripe = _get_stripe()
+    from routes.checkout import _get_app_base
+    app_base = _get_app_base(request)
+
+    if not vendor.stripe_account_id:
+        if not vendor.email:
+            raise HTTPException(
+                status_code=400,
+                detail="Vendor has no email on file — cannot create Stripe account",
+            )
+        try:
+            account = stripe.Account.create(
+                type="express",
+                email=vendor.email,
+                business_profile={"name": vendor.name},
+                metadata={"vendor_id": str(vendor.id)},
+            )
+            vendor.stripe_account_id = account.id
+            session.add(vendor)
+            await session.commit()
+            await session.refresh(vendor)
+        except Exception as e:
+            logger.error(f"[STRIPE CONNECT] Vendor account creation failed: {e}")
+            raise HTTPException(status_code=502, detail="Failed to create Stripe account")
+
+    try:
+        account_link = stripe.AccountLink.create(
+            account=vendor.stripe_account_id,
+            refresh_url=f"{app_base}/seller?tab=profile&stripe=refresh",
+            return_url=f"{app_base}/seller?tab=profile&stripe=complete",
+            type="account_onboarding",
+        )
+    except Exception as e:
+        logger.error(f"[STRIPE CONNECT] Vendor onboarding link failed: {e}")
+        raise HTTPException(status_code=502, detail="Failed to create onboarding link")
+
+    return {
+        "onboarding_url": account_link.url,
+        "stripe_account_id": vendor.stripe_account_id,
+        "vendor_id": vendor.id,
+        "vendor_email": vendor.email,
+    }
+
+
+@router.post("/webhook")
+async def stripe_connect_webhook(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Handle Stripe Connect webhooks — primarily account.updated.
+    Syncs vendor onboarding status automatically when Stripe fires events.
+    """
+    stripe = _get_stripe()
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+    connect_webhook_secret = os.getenv("STRIPE_CONNECT_WEBHOOK_SECRET", "")
+
+    if connect_webhook_secret:
+        try:
+            event = stripe.Webhook.construct_event(payload, sig_header, connect_webhook_secret)
+        except Exception as e:
+            logger.warning(f"[STRIPE CONNECT WEBHOOK] Signature verification failed: {e}")
+            raise HTTPException(status_code=400, detail="Invalid signature")
+    else:
+        import json
+        event = json.loads(payload)
+        logger.warning("[STRIPE CONNECT WEBHOOK] No webhook secret configured — skipping signature verification")
+
+    event_type = event.get("type") if isinstance(event, dict) else event.type
+    data_object = (event.get("data", {}).get("object", {}) if isinstance(event, dict)
+                   else event.data.object)
+
+    if event_type == "account.updated":
+        account_id = data_object.get("id") if isinstance(data_object, dict) else data_object.id
+        charges_enabled = (data_object.get("charges_enabled") if isinstance(data_object, dict)
+                           else data_object.charges_enabled)
+
+        if not account_id:
+            return {"status": "ignored", "reason": "no_account_id"}
+
+        result = await session.exec(
+            select(Vendor).where(Vendor.stripe_account_id == account_id)
+        )
+        vendor = result.first()
+        if not vendor:
+            logger.info(f"[STRIPE CONNECT WEBHOOK] No vendor for account {account_id}")
+            return {"status": "ignored", "reason": "unknown_account"}
+
+        changed = False
+        if charges_enabled and not vendor.stripe_onboarding_complete:
+            vendor.stripe_onboarding_complete = True
+            changed = True
+        elif not charges_enabled and vendor.stripe_onboarding_complete:
+            vendor.stripe_onboarding_complete = False
+            changed = True
+
+        if changed:
+            session.add(vendor)
+            await session.commit()
+            logger.info(
+                f"[STRIPE CONNECT WEBHOOK] Vendor {vendor.id} onboarding_complete={vendor.stripe_onboarding_complete}"
+            )
+
+        return {"status": "processed", "vendor_id": vendor.id, "charges_enabled": charges_enabled}
+
+    return {"status": "ignored", "event_type": event_type}
 
 
 @router.get("/earnings", response_model=EarningsSummary)
