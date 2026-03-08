@@ -61,6 +61,7 @@ export interface RawSearchResult {
   currency?: string;
   merchant?: string;
   url?: string;
+  canonical_url?: string;
   image_url?: string | null;
   rating?: number | null;
   reviews_count?: number | null;
@@ -70,9 +71,13 @@ export interface RawSearchResult {
   click_url?: string;
   match_score?: number;
   bid_id?: number;
+  vendor_id?: number;
   is_selected?: boolean;
   is_liked?: boolean;
   liked_at?: string;
+  is_vendor_bookmarked?: boolean;
+  is_item_bookmarked?: boolean;
+  is_emailed?: boolean;
   is_service_provider?: boolean;
   vendor_email?: string;
   vendor_name?: string;

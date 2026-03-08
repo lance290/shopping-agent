@@ -16,7 +16,10 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import Row, RequestSpec, Bid, Seller, User
+from models.bookmarks import VendorBookmark, ItemBookmark
+from models.outreach import OutreachMessage
 from dependencies import get_current_session
+from routes.bookmarks import _normalize_bookmark_url
 
 GUEST_EMAIL = "guest@buy-anything.com"
 
@@ -69,6 +72,50 @@ class SearchResponse(BaseModel):
     results: List[SearchResult]
     provider_statuses: List[ProviderStatusSnapshot]
     user_message: Optional[str] = None
+
+
+async def _load_search_state_for_bids(
+    session: AsyncSession,
+    user_id: int,
+    bids: List[Bid],
+) -> tuple[set[int], set[str], set[int]]:
+    vendor_ids = {bid.vendor_id for bid in bids if bid.vendor_id}
+    item_urls = {
+        normalized
+        for bid in bids
+        if (normalized := _normalize_bookmark_url(bid.canonical_url or bid.item_url))
+    }
+    bid_ids = {bid.id for bid in bids if bid.id is not None}
+
+    bookmarked_vendor_ids: set[int] = set()
+    if vendor_ids:
+        result = await session.exec(
+            select(VendorBookmark.vendor_id)
+            .where(VendorBookmark.user_id == user_id, VendorBookmark.vendor_id.in_(vendor_ids))
+        )
+        bookmarked_vendor_ids = set(result.all())
+
+    bookmarked_item_urls: set[str] = set()
+    if item_urls:
+        result = await session.exec(
+            select(ItemBookmark.canonical_url)
+            .where(ItemBookmark.user_id == user_id, ItemBookmark.canonical_url.in_(item_urls))
+        )
+        bookmarked_item_urls = set(result.all())
+
+    emailed_bid_ids: set[int] = set()
+    if bid_ids:
+        result = await session.exec(
+            select(OutreachMessage.bid_id)
+            .where(
+                OutreachMessage.bid_id.isnot(None),
+                OutreachMessage.bid_id.in_(bid_ids),
+                OutreachMessage.status.in_(("sent", "delivered", "replied")),
+            )
+        )
+        emailed_bid_ids = {bid_id for bid_id in result.all() if bid_id is not None}
+
+    return bookmarked_vendor_ids, bookmarked_item_urls, emailed_bid_ids
 
 
 @router.post("/rows/{row_id}/search", response_model=SearchResponse)
@@ -132,22 +179,37 @@ async def search_row_listings(
         providers=body.providers,
     )
 
-    # Supersede stale bids AFTER persist — only bids not returned by the new search.
-    # This preserves good results from providers that returned different URLs on refinement.
     search_bid_ids = {b.id for b in bids}
-    await sourcing_service.supersede_stale_bids(row_id, search_bid_ids)
     preserved_stmt = (
         select(Bid)
         .where(
             Bid.row_id == row_id,
             Bid.id.notin_(search_bid_ids) if search_bid_ids else True,
-            (Bid.is_liked == True) | (Bid.is_selected == True),
         )
         .options(selectinload(Bid.seller))
     )
     preserved_res = await session.exec(preserved_stmt)
-    preserved_bids = preserved_res.all()
-    all_bids = list(bids) + list(preserved_bids)
+    candidate_bids = [bid for bid in preserved_res.all() if not bid.is_superseded]
+
+    bookmarked_vendors, bookmarked_items, emailed_bid_ids = await _load_search_state_for_bids(
+        session,
+        user_id,
+        list(bids) + candidate_bids,
+    )
+    preserved_bids = []
+    for bid in candidate_bids:
+        bookmark_url = _normalize_bookmark_url(bid.canonical_url or bid.item_url)
+        if (
+            bid.is_selected
+            or (bid.vendor_id and bid.vendor_id in bookmarked_vendors)
+            or (bookmark_url and bookmark_url in bookmarked_items)
+        ):
+            preserved_bids.append(bid)
+
+    keep_bid_ids = search_bid_ids | {bid.id for bid in preserved_bids if bid.id is not None}
+    await sourcing_service.supersede_stale_bids(row_id, keep_bid_ids)
+
+    all_bids = list(bids) + preserved_bids
 
     # Convert Bids back to SearchResults for response compatibility and UI filtering
     results: List[SearchResult] = []
@@ -169,14 +231,22 @@ async def search_row_listings(
                 currency=bid.currency,
                 merchant=bid.seller.name if bid.seller else "Unknown",
                 url=bid.item_url or "",
-                merchant_domain=bid.seller.domain if bid.seller else "",
+                canonical_url=bid.canonical_url or _normalize_bookmark_url(bid.item_url),
+                merchant_domain=bid.seller.domain or "" if bid.seller else "",
                 click_url=click_url,
                 image_url=bid.image_url,
                 source=bid.source,
                 bid_id=bid.id,
+                vendor_id=bid.vendor_id,
                 is_selected=bid.is_selected,
-                is_liked=bid.is_liked,
+                is_liked=(
+                    bool(bid.vendor_id and bid.vendor_id in bookmarked_vendors)
+                    or bool(_normalize_bookmark_url(bid.canonical_url or bid.item_url) in bookmarked_items)
+                ),
                 liked_at=bid.liked_at.isoformat() if bid.liked_at else None,
+                is_vendor_bookmarked=bool(bid.vendor_id and bid.vendor_id in bookmarked_vendors),
+                is_item_bookmarked=bool(_normalize_bookmark_url(bid.canonical_url or bid.item_url) in bookmarked_items),
+                is_emailed=bool(bid.id and bid.id in emailed_bid_ids),
                 # Optional fields that might be missing in Bid but exist in SearchResult
                 shipping_info=None, # Bid has shipping_cost (float), SearchResult has shipping_info (str)
                 rating=None, 
@@ -573,7 +643,31 @@ async def search_row_listings_stream(
         # Supersede stale bids AFTER all providers complete.
         # Only bids not returned by any provider in this search get retired.
         try:
-            await sourcing_service.supersede_stale_bids(row_id, all_persisted_bid_ids)
+            existing_stmt = (
+                select(Bid)
+                .where(
+                    Bid.row_id == row_id,
+                    Bid.id.notin_(all_persisted_bid_ids) if all_persisted_bid_ids else True,
+                )
+                .options(selectinload(Bid.seller))
+            )
+            existing_res = await session.exec(existing_stmt)
+            existing_bids = [bid for bid in existing_res.all() if not bid.is_superseded]
+            bookmarked_vendors, bookmarked_items, _ = await _load_search_state_for_bids(
+                session,
+                user_id,
+                existing_bids,
+            )
+            protected_existing_ids = {
+                bid.id
+                for bid in existing_bids
+                if bid.id is not None and (
+                    bid.is_selected
+                    or (bid.vendor_id and bid.vendor_id in bookmarked_vendors)
+                    or (_normalize_bookmark_url(bid.canonical_url or bid.item_url) in bookmarked_items)
+                )
+            }
+            await sourcing_service.supersede_stale_bids(row_id, all_persisted_bid_ids | protected_existing_ids)
         except Exception as e:
             logger.error(f"[SEARCH STREAM] Failed to supersede stale bids: {e}")
 

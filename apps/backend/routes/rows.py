@@ -12,10 +12,11 @@ from sqlalchemy.orm import selectinload, defer, joinedload
 from database import get_session
 from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project, User, Vendor
 from models.deals import Deal, DealMessage
-from models.bookmarks import VendorBookmark
+from models.bookmarks import VendorBookmark, ItemBookmark
 from models.outreach import OutreachMessage
 from dependencies import get_current_session, resolve_user_id, resolve_user_id_and_guest_flag, GUEST_EMAIL
 from routes.rows_search import router as rows_search_router
+from routes.bookmarks import _normalize_bookmark_url
 from sourcing.safety import SafetyService
 from services.sdui_builder import augment_schema_with_active_deal
 from utils.json_utils import safe_json_loads
@@ -63,6 +64,7 @@ class BidRead(BaseModel):
     currency: str
     item_title: str
     item_url: Optional[str] = None
+    canonical_url: Optional[str] = None
     image_url: Optional[str] = None
     source: str
     is_selected: bool = False
@@ -75,6 +77,7 @@ class BidRead(BaseModel):
     vendor_id: Optional[int] = None
     seller: Optional[SellerRead] = None
     is_vendor_bookmarked: bool = False
+    is_item_bookmarked: bool = False
     is_emailed: bool = False
 
 
@@ -227,17 +230,21 @@ async def _load_active_deal_summaries(session: AsyncSession, rows: List[Row]) ->
     return summaries
 
 
-async def _load_vendor_state_for_bids(
+async def _load_bookmark_state_for_bids(
     session: AsyncSession, user_id: int, rows: List[Row],
-) -> tuple[set[int], set[int]]:
-    """Return (bookmarked_vendor_ids, emailed_bid_ids) for the given user and rows."""
+) -> tuple[set[int], set[str], set[int]]:
+    """Return (bookmarked_vendor_ids, bookmarked_item_urls, emailed_bid_ids) for the given user and rows."""
     all_vendor_ids: set[int] = set()
+    all_item_urls: set[str] = set()
     row_ids: list[int] = []
     for row in rows:
         row_ids.append(row.id)
         for bid in (row.bids or []):
             if bid.vendor_id:
                 all_vendor_ids.add(bid.vendor_id)
+            bookmark_url = _normalize_bookmark_url(bid.canonical_url or bid.item_url)
+            if bookmark_url:
+                all_item_urls.add(bookmark_url)
 
     bookmarked_vendor_ids: set[int] = set()
     if all_vendor_ids:
@@ -246,6 +253,14 @@ async def _load_vendor_state_for_bids(
             .where(VendorBookmark.user_id == user_id, VendorBookmark.vendor_id.in_(all_vendor_ids))
         )
         bookmarked_vendor_ids = set(bm_result.all())
+
+    bookmarked_item_urls: set[str] = set()
+    if all_item_urls:
+        item_result = await session.exec(
+            select(ItemBookmark.canonical_url)
+            .where(ItemBookmark.user_id == user_id, ItemBookmark.canonical_url.in_(all_item_urls))
+        )
+        bookmarked_item_urls = set(item_result.all())
 
     emailed_bid_ids: set[int] = set()
     if row_ids:
@@ -261,12 +276,24 @@ async def _load_vendor_state_for_bids(
         )
         emailed_bid_ids = {bid_id for bid_id in om_result.all() if bid_id is not None}
 
-    return bookmarked_vendor_ids, emailed_bid_ids
+    return bookmarked_vendor_ids, bookmarked_item_urls, emailed_bid_ids
 
 
-def _enrich_bid_dict(bid_dict: dict, db_bid: Bid, bookmarked_vendor_ids: set[int], emailed_bid_ids: set[int]) -> dict:
+def _enrich_bid_dict(
+    bid_dict: dict,
+    db_bid: Bid,
+    bookmarked_vendor_ids: set[int],
+    bookmarked_item_urls: set[str],
+    emailed_bid_ids: set[int],
+) -> dict:
     """Inject vendor state indicators into a serialized bid dict."""
-    bid_dict["is_vendor_bookmarked"] = bool(db_bid.vendor_id and db_bid.vendor_id in bookmarked_vendor_ids)
+    bookmark_url = _normalize_bookmark_url(db_bid.canonical_url or db_bid.item_url)
+    is_vendor_bookmarked = bool(db_bid.vendor_id and db_bid.vendor_id in bookmarked_vendor_ids)
+    is_item_bookmarked = bool(bookmark_url and bookmark_url in bookmarked_item_urls)
+    bid_dict["canonical_url"] = db_bid.canonical_url or bookmark_url
+    bid_dict["is_vendor_bookmarked"] = is_vendor_bookmarked
+    bid_dict["is_item_bookmarked"] = is_item_bookmarked
+    bid_dict["is_liked"] = is_vendor_bookmarked or is_item_bookmarked
     bid_dict["is_emailed"] = bool(db_bid.id and db_bid.id in emailed_bid_ids)
     return bid_dict
 
@@ -386,7 +413,7 @@ async def read_rows(
     rows = result.all()
     
     active_deals = await _load_active_deal_summaries(session, rows)
-    bookmarked_vendors, emailed_bids = await _load_vendor_state_for_bids(session, user_id, rows)
+    bookmarked_vendors, bookmarked_items, emailed_bids = await _load_bookmark_state_for_bids(session, user_id, rows)
     
     results = []
     for row in rows:
@@ -415,7 +442,7 @@ async def read_rows(
                 continue
             
             bid_dict = BidRead.model_validate(db_bid, from_attributes=True).model_dump()
-            _enrich_bid_dict(bid_dict, db_bid, bookmarked_vendors, emailed_bids)
+            _enrich_bid_dict(bid_dict, db_bid, bookmarked_vendors, bookmarked_items, emailed_bids)
             filtered_bids.append(bid_dict)
             
         payload["bids"] = filtered_bids
@@ -454,7 +481,7 @@ async def read_row(
         raise HTTPException(status_code=404, detail="Row not found")
     
     active_deals = await _load_active_deal_summaries(session, [row])
-    bookmarked_vendors, emailed_bids = await _load_vendor_state_for_bids(session, user_id, [row])
+    bookmarked_vendors, bookmarked_items, emailed_bids = await _load_bookmark_state_for_bids(session, user_id, [row])
     
     from routes.rows_search import _extract_filters
     from sourcing.filters import should_include_result
@@ -481,7 +508,7 @@ async def read_row(
             continue
         
         bid_dict = BidRead.model_validate(db_bid, from_attributes=True).model_dump()
-        _enrich_bid_dict(bid_dict, db_bid, bookmarked_vendors, emailed_bids)
+        _enrich_bid_dict(bid_dict, db_bid, bookmarked_vendors, bookmarked_items, emailed_bids)
         filtered_bids.append(bid_dict)
         
     payload["bids"] = filtered_bids

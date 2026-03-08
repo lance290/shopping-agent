@@ -4,7 +4,7 @@ import os
 import json
 from httpx import AsyncClient
 from sqlmodel import select
-from models import Row, AuthSession, User, Bid, Seller
+from models import Row, AuthSession, User, Bid, Seller, VendorBookmark, ItemBookmark
 
 # Add parent directory to path to allow importing models and main
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -165,6 +165,162 @@ async def test_search_query_uses_explicit_query_when_provided(client: AsyncClien
 
 
 @pytest.mark.asyncio
+async def test_row_read_includes_vendor_and_item_bookmark_state(client: AsyncClient, session):
+    user = User(email="bookmark-row@example.com")
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    token = generate_session_token()
+    auth_session = AuthSession(
+        email=user.email,
+        user_id=user.id,
+        session_token_hash=hash_token(token),
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    vendor = Seller(name="Saved Vendor", email="saved-vendor@example.com")
+    session.add(vendor)
+    await session.commit()
+    await session.refresh(vendor)
+
+    row = Row(title="Need options", status="sourcing", currency="USD", user_id=user.id)
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    vendor_bid = Bid(
+        row_id=row.id,
+        vendor_id=vendor.id,
+        price=100.0,
+        currency="USD",
+        item_title="Vendor Option",
+        item_url="https://vendor.example.com/offer",
+        source="vendor_directory",
+    )
+    item_bid = Bid(
+        row_id=row.id,
+        price=49.0,
+        currency="USD",
+        item_title="Saved Product",
+        item_url="https://www.amazon.com/dp/ABC123?tag=oldtag&utm_source=test",
+        canonical_url="https://amazon.com/dp/ABC123",
+        source="amazon",
+    )
+    session.add(vendor_bid)
+    session.add(item_bid)
+    await session.commit()
+    await session.refresh(vendor_bid)
+    await session.refresh(item_bid)
+
+    session.add(VendorBookmark(user_id=user.id, vendor_id=vendor.id, source_row_id=row.id))
+    session.add(ItemBookmark(user_id=user.id, canonical_url="https://amazon.com/dp/ABC123", source_row_id=row.id))
+    await session.commit()
+
+    resp = await client.get(f"/rows/{row.id}", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    bids = resp.json()["bids"]
+
+    vendor_payload = next(b for b in bids if b["id"] == vendor_bid.id)
+    assert vendor_payload["is_vendor_bookmarked"] is True
+    assert vendor_payload["is_item_bookmarked"] is False
+    assert vendor_payload["is_liked"] is True
+
+    item_payload = next(b for b in bids if b["id"] == item_bid.id)
+    assert item_payload["canonical_url"] == "https://amazon.com/dp/ABC123"
+    assert item_payload["is_vendor_bookmarked"] is False
+    assert item_payload["is_item_bookmarked"] is True
+    assert item_payload["is_liked"] is True
+
+
+@pytest.mark.asyncio
+async def test_search_preserves_global_bookmarks_and_emits_bookmark_flags(client: AsyncClient, session):
+    user = User(email="bookmark-search@example.com")
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    token = generate_session_token()
+    auth_session = AuthSession(
+        email=user.email,
+        user_id=user.id,
+        session_token_hash=hash_token(token),
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    create_resp = await client.post(
+        "/rows",
+        json={
+            "title": "Search bookmark row",
+            "status": "sourcing",
+            "currency": "USD",
+            "request_spec": {"item_name": "Search bookmark row", "constraints": "{}"},
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert create_resp.status_code == 200
+    row_id = create_resp.json()["id"]
+
+    vendor = Seller(name="Search Saved Vendor", email="search-saved-vendor@example.com")
+    session.add(vendor)
+    await session.commit()
+    await session.refresh(vendor)
+
+    vendor_bid = Bid(
+        row_id=row_id,
+        vendor_id=vendor.id,
+        price=200.0,
+        currency="USD",
+        item_title="Saved Vendor Search Option",
+        item_url="https://vendor.example.com/search-option",
+        source="vendor_directory",
+    )
+    item_bid = Bid(
+        row_id=row_id,
+        price=59.0,
+        currency="USD",
+        item_title="Saved Product Search Option",
+        item_url="https://www.ebay.com/itm/999?utm_source=test",
+        canonical_url="https://ebay.com/itm/999",
+        source="ebay",
+    )
+    session.add(vendor_bid)
+    session.add(item_bid)
+    await session.commit()
+    await session.refresh(vendor_bid)
+    await session.refresh(item_bid)
+
+    session.add(VendorBookmark(user_id=user.id, vendor_id=vendor.id, source_row_id=row_id))
+    session.add(ItemBookmark(user_id=user.id, canonical_url="https://ebay.com/itm/999", source_row_id=row_id))
+    await session.commit()
+
+    async def fake_search_all_with_status(self, query: str, **kwargs):
+        return SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
+
+    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all_with_status': fake_search_all_with_status})()
+
+    resp = await client.post(
+        f"/rows/{row_id}/search",
+        json={"query": "Search bookmark row"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    results = resp.json()["results"]
+    assert len(results) == 2
+
+    vendor_result = next(r for r in results if r["bid_id"] == vendor_bid.id)
+    assert vendor_result["is_vendor_bookmarked"] is True
+    assert vendor_result["is_liked"] is True
+
+    item_result = next(r for r in results if r["bid_id"] == item_bid.id)
+    assert item_result["canonical_url"] == "https://ebay.com/itm/999"
+    assert item_result["is_item_bookmarked"] is True
+    assert item_result["is_liked"] is True
+
+
+@pytest.mark.asyncio
 async def test_search_query_uses_constraints_when_query_missing(client: AsyncClient, session, monkeypatch):
     user = User(email="constraints@example.com")
     session.add(user)
@@ -213,7 +369,6 @@ async def test_search_query_uses_constraints_when_query_missing(client: AsyncCli
         headers={"Authorization": f"Bearer {token}"},
     )
     assert search_resp.status_code == 200
-    # provider_query / title is used as-is — no appending of constraints or choice_answers
     assert captured["query"].strip() == "Roblox gift cards"
 
 
@@ -266,7 +421,6 @@ async def test_search_query_sanitizes_long_query(client: AsyncClient, session, m
         headers={"Authorization": f"Bearer {token}"},
     )
     assert search_resp.status_code == 200
-    # Explicit user queries should not be truncated; only auto-constructed queries are limited.
     assert captured["query"] == long_query
 
 
@@ -353,3 +507,17 @@ async def test_search_defaults_to_row_title(client: AsyncClient, session, monkey
     row_id = resp.json()["id"]
 
     captured = {}
+
+    async def fake_search_all_with_status(self, query: str, **kwargs):
+        captured["query"] = query
+        return SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
+
+    rows_search_module._sourcing_repo = type('MockRepo', (), {'search_all_with_status': fake_search_all_with_status})()
+
+    search_resp = await client.post(
+        f"/rows/{row_id}/search",
+        json={},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert search_resp.status_code == 200
+    assert captured["query"] == "Nintendo Switch 2"

@@ -151,6 +151,30 @@ async def run_startup_migrations(engine) -> None:
         """))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS deal_message_deal_id_idx ON deal_message (deal_id);"))
 
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS vendor_bookmark (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES "user"(id),
+                vendor_id INTEGER NOT NULL REFERENCES vendor(id),
+                source_row_id INTEGER REFERENCES row(id),
+                created_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+        """))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_bookmark_user_id_idx ON vendor_bookmark (user_id);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_bookmark_vendor_id_idx ON vendor_bookmark (vendor_id);"))
+
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS item_bookmark (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES "user"(id),
+                canonical_url VARCHAR NOT NULL,
+                source_row_id INTEGER REFERENCES row(id),
+                created_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+        """))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS item_bookmark_user_id_idx ON item_bookmark (user_id);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS item_bookmark_canonical_url_idx ON item_bookmark (canonical_url);"))
+
         # Seed test vendor (idempotent)
         await conn.execute(text("""
             INSERT INTO vendor (name, email, domain, website, category, description, specialties, status, is_verified, tier_affinity, created_at)

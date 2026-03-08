@@ -17,3 +17,13 @@ class VendorBookmark(SQLModel, table=True):
     source_row_id: Optional[int] = Field(default=None, foreign_key="row.id")
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ItemBookmark(SQLModel, table=True):
+    __tablename__ = "item_bookmark"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    canonical_url: str = Field(index=True)
+    source_row_id: Optional[int] = Field(default=None, foreign_key="row.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)

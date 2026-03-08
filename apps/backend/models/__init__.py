@@ -47,7 +47,7 @@ from models.bids import (
 )
 
 # Social models
-from models.bookmarks import VendorBookmark
+from models.bookmarks import VendorBookmark, ItemBookmark
 
 from models.social import (
     Comment,
@@ -136,6 +136,7 @@ __all__ = [
     "Comment",
     "ShareLink",
     "VendorBookmark",
+    "ItemBookmark",
     "ClickoutEvent",
     "PurchaseEvent",
     # Marketplace

@@ -51,6 +51,7 @@ class SearchResult(BaseModel):
     currency: str = "USD"
     merchant: str
     url: str
+    canonical_url: Optional[str] = None
     merchant_domain: str = ""
     click_url: str = ""
     match_score: float = 0.0
@@ -61,9 +62,13 @@ class SearchResult(BaseModel):
     description: Optional[str] = None
     source: str
     bid_id: Optional[int] = None
+    vendor_id: Optional[int] = None
     is_selected: bool = False
     is_liked: bool = False
     liked_at: Optional[str] = None
+    is_vendor_bookmarked: bool = False
+    is_item_bookmarked: bool = False
+    is_emailed: bool = False
     embedding: Optional[List[float]] = Field(None, exclude=True)  # for quantum reranker, not serialized
 
 

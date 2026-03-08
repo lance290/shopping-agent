@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useShoppingStore, mapBidToOffer } from '../../store';
 import type { Row, Offer } from '../../store';
-import { runSearchApiWithStatus, fetchSingleRowFromDb, toggleLikeApi, toggleVendorBookmark, createShareLink, createCommentApi, fetchCommentsApi, fetchWithAuth, AUTH_REQUIRED } from '../../utils/api';
+import { runSearchApiWithStatus, fetchSingleRowFromDb, toggleVendorBookmark, toggleItemBookmark, createShareLink, createCommentApi, fetchCommentsApi, fetchWithAuth, AUTH_REQUIRED } from '../../utils/api';
 import type { CommentDto } from '../../utils/api';
 import { Trash2, RotateCw, Heart, CheckCircle2, MessageSquare, Share2, Copy, Send, Star } from 'lucide-react';
 import { DynamicRenderer } from './DynamicRenderer';
@@ -57,9 +57,10 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
   const unsortedOffers = offers.length > 0 ? offers : (row.bids || []).map(mapBidToOffer);
   const prefersCustomVendors = row.is_service === true || SERVICE_FIRST_DESIRE_TIERS.has(row.desire_tier || '');
   const displayOffers = [...unsortedOffers].sort((a, b) => {
-    // Liked/selected always float to top
-    if (a.is_liked && !b.is_liked) return -1;
-    if (!a.is_liked && b.is_liked) return 1;
+    const aIsSaved = !!(a.is_vendor_bookmarked || a.is_item_bookmarked || a.is_liked);
+    const bIsSaved = !!(b.is_vendor_bookmarked || b.is_item_bookmarked || b.is_liked);
+    if (aIsSaved && !bIsSaved) return -1;
+    if (!aIsSaved && bIsSaved) return 1;
     if (a.is_selected && !b.is_selected) return -1;
     if (!a.is_selected && b.is_selected) return 1;
 
@@ -362,20 +363,32 @@ function BidCard({
       updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_vendor_bookmarked: !wasBookmarked, is_liked: !wasBookmarked });
       try {
         const result = await toggleVendorBookmark(offer.vendor_id, wasBookmarked, row.id);
-        if (result === AUTH_REQUIRED) {
+        if (result === AUTH_REQUIRED || !result) {
           updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_vendor_bookmarked: wasBookmarked, is_liked: wasBookmarked });
-          alert('Sign in to save to Rolodex');
+          if (result === AUTH_REQUIRED) alert('Sign in to save to Rolodex');
         }
       } catch { /* optimistic UI already applied */ }
     } else {
-      updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_liked: !offer.is_liked });
+      const bookmarkUrl = offer.canonical_url || (offer.url && offer.url !== '#' ? offer.url : undefined);
+      if (!bookmarkUrl) {
+        setIsLikeLoading(false);
+        return;
+      }
+      const wasBookmarked = !!offer.is_item_bookmarked;
+      updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, {
+        canonical_url: bookmarkUrl,
+        is_item_bookmarked: !wasBookmarked,
+        is_liked: !wasBookmarked,
+      });
       try {
-        const result = await toggleLikeApi(row.id, !!offer.is_liked, offer.bid_id);
-        if (result === AUTH_REQUIRED) {
-          updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_liked: offer.is_liked });
-          alert('Sign in to save favorites');
-        } else if (result && typeof result === 'object' && 'is_liked' in result) {
-          updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_liked: result.is_liked });
+        const result = await toggleItemBookmark(bookmarkUrl, wasBookmarked, row.id);
+        if (result === AUTH_REQUIRED || !result) {
+          updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, {
+            canonical_url: bookmarkUrl,
+            is_item_bookmarked: wasBookmarked,
+            is_liked: wasBookmarked,
+          });
+          if (result === AUTH_REQUIRED) alert('Sign in to save products');
         }
       } catch { /* optimistic UI already applied */ }
     }
@@ -466,7 +479,12 @@ function BidCard({
             )}
             {offer.is_vendor_bookmarked && (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-0.5">
-                <Star size={8} className="fill-current" /> Saved
+                <Star size={8} className="fill-current" /> Saved to Rolodex
+              </span>
+            )}
+            {!offer.is_vendor_bookmarked && offer.is_item_bookmarked && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-0.5">
+                <Heart size={8} className="fill-current" /> Saved Product
               </span>
             )}
             {isRfpSent && (
@@ -500,14 +518,14 @@ function BidCard({
             className={`p-1.5 rounded-md transition-colors ${
               isVendor && offer.vendor_id
                 ? (offer.is_vendor_bookmarked ? 'text-amber-500 bg-amber-50' : 'text-onyx-muted hover:text-amber-500 hover:bg-amber-50')
-                : (offer.is_liked ? 'text-red-500 bg-red-50' : 'text-onyx-muted hover:text-red-500 hover:bg-red-50')
+                : (offer.is_item_bookmarked ? 'text-red-500 bg-red-50' : 'text-onyx-muted hover:text-red-500 hover:bg-red-50')
             }`}
-            title={isVendor && offer.vendor_id ? (offer.is_vendor_bookmarked ? 'Remove from Rolodex' : 'Save to Rolodex') : (offer.is_liked ? 'Unlike' : 'Like')}
-            aria-pressed={isVendor && offer.vendor_id ? !!offer.is_vendor_bookmarked : !!offer.is_liked}
+            title={isVendor && offer.vendor_id ? (offer.is_vendor_bookmarked ? 'Remove from Rolodex' : 'Save to Rolodex') : (offer.is_item_bookmarked ? 'Remove saved product' : 'Save product')}
+            aria-pressed={isVendor && offer.vendor_id ? !!offer.is_vendor_bookmarked : !!offer.is_item_bookmarked}
           >
             {isVendor && offer.vendor_id
               ? <Star size={14} className={offer.is_vendor_bookmarked ? 'fill-current' : ''} />
-              : <Heart size={14} className={offer.is_liked ? 'fill-current' : ''} />
+              : <Heart size={14} className={offer.is_item_bookmarked ? 'fill-current' : ''} />
             }
           </button>
           <button

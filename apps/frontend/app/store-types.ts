@@ -9,6 +9,7 @@ export interface Offer {
   currency: string;
   merchant: string;
   url: string;
+  canonical_url?: string;
   image_url: string | null;
   rating: number | null;
   reviews_count: number | null;
@@ -34,6 +35,7 @@ export interface Offer {
   comment_count?: number;
   outreach_status?: 'contacted' | 'quoted' | 'pending';
   is_vendor_bookmarked?: boolean;
+  is_item_bookmarked?: boolean;
   is_emailed?: boolean;
 }
 
@@ -53,6 +55,7 @@ export interface Bid {
   currency: string;
   item_title: string;
   item_url: string | null;
+  canonical_url?: string | null;
   image_url: string | null;
   source: string;
   is_selected: boolean;
@@ -71,6 +74,7 @@ export interface Bid {
     tagline?: string;
   };
   is_vendor_bookmarked?: boolean;
+  is_item_bookmarked?: boolean;
   is_emailed?: boolean;
 }
 

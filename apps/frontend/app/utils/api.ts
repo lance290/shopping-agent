@@ -54,8 +54,8 @@ export type { ProvenanceData, ProductInfo, ChatExcerpt, BidWithProvenance } from
 export { fetchBidWithProvenance } from './api-bids';
 
 // Vendor Bookmarks
-export type { VendorBookmarkResponse } from './api-bookmarks';
-export { toggleVendorBookmark, fetchVendorBookmarks } from './api-bookmarks';
+export type { VendorBookmarkResponse, ItemBookmarkResponse } from './api-bookmarks';
+export { toggleVendorBookmark, fetchVendorBookmarks, toggleItemBookmark, fetchItemBookmarks } from './api-bookmarks';
 
 // Share Links
 export type { ShareLinkCreate, ShareLinkResponse, ShareContentResponse, ShareMetricsResponse } from './api-shares';

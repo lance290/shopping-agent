@@ -41,6 +41,7 @@ export function mapBidToOffer(bid: Bid, rowId?: number): Offer {
     currency: bid.currency,
     merchant: bid.seller?.name || 'Unknown',
     url: bid.item_url || '#',
+    canonical_url: bid.canonical_url ?? undefined,
     image_url: bid.image_url,
     rating: null, // Not persisted yet
     reviews_count: null,
@@ -63,6 +64,7 @@ export function mapBidToOffer(bid: Bid, rowId?: number): Offer {
       : (Array.isArray((bid as unknown as Record<string, unknown>).matched_features) ? (bid as unknown as Record<string, unknown>).matched_features as string[] : []),
     vendor_id: bid.vendor_id ?? undefined,
     is_vendor_bookmarked: bid.is_vendor_bookmarked ?? false,
+    is_item_bookmarked: bid.is_item_bookmarked ?? false,
     is_emailed: bid.is_emailed ?? false,
   };
 }
