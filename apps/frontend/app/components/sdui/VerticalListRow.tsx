@@ -311,15 +311,36 @@ function BidCard({ offer, row }: { offer: Offer; row: Row }) {
       offer.is_selected ? 'bg-gold/5 ring-1 ring-gold/30' : 'hover:bg-canvas-dark'
     }`}>
       <div className="flex items-center gap-3 p-2">
-        {offer.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={offer.image_url} alt={offer.title} className="w-12 h-12 rounded-md object-cover bg-canvas-dark flex-shrink-0" />
+        {offer.url && offer.url !== '#' ? (
+          <a
+            href={offer.click_url || `/api/out?url=${encodeURIComponent(offer.url)}${offer.bid_id ? `&bid_id=${offer.bid_id}` : ''}&row_id=${row.id}&source=${offer.source}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-shrink-0 block hover:opacity-80 transition-opacity"
+            title="View product"
+          >
+            {offer.image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={offer.image_url} alt={offer.title} className="w-12 h-12 rounded-md object-cover bg-canvas-dark block" />
+            ) : (
+              <div className="w-12 h-12 rounded-md bg-canvas-dark flex items-center justify-center">
+                <svg className="w-5 h-5 text-onyx-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+            )}
+          </a>
         ) : (
-          <div className="w-12 h-12 rounded-md bg-canvas-dark flex-shrink-0 flex items-center justify-center">
-            <svg className="w-5 h-5 text-onyx-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
+          offer.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={offer.image_url} alt={offer.title} className="w-12 h-12 rounded-md object-cover bg-canvas-dark flex-shrink-0" />
+          ) : (
+            <div className="w-12 h-12 rounded-md bg-canvas-dark flex-shrink-0 flex items-center justify-center">
+              <svg className="w-5 h-5 text-onyx-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+          )
         )}
         <div className="flex-1 min-w-0">
           <p className="text-sm text-ink truncate">{offer.title}</p>
