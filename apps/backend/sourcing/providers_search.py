@@ -4,6 +4,8 @@ Search and event provider classes for the sourcing pipeline.
 Extracted from sourcing/repository.py to keep files under 450 lines.
 """
 import httpx
+from sourcing.repository import extract_merchant_domain
+from utils.security import redact_secrets_from_text
 import os
 import re
 import time
@@ -363,11 +365,11 @@ class TicketmasterProvider(SourcingProvider):
                 data = response.json()
         except httpx.HTTPStatusError as e:
             status = getattr(e.response, "status_code", None)
-            safe_msg = redact_secrets(str(e))
+            safe_msg = redact_secrets_from_text(str(e))
             print(f"[TicketmasterProvider] HTTP error status={status}: {safe_msg}")
             return []
         except Exception as e:
-            safe_msg = redact_secrets(str(e))
+            safe_msg = redact_secrets_from_text(str(e))
             print(f"[TicketmasterProvider] Error: {safe_msg}")
             return []
 
@@ -434,7 +436,7 @@ class TicketmasterProvider(SourcingProvider):
                     source="ticketmaster",
                 ))
             except Exception as e:
-                safe_msg = redact_secrets(str(e))
+                safe_msg = redact_secrets_from_text(str(e))
                 print(f"[TicketmasterProvider] Error parsing event: {safe_msg}")
                 continue
 

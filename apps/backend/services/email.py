@@ -64,10 +64,7 @@ def _viral_footer_html(unsubscribe_url: str = "", tracking_pixel_url: str = "") 
         <p style="color: #999; font-size: 12px; text-align: center;">
             {unsub}
         </p>
-        <p style="color: #bbb; font-size: 10px; text-align: center;">
-            BuyAnything.ai is a marketplace platform. We may earn a referral fee or commission
-            when transactions are completed through our platform.
-        </p>
+        
         {pixel}
     """
 
@@ -79,7 +76,6 @@ def _viral_footer_text() -> str:
         "Need to buy anything? Let us handle it.\n"
         "From private jets to plumbing — one request, multiple quotes, zero legwork.\n"
         f"Try BuyAnything free: {APP_BASE_URL}?ref=email\n\n"
-        "Disclosure: BuyAnything.ai may earn a referral fee or commission on transactions.\n"
     )
 
 

@@ -302,6 +302,13 @@ class TestDevEmailSafety:
         finally:
             em.DEV_EMAIL_OVERRIDE = original
 
+    def test_plain_text_footer_has_no_commission_language(self):
+        import services.email as em
+
+        footer = em._viral_footer_text()
+        assert "commission" not in footer.lower()
+        assert "referral fee" not in footer.lower()
+
 
 # ---------------------------------------------------------------------------
 # Scenario 9: Normalizer handles SearchResult (not raw dicts)

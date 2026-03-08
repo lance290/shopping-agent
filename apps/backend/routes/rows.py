@@ -336,13 +336,45 @@ async def read_rows(
     )
     rows = result.all()
     
-    # Apply price filters from choice_answers to each row's bids
-    for row in rows:
-        row.bids = [b for b in row.bids if not b.is_superseded]
-        row.bids = filter_bids_by_price(row)
-
     active_deals = await _load_active_deal_summaries(session, rows)
-    return [_serialize_row(row, active_deals.get(row.id)) for row in rows]
+    
+    results = []
+    for row in rows:
+        # Create a transient copy of bids to avoid SQLAlchemy flushing nulls
+        # when items are removed from the relationship collection.
+        # We process it during serialization.
+        
+        # Determine filters
+        from routes.rows_search import _extract_filters
+        from sourcing.filters import should_include_result
+        min_price, max_price, _ = _extract_filters(row, None)
+        
+        payload = RowReadWithBids.model_validate(row, from_attributes=True).model_dump()
+        payload["active_deal"] = active_deals.get(row.id)
+        payload["ui_schema"] = augment_schema_with_active_deal(payload.get("ui_schema"), payload["active_deal"], row)
+        
+        filtered_bids = []
+        for db_bid in row.bids:
+            if db_bid.is_superseded:
+                continue
+                
+            source = str(db_bid.source or "").lower()
+            if not should_include_result(
+                price=db_bid.price,
+                source=source,
+                desire_tier=row.desire_tier,
+                min_price=min_price,
+                max_price=max_price,
+                is_service_provider=db_bid.is_service_provider,
+            ):
+                continue
+                
+            filtered_bids.append(BidRead.model_validate(db_bid, from_attributes=True).model_dump())
+            
+        payload["bids"] = filtered_bids
+        results.append(payload)
+        
+    return results
 
 
 @router.get("/rows/{row_id}", response_model=RowReadWithBids)
@@ -370,13 +402,40 @@ async def read_row(
     
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
-    
-    # Apply price filter from choice_answers
-    row.bids = [b for b in row.bids if not b.is_superseded]
-    row.bids = filter_bids_by_price(row)
 
+    if is_guest and row.anonymous_session_id and row.anonymous_session_id != x_anonymous_session_id:
+        raise HTTPException(status_code=404, detail="Row not found")
+    
     active_deals = await _load_active_deal_summaries(session, [row])
-    return _serialize_row(row, active_deals.get(row.id))
+    
+    from routes.rows_search import _extract_filters
+    from sourcing.filters import should_include_result
+    min_price, max_price, _ = _extract_filters(row, None)
+    
+    payload = RowReadWithBids.model_validate(row, from_attributes=True).model_dump()
+    payload["active_deal"] = active_deals.get(row.id)
+    payload["ui_schema"] = augment_schema_with_active_deal(payload.get("ui_schema"), payload["active_deal"], row)
+    
+    filtered_bids = []
+    for db_bid in row.bids:
+        if db_bid.is_superseded:
+            continue
+            
+        source = str(db_bid.source or "").lower()
+        if not should_include_result(
+            price=db_bid.price,
+            source=source,
+            desire_tier=row.desire_tier,
+            min_price=min_price,
+            max_price=max_price,
+            is_service_provider=db_bid.is_service_provider,
+        ):
+            continue
+            
+        filtered_bids.append(BidRead.model_validate(db_bid, from_attributes=True).model_dump())
+        
+    payload["bids"] = filtered_bids
+    return payload
 
 
 @router.delete("/rows/{row_id}")
@@ -446,13 +505,11 @@ async def update_row(
         row.status = "closed"
 
     if reset_bids:
-        from sqlalchemy import update as sql_update
-        await session.exec(
-            sql_update(Bid).where(
-                Bid.row_id == row_id,
-                Bid.is_superseded == False,
-            ).values(is_superseded=True, superseded_at=datetime.utcnow())
-        )
+        bids_result = await session.exec(select(Bid).where(Bid.row_id == row_id, Bid.is_superseded == False))
+        for b in bids_result.all():
+            b.is_superseded = True
+            b.superseded_at = datetime.utcnow()
+            session.add(b)
 
     # JSONB columns need native dicts/lists, not JSON strings
     jsonb_fields = {"choice_factors", "choice_answers", "search_intent", "provider_query_map", "chat_history"}

@@ -38,6 +38,7 @@ async def guest_row(session: AsyncSession, guest_user: User) -> Row:
         title="Roblox gift cards",
         status="sourcing",
         desire_tier="commodity",
+        anonymous_session_id="guest-session-123",
     )
     session.add(row)
     await session.commit()
@@ -64,7 +65,7 @@ async def test_anonymous_search_returns_200(
             response = await client.post(
                 f"/rows/{guest_row.id}/search",
                 json={"query": "Roblox gift cards"},
-                # NO authorization header — anonymous request
+                headers={"x-anonymous-session-id": guest_row.anonymous_session_id},
             )
 
     assert response.status_code == 200, (
@@ -94,12 +95,80 @@ async def test_anonymous_search_stream_returns_200(
             response = await client.post(
                 f"/rows/{guest_row.id}/search/stream",
                 json={"query": "Roblox gift cards"},
-                # NO authorization header — anonymous request
+                headers={"x-anonymous-session-id": guest_row.anonymous_session_id},
             )
 
     assert response.status_code == 200, (
         f"Anonymous search/stream should succeed via guest user, got {response.status_code}: {response.text}"
     )
+
+
+@pytest.mark.asyncio
+async def test_anonymous_get_row_requires_matching_session_header(
+    client: AsyncClient, session: AsyncSession, guest_user: User, guest_row: Row
+):
+    allowed = await client.get(
+        f"/rows/{guest_row.id}",
+        headers={"x-anonymous-session-id": guest_row.anonymous_session_id},
+    )
+    assert allowed.status_code == 200
+
+    denied = await client.get(
+        f"/rows/{guest_row.id}",
+        headers={"x-anonymous-session-id": "wrong-session"},
+    )
+    assert denied.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_anonymous_search_requires_matching_session_header(
+    client: AsyncClient, session: AsyncSession, guest_user: User, guest_row: Row
+):
+    from sourcing import SearchResultWithStatus
+
+    with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+        mock_search = AsyncMock(
+            return_value=SearchResultWithStatus(
+                results=[], provider_statuses=[], all_providers_failed=False
+            )
+        )
+        mock_repo.return_value.search_all_with_status = mock_search
+
+        with patch("routes.rate_limit.check_rate_limit", return_value=True):
+            response = await client.post(
+                f"/rows/{guest_row.id}/search",
+                json={"query": "Roblox gift cards"},
+                headers={"x-anonymous-session-id": "wrong-session"},
+            )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_anonymous_search_stream_requires_matching_session_header(
+    client: AsyncClient, session: AsyncSession, guest_user: User, guest_row: Row
+):
+    from sourcing import ProviderStatusSnapshot
+
+    async def fake_streaming(*args, **kwargs):
+        yield (
+            "serpapi",
+            [],
+            ProviderStatusSnapshot(provider_id="serpapi", status="ok", result_count=0, latency_ms=100),
+            0,
+        )
+
+    with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+        mock_repo.return_value.search_streaming = fake_streaming
+
+        with patch("routes.rate_limit.check_rate_limit", return_value=True):
+            response = await client.post(
+                f"/rows/{guest_row.id}/search/stream",
+                json={"query": "Roblox gift cards"},
+                headers={"x-anonymous-session-id": "wrong-session"},
+            )
+
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio

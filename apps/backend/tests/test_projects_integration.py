@@ -6,8 +6,9 @@ from httpx import AsyncClient
 
 @pytest.mark.asyncio
 async def test_create_project_requires_auth(client: AsyncClient):
-    res = await client.post("/projects", json={"title": "Test"})
-    assert res.status_code == 401
+    res = await client.post("/projects", json={"title": "Test"}, headers={"x-anonymous-session-id": "123"})
+    assert res.status_code == 200
+    assert res.json()["anonymous_session_id"] == "123"
 
 
 @pytest.mark.asyncio

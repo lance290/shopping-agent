@@ -1,3 +1,5 @@
+import asyncio
+
 """Rows search routes - sourcing/search for procurement rows."""
 from fastapi import APIRouter, Depends, HTTPException, Header
 from fastapi.responses import StreamingResponse
@@ -90,6 +92,9 @@ async def search_row_listings(
     )
     row = result.first()
     if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    if is_guest and row.anonymous_session_id and row.anonymous_session_id != x_anonymous_session_id:
         raise HTTPException(status_code=404, detail="Row not found")
 
     spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
@@ -257,6 +262,9 @@ async def search_row_listings_stream(
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
 
+    if is_guest and row.anonymous_session_id and row.anonymous_session_id != x_anonymous_session_id:
+        raise HTTPException(status_code=404, detail="Row not found")
+
     spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
     spec = spec_result.first()
 
@@ -283,6 +291,7 @@ async def search_row_listings_stream(
         all_results: List[SearchResult] = []
         all_statuses: List[ProviderStatusSnapshot] = []
         all_persisted_bid_ids: set[int] = set()
+        db_lock = asyncio.Lock()
 
         # Multi-concept weighted embedding — shared by vendor_provider + quantum reranker
         # Extract 2-3 concepts from parsed intent, embed each, weighted-blend.
@@ -367,7 +376,7 @@ async def search_row_listings_stream(
             except Exception as e:
                 logger.warning(f"[SEARCH STREAM] Quantum reranker init failed (graceful degradation): {e}")
 
-                generator = sourcing_repo.search_streaming(
+        generator = sourcing_repo.search_streaming(
             sanitized_query,
             providers=body.providers,
             min_price=min_price_filter,
@@ -491,8 +500,9 @@ async def search_row_listings_stream(
                                 logger.info(f"[SEARCH STREAM] Filtered {dropped} low-score vendor results (< {VENDOR_MIN_SCORE})")
 
                         if normalized_batch:
-                            persisted_bids = await sourcing_service._persist_results(row_id, normalized_batch)
-                            persisted_bid_ids.update(b.id for b in persisted_bids if b.id)
+                            async with db_lock:
+                                persisted_bids = await sourcing_service._persist_results(row_id, normalized_batch)
+                                persisted_bid_ids.update(b.id for b in persisted_bids if b.id)
                 except Exception as err:
                     logger.error(f"[SEARCH STREAM] Failed to persist results for provider {provider_name}: {err}")
                     
