@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useShoppingStore } from '../../store';
 import type { Row } from '../../store';
-import { createProjectInDb, duplicateProjectInDb, fetchSingleRowFromDb, fundDealEscrowInDb } from '../../utils/api';
+import { createProjectInDb, duplicateProjectInDb, fetchSingleRowFromDb } from '../../utils/api';
 import { Bug, FolderPlus, Copy, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { VerticalListRow } from './VerticalListRow';
 import { getMe } from '../../utils/auth';
@@ -168,9 +168,9 @@ export function AppView({ children }: AppViewProps) {
         }
       });
       if (checkoutState === 'success') {
-        setDealBanner({ tone: 'success', message: 'Escrow funding completed. The row has been refreshed.' });
+        setDealBanner({ tone: 'success', message: 'The row has been refreshed.' });
       } else {
-        setDealBanner({ tone: 'warning', message: 'Checkout was canceled. The deal is still ready to fund.' });
+        setDealBanner({ tone: 'warning', message: 'The row was refreshed without any payment action.' });
       }
       window.history.replaceState({}, '', '/app');
       return;
@@ -186,20 +186,17 @@ export function AppView({ children }: AppViewProps) {
     if (isAuthenticated !== true) {
       if (isAuthenticated === false) {
         handledDealLinkRef.current = dealLinkKey;
-        setDealBanner({ tone: 'error', message: 'Sign in to fund this deal.' });
+        setDealBanner({ tone: 'error', message: 'Sign in to view this deal.' });
       }
       return;
     }
 
     handledDealLinkRef.current = dealLinkKey;
-    void fundDealEscrowInDb(dealId).then((result) => {
-      if (result?.checkout_url) {
-        window.location.assign(result.checkout_url);
-        return;
-      }
-      setDealBanner({ tone: 'error', message: 'Unable to launch checkout for this deal.' });
-      window.history.replaceState({}, '', '/app');
+    setDealBanner({
+      tone: 'warning',
+      message: 'BuyAnything no longer launches deal checkout. Handle payment directly with the vendor.',
     });
+    window.history.replaceState({}, '', '/app');
   }, [isAuthenticated, setActiveRowId, updateRow]);
 
   useEffect(() => {

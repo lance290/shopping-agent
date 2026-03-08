@@ -89,7 +89,7 @@ For launch MVP:
 ## 6. Functional Requirements
 
 ### 6.1 Zero-fee checkout
-- `DEFAULT_PLATFORM_FEE_RATE` fallback remains `0.00`.
+- `DEFAULT_PLATFORM_FEE_RATE` must not be used in BuyAnything checkout flows.
 - `application_fee_amount` must be omitted or explicitly set to zero.
 
 ### 6.2 Escrow Removal

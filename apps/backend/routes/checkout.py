@@ -168,7 +168,6 @@ async def create_checkout_session(
             "bid_id": str(bid.id),
             "row_id": str(row.id),
             "user_id": str(auth_session.user_id),
-            "commission_rate": str(commission_rate),
         },
     }
 
@@ -419,7 +418,7 @@ async def _handle_checkout_completed(event):
     async for db_session in get_session():
         try:
             # Calculate platform fee from metadata
-            fee_rate = float(metadata.get("commission_rate", "0.0"))
+            fee_rate = 0.0
             connected = metadata.get("connected_account")
             amount_dollars = amount_total / 100.0
             fee_amount = round(amount_dollars * fee_rate, 2) if fee_rate > 0 else None

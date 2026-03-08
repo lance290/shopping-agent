@@ -305,10 +305,6 @@ def test_stripe_connect_response_model():
         total_earnings=1234.56,
         pending_payouts=100.00,
         completed_transactions=42,
-        commission_rate=0.05,
+        commission_rate=0.0,
     )
     assert earnings.completed_transactions == 42
-
-
-
-

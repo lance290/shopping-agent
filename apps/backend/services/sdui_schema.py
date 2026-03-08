@@ -43,13 +43,11 @@ BLOCK_TYPES = (
     "ActionRow",
     "ReceiptUploader",
     "WalletLedger",
-    "EscrowStatus",
 )
 
 ACTION_INTENTS = (
     "outbound_affiliate",
     "claim_swap",
-    "fund_escrow",
     "send_tip",
     "contact_vendor",
     "view_all_bids",
@@ -61,7 +59,7 @@ ACTION_INTENTS = (
 )
 
 # Post-purchase block types that require backend state verification
-STATE_DRIVEN_BLOCKS = ("ReceiptUploader", "WalletLedger", "EscrowStatus")
+STATE_DRIVEN_BLOCKS = ("ReceiptUploader", "WalletLedger")
 
 
 # ---------------------------------------------------------------------------
@@ -204,11 +202,6 @@ class WalletLedgerBlock(BaseModel):
     type: Literal["WalletLedger"] = "WalletLedger"
 
 
-class EscrowStatusBlock(BaseModel):
-    type: Literal["EscrowStatus"] = "EscrowStatus"
-    deal_id: str = ""
-
-
 # Union of all block types for validation
 UIBlock = Union[
     ProductImageBlock,
@@ -223,7 +216,6 @@ UIBlock = Union[
     ActionRowBlock,
     ReceiptUploaderBlock,
     WalletLedgerBlock,
-    EscrowStatusBlock,
 ]
 
 

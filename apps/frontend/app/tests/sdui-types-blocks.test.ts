@@ -17,7 +17,6 @@ import type {
   ActionRowBlock,
   ReceiptUploaderBlock,
   WalletLedgerBlock,
-  EscrowStatusBlock,
   UISchemaUpdatedEvent,
 } from '../sdui/types';
 
@@ -122,11 +121,6 @@ describe('Block Type Shapes', () => {
   test('WalletLedger (no fields)', () => {
     const block: WalletLedgerBlock = { type: 'WalletLedger' };
     expect(block.type).toBe('WalletLedger');
-  });
-
-  test('EscrowStatus with deal_id', () => {
-    const block: EscrowStatusBlock = { type: 'EscrowStatus', deal_id: 'deal_456' };
-    expect(block.deal_id).toBe('deal_456');
   });
 });
 

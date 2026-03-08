@@ -66,7 +66,7 @@ export default function SharePage() {
             className="inline-flex items-center gap-2 bg-gold text-navy px-6 py-2 rounded-lg font-semibold hover:bg-gold-dark transition-colors"
           >
             <ShoppingBag size={16} />
-            Start Shopping
+            Start a Project
           </Link>
         </div>
       </div>

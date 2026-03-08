@@ -14,7 +14,6 @@ import { ChoiceFactorForm } from './ChoiceFactorForm';
 import { ActionRow } from './ActionRow';
 import { ReceiptUploader } from './ReceiptUploader';
 import { WalletLedger } from './WalletLedger';
-import { EscrowStatus } from './EscrowStatus';
 import { MinimumViableRow } from './MinimumViableRow';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -31,7 +30,6 @@ const COMPONENT_REGISTRY: Record<string, React.ComponentType<any>> = {
   ActionRow,
   ReceiptUploader,
   WalletLedger,
-  EscrowStatus,
 };
 
 interface DynamicRendererProps {

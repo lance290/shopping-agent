@@ -48,7 +48,6 @@ from services.sdui_builder import (
     _hydrate_choice_factor_form,
     _hydrate_action_row,
     _hydrate_receipt_uploader,
-    _hydrate_escrow_status,
     _is_post_decision_fulfillment,
 )
 
@@ -372,7 +371,7 @@ class TestBuildUISchema:
         )
         action_rows = [block for block in result["blocks"] if block["type"] == "ActionRow"]
         intents = [action["intent"] for block in action_rows for action in block["actions"]]
-        assert "fund_escrow" in intents
+        assert "fund_escrow" not in intents
         assert "continue_negotiation" in intents
         assert any(block["type"] == "BadgeList" for block in result["blocks"])
 
@@ -494,12 +493,12 @@ class TestScenarios:
         bids = [make_bid(closing_status="payment_initiated")]
         hint_data = {
             "layout": "ROW_TIMELINE",
-            "blocks": ["MarkdownText", "Timeline", "EscrowStatus", "ActionRow"],
+            "blocks": ["MarkdownText", "Timeline", "ActionRow"],
         }
         result = build_ui_schema(hint_data, row, bids)
         block_types = [b["type"] for b in result["blocks"]]
-        assert "EscrowStatus" in block_types
         assert "Timeline" in block_types
+        assert "EscrowStatus" not in block_types
 
     def test_swap_claim_receipt_flow(self):
         """Simulate: user claimed a swap → receipt uploader rendered."""

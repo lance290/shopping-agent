@@ -349,5 +349,5 @@ async def seller_earnings(
         total_earnings=round(float(total_amount) - float(total_fees), 2),
         pending_payouts=0.0,  # Would come from Stripe Balance API in production
         completed_transactions=txn_count,
-        commission_rate=merchant.default_commission_rate,
+        commission_rate=0.0,
     )

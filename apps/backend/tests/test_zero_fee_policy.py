@@ -24,7 +24,6 @@
 ###############################################################################
 """
 
-import os
 import re
 import pathlib
 import pytest
@@ -198,25 +197,26 @@ class TestCheckoutZeroFee:
             f"DEFAULT_PLATFORM_FEE_RATE (which must be 0.00)."
         )
 
-    def test_env_var_actually_resolves_to_zero_at_runtime(self):
+    def test_startup_migrations_force_zero_fee_defaults(self):
         """
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        ! Even if someone sets DEFAULT_PLATFORM_FEE_RATE in their   !
-        ! .env file to 0.05, this test verifies the UNSET behavior. !
-        ! When the env var is missing, fee must be 0.                !
+        ! Startup migrations must not reintroduce non-zero fee       !
+        ! defaults on Railway or fresh databases.                    !
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         """
-        # Temporarily remove the env var if it exists
-        original = os.environ.pop("DEFAULT_PLATFORM_FEE_RATE", None)
-        try:
-            rate = float(os.getenv("DEFAULT_PLATFORM_FEE_RATE", "0.00"))
-            assert rate == 0.0, (
-                f"DEFAULT_PLATFORM_FEE_RATE resolves to {rate} when unset. "
-                f"Must resolve to 0.0."
-            )
-        finally:
-            if original is not None:
-                os.environ["DEFAULT_PLATFORM_FEE_RATE"] = original
+        migration_path = pathlib.Path(__file__).parent.parent / "startup_migrations.py"
+        source = migration_path.read_text()
+        assert "default_commission_rate SET DEFAULT 0.0" in source, (
+            "FATAL: startup_migrations.py does not force vendor default_commission_rate to 0.0. "
+            "Railway startup migrations must keep vendors at zero fee."
+        )
+        assert "platform_fee_pct FLOAT NOT NULL DEFAULT 0.0" in source, (
+            "FATAL: startup_migrations.py creates deal.platform_fee_pct with a non-zero default. "
+            "Fresh databases must boot with zero fees."
+        )
+        assert "ALTER TABLE deal ALTER COLUMN platform_fee_pct SET DEFAULT 0.0" in source, (
+            "FATAL: startup_migrations.py does not force existing deal.platform_fee_pct default to 0.0."
+        )
 
 
 # ###########################################################################

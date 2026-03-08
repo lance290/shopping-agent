@@ -38,7 +38,6 @@ from services.sdui_schema import (
     ChoiceFactorFormBlock,
     DataGridBlock,
     DataGridItem,
-    EscrowStatusBlock,
     FeatureListBlock,
     LayoutToken,
     MarkdownTextBlock,
@@ -71,14 +70,13 @@ class TestConstants:
         assert "ROW_MEDIA_LEFT" in LAYOUT_TOKENS
         assert "ROW_TIMELINE" in LAYOUT_TOKENS
 
-    def test_block_types_are_thirteen(self):
-        assert len(BLOCK_TYPES) == 13
+    def test_block_types_are_twelve(self):
+        assert len(BLOCK_TYPES) == 12
 
-    def test_action_intents_are_eleven(self):
-        assert len(ACTION_INTENTS) == 11
+    def test_action_intents_are_ten(self):
+        assert len(ACTION_INTENTS) == 10
         assert "outbound_affiliate" in ACTION_INTENTS
         assert "claim_swap" in ACTION_INTENTS
-        assert "fund_escrow" in ACTION_INTENTS
         assert "send_tip" in ACTION_INTENTS
         assert "contact_vendor" in ACTION_INTENTS
         assert "view_all_bids" in ACTION_INTENTS
@@ -96,7 +94,7 @@ class TestConstants:
     def test_state_driven_blocks(self):
         assert "ReceiptUploader" in STATE_DRIVEN_BLOCKS
         assert "WalletLedger" in STATE_DRIVEN_BLOCKS
-        assert "EscrowStatus" in STATE_DRIVEN_BLOCKS
+        assert "EscrowStatus" not in STATE_DRIVEN_BLOCKS
 
     def test_bid_caps(self):
         assert GROCERY_BID_CAP == 5
@@ -221,7 +219,7 @@ class TestUIHint:
     def test_max_blocks_enforced(self):
         h = UIHint(
             layout=LayoutToken.ROW_COMPACT,
-            blocks=list(BLOCK_TYPES) + list(BLOCK_TYPES),  # 26 block types
+            blocks=list(BLOCK_TYPES) + list(BLOCK_TYPES),  # 24 block types
         )
         assert len(h.blocks) <= MAX_BLOCKS_PER_ROW
 
@@ -380,14 +378,14 @@ class TestEdgeCases:
                     TimelineStep(label="S2", status="active"),
                 ]),
                 ActionRowBlock(actions=[
-                    ActionObject(label="Fund", intent="fund_escrow", amount=15000.0),
+                    ActionObject(label="Tip", intent="send_tip", amount=150.0),
                 ]),
             ],
         )
         d = s.model_dump()
         assert d["blocks"][0]["items"][0]["key"] == "A"
         assert d["blocks"][1]["steps"][1]["status"] == "active"
-        assert d["blocks"][2]["actions"][0]["amount"] == 15000.0
+        assert d["blocks"][2]["actions"][0]["amount"] == 150.0
 
     def test_unicode_content(self):
         b = MarkdownTextBlock(content="日本語テスト 🎉")

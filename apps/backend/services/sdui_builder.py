@@ -24,7 +24,6 @@ from services.sdui_schema import (
     ChoiceFactorFormBlock,
     DataGridBlock,
     DataGridItem,
-    EscrowStatusBlock,
     FeatureListBlock,
     LayoutToken,
     MarkdownTextBlock,
@@ -299,15 +298,6 @@ def _hydrate_wallet_ledger(row: "Row", bids: List["Bid"]) -> Optional[WalletLedg
     return WalletLedgerBlock()
 
 
-def _hydrate_escrow_status(row: "Row", bids: List["Bid"]) -> Optional[EscrowStatusBlock]:
-    """Hydrate EscrowStatus — only if escrow is active."""
-    for bid in bids:
-        cs = getattr(bid, "closing_status", None)
-        if cs in ("payment_initiated", "paid"):
-            return EscrowStatusBlock(deal_id=str(getattr(bid, "id", "")))
-    return None
-
-
 def _get_active_deal_amount(active_deal: Dict[str, Any]) -> Optional[float]:
     amount = active_deal.get("buyer_total")
     if amount is None:
@@ -341,7 +331,7 @@ def augment_schema_with_active_deal(
                 filtered_block["actions"] = actions
                 filtered_blocks.append(filtered_block)
             continue
-        if active_deal and block.get("type") == "EscrowStatus" and block.get("deal_id"):
+        if block.get("type") == "EscrowStatus":
             continue
         filtered_blocks.append(block)
 
@@ -364,15 +354,6 @@ def augment_schema_with_active_deal(
             "row_id": str(active_deal.get("row_id", getattr(row, "id", ""))),
         })
     elif active_status == "terms_agreed":
-        if amount is not None:
-            actions.append({
-                "label": "Fund Escrow",
-                "intent": "fund_escrow",
-                "deal_id": str(active_deal.get("id", "")),
-                "row_id": str(active_deal.get("row_id", getattr(row, "id", ""))),
-                "amount": amount,
-                "currency": active_deal.get("currency", "USD"),
-            })
         actions.append({
             "label": "Continue Negotiation",
             "intent": "continue_negotiation",
@@ -389,6 +370,8 @@ def augment_schema_with_active_deal(
 
     vendor_onboarded = active_deal.get("vendor_stripe_onboarded")
     onboarding_tags: List[str] = []
+    if active_status == "terms_agreed":
+        onboarding_tags.append("Handle payment directly with vendor")
     if active_status == "terms_agreed" and vendor_onboarded is False:
         onboarding_tags.append("Vendor payout setup needed")
 
@@ -409,11 +392,6 @@ def augment_schema_with_active_deal(
         deal_blocks.append({
             "type": "MarkdownText",
             "content": str(active_deal["agreed_terms_summary"]),
-        })
-    if active_status in {"funded", "in_transit", "completed"}:
-        deal_blocks.append({
-            "type": "EscrowStatus",
-            "deal_id": str(active_deal.get("id", "")),
         })
     if actions:
         deal_blocks.append({
@@ -441,7 +419,6 @@ BLOCK_HYDRATORS = {
     "ActionRow": _hydrate_action_row,
     "ReceiptUploader": _hydrate_receipt_uploader,
     "WalletLedger": _hydrate_wallet_ledger,
-    "EscrowStatus": _hydrate_escrow_status,
 }
 
 

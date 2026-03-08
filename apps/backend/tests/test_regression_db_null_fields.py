@@ -219,7 +219,7 @@ async def test_api_get_single_row_includes_active_deal_summary_and_actions(
 
     action_rows = [block for block in data["ui_schema"]["blocks"] if block["type"] == "ActionRow"]
     intents = [action["intent"] for block in action_rows for action in block["actions"]]
-    assert "fund_escrow" in intents
+    assert "fund_escrow" not in intents
     assert "continue_negotiation" in intents
 
 

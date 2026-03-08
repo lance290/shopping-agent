@@ -134,26 +134,6 @@ def _msg_to_response(msg: DealMessage) -> dict:
     }
 
 
-def _get_app_base(request: Request) -> str:
-    forwarded_host = request.headers.get("x-forwarded-host")
-    if forwarded_host:
-        proto = request.headers.get("x-forwarded-proto", "https")
-        return f"{proto}://{forwarded_host}"
-
-    origin = request.headers.get("origin")
-    if origin:
-        return origin.rstrip("/")
-
-    referer = request.headers.get("referer")
-    if referer:
-        from urllib.parse import urlparse
-
-        parsed = urlparse(referer)
-        return f"{parsed.scheme}://{parsed.netloc}"
-
-    return os.getenv("APP_BASE_URL", "http://localhost:3003")
-
-
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 
@@ -352,86 +332,13 @@ async def get_deal_messages(
 @router.post("/{deal_id}/fund")
 async def fund_deal_escrow(
     deal_id: int,
-    request: Request,
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
-    """
-    Create a Stripe Checkout Session to fund the deal escrow.
-    The buyer pays buyer_total (vendor quote + platform fee) and lands in Stripe Checkout.
-    The deal transitions to funded only after the checkout.session.completed webhook fires.
-    """
-    auth_session = await get_current_session(authorization, session)
-    if not auth_session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    deal = await session.get(Deal, deal_id)
-    if not deal:
-        raise HTTPException(status_code=404, detail="Deal not found")
-    if deal.buyer_user_id != auth_session.user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    if deal.status != "terms_agreed":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Deal must be in terms_agreed status to fund (current: {deal.status})",
-        )
-    if not deal.buyer_total or deal.buyer_total <= 0:
-        raise HTTPException(status_code=400, detail="No buyer total computed on deal")
-
-    stripe = _get_stripe()
-    app_base = _get_app_base(request)
-
-    amount_cents = int(round(deal.buyer_total * 100))
-    fee_cents = int(round((deal.platform_fee_amount or 0) * 100))
-    currency = (deal.currency or "USD").lower()
-
-    session_params = {
-        "mode": "payment",
-        "line_items": [{
-            "price_data": {
-                "currency": currency,
-                "unit_amount": amount_cents,
-                "product_data": {
-                    "name": f"BuyAnything Deal #{deal.id} escrow",
-                    "description": deal.agreed_terms_summary or f"Escrow funding for {deal.currency} {deal.buyer_total:,.2f}",
-                },
-            },
-            "quantity": 1,
-        }],
-        "success_url": f"{app_base}/app?deal_checkout=success&deal={deal.id}&row={deal.row_id}",
-        "cancel_url": f"{app_base}/app?deal_checkout=cancel&deal={deal.id}&row={deal.row_id}",
-        "metadata": {
-            "deal_id": str(deal.id),
-            "row_id": str(deal.row_id),
-            "user_id": str(deal.buyer_user_id),
-            "vendor_quoted_price": str(deal.vendor_quoted_price),
-            "platform_fee": str(deal.platform_fee_amount),
-            "commission_rate": str(deal.platform_fee_pct),
-            "type": "deal_escrow",
-        },
-    }
-
-    # If the vendor has a connected Stripe account, use Connect with application_fee
-    if deal.vendor_id:
-        vendor = await session.get(Vendor, deal.vendor_id)
-        if vendor and vendor.stripe_account_id and vendor.stripe_onboarding_complete:
-            session_params["payment_intent_data"] = {
-                "application_fee_amount": fee_cents,
-                "transfer_data": {"destination": vendor.stripe_account_id},
-            }
-            session_params["metadata"]["connected_account"] = vendor.stripe_account_id
-
-    try:
-        checkout_session = stripe.checkout.Session.create(**session_params)
-    except Exception as e:
-        logger.error(f"[DealEscrow] Checkout session creation failed: {e}")
-        raise HTTPException(status_code=502, detail="Failed to create checkout session")
-
-    return {
-        "deal": _deal_to_response(deal),
-        "checkout_url": checkout_session.url,
-        "session_id": checkout_session.id,
-    }
+    raise HTTPException(
+        status_code=410,
+        detail="Escrow funding is no longer supported. BuyAnything is an introduction platform; handle payment directly with the vendor.",
+    )
 
 
 @router.post("/{deal_id}/release")

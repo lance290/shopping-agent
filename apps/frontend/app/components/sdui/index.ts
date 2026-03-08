@@ -13,4 +13,3 @@ export { ChoiceFactorForm } from './ChoiceFactorForm';
 export { ActionRow } from './ActionRow';
 export { ReceiptUploader } from './ReceiptUploader';
 export { WalletLedger } from './WalletLedger';
-export { EscrowStatus } from './EscrowStatus';

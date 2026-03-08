@@ -19,6 +19,9 @@ async def run_startup_migrations(engine) -> None:
         await conn.execute(text("ALTER TABLE row ADD COLUMN IF NOT EXISTS origin_message_id VARCHAR;"))
         await conn.execute(text("ALTER TABLE row ADD COLUMN IF NOT EXISTS origin_user_id INTEGER;"))
 
+        await conn.execute(text("ALTER TABLE vendor ALTER COLUMN default_commission_rate SET DEFAULT 0.0;"))
+        await conn.execute(text("UPDATE vendor SET default_commission_rate = 0.0 WHERE default_commission_rate IS DISTINCT FROM 0.0;"))
+
         # User columns
         await conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS name TEXT;'))
         await conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS company TEXT;'))
@@ -108,7 +111,7 @@ async def run_startup_migrations(engine) -> None:
                 status VARCHAR NOT NULL DEFAULT 'negotiating',
                 proxy_email_alias VARCHAR UNIQUE NOT NULL,
                 vendor_quoted_price FLOAT,
-                platform_fee_pct FLOAT NOT NULL DEFAULT 0.01,
+                platform_fee_pct FLOAT NOT NULL DEFAULT 0.0,
                 platform_fee_amount FLOAT,
                 buyer_total FLOAT,
                 currency VARCHAR NOT NULL DEFAULT 'USD',
@@ -128,6 +131,7 @@ async def run_startup_migrations(engine) -> None:
         await conn.execute(text("CREATE INDEX IF NOT EXISTS deal_row_id_idx ON deal (row_id);"))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS deal_status_idx ON deal (status);"))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS deal_proxy_alias_idx ON deal (proxy_email_alias);"))
+        await conn.execute(text("ALTER TABLE deal ALTER COLUMN platform_fee_pct SET DEFAULT 0.0;"))
 
         await conn.execute(text("""
             CREATE TABLE IF NOT EXISTS deal_message (

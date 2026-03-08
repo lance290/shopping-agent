@@ -72,12 +72,12 @@ function makeEscrowSchema() {
     version: 3,
     layout: 'ROW_TIMELINE',
     blocks: [
-      { type: 'MarkdownText', content: '**Yacht Charter — Funded**' },
-      { type: 'EscrowStatus', deal_id: 'deal_789' },
+      { type: 'MarkdownText', content: '**Yacht Charter — Quote Accepted**' },
+      { type: 'BadgeList', tags: ['Handle payment directly with vendor', 'Tip after delivery'] },
       { type: 'Timeline', steps: [
         { label: 'Sourcing', status: 'done' },
         { label: 'Negotiating', status: 'done' },
-        { label: 'Funded', status: 'active' },
+        { label: 'Terms Agreed', status: 'active' },
         { label: 'Delivered', status: 'pending' },
       ]},
       { type: 'ActionRow', actions: [
@@ -124,7 +124,7 @@ describe('Schema parsing from API responses', () => {
   test('escrow schema validates', () => {
     const result = validateUISchema(makeEscrowSchema());
     expect(result).not.toBeNull();
-    expect(result!.blocks.find((b) => b.type === 'EscrowStatus')).toBeDefined();
+    expect(result!.blocks.find((b) => b.type === 'BadgeList')).toBeDefined();
   });
 
   test('swap claim schema validates', () => {
@@ -262,14 +262,14 @@ describe('Scenario: grocery flow', () => {
 });
 
 describe('Scenario: high-ticket service flow', () => {
-  test('vendor comparison → escrow funded → tip jar', () => {
+  test('vendor comparison → quote accepted → tip jar', () => {
     const comparison = validateUISchema(makeJetCharterSchema());
     expect(comparison).not.toBeNull();
     expect(comparison!.value_vector).toBe('safety');
 
     const funded = validateUISchema(makeEscrowSchema());
     expect(funded).not.toBeNull();
-    expect(funded!.blocks.find((b) => b.type === 'EscrowStatus')).toBeDefined();
+    expect(funded!.blocks.find((b) => b.type === 'BadgeList')).toBeDefined();
 
     const tipAction = funded!.blocks
       .filter((b): b is ActionRowBlock => b.type === 'ActionRow')
@@ -313,11 +313,10 @@ describe('Security: affiliate tags not in schema', () => {
 // =========================================================================
 
 describe('ActionObject intents', () => {
-  test('all 11 intents recognized', () => {
-    expect(ACTION_INTENTS).toHaveLength(11);
+  test('all 10 intents recognized', () => {
+    expect(ACTION_INTENTS).toHaveLength(10);
     for (const intent of ACTION_INTENTS) {
       expect(typeof intent).toBe('string');
-      expect(intent.length).toBeGreaterThan(0);
     }
   });
 

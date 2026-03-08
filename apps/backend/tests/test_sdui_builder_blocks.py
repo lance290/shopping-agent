@@ -22,7 +22,6 @@ from services.sdui_builder import (
     _hydrate_choice_factor_form,
     _hydrate_action_row,
     _hydrate_receipt_uploader,
-    _hydrate_escrow_status,
 )
 
 
@@ -317,8 +316,8 @@ class TestHydrateActionRow:
 
 
 class TestHydrateReceiptUploader:
-    def test_renders_for_claimed_swap(self):
-        bid = make_swap_bid(closing_status="pending")
+    def test_renders_for_swap_pending(self):
+        bid = make_bid(is_swap=True, closing_status="pending")
         block = _hydrate_receipt_uploader(make_row(), [bid])
         assert block is not None
         assert block.type == "ReceiptUploader"
@@ -331,27 +330,4 @@ class TestHydrateReceiptUploader:
     def test_no_render_without_swap(self):
         bid = make_bid()
         block = _hydrate_receipt_uploader(make_row(), [bid])
-        assert block is None
-
-
-class TestHydrateEscrowStatus:
-    def test_renders_for_payment_initiated(self):
-        bid = make_bid(closing_status="payment_initiated")
-        block = _hydrate_escrow_status(make_row(), [bid])
-        assert block is not None
-        assert block.type == "EscrowStatus"
-
-    def test_renders_for_paid(self):
-        bid = make_bid(closing_status="paid")
-        block = _hydrate_escrow_status(make_row(), [bid])
-        assert block is not None
-
-    def test_no_render_for_pending(self):
-        bid = make_bid(closing_status="pending")
-        block = _hydrate_escrow_status(make_row(), [bid])
-        assert block is None
-
-    def test_no_render_for_none(self):
-        bid = make_bid(closing_status=None)
-        block = _hydrate_escrow_status(make_row(), [bid])
         assert block is None
