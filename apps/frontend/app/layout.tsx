@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
 import DiagnosticsInit from './components/DiagnosticsInit';
@@ -8,6 +8,11 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Shopping Agent',
   description: 'AI-powered procurement assistant',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({
