@@ -415,10 +415,7 @@ async def search_row_listings_stream(
                         )
 
                         # Quantum reranking: embed ALL results + score against user intent
-                        # OPTIMIZATION: Only do this for vendor_directory. Vendor results already have 
-                        # pre-computed embeddings in the DB, so this is instant. Asking OpenAI to embed
-                        # 20+ Amazon/eBay results live during the stream blocks the UI and causes massive lag.
-                        if quantum_reranker and query_embedding and provider_name == "vendor_directory":
+                        if quantum_reranker and query_embedding:
                             try:
                                 from sourcing.vendor_provider import _embed_texts as _batch_embed
 
