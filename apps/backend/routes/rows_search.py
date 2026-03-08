@@ -367,7 +367,7 @@ async def search_row_listings_stream(
             except Exception as e:
                 logger.warning(f"[SEARCH STREAM] Quantum reranker init failed (graceful degradation): {e}")
 
-        async for provider_name, results, status, providers_remaining in sourcing_repo.search_streaming(
+                generator = sourcing_repo.search_streaming(
             sanitized_query,
             providers=body.providers,
             min_price=min_price_filter,
@@ -375,9 +375,16 @@ async def search_row_listings_stream(
             desire_tier=row.desire_tier,
             vendor_query=vendor_query,
             query_embedding=query_embedding,  # shared — vendor_provider skips its own embed call
-        ):
-            all_statuses.append(status)
+        )
 
+        async def get_next_batch():
+            try:
+                # Use anext to manually pull from the async generator
+                return await anext(generator)
+            except StopAsyncIteration:
+                return None
+
+        async def process_batch(provider_name, results, status, providers_remaining):
             # Convert and filter results
             from sourcing.filters import should_include_result as _should_include
             filtered_batch = []
@@ -402,6 +409,7 @@ async def search_row_listings_stream(
                     continue
                 filtered_batch.append(r)
             
+            persisted_bid_ids = set()
             if filtered_batch:
                 try:
                     normalized_batch = normalize_generic_results(filtered_batch, provider_name)
@@ -484,23 +492,73 @@ async def search_row_listings_stream(
 
                         if normalized_batch:
                             persisted_bids = await sourcing_service._persist_results(row_id, normalized_batch)
-                            all_persisted_bid_ids.update(b.id for b in persisted_bids if b.id)
+                            persisted_bid_ids.update(b.id for b in persisted_bids if b.id)
                 except Exception as err:
                     logger.error(f"[SEARCH STREAM] Failed to persist results for provider {provider_name}: {err}")
+                    
+            return provider_name, filtered_batch, status, persisted_bid_ids
 
-            all_results.extend(filtered_batch)
+        pending_fetches = set()
+        pending_fetches.add(asyncio.create_task(get_next_batch()))
+        pending_processes = set()
+        
+        # We need to compute total providers from the body to know when we're fully done
+        # search_streaming yields providers_remaining, but we also want a fallback
+        # in case all tasks fail. We'll rely on the tasks draining.
+        providers_completed = 0
+        last_providers_remaining = len(body.providers) if body.providers else 8 # rough estimate
+
+        while pending_fetches or pending_processes:
+            done, _ = await asyncio.wait(
+                pending_fetches | pending_processes,
+                return_when=asyncio.FIRST_COMPLETED
+            )
             
-            # Build SSE event
-            event_data = {
-                "provider": provider_name,
-                "results": [r.model_dump() for r in filtered_batch],
-                "status": status.model_dump(),
-                "providers_remaining": providers_remaining,
-                "more_incoming": providers_remaining > 0,
-                "total_results_so_far": len(all_results),
-            }
-            
-            yield f"data: {json.dumps(event_data)}\n\n"
+            for task in done:
+                if task in pending_fetches:
+                    pending_fetches.remove(task)
+                    try:
+                        batch = await task
+                        if batch is not None:
+                            # Start fetching the next batch immediately
+                            pending_fetches.add(asyncio.create_task(get_next_batch()))
+                            
+                            provider_name, results, status, providers_remaining = batch
+                            last_providers_remaining = providers_remaining
+                            all_statuses.append(status)
+                            
+                            # Start processing this batch in the background
+                            pending_processes.add(asyncio.create_task(
+                                process_batch(provider_name, results, status, providers_remaining)
+                            ))
+                    except Exception as e:
+                        logger.error(f"[SEARCH STREAM] Generator error: {e}")
+                        
+                elif task in pending_processes:
+                    pending_processes.remove(task)
+                    try:
+                        provider_name, filtered_batch, status, persisted_bid_ids = await task
+                        providers_completed += 1
+                        
+                        all_persisted_bid_ids.update(persisted_bid_ids)
+                        all_results.extend(filtered_batch)
+                        
+                        # We calculate remaining based on pending processes + last known remaining from fetch
+                        # This ensures the frontend doesn't think we're done until all processing is complete
+                        actual_remaining = last_providers_remaining + len(pending_processes)
+                        
+                        event_data = {
+                            "provider": provider_name,
+                            "results": [r.model_dump() for r in filtered_batch],
+                            "status": status.model_dump(),
+                            "providers_remaining": actual_remaining,
+                            "more_incoming": actual_remaining > 0,
+                            "total_results_so_far": len(all_results),
+                        }
+                        
+                        yield f"data: {json.dumps(event_data)}\n\n"
+                    except Exception as e:
+                        logger.error(f"[SEARCH STREAM] Processing error: {e}")
         
         # Supersede stale bids AFTER all providers complete.
         # Only bids not returned by any provider in this search get retired.
