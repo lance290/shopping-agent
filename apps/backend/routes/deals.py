@@ -1,11 +1,10 @@
-"""Deal Pipeline API routes: deal CRUD, messaging, state transitions, and Stripe escrow."""
+"""Deal Pipeline API routes: deal CRUD, messaging, and state transitions."""
 
 import logging
-import os
 from datetime import datetime
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -24,22 +23,6 @@ from services.deal_pipeline import (
     identify_sender,
     MESSAGES_DOMAIN,
 )
-
-_stripe = None
-
-
-def _get_stripe():
-    global _stripe
-    if _stripe is None:
-        try:
-            import stripe as _stripe_mod
-            _stripe_mod.api_key = os.getenv("STRIPE_SECRET_KEY", "")
-            _stripe = _stripe_mod
-        except ImportError:
-            raise HTTPException(status_code=503, detail="Stripe SDK not installed")
-    if not _stripe.api_key:
-        raise HTTPException(status_code=503, detail="STRIPE_SECRET_KEY not configured")
-    return _stripe
 
 logger = logging.getLogger(__name__)
 
@@ -326,18 +309,18 @@ async def get_deal_messages(
     return {"messages": [_msg_to_response(m) for m in messages]}
 
 
-# ── Stripe Escrow Endpoints ──────────────────────────────────────────────────
+# ── Retired Endpoints ────────────────────────────────────────────────────────
 
 
 @router.post("/{deal_id}/fund")
-async def fund_deal_escrow(
+async def fund_deal_retired(
     deal_id: int,
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
     raise HTTPException(
         status_code=410,
-        detail="Escrow funding is no longer supported. BuyAnything is an introduction platform; handle payment directly with the vendor.",
+        detail="Deal funding is retired. BuyAnything is an introduction platform; handle payment directly with the vendor.",
     )
 
 

@@ -324,15 +324,15 @@ def augment_schema_with_active_deal(
             actions = [
                 action
                 for action in block.get("actions", [])
-                if action.get("intent") not in {"fund_escrow", "mark_terms_agreed", "continue_negotiation"}
+                if action.get("intent") not in {"mark_terms_agreed", "continue_negotiation"}
             ]
             if actions:
                 filtered_block = dict(block)
                 filtered_block["actions"] = actions
                 filtered_blocks.append(filtered_block)
             continue
-        if block.get("type") == "EscrowStatus":
-            continue
+        if block.get("type") in {"EscrowStatus"}:
+            continue  # retired block types
         filtered_blocks.append(block)
 
     if not active_deal:

@@ -61,6 +61,9 @@ export function mapBidToOffer(bid: Bid, rowId?: number): Offer {
     matched_features: Array.isArray(parsedProvenance?.matched_features)
       ? parsedProvenance.matched_features
       : (Array.isArray((bid as unknown as Record<string, unknown>).matched_features) ? (bid as unknown as Record<string, unknown>).matched_features as string[] : []),
+    vendor_id: bid.vendor_id ?? undefined,
+    is_vendor_bookmarked: bid.is_vendor_bookmarked ?? false,
+    is_emailed: bid.is_emailed ?? false,
   };
 }
 

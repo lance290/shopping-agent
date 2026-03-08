@@ -3,9 +3,9 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useShoppingStore, mapBidToOffer } from '../../store';
 import type { Row, Offer } from '../../store';
-import { runSearchApiWithStatus, fetchSingleRowFromDb, toggleLikeApi, createShareLink, createCommentApi, fetchCommentsApi, fetchWithAuth, AUTH_REQUIRED } from '../../utils/api';
+import { runSearchApiWithStatus, fetchSingleRowFromDb, toggleLikeApi, toggleVendorBookmark, createShareLink, createCommentApi, fetchCommentsApi, fetchWithAuth, AUTH_REQUIRED } from '../../utils/api';
 import type { CommentDto } from '../../utils/api';
-import { Trash2, RotateCw, Heart, CheckCircle2, MessageSquare, Share2, Copy, Send } from 'lucide-react';
+import { Trash2, RotateCw, Heart, CheckCircle2, MessageSquare, Share2, Copy, Send, Star } from 'lucide-react';
 import { DynamicRenderer } from './DynamicRenderer';
 import { validateUISchema } from '../../sdui/types';
 import VendorContactModal from '../VendorContactModal';
@@ -46,7 +46,13 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
   const bidCount = row.bids?.length ?? 0;
   const [sortMode, setSortMode] = useState<'relevance' | 'price_asc' | 'price_desc'>('relevance');
   const [rfpSelectedBidIds, setRfpSelectedBidIds] = useState<Set<number>>(new Set());
-  const [rfpSentBidIds, setRfpSentBidIds] = useState<Set<number>>(new Set());
+  const [rfpSentBidIds, setRfpSentBidIds] = useState<Set<number>>(() => {
+    const emailedIds = new Set<number>();
+    for (const bid of row.bids || []) {
+      if (bid.is_emailed && bid.id) emailedIds.add(bid.id);
+    }
+    return emailedIds;
+  });
   const [isOutreachOpen, setIsOutreachOpen] = useState(false);
   const unsortedOffers = offers.length > 0 ? offers : (row.bids || []).map(mapBidToOffer);
   const prefersCustomVendors = row.is_service === true || SERVICE_FIRST_DESIRE_TIERS.has(row.desire_tier || '');
@@ -350,16 +356,29 @@ function BidCard({
   const handleToggleLike = async () => {
     if (!offer.bid_id || isLikeLoading) return;
     setIsLikeLoading(true);
-    updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_liked: !offer.is_liked });
-    try {
-      const result = await toggleLikeApi(row.id, !!offer.is_liked, offer.bid_id);
-      if (result === AUTH_REQUIRED) {
-        updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_liked: offer.is_liked });
-        alert('Sign in to save favorites');
-      } else if (result && typeof result === 'object' && 'is_liked' in result) {
-        updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_liked: result.is_liked });
-      }
-    } catch { /* optimistic UI already applied */ }
+
+    if (isVendor && offer.vendor_id) {
+      const wasBookmarked = !!offer.is_vendor_bookmarked;
+      updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_vendor_bookmarked: !wasBookmarked, is_liked: !wasBookmarked });
+      try {
+        const result = await toggleVendorBookmark(offer.vendor_id, wasBookmarked, row.id);
+        if (result === AUTH_REQUIRED) {
+          updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_vendor_bookmarked: wasBookmarked, is_liked: wasBookmarked });
+          alert('Sign in to save to Rolodex');
+        }
+      } catch { /* optimistic UI already applied */ }
+    } else {
+      updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_liked: !offer.is_liked });
+      try {
+        const result = await toggleLikeApi(row.id, !!offer.is_liked, offer.bid_id);
+        if (result === AUTH_REQUIRED) {
+          updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_liked: offer.is_liked });
+          alert('Sign in to save favorites');
+        } else if (result && typeof result === 'object' && 'is_liked' in result) {
+          updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_liked: result.is_liked });
+        }
+      } catch { /* optimistic UI already applied */ }
+    }
     setIsLikeLoading(false);
   };
 
@@ -439,11 +458,24 @@ function BidCard({
         )}
         <div className="flex-1 min-w-0">
           <p className="text-sm text-ink truncate">{offer.title}</p>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className="text-sm font-semibold text-ink">{priceStr}</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-canvas-dark text-ink-muted">{friendlySource(offer.source)}</span>
             {offer.merchant && offer.merchant !== 'Unknown' && (
               <span className="text-[10px] text-onyx-muted">{offer.merchant}</span>
+            )}
+            {offer.is_vendor_bookmarked && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-0.5">
+                <Star size={8} className="fill-current" /> Saved
+              </span>
+            )}
+            {isRfpSent && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">Emailed</span>
+            )}
+            {offer.is_selected && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gold/10 text-gold-dark border border-gold/20 flex items-center gap-0.5">
+                <CheckCircle2 size={8} /> Selected
+              </span>
             )}
           </div>
         </div>
@@ -465,11 +497,18 @@ function BidCard({
           )}
           <button
             onClick={handleToggleLike}
-            className={`p-1.5 rounded-md transition-colors ${offer.is_liked ? 'text-red-500 bg-red-50' : 'text-onyx-muted hover:text-red-500 hover:bg-red-50'}`}
-            title={offer.is_liked ? 'Unlike' : 'Like'}
-            aria-pressed={!!offer.is_liked}
+            className={`p-1.5 rounded-md transition-colors ${
+              isVendor && offer.vendor_id
+                ? (offer.is_vendor_bookmarked ? 'text-amber-500 bg-amber-50' : 'text-onyx-muted hover:text-amber-500 hover:bg-amber-50')
+                : (offer.is_liked ? 'text-red-500 bg-red-50' : 'text-onyx-muted hover:text-red-500 hover:bg-red-50')
+            }`}
+            title={isVendor && offer.vendor_id ? (offer.is_vendor_bookmarked ? 'Remove from Rolodex' : 'Save to Rolodex') : (offer.is_liked ? 'Unlike' : 'Like')}
+            aria-pressed={isVendor && offer.vendor_id ? !!offer.is_vendor_bookmarked : !!offer.is_liked}
           >
-            <Heart size={14} className={offer.is_liked ? 'fill-current' : ''} />
+            {isVendor && offer.vendor_id
+              ? <Star size={14} className={offer.is_vendor_bookmarked ? 'fill-current' : ''} />
+              : <Heart size={14} className={offer.is_liked ? 'fill-current' : ''} />
+            }
           </button>
           <button
             onClick={handleSelect}

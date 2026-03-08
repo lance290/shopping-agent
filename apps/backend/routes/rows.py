@@ -12,6 +12,8 @@ from sqlalchemy.orm import selectinload, defer, joinedload
 from database import get_session
 from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project, User, Vendor
 from models.deals import Deal, DealMessage
+from models.bookmarks import VendorBookmark
+from models.outreach import OutreachMessage
 from dependencies import get_current_session, resolve_user_id, resolve_user_id_and_guest_flag, GUEST_EMAIL
 from routes.rows_search import router as rows_search_router
 from sourcing.safety import SafetyService
@@ -70,7 +72,10 @@ class BidRead(BaseModel):
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
+    vendor_id: Optional[int] = None
     seller: Optional[SellerRead] = None
+    is_vendor_bookmarked: bool = False
+    is_emailed: bool = False
 
 
 class ActiveDealRead(BaseModel):
@@ -222,6 +227,50 @@ async def _load_active_deal_summaries(session: AsyncSession, rows: List[Row]) ->
     return summaries
 
 
+async def _load_vendor_state_for_bids(
+    session: AsyncSession, user_id: int, rows: List[Row],
+) -> tuple[set[int], set[int]]:
+    """Return (bookmarked_vendor_ids, emailed_bid_ids) for the given user and rows."""
+    all_vendor_ids: set[int] = set()
+    row_ids: list[int] = []
+    for row in rows:
+        row_ids.append(row.id)
+        for bid in (row.bids or []):
+            if bid.vendor_id:
+                all_vendor_ids.add(bid.vendor_id)
+
+    bookmarked_vendor_ids: set[int] = set()
+    if all_vendor_ids:
+        bm_result = await session.exec(
+            select(VendorBookmark.vendor_id)
+            .where(VendorBookmark.user_id == user_id, VendorBookmark.vendor_id.in_(all_vendor_ids))
+        )
+        bookmarked_vendor_ids = set(bm_result.all())
+
+    emailed_bid_ids: set[int] = set()
+    if row_ids:
+        om_result = await session.exec(
+            select(OutreachMessage.bid_id)
+            .where(
+                OutreachMessage.bid_id.isnot(None),
+                OutreachMessage.status.in_(("sent", "delivered", "replied")),
+            )
+            .where(OutreachMessage.bid_id.in_(
+                select(Bid.id).where(Bid.row_id.in_(row_ids))
+            ))
+        )
+        emailed_bid_ids = {bid_id for bid_id in om_result.all() if bid_id is not None}
+
+    return bookmarked_vendor_ids, emailed_bid_ids
+
+
+def _enrich_bid_dict(bid_dict: dict, db_bid: Bid, bookmarked_vendor_ids: set[int], emailed_bid_ids: set[int]) -> dict:
+    """Inject vendor state indicators into a serialized bid dict."""
+    bid_dict["is_vendor_bookmarked"] = bool(db_bid.vendor_id and db_bid.vendor_id in bookmarked_vendor_ids)
+    bid_dict["is_emailed"] = bool(db_bid.id and db_bid.id in emailed_bid_ids)
+    return bid_dict
+
+
 def _serialize_row(row: Row, active_deal: Optional[dict]) -> dict:
     payload = RowReadWithBids.model_validate(row, from_attributes=True).model_dump()
     payload["active_deal"] = active_deal
@@ -337,14 +386,10 @@ async def read_rows(
     rows = result.all()
     
     active_deals = await _load_active_deal_summaries(session, rows)
+    bookmarked_vendors, emailed_bids = await _load_vendor_state_for_bids(session, user_id, rows)
     
     results = []
     for row in rows:
-        # Create a transient copy of bids to avoid SQLAlchemy flushing nulls
-        # when items are removed from the relationship collection.
-        # We process it during serialization.
-        
-        # Determine filters
         from routes.rows_search import _extract_filters
         from sourcing.filters import should_include_result
         min_price, max_price, _ = _extract_filters(row, None)
@@ -368,8 +413,10 @@ async def read_rows(
                 is_service_provider=db_bid.is_service_provider,
             ):
                 continue
-                
-            filtered_bids.append(BidRead.model_validate(db_bid, from_attributes=True).model_dump())
+            
+            bid_dict = BidRead.model_validate(db_bid, from_attributes=True).model_dump()
+            _enrich_bid_dict(bid_dict, db_bid, bookmarked_vendors, emailed_bids)
+            filtered_bids.append(bid_dict)
             
         payload["bids"] = filtered_bids
         results.append(payload)
@@ -407,6 +454,7 @@ async def read_row(
         raise HTTPException(status_code=404, detail="Row not found")
     
     active_deals = await _load_active_deal_summaries(session, [row])
+    bookmarked_vendors, emailed_bids = await _load_vendor_state_for_bids(session, user_id, [row])
     
     from routes.rows_search import _extract_filters
     from sourcing.filters import should_include_result
@@ -431,8 +479,10 @@ async def read_row(
             is_service_provider=db_bid.is_service_provider,
         ):
             continue
-            
-        filtered_bids.append(BidRead.model_validate(db_bid, from_attributes=True).model_dump())
+        
+        bid_dict = BidRead.model_validate(db_bid, from_attributes=True).model_dump()
+        _enrich_bid_dict(bid_dict, db_bid, bookmarked_vendors, emailed_bids)
+        filtered_bids.append(bid_dict)
         
     payload["bids"] = filtered_bids
     return payload

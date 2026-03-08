@@ -46,7 +46,7 @@ const JET_CHARTER_SCHEMA = {
   ],
 };
 
-const ESCROW_SCHEMA = {
+const QUOTE_ACCEPTED_SCHEMA = {
   version: 3,
   layout: 'ROW_TIMELINE',
   blocks: [
@@ -151,12 +151,12 @@ const MESSAGE_HISTORY_SCHEMA = {
   ],
 };
 
-type SchemaKey = 'grocery' | 'jet' | 'escrow' | 'swap' | 'compact' | 'choice' | 'zero' | 'wallet' | 'messages';
+type SchemaKey = 'grocery' | 'jet' | 'quote_accepted' | 'swap' | 'compact' | 'choice' | 'zero' | 'wallet' | 'messages';
 
 const SCHEMAS: Record<SchemaKey, { label: string; description: string; schema: Record<string, unknown> }> = {
   grocery: { label: 'Grocery Comparison', description: 'ROW_MEDIA_LEFT — image + price + badges + actions', schema: GROCERY_SCHEMA },
   jet: { label: 'Jet Charter (Service)', description: 'ROW_TIMELINE — specs grid + safety badges + progress', schema: JET_CHARTER_SCHEMA },
-  escrow: { label: 'Quote Accepted', description: 'ROW_TIMELINE — post-negotiation tracking with direct vendor payment', schema: ESCROW_SCHEMA },
+  quote_accepted: { label: 'Quote Accepted', description: 'ROW_TIMELINE — post-negotiation tracking with direct vendor payment', schema: QUOTE_ACCEPTED_SCHEMA },
   swap: { label: 'Pop Swap Claimed', description: 'ROW_COMPACT — receipt uploader for swap redemption', schema: SWAP_CLAIM_SCHEMA },
   compact: { label: 'Product Search', description: 'ROW_COMPACT — text-heavy comparison with affiliate links', schema: COMPACT_TEXT_SCHEMA },
   choice: { label: 'Choice Factors', description: 'ROW_COMPACT — interactive form for refining bespoke requests', schema: CHOICE_FACTOR_SCHEMA },

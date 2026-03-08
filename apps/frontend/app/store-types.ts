@@ -14,7 +14,7 @@ export interface Offer {
   reviews_count: number | null;
   shipping_info: string | null;
   source: string;
-  // New fields
+  vendor_id?: number;
   merchant_domain?: string;
   click_url?: string;
   match_score?: number;
@@ -33,6 +33,8 @@ export interface Offer {
   like_count?: number;
   comment_count?: number;
   outreach_status?: 'contacted' | 'quoted' | 'pending';
+  is_vendor_bookmarked?: boolean;
+  is_emailed?: boolean;
 }
 
 export type ProviderStatusType = 'ok' | 'error' | 'timeout' | 'exhausted' | 'rate_limited';
@@ -61,12 +63,15 @@ export interface Bid {
   contact_name?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;
+  vendor_id?: number | null;
   seller?: {
     name: string;
     domain: string | null;
     description?: string;
     tagline?: string;
   };
+  is_vendor_bookmarked?: boolean;
+  is_emailed?: boolean;
 }
 
 export interface ActiveDeal {

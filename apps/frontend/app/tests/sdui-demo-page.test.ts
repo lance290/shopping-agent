@@ -51,7 +51,7 @@ const JET_CHARTER_SCHEMA = {
   ],
 };
 
-const ESCROW_SCHEMA = {
+const QUOTE_ACCEPTED_SCHEMA = {
   version: 3,
   layout: 'ROW_TIMELINE',
   blocks: [
@@ -146,7 +146,7 @@ describe('SDUI Demo Page Schemas', () => {
   const schemas = [
     { name: 'Grocery', schema: GROCERY_SCHEMA },
     { name: 'Jet Charter', schema: JET_CHARTER_SCHEMA },
-    { name: 'Escrow', schema: ESCROW_SCHEMA },
+    { name: 'Quote Accepted', schema: QUOTE_ACCEPTED_SCHEMA },
     { name: 'Swap Claim', schema: SWAP_CLAIM_SCHEMA },
     { name: 'Compact Text', schema: COMPACT_TEXT_SCHEMA },
     { name: 'Choice Factors', schema: CHOICE_FACTOR_SCHEMA },

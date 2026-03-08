@@ -53,6 +53,10 @@ export { submitBugReport, fetchBugReport } from './api-bugs';
 export type { ProvenanceData, ProductInfo, ChatExcerpt, BidWithProvenance } from './api-bids';
 export { fetchBidWithProvenance } from './api-bids';
 
+// Vendor Bookmarks
+export type { VendorBookmarkResponse } from './api-bookmarks';
+export { toggleVendorBookmark, fetchVendorBookmarks } from './api-bookmarks';
+
 // Share Links
 export type { ShareLinkCreate, ShareLinkResponse, ShareContentResponse, ShareMetricsResponse } from './api-shares';
 export { createShareLink, resolveShareLink, getShareMetrics } from './api-shares';

@@ -1,7 +1,7 @@
 /**
  * Scenario-level contract tests for SDUI schemas.
  *
- * Validates end-to-end user flow schemas (grocery, jet charter, escrow,
+ * Validates end-to-end user flow schemas (grocery, jet charter, quote accepted,
  * swap claim, zero results) purely via data contracts — no browser needed.
  *
  * Covers:
@@ -9,7 +9,7 @@
  * - Fallback behavior when schema is missing/invalid
  * - SSE ui_schema_updated event shape
  * - Schema versioning
- * - Full flow scenarios (grocery, jet, escrow, swap, zero results)
+ * - Full flow scenarios (grocery, jet, quote accepted, swap, zero results)
  * - Security: no tracking tags in persisted schema
  * - ActionObject intent validation
  */
@@ -67,7 +67,7 @@ function makeJetCharterSchema() {
   };
 }
 
-function makeEscrowSchema() {
+function makeQuoteAcceptedSchema() {
   return {
     version: 3,
     layout: 'ROW_TIMELINE',
@@ -121,8 +121,8 @@ describe('Schema parsing from API responses', () => {
     expect(result!.value_vector).toBe('safety');
   });
 
-  test('escrow schema validates', () => {
-    const result = validateUISchema(makeEscrowSchema());
+  test('quote accepted schema validates', () => {
+    const result = validateUISchema(makeQuoteAcceptedSchema());
     expect(result).not.toBeNull();
     expect(result!.blocks.find((b) => b.type === 'BadgeList')).toBeDefined();
   });
@@ -267,7 +267,7 @@ describe('Scenario: high-ticket service flow', () => {
     expect(comparison).not.toBeNull();
     expect(comparison!.value_vector).toBe('safety');
 
-    const funded = validateUISchema(makeEscrowSchema());
+    const funded = validateUISchema(makeQuoteAcceptedSchema());
     expect(funded).not.toBeNull();
     expect(funded!.blocks.find((b) => b.type === 'BadgeList')).toBeDefined();
 

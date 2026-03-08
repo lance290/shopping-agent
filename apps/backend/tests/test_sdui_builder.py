@@ -10,7 +10,7 @@ Covers:
 - build_project_ui_schema()
 - build_zero_results_schema()
 - Post-decision fulfillment detection
-- State-driven block gating (receipt uploader, escrow)
+- State-driven block gating (receipt uploader, wallet ledger)
 - Edge cases (empty bids, null fields, mixed sources)
 """
 
@@ -487,8 +487,8 @@ class TestScenarios:
         assert "DataGrid" in block_types
         assert "Timeline" in block_types
 
-    def test_post_purchase_escrow_flow(self):
-        """Simulate: user funded escrow → timeline + escrow status."""
+    def test_post_purchase_direct_pay_flow(self):
+        """Simulate: quote accepted → timeline rendered, no retired blocks."""
         row = make_row(title="Yacht Charter", status="funded")
         bids = [make_bid(closing_status="payment_initiated")]
         hint_data = {
@@ -498,7 +498,7 @@ class TestScenarios:
         result = build_ui_schema(hint_data, row, bids)
         block_types = [b["type"] for b in result["blocks"]]
         assert "Timeline" in block_types
-        assert "EscrowStatus" not in block_types
+        assert "EscrowStatus" not in block_types  # retired
 
     def test_swap_claim_receipt_flow(self):
         """Simulate: user claimed a swap → receipt uploader rendered."""

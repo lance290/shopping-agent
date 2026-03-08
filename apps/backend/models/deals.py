@@ -1,4 +1,4 @@
-"""Deal pipeline models: proxy messaging, escrow, and state machine."""
+"""Deal pipeline models: proxy messaging and state machine."""
 
 import secrets
 from datetime import datetime
