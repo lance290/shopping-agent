@@ -1,0 +1,3 @@
+Goal,Best public directories,Notes,,
+Generate a 500+ longlist quickly (hotels/resorts/restaurants/spas/cruises/experience operators),"Relais & Châteaux (properties list + 'over-the-world' listing), Forbes Travel Guide award winners, SLH portfolio, Virtuoso supplier directory",Many directories are JS-rendered; best approach is to scrape their sitemap/index pages from an internet-enabled machine and enrich with contact pages.,,
+What I can deliver immediately here,Curated shortlist with verified direct contact details + a ready-to-run scraping template,"This environment can browse pages but can’t bulk-scrape hundreds of pages into a file reliably, so the scalable longlist needs to be run from an internet-enabled environment.",,

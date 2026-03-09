@@ -10145,3 +10145,297 @@ DEBUG: Connection pool: size=5, max_overflow=10, timeout=30s
 2026-02-26 16:02:21,494 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
 2026-02-26 16:02:23,155 INFO    HTTP Request: POST https://openrouter.ai/api/v1/embeddings "HTTP/1.1 200 OK"
 2026-02-26 16:02:23,493 INFO    [32/50] Wild Health — https://www.wildhealth.com
+2026-03-08 19:26:11,548 INFO    Enriching 2 vendors (dry_run=True, skip_embed=True, category=luxury_real_estate, contact_research=True, names_csv=/Volumes/PivotNorth/Shopping Agent/docs/sales/nashville-realtors.csv, missing_email_only=True)
+2026-03-08 19:26:11,549 INFO    [1/2] Richard Bryan — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=9884
+2026-03-08 19:26:16,981 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Richard+Bryan%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:26:20,312 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Richard+Bryan%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:26:21,574 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Richard+Bryan%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:26:25,062 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Richard+Bryan%22+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:26:26,529 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Richard+Bryan%22+agent&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:26:29,196 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Richard+Bryan%22+Nashville%2C+TN+luxury+real+estate+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:26:30,300 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:26:30,958 INFO      [DRY RUN] profile_text (539 chars): Richard Bryan. Richard Bryan is a seasoned luxury real estate specialist with over 30 years of experience in residential sales. As a native Nashvillia...
+2026-03-08 19:26:30,958 INFO    [2/2] Nathan Throneberry — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=217784
+2026-03-08 19:26:43,847 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Nathan+Throneberry%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:26:49,734 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Nathan+Throneberry%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:26:58,290 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Nathan+Throneberry%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:02,017 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Nathan+Throneberry%22+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:04,492 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Nathan+Throneberry%22+agent&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:06,059 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Nathan+Throneberry%22+Franklin%2C+TN+luxury+real+estate+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:07,791 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:27:08,515 INFO      [DRY RUN] profile_text (557 chars): Nathan Throneberry. Nathan Throneberry is the founder of Luxury Homes International, a Franklin-based real estate firm providing concierge-level broke...
+2026-03-08 19:27:08,515 INFO    DONE. enriched=2 embedded=0 skipped=0 errors=0
+2026-03-08 19:27:25,340 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Richard+Bryan%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:27,481 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Richard+Bryan%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:27,568 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Richard+Bryan%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:27,666 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Richard+Bryan%22+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:27,762 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Richard+Bryan%22+agent&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:27,853 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Richard+Bryan%22+Nashville%2C+TN+luxury+real+estate+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:29,453 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:27:32,777 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Nathan+Throneberry%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:35,381 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Nathan+Throneberry%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:35,487 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Nathan+Throneberry%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:35,586 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Nathan+Throneberry%22+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:35,679 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Nathan+Throneberry%22+agent&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:35,775 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Nathan+Throneberry%22+Franklin%2C+TN+luxury+real+estate+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:37,414 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:27:41,761 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Susan+Gregory%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:44,325 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Susan+Gregory%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:27:45,725 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:28:14,174 INFO    Enriching 15 vendors (dry_run=False, skip_embed=True, category=luxury_real_estate, contact_research=True, names_csv=/Volumes/PivotNorth/Shopping Agent/docs/sales/nashville-realtors.csv, missing_email_only=True)
+2026-03-08 19:28:14,174 INFO    [1/15] Richard Bryan — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=9884
+2026-03-08 19:28:16,896 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Richard+Bryan%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:18,977 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Richard+Bryan%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:19,067 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Richard+Bryan%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:19,164 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Richard+Bryan%22+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:19,276 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Richard+Bryan%22+agent&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:19,380 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Richard+Bryan%22+Nashville%2C+TN+luxury+real+estate+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:20,493 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:28:21,299 INFO    [2/15] Nathan Throneberry — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=217784
+2026-03-08 19:28:23,862 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Nathan+Throneberry%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:26,534 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Nathan+Throneberry%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:26,632 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Nathan+Throneberry%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:26,737 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Nathan+Throneberry%22+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:26,851 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Nathan+Throneberry%22+agent&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:26,955 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Nathan+Throneberry%22+Franklin%2C+TN+luxury+real+estate+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:28,592 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:28:29,359 INFO    [3/15] Kelly Dougherty — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=7616
+2026-03-08 19:28:36,277 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Kelly+Dougherty%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:41,475 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Kelly+Dougherty%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:44,120 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Kelly+Dougherty%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:45,690 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Kelly+Dougherty%22+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:50,168 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Kelly+Dougherty%22+agent&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:52,610 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Kelly+Dougherty%22+Franklin%2C+TN+luxury+real+estate+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:28:53,952 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:28:54,555 INFO    [4/15] Erin Krueger — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=214290
+2026-03-08 19:28:58,543 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Erin+Krueger%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:01,954 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Erin+Krueger%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:03,534 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:29:04,192 INFO    [5/15] Bill E. Henson Jr. / Tate Henson — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=7410
+2026-03-08 19:29:07,621 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Bill+E.+Henson+Jr.+%2F+Tate+Henson%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:11,710 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Bill+E.+Henson+Jr.+%2F+Tate+Henson%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:13,119 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:29:13,944 INFO    [6/15] Axel Reed — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=215302
+2026-03-08 19:29:19,030 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Axel+Reed%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:26,080 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Axel+Reed%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:28,740 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Axel+Reed%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:30,005 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:29:30,893 INFO    [7/15] Jack Miller | Robert Stutts — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=214962
+2026-03-08 19:29:35,118 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jack+Miller+%7C+Robert+Stutts%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:37,406 INFO    HTTP Request: GET https://api.scaleserp.com/search?q=site%3Aluxuryhomemagazine.com+%22Jack+Miller+%7C+Robert+Stutts%22&api_key=8F13D0A10947416593842C29C5349C90&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:37,692 INFO    HTTP Request: GET https://www.searchapi.io/api/v1/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jack+Miller+%7C+Robert+Stutts%22&api_key=cDiuDZQ1ZF9UVKUaEHaDzx7H&num=8&gl=us&hl=en "HTTP/1.1 429 Too Many Requests"
+2026-03-08 19:29:41,957 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jack+Miller+%7C+Robert+Stutts%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:44,878 INFO    HTTP Request: GET https://api.scaleserp.com/search?q=site%3Aluxuryhomemagazine.com+%22Jack+Miller+%7C+Robert+Stutts%22+email&api_key=8F13D0A10947416593842C29C5349C90&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:45,115 INFO    HTTP Request: GET https://www.searchapi.io/api/v1/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jack+Miller+%7C+Robert+Stutts%22+email&api_key=cDiuDZQ1ZF9UVKUaEHaDzx7H&num=8&gl=us&hl=en "HTTP/1.1 429 Too Many Requests"
+2026-03-08 19:29:49,350 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jack+Miller+%7C+Robert+Stutts%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:51,047 INFO    HTTP Request: GET https://api.scaleserp.com/search?q=site%3Aluxuryhomemagazine.com+%22Jack+Miller+%7C+Robert+Stutts%22+contact&api_key=8F13D0A10947416593842C29C5349C90&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:51,288 INFO    HTTP Request: GET https://www.searchapi.io/api/v1/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jack+Miller+%7C+Robert+Stutts%22+contact&api_key=cDiuDZQ1ZF9UVKUaEHaDzx7H&num=8&gl=us&hl=en "HTTP/1.1 429 Too Many Requests"
+2026-03-08 19:29:52,426 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jack+Miller+%7C+Robert+Stutts%22+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:56,027 INFO    HTTP Request: GET https://api.scaleserp.com/search?q=site%3Aluxuryhomemagazine.com+%22Jack+Miller+%7C+Robert+Stutts%22+team&api_key=8F13D0A10947416593842C29C5349C90&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:56,217 INFO    HTTP Request: GET https://www.searchapi.io/api/v1/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jack+Miller+%7C+Robert+Stutts%22+team&api_key=cDiuDZQ1ZF9UVKUaEHaDzx7H&num=8&gl=us&hl=en "HTTP/1.1 429 Too Many Requests"
+2026-03-08 19:29:57,379 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jack+Miller+%7C+Robert+Stutts%22+agent&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:59,506 INFO    HTTP Request: GET https://api.scaleserp.com/search?q=site%3Aluxuryhomemagazine.com+%22Jack+Miller+%7C+Robert+Stutts%22+agent&api_key=8F13D0A10947416593842C29C5349C90&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:29:59,744 INFO    HTTP Request: GET https://www.searchapi.io/api/v1/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jack+Miller+%7C+Robert+Stutts%22+agent&api_key=cDiuDZQ1ZF9UVKUaEHaDzx7H&num=8&gl=us&hl=en "HTTP/1.1 429 Too Many Requests"
+2026-03-08 19:30:01,061 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Jack+Miller+%7C+Robert+Stutts%22+Nashville%2C+TN+luxury+real+estate+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:30:05,311 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Jack+Miller+%7C+Robert+Stutts%22+Nashville%2C+TN+realtor+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:30:07,273 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Jack+Miller+%7C+Robert+Stutts%22+Nashville%2C+TN+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:30:09,524 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Jack+Miller+%7C+Robert+Stutts%22+Nashville%2C+TN+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:30:10,770 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:30:11,757 INFO    [8/15] Shauna W. Brooks / Shawn D. Binkley — https://www.luxuryhomemagazine.com/nashville/realtorlistings.html?realtorsid=217314
+2026-03-08 19:30:16,341 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Shauna+W.+Brooks+%2F+Shawn+D.+Binkley%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:30:30,753 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Shauna+W.+Brooks+%2F+Shawn+D.+Binkley%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:30:32,672 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Shauna+W.+Brooks+%2F+Shawn+D.+Binkley%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:30:35,103 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Shauna+W.+Brooks+%2F+Shawn+D.+Binkley%22+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:30:37,480 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Shauna+W.+Brooks+%2F+Shawn+D.+Binkley%22+agent&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:30:38,479 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Shauna+W.+Brooks+%2F+Shawn+D.+Binkley%22+Nashville%2C+TN+luxury+real+estate+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:30:42,477 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Shauna+W.+Brooks+%2F+Shawn+D.+Binkley%22+Nashville%2C+TN+realtor+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:30:43,715 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Shauna+W.+Brooks+%2F+Shawn+D.+Binkley%22+Nashville%2C+TN+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:30:44,896 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Shauna+W.+Brooks+%2F+Shawn+D.+Binkley%22+Nashville%2C+TN+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:30:46,696 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:30:47,575 INFO    [9/15] Rebecca Norris DiNapoli — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=214820
+2026-03-08 19:30:51,977 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Rebecca+Norris+DiNapoli%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:30:57,747 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Rebecca+Norris+DiNapoli%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:30:59,039 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Rebecca+Norris+DiNapoli%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:00,328 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Rebecca+Norris+DiNapoli%22+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:02,205 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Rebecca+Norris+DiNapoli%22+agent&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:04,412 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:31:05,249 INFO    [10/15] Franklin & Lana Pargh — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=216182
+2026-03-08 19:31:11,251 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Franklin+%26+Lana+Pargh%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:15,137 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Franklin+%26+Lana+Pargh%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:15,843 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Franklin+%26+Lana+Pargh%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:18,287 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Franklin+%26+Lana+Pargh%22+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:22,092 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Franklin+%26+Lana+Pargh%22+agent&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:23,724 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Franklin+%26+Lana+Pargh%22+Nashville%2C+TN+luxury+real+estate+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:24,886 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:31:25,739 INFO    [11/15] Jamie Parsons — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=216796
+2026-03-08 19:31:29,298 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jamie+Parsons%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:36,055 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jamie+Parsons%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:37,530 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jamie+Parsons%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:43,216 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jamie+Parsons%22+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:45,154 INFO    HTTP Request: GET https://api.scaleserp.com/search?q=site%3Aluxuryhomemagazine.com+%22Jamie+Parsons%22+team&api_key=8F13D0A10947416593842C29C5349C90&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:45,385 INFO    HTTP Request: GET https://www.searchapi.io/api/v1/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jamie+Parsons%22+team&api_key=cDiuDZQ1ZF9UVKUaEHaDzx7H&num=8&gl=us&hl=en "HTTP/1.1 429 Too Many Requests"
+2026-03-08 19:31:47,754 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jamie+Parsons%22+agent&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:49,134 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Jamie+Parsons%22+Nashville%2C+TN+luxury+real+estate+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:50,486 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:31:51,393 INFO    [12/15] Gabrielle Dodson — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=215530
+2026-03-08 19:31:55,513 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Gabrielle+Dodson%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:31:59,920 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Gabrielle+Dodson%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:01,067 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Gabrielle+Dodson%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:02,178 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Gabrielle+Dodson%22+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:23,745 INFO    HTTP Request: GET https://api.scaleserp.com/search?q=site%3Aluxuryhomemagazine.com+%22Gabrielle+Dodson%22+agent&api_key=8F13D0A10947416593842C29C5349C90&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:26,723 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Gabrielle+Dodson%22+Nashville%2C+TN+luxury+real+estate+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:27,823 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:32:28,806 INFO    [13/15] Missy Brower / Sara Ludlam — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=217791
+2026-03-08 19:32:32,669 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Missy+Brower+%2F+Sara+Ludlam%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:37,023 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Missy+Brower+%2F+Sara+Ludlam%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:37,986 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Missy+Brower+%2F+Sara+Ludlam%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:39,237 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Missy+Brower+%2F+Sara+Ludlam%22+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:40,782 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Missy+Brower+%2F+Sara+Ludlam%22+agent&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:42,063 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Missy+Brower+%2F+Sara+Ludlam%22+Nashville%2C+TN+luxury+real+estate+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:43,217 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Missy+Brower+%2F+Sara+Ludlam%22+Nashville%2C+TN+realtor+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:44,356 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Missy+Brower+%2F+Sara+Ludlam%22+Nashville%2C+TN+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:46,354 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Missy+Brower+%2F+Sara+Ludlam%22+Nashville%2C+TN+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:47,747 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:32:48,531 INFO    [14/15] Jenny Telwar — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=217948
+2026-03-08 19:32:52,493 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jenny+Telwar%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:55,669 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jenny+Telwar%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:32:57,163 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jenny+Telwar%22+contact&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:33:00,058 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jenny+Telwar%22+team&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:33:01,085 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Jenny+Telwar%22+agent&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:33:03,507 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=%22Jenny+Telwar%22+Nashville%2C+TN+luxury+real+estate+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:33:05,214 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:33:06,127 INFO    [15/15] Susan Gregory — https://www.luxuryhomemagazine.com/nashville/realtor.html?realtorsid=7097
+2026-03-08 19:33:08,762 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Susan+Gregory%22&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:33:10,585 INFO    HTTP Request: GET https://serpapi.com/search?engine=google&q=site%3Aluxuryhomemagazine.com+%22Susan+Gregory%22+email&api_key=16dfe5a3975c31152fdf4bd30c947e630b928764f6e5e8af8b7b568adcfef4b2&num=8&gl=us&hl=en "HTTP/1.1 200 OK"
+2026-03-08 19:33:11,856 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 19:33:12,812 INFO    DONE. enriched=15 embedded=0 skipped=0 errors=0
+2026-03-08 22:04:23,362 INFO    Enriching 0 vendors (dry_run=True, skip_embed=True, category=luxury_real_estate, contact_research=True, names_csv=/Volumes/PivotNorth/Shopping Agent/docs/sales/nashville-realtors.csv, missing_email_only=True)
+2026-03-08 22:04:23,363 INFO    DONE. enriched=0 embedded=0 skipped=0 errors=0
+2026-03-08 22:04:34,457 INFO    Enriching 1 vendors (dry_run=True, skip_embed=True, category=luxury_real_estate, contact_research=True, names_csv=/Volumes/PivotNorth/Shopping Agent/docs/sales/nashville-realtors.csv, missing_email_only=False)
+2026-03-08 22:04:34,457 INFO    [1/1] Sara Senty — https://www.sarasenty.com/
+2026-03-08 22:04:38,809 INFO    HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-08 22:04:42,392 INFO      [DRY RUN] email=sara.senty@compass.com, contact_confidence=high, profile_text (803 chars): Sara Senty. Sara Senty is a luxury real estate specialist serving the Greater Nashville area, affiliated with Compass Tennessee, LLC. She provides pro...
+2026-03-08 22:04:42,393 INFO    DONE. enriched=1 embedded=0 skipped=0 errors=0
+2026-03-08 22:31:00,887 INFO    [1/1] (100%) 🔍 Researching Steve Fridrich...
+2026-03-08 22:31:07,097 INFO    
+2026-03-08 22:31:40,964 INFO    [1/1] (100%) 🔍 Researching Ecoventura (Origin / Theory / Evolve)...
+2026-03-08 22:32:08,594 INFO    
+2026-03-08 22:34:10,231 INFO    [1/29] (3%) 🔍 Researching Susan Gregory...
+2026-03-08 22:34:16,448 INFO    
+2026-03-08 22:34:16,449 INFO    [2/29] (6%) 🔍 Researching Richard Bryan...
+2026-03-08 22:34:22,910 INFO    
+2026-03-08 22:34:22,910 INFO    [3/29] (10%) 🔍 Researching Starling Davis...
+2026-03-08 22:34:29,278 INFO    
+2026-03-08 22:34:29,278 INFO    [4/29] (13%) 🔍 Researching Erin Krueger...
+2026-03-08 22:34:35,573 INFO    
+2026-03-08 22:34:35,573 INFO    [5/29] (17%) 🔍 Researching Franklin & Lana Pargh...
+2026-03-08 22:34:42,533 INFO    
+2026-03-08 22:34:42,533 INFO    [6/29] (20%) 🔍 Researching Jamie Parsons...
+2026-03-08 22:34:48,545 INFO    
+2026-03-08 22:34:48,546 INFO    [7/29] (24%) 🔍 Researching Michelle Maldonado...
+2026-03-08 22:34:54,815 INFO    
+2026-03-08 22:34:54,815 INFO    [8/29] (27%) 🔍 Researching Rebecca Norris DiNapoli...
+2026-03-08 22:35:01,368 INFO    
+2026-03-08 22:35:01,368 INFO    [9/29] (31%) 🔍 Researching Gabrielle Dodson...
+2026-03-08 22:35:07,276 INFO    
+2026-03-08 22:35:07,276 INFO    [10/29] (34%) 🔍 Researching Carrie Prickett...
+2026-03-08 22:35:13,256 INFO    
+2026-03-08 22:35:13,256 INFO    [11/29] (37%) 🔍 Researching Ashley Burns...
+2026-03-08 22:35:19,161 INFO    
+2026-03-08 22:35:19,162 INFO    [12/29] (41%) 🔍 Researching Jeannie Bankins...
+2026-03-08 22:35:24,890 INFO    
+2026-03-08 22:35:24,890 INFO    [13/29] (44%) 🔍 Researching Sara Senty...
+2026-03-08 22:35:30,444 INFO    
+2026-03-08 22:35:30,444 INFO    [14/29] (48%) 🔍 Researching Kristen Carbine...
+2026-03-08 22:35:36,300 INFO    
+2026-03-08 22:35:36,301 INFO    [15/29] (51%) 🔍 Researching Aaron Goins...
+2026-03-08 22:35:42,214 INFO    
+2026-03-08 22:35:42,214 INFO    [16/29] (55%) 🔍 Researching The Noel Collective...
+2026-03-08 22:35:48,930 INFO    
+2026-03-08 22:35:48,932 INFO    [17/29] (58%) 🔍 Researching The Approach Group...
+2026-03-08 22:35:55,551 INFO    
+2026-03-08 22:35:55,552 INFO    [18/29] (62%) 🔍 Researching Bill E. Henson Jr. / Tate Henson...
+2026-03-08 22:36:02,471 INFO    
+2026-03-08 22:36:02,473 INFO    [19/29] (65%) 🔍 Researching Jenny Telwar...
+2026-03-08 22:36:08,729 INFO    
+2026-03-08 22:36:08,729 INFO    [20/29] (68%) 🔍 Researching SimpliCITY Nashville...
+2026-03-08 22:36:14,840 INFO    
+2026-03-08 22:36:14,840 INFO    [21/29] (72%) 🔍 Researching Shauna W. Brooks / Shawn D. Binkley...
+2026-03-08 22:36:21,422 INFO    
+2026-03-08 22:36:21,423 INFO    [22/29] (75%) 🔍 Researching Missy Brower / Sara Ludlam...
+2026-03-08 22:36:28,079 INFO    
+2026-03-08 22:36:28,079 INFO    [23/29] (79%) 🔍 Researching Corcoran Reverie Nashville...
+2026-03-08 22:36:49,162 INFO    
+2026-03-08 22:36:49,164 INFO    [24/29] (82%) 🔍 Researching Axel Reed...
+2026-03-08 22:36:55,128 INFO    
+2026-03-08 22:36:55,129 INFO    [25/29] (86%) 🔍 Researching Nathan Throneberry...
+2026-03-08 22:37:02,061 INFO    
+2026-03-08 22:37:02,063 INFO    [26/29] (89%) 🔍 Researching LCT Team (Lisa Culp Taylor)...
+2026-03-08 22:37:08,063 INFO    
+2026-03-08 22:37:08,063 INFO    [27/29] (93%) 🔍 Researching Kelly Dougherty...
+2026-03-08 22:37:13,951 INFO    
+2026-03-08 22:37:13,952 INFO    [28/29] (96%) 🔍 Researching Beth Molteni...
+2026-03-08 22:37:20,888 INFO    
+2026-03-08 22:37:20,891 INFO    [29/29] (100%) 🔍 Researching Jack Miller | Robert Stutts...
+2026-03-08 22:37:27,544 INFO    
+2026-03-08 22:37:28,927 INFO    [1/14] (7%) 🔍 Researching Quasar Expeditions...
+2026-03-08 22:37:48,267 INFO    
+2026-03-08 22:37:48,267 INFO    [2/14] (14%) 🔍 Researching Silversea Cruises (Silver Origin)...
+2026-03-08 22:37:58,544 INFO    
+2026-03-08 22:37:58,545 INFO    [3/14] (21%) 🔍 Researching National Geographic-Lindblad Expeditions...
+2026-03-08 22:38:05,811 INFO    
+2026-03-08 22:38:05,812 INFO    [4/14] (28%) 🔍 Researching Soneva Jani...
+2026-03-08 22:38:18,306 INFO    
+2026-03-08 22:38:18,308 INFO    [5/14] (35%) 🔍 Researching Cheval Blanc Randheli...
+2026-03-08 22:38:27,307 INFO    
+2026-03-08 22:38:27,309 INFO    [6/14] (42%) 🔍 Researching Waldorf Astoria Maldives Ithaafushi...
+2026-03-08 22:38:53,117 INFO    
+2026-03-08 22:38:53,118 INFO    [7/14] (50%) 🔍 Researching The Ritz-Carlton, Grand Cayman...
+2026-03-08 22:39:00,940 INFO    
+2026-03-08 22:39:00,941 INFO    [8/14] (57%) 🔍 Researching Kimpton Seafire Resort + Spa...
+2026-03-08 22:39:05,560 INFO    
+2026-03-08 22:39:05,560 INFO    [9/14] (64%) 🔍 Researching Palm Heights (Grand Cayman)...
+2026-03-08 22:39:28,533 INFO    
+2026-03-08 22:39:28,534 INFO    [10/14] (71%) 🔍 Researching Amanyara (Aman)...
+2026-03-08 22:39:38,808 INFO    
+2026-03-08 22:39:38,809 INFO    [11/14] (78%) 🔍 Researching Cookson Adventures...
+2026-03-08 22:39:51,521 INFO    
+2026-03-08 22:39:51,521 INFO    [12/14] (85%) 🔍 Researching Pelorus...
+2026-03-08 22:40:04,229 INFO    
+2026-03-08 22:40:04,229 INFO    [13/14] (92%) 🔍 Researching Black Tomato...
+2026-03-08 22:40:14,149 INFO    
+2026-03-08 22:40:14,150 INFO    [14/14] (100%) 🔍 Researching Abercrombie & Kent (A&K)...
+2026-03-08 22:40:23,325 INFO    
+2026-03-08 22:40:24,610 INFO    [1/470] (0%) 🔍 Researching Sandra Miller...
+2026-03-08 22:40:40,446 INFO    
+2026-03-08 22:40:40,446 INFO    [2/470] (0%) 🔍 Researching Paul Benson...
+2026-03-08 22:40:57,095 INFO    
+2026-03-08 22:40:57,098 INFO    [3/470] (0%) 🔍 Researching Alexa P Lambert...
+2026-03-08 22:41:09,848 INFO    
+2026-03-08 22:41:09,850 INFO    [4/470] (0%) 🔍 Researching Cathy Franklin...
+2026-03-08 22:41:33,255 INFO    
+2026-03-08 22:41:33,255 INFO    [5/470] (1%) 🔍 Researching Jade Mills...
+2026-03-08 22:41:50,297 INFO    
+2026-03-08 22:41:50,297 INFO    [6/470] (1%) 🔍 Researching Serena Boardman...
+2026-03-08 22:42:04,723 INFO    
+2026-03-08 22:42:04,724 INFO    [7/470] (1%) 🔍 Researching Tere Foster...
+2026-03-08 22:42:16,990 INFO    
+2026-03-08 22:42:16,997 INFO    [8/470] (1%) 🔍 Researching Neill Bassi...
+2026-03-08 22:42:37,922 INFO    
+2026-03-08 22:42:37,928 INFO    [9/470] (1%) 🔍 Researching Santiago Arana...
+2026-03-08 22:43:03,614 INFO    
+2026-03-08 22:43:03,620 INFO    [10/470] (2%) 🔍 Researching David Offer...
+2026-03-08 22:43:15,357 INFO    
+2026-03-08 22:43:15,363 INFO    [11/470] (2%) 🔍 Researching Michael Lawler...
+2026-03-08 22:43:25,059 INFO    
+2026-03-08 22:43:25,065 INFO    [12/470] (2%) 🔍 Researching Nelson Gonzalez, P.A....
+2026-03-08 22:43:43,800 INFO    
+2026-03-08 22:43:43,806 INFO    [13/470] (2%) 🔍 Researching Moya Skillman...
+2026-03-08 22:43:56,396 INFO    
+2026-03-08 22:43:56,402 INFO    [14/470] (2%) 🔍 Researching Steven Shane...
+2026-03-08 22:44:12,841 INFO    
+2026-03-08 22:44:12,847 INFO    [15/470] (3%) 🔍 Researching Sandro Dazzan...
+2026-03-08 22:44:25,907 INFO    
+2026-03-08 22:44:25,916 INFO    [16/470] (3%) 🔍 Researching Harvey Daniels ONE...
+2026-03-08 22:44:49,695 INFO    
+2026-03-08 22:44:49,705 INFO    [17/470] (3%) 🔍 Researching Neal Ward...

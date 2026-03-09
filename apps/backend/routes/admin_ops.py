@@ -1,7 +1,8 @@
 """Admin operations routes — DB diagnostics, cleanup, vendor restore."""
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, UploadFile, File
 from typing import Optional
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from sqlalchemy import text
 from sqlmodel import select
@@ -26,6 +27,7 @@ def _get_restore_key() -> str:
 @router.post("/admin/ops/restore-vendors")
 async def restore_vendors_endpoint(
     x_restore_key: str = Header(None),
+    dump_file: Optional[UploadFile] = File(None),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -36,7 +38,24 @@ async def restore_vendors_endpoint(
         raise HTTPException(status_code=403, detail="Invalid restore key")
 
     from scripts.restore_vendors import restore_vendors_logic
-    
+
+    if dump_file is not None:
+        payload = await dump_file.read()
+        if not payload:
+            raise HTTPException(status_code=400, detail="Uploaded dump file is empty")
+        data_dir = Path(__file__).parent.parent / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        filename = (dump_file.filename or "").lower()
+        is_gzip = filename.endswith(".gz") or dump_file.content_type in {"application/gzip", "application/x-gzip"}
+        json_path = data_dir / "vendors_prod_dump.json"
+        gz_path = data_dir / "vendors_prod_dump.json.gz"
+        if is_gzip:
+            json_path.unlink(missing_ok=True)
+            gz_path.write_bytes(payload)
+        else:
+            gz_path.unlink(missing_ok=True)
+            json_path.write_bytes(payload)
+
     try:
         count = await restore_vendors_logic(session)
         return {"status": "success", "restored_count": count}
