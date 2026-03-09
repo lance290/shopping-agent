@@ -1,25 +1,30 @@
 # Review Loop - Final Report
 
 ## Scope
-- `apps/backend/routes/rows.py`
-- `apps/backend/routes/rows_search.py`
-- `apps/backend/scripts/fix_schema.py`
-- `apps/backend/services/email.py`
-- `apps/backend/sourcing/providers_search.py`
-- related backend regression and e2e/scenario tests
+- `apps/backend/sourcing/quantum/reranker.py`
+- `apps/backend/sourcing/service.py`
+- `apps/backend/sourcing/vendor_provider.py`
+- `apps/backend/routes/rows_search.py` (integration context)
+- `apps/backend/sourcing/repository.py` (integration context)
+- `apps/frontend/app/components/Chat.tsx`
+- `apps/frontend/app/components/sdui/AppView.tsx`
+- `apps/frontend/app/pop-site/chat/page.tsx`
+- `apps/backend/tests/test_embedding_and_quantum_regressions.py`
+- `apps/backend/tests/test_vendor_search_intent.py`
+- `apps/frontend/app/tests/tip-jar-copy.test.ts`
 
 ## Findings and Fixes
-- Fixed a streaming control-flow bug in `rows_search.py` where the SSE generator assignment could become conditional on the reranker exception path.
-- Hardened anonymous ownership checks in `rows.py` and `rows_search.py` so guest-owned rows require the matching `x-anonymous-session-id` on single-row read, search, and search-stream endpoints.
-- Removed the lingering incorrect commission/referral-fee wording from the plain-text outreach footer in `services/email.py`.
-- Preserved the prior DB integrity fixes: serialized `_persist_results` writes, no ORM relationship mutation during read filtering, and ORM-based bid superseding during reset.
+- Replaced duplicated multi-concept embedding construction in `rows_search.py` with the shared `build_query_embedding(...)` helper.
+- Unified sync and streaming search so both paths compute and reuse the same `query_embedding` contract for vendor search and quantum reranking.
+- Forwarded `intent_payload` and `query_embedding` consistently through repository search calls.
+- Added regression coverage for shared embedding-builder usage, quantum reranker behavior, and the current OR-based FTS query semantics.
+- Added frontend regression coverage for the “Send a Thank-You” copy across the affected surfaces.
 
 ## Verification
-- Targeted backend regression suite: `111 passed`
-- Focused post-fix regression suite: `69 passed`
-- Final full backend suite: `1201 passed, 1 xfailed`
+- Backend targeted regression suite: `52 passed`
+- Frontend targeted regression suite: `27 passed`
 
 ## Residual Risk
-- Existing warning noise remains from unrelated deprecated `session.execute()` usage in older routes/tests, but there are no failing tests or new blockers from this session.
+- Existing unrelated deprecation warnings remain in older FastAPI/Pydantic code paths, but there are no failing tests or unresolved blockers in the reviewed scope.
 
 ✅ FINAL STATUS: APPROVED

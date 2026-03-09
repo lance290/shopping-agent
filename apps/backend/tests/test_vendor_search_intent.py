@@ -409,3 +409,14 @@ class TestRepositoryVendorQueryRouting:
         await repo.search_all_with_status("standing desk")
         
         assert captured_queries.get("query") == "standing desk"
+
+
+class TestVendorFtsQuerySemantics:
+    def test_vendor_provider_uses_or_fts_query_join(self):
+        """Vendor FTS should keep the current OR join semantics unless intentionally changed."""
+        import inspect
+        from sourcing.vendor_provider import VendorDirectoryProvider
+
+        source = inspect.getsource(VendorDirectoryProvider.search)
+
+        assert 'fts_query_str = " | ".join(fts_words)' in source

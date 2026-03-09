@@ -57,6 +57,8 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # --- Config ---
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")

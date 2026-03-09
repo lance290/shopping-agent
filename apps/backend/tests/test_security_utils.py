@@ -124,6 +124,21 @@ def test_redact_secrets_from_text_multiple_params():
     assert "tok1" not in result
 
 
+def test_redact_secrets_from_http_request_log_line():
+    """Test redacting secrets from full HTTP request log lines."""
+    text = (
+        'HTTP Request: GET '
+        'https://api.scaleserp.com/search?q=site%3Aexample.com&api_key=8F13D0A10947416593842C29C5349C90&num=8 '
+        '"HTTP/1.1 200 OK"'
+    )
+    result = redact_secrets_from_text(text)
+
+    assert "api_key=[REDACTED]" in result
+    assert "8F13D0A10947416593842C29C5349C90" not in result
+    assert "q=site%3Aexample.com" in result
+    assert '"HTTP/1.1 200 OK"' in result
+
+
 def test_redact_secrets_from_text_empty():
     """Test redacting from empty string."""
     assert redact_secrets_from_text("") == ""

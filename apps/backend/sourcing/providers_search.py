@@ -233,7 +233,8 @@ class ScaleSerpProvider(SourcingProvider):
             print(f"[ScaleSerpProvider] HTTP error: {e.response.status_code}")
             raise
         except Exception as e:
-            print(f"[ScaleSerpProvider] Error: {e}")
+            safe_msg = redact_secrets_from_text(str(e))
+            print(f"[ScaleSerpProvider] Error: {safe_msg}")
             raise
 
 class MockShoppingProvider(SourcingProvider):

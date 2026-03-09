@@ -1,17 +1,20 @@
-# Review Scope - DB integrity + guest session hardening
+# Review Scope - Quantum reranker + vendor embedding regressions
 
 ## Files to Review
-- apps/backend/routes/rows.py (modified)
-- apps/backend/routes/rows_search.py (modified)
-- apps/backend/scripts/fix_schema.py (modified)
-- apps/backend/services/email.py (modified)
-- apps/backend/sourcing/providers_search.py (modified)
-- apps/backend/tests/test_anonymous_search.py (modified)
-- apps/backend/tests/test_rows_authorization_behavior.py (modified)
-- apps/backend/tests/test_rows_authorization.py (modified)
-- apps/backend/tests/test_e2e_revenue_flows.py (modified)
-- apps/backend/tests/test_e2e_vendor_management.py (modified)
-- apps/backend/tests/test_phase4_endpoints.py (modified)
-- apps/backend/tests/test_scenario_revenue_no_db.py (modified)
+- apps/backend/sourcing/quantum/reranker.py (modified)
+- apps/backend/sourcing/service.py (modified)
+- apps/backend/sourcing/vendor_provider.py (modified)
+- apps/frontend/app/components/Chat.tsx (modified)
+- apps/frontend/app/components/sdui/AppView.tsx (modified)
+- apps/frontend/app/pop-site/chat/page.tsx (modified)
+- apps/backend/routes/rows_search.py (integration context)
+- apps/backend/sourcing/repository.py (integration context)
+- apps/backend/tests/test_embedding_and_quantum_regressions.py (added)
+- apps/frontend/app/tests/tip-jar-copy.test.ts (added)
 
-## Review Started: 2026-03-08
+## Out of Scope (unchanged)
+- docs/quantum-research/*.md
+- vendor_enrichment.log
+- CSV and other non-code artifacts in the working tree
+
+## Review Started: 2026-03-08 23:52 PT

@@ -59,6 +59,8 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # ── Config ──────────────────────────────────────────────────────────────────
 SERPAPI_KEY = os.getenv("SERPAPI_API_KEY", "")

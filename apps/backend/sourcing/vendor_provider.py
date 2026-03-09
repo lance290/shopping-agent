@@ -86,6 +86,74 @@ def _weighted_blend(vecs: List[List[float]], weights: List[float]) -> List[float
     return blended
 
 
+def _build_embedding_concepts(
+    query: str,
+    context_query: Optional[str] = None,
+    intent_payload: Optional[dict] = None,
+) -> List[tuple[str, float]]:
+    core_product = (query or "").strip()
+    specs_parts: List[str] = []
+
+    if isinstance(intent_payload, dict):
+        product_name = intent_payload.get("product_name")
+        if product_name and str(product_name).strip():
+            core_product = str(product_name).strip()
+
+        constraints = intent_payload.get("constraints", {})
+        if isinstance(constraints, dict):
+            for _, value in constraints.items():
+                if value and str(value).lower() not in ("none", "null", "", "not answered"):
+                    specs_parts.append(str(value))
+
+        keywords = intent_payload.get("keywords", [])
+        if isinstance(keywords, list):
+            specs_parts.extend([
+                str(keyword)
+                for keyword in keywords
+                if keyword and str(keyword).strip().lower() != core_product.lower()
+            ])
+
+    concepts: List[tuple[str, float]] = [(core_product, 0.60)]
+    if specs_parts:
+        concepts.append((" ".join(specs_parts[:10]), 0.25))
+    else:
+        concepts[0] = (concepts[0][0], 0.80)
+
+    cleaned_context = (context_query or "").strip()
+    if cleaned_context and cleaned_context.lower() != core_product.lower():
+        remaining_weight = 1.0 - sum(weight for _, weight in concepts)
+        if remaining_weight > 0.05:
+            concepts.append((cleaned_context, remaining_weight))
+
+    total_weight = sum(weight for _, weight in concepts)
+    if total_weight <= 0:
+        return [(core_product, 1.0)] if core_product else []
+    return [(text, weight / total_weight) for text, weight in concepts if text]
+
+
+async def build_query_embedding(
+    query: str,
+    context_query: Optional[str] = None,
+    intent_payload: Optional[dict] = None,
+    pre_computed: Optional[List[float]] = None,
+) -> Optional[List[float]]:
+    if pre_computed:
+        return pre_computed
+
+    concepts = _build_embedding_concepts(query, context_query=context_query, intent_payload=intent_payload)
+    if not concepts:
+        return None
+
+    texts = [text for text, _ in concepts]
+    weights = [weight for _, weight in concepts]
+    vecs = await _embed_texts(texts)
+    if not vecs or len(vecs) != len(concepts):
+        return None
+    if len(vecs) == 1:
+        return vecs[0]
+    return _weighted_blend(vecs, weights)
+
+
 class VendorDirectoryProvider(SourcingProvider):
     """Searches our vendor DB using pgvector cosine similarity."""
 
@@ -113,25 +181,21 @@ class VendorDirectoryProvider(SourcingProvider):
         """
         context_query = kwargs.get("context_query")
         pre_computed = kwargs.get("query_embedding")
+        intent_payload = kwargs.get("intent_payload")
         t0 = time.monotonic()
 
         # 1. Embed — reuse pre-computed if available, otherwise call API
+        embedding = await build_query_embedding(
+            query,
+            context_query=context_query,
+            intent_payload=intent_payload,
+            pre_computed=pre_computed,
+        )
         if pre_computed:
-            embedding = pre_computed
             logger.info(f"[VendorProvider] Using pre-computed query embedding (skipped API call)")
-        elif context_query and context_query.strip().lower() != query.strip().lower():
-            vecs = await _embed_texts([query, context_query])
-            if not vecs or len(vecs) < 2:
-                logger.info("[VendorProvider] No embedding — skipping vector search")
-                return []
-            embedding = _weighted_blend(vecs, [0.7, 0.3])
-            logger.info(f"[VendorProvider] Blended embedding: 70% '{query}' + 30% '{context_query}'")
-        else:
-            vecs = await _embed_texts([query])
-            if not vecs:
-                logger.info("[VendorProvider] No embedding — skipping vector search")
-                return []
-            embedding = vecs[0]
+        if not embedding:
+            logger.info("[VendorProvider] No embedding — skipping vector search")
+            return []
 
         t_embed = time.monotonic()
         logger.info(f"[VendorProvider] Embedding took {t_embed - t0:.2f}s")
@@ -150,7 +214,7 @@ class VendorDirectoryProvider(SourcingProvider):
         stop_words = {"in", "the", "for", "a", "an", "and", "or", "with", "at", "to", "of", "on"}
         fts_words = [w.strip() for w in query.split() if w.strip() and len(w.strip()) > 1 and w.strip().lower() not in stop_words]
         if fts_words:
-            fts_query_str = " & ".join(fts_words)
+            fts_query_str = " | ".join(fts_words)
         else:
             fts_query_str = query
 

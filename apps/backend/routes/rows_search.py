@@ -528,76 +528,18 @@ async def search_row_listings_stream(
         all_persisted_bid_ids: set[int] = set()
         db_lock = asyncio.Lock()
 
-        # Multi-concept weighted embedding — shared by vendor_provider + quantum reranker
-        # Extract 2-3 concepts from parsed intent, embed each, weighted-blend.
-        # This prevents "Nashville" from diluting "charter jet" in the embedding.
+        parsed_intent = _parse_intent_payload(row.search_intent)
+        intent_payload = parsed_intent.model_dump() if parsed_intent else None
         query_embedding = None
         quantum_reranker = None
         try:
-            from sourcing.vendor_provider import _embed_texts, _weighted_blend
+            from sourcing.vendor_provider import build_query_embedding
 
-            # Build concept list from parsed intent
-            concepts = []  # (text, weight)
-            core_product = vendor_query or sanitized_query
-
-            # Parse search_intent for richer concept extraction
-            specs_parts = []
-            if row.search_intent:
-                try:
-                    intent_data = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
-                    if isinstance(intent_data, dict):
-                        # Use product_name as core if available (cleaner than vendor_query)
-                        pn = intent_data.get("product_name")
-                        if pn and str(pn).strip():
-                            core_product = str(pn).strip()
-                        # Gather constraints as specs concept
-                        constraints = intent_data.get("constraints", {})
-                        if isinstance(constraints, dict):
-                            for k, v in constraints.items():
-                                if v and str(v).lower() not in ("none", "null", "", "not answered"):
-                                    specs_parts.append(str(v))
-                        # Keywords also contribute to specs
-                        kws = intent_data.get("keywords", [])
-                        if isinstance(kws, list):
-                            specs_parts.extend([str(k) for k in kws if k and str(k).lower() != core_product.lower()])
-                except Exception:
-                    pass
-
-            # Concept 1: core product (dominant — what they want)
-            concepts.append((core_product, 0.60))
-
-            # Concept 2: specifications/constraints (refining details)
-            if specs_parts:
-                specs_text = " ".join(specs_parts[:10])  # cap at 10 parts
-                concepts.append((specs_text, 0.25))
-            else:
-                # If no specs, give more weight to core
-                concepts[0] = (concepts[0][0], 0.80)
-
-            # Concept 3: full query context (lowest weight — prevents dilution)
-            if sanitized_query.strip().lower() != core_product.strip().lower():
-                remaining_weight = 1.0 - sum(w for _, w in concepts)
-                if remaining_weight > 0.05:
-                    concepts.append((sanitized_query, remaining_weight))
-
-            # Normalize weights to sum to 1.0
-            total_w = sum(w for _, w in concepts)
-            concepts = [(t, w / total_w) for t, w in concepts]
-
-            # Embed all concepts in one batched API call
-            texts = [t for t, _ in concepts]
-            weights = [w for _, w in concepts]
-            vecs = await _embed_texts(texts)
-
-            if vecs and len(vecs) == len(concepts):
-                if len(vecs) == 1:
-                    query_embedding = vecs[0]
-                else:
-                    query_embedding = _weighted_blend(vecs, weights)
-                concept_log = " + ".join(f"{w:.0%} '{t[:40]}'" for t, w in concepts)
-                logger.info(f"[SEARCH STREAM] Multi-concept embedding: {concept_log}")
-            else:
-                logger.warning("[SEARCH STREAM] Embedding call returned unexpected result count")
+            query_embedding = await build_query_embedding(
+                vendor_query or sanitized_query,
+                context_query=sanitized_query,
+                intent_payload=intent_payload,
+            )
         except Exception as e:
             logger.warning(f"[SEARCH STREAM] Query embedding failed: {e}")
 
@@ -618,6 +560,7 @@ async def search_row_listings_stream(
             max_price=max_price_filter,
             desire_tier=row.desire_tier,
             vendor_query=vendor_query,
+            intent_payload=intent_payload,
             query_embedding=query_embedding,  # shared — vendor_provider skips its own embed call
         )
 
@@ -660,7 +603,7 @@ async def search_row_listings_stream(
                     if normalized_batch:
                         normalized_batch = score_results(
                             normalized_batch,
-                            intent=sourcing_service._parse_search_intent(row),
+                            intent=parsed_intent,
                             min_price=min_price_filter,
                             max_price=max_price_filter,
                             desire_tier=row.desire_tier,

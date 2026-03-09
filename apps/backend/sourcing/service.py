@@ -17,6 +17,7 @@ from sourcing.repository import SourcingRepository
 from sourcing.metrics import get_metrics_collector, log_search_start
 from sourcing.scorer import score_results
 from sourcing.parsers import _parse_numeric, _parse_price_value
+from sourcing.vendor_provider import build_query_embedding
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,6 @@ logger = logging.getLogger(__name__)
 _MIN_KEYS = {"min_price", "price_min", "minimum_price", "minimum_value", "minimum value", "minimum price"}
 _MAX_KEYS = {"max_price", "price_max", "maximum_price", "maximum_value", "maximum value", "maximum price"}
 _RANGE_KEYS = {"price", "budget"}
-
-
 
 
 class SourcingService:
@@ -167,6 +166,32 @@ class SourcingService:
         
         # Extract desire_tier for logging/repo context
         desire_tier = row.desire_tier if row else None
+        search_intent = self._parse_search_intent(row) if row else None
+        vendor_query = self.extract_vendor_query(row) if row else None
+        intent_payload = search_intent.model_dump() if search_intent else None
+        query_embedding = None
+        selected_provider_ids = None
+
+        if providers:
+            raw_provider_ids = [str(p).strip() for p in providers if str(p).strip()]
+            normalizer = getattr(self.repo, "_normalize_provider_filter", None)
+            if callable(normalizer):
+                try:
+                    selected_provider_ids = normalizer(raw_provider_ids)
+                except Exception:
+                    selected_provider_ids = set(raw_provider_ids)
+            else:
+                selected_provider_ids = set(raw_provider_ids)
+
+        if not selected_provider_ids or "vendor_directory" in selected_provider_ids:
+            try:
+                query_embedding = await build_query_embedding(
+                    vendor_query or query,
+                    context_query=query,
+                    intent_payload=intent_payload,
+                )
+            except Exception as e:
+                logger.warning(f"[SourcingService] Query embedding failed (graceful degradation): {e}")
 
         # Resolve user's zip_code for location-aware providers (Kroger, etc.)
         user_zip: Optional[str] = None
@@ -187,6 +212,9 @@ class SourcingService:
                 max_price=max_price,
                 desire_tier=desire_tier,
                 zip_code=user_zip,
+                vendor_query=vendor_query,
+                intent_payload=intent_payload,
+                query_embedding=query_embedding,
             )
 
             normalized_results = search_response.normalized_results
@@ -243,7 +271,6 @@ class SourcingService:
         )
 
         # 2. Score & Rank Results
-        search_intent = self._parse_search_intent(row) if row else None
         desire_tier = row.desire_tier if row else None
         normalized_results = score_results(
             normalized_results,
@@ -270,18 +297,9 @@ class SourcingService:
                     }
                     results_for_quantum.append(rd)
 
-                # Get query embedding from search intent
-                query_emb = None
-                if row.search_intent:
-                    try:
-                        intent_data = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
-                        query_emb = intent_data.get("query_embedding")
-                    except Exception:
-                        pass
-
-                if query_emb and any(r.get("embedding") for r in results_for_quantum):
+                if query_embedding and any(r.get("embedding") for r in results_for_quantum):
                     reranked = await reranker.rerank_results(
-                        query_embedding=query_emb,
+                        query_embedding=query_embedding,
                         search_results=results_for_quantum,
                         top_k=len(normalized_results),
                     )

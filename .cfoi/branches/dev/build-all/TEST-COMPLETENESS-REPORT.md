@@ -1,53 +1,59 @@
-# Test Completeness Report - 2026-03-08
+# Test Completeness Report - 2026-03-09 00:11 PT
 
 ## Session Scope
 - Branch: `dev`
-- Changed implementation files: 5
-- Frontend changed: no
+- Changed implementation files: 6
+- Frontend changed: yes
 - Backend changed: yes
 
 ## Changed Implementation Files
-- `apps/backend/routes/rows.py`
-- `apps/backend/routes/rows_search.py`
-- `apps/backend/scripts/fix_schema.py`
-- `apps/backend/services/email.py`
-- `apps/backend/sourcing/providers_search.py`
+- `apps/backend/sourcing/quantum/reranker.py`
+- `apps/backend/sourcing/service.py`
+- `apps/backend/sourcing/vendor_provider.py`
+- `apps/frontend/app/components/Chat.tsx`
+- `apps/frontend/app/components/sdui/AppView.tsx`
+- `apps/frontend/app/pop-site/chat/page.tsx`
 
 ## Obligation Matrix
 | Surface | Changed File | Behavior | Unit | Integration | E2E | Scenario | Notes |
 |---|---|---|---|---|---|---|---|
-| backend | `apps/backend/routes/rows.py` | Avoid mutating ORM bid relationships during reads; supersede bids via ORM updates; enforce guest anonymous-session ownership on single-row reads | n/a | covered | n/a | covered | Validated by `test_rows_authorization_behavior.py`, `test_rows_authorization.py`, `test_regression_null_guards.py`, `test_anonymous_search.py` |
-| backend | `apps/backend/routes/rows_search.py` | Serialize concurrent persistence with `asyncio.Lock`; preserve search/stream behavior; enforce guest anonymous-session ownership on search + stream | n/a | covered | n/a | covered | Validated by `test_rows_search.py`, `test_rows_search_persistence.py`, `test_streaming_and_vendor_search.py`, `test_anonymous_search.py` |
-| backend | `apps/backend/scripts/fix_schema.py` | Keep schema expectation list aligned with actual model columns | n/a | covered | n/a | n/a | Validated by `test_schema_coverage.py` |
-| backend | `apps/backend/services/email.py` | Remove incorrect commission/referral-fee copy from outreach footer and preserve outreach flow behavior | n/a | n/a | covered | covered | Validated by `test_e2e_revenue_flows.py`, `test_e2e_vendor_management.py`, `test_scenario_revenue_no_db.py` |
-| backend | `apps/backend/sourcing/providers_search.py` | Restore provider helper imports for ScaleSerp and Ticketmaster execution paths | covered | covered | n/a | n/a | Validated by `test_scale_serp_provider.py`, `test_ticketmaster_provider.py` |
+| backend | `apps/backend/sourcing/quantum/reranker.py` | Preserve signed quantum/classical similarity, use pooled full-vector reduction, and skip missing or empty embeddings safely | required (covered) | required (covered) | n/a | required (covered) | Covered by `tests/test_embedding_and_quantum_regressions.py` and `tests/test_streaming_and_vendor_search.py`; browser e2e is n/a because this is internal ranking math with no direct UI contract |
+| backend | `apps/backend/sourcing/service.py` | Share the same vendor embedding contract with the sync path and only precompute embeddings when `vendor_directory` is in scope | required (covered) | required (covered) | n/a | required (covered) | Covered by `tests/test_embedding_and_quantum_regressions.py`, `tests/test_vendor_search_intent.py`, and `tests/test_streaming_and_vendor_search.py`; API/browser e2e is n/a because the change is orchestration internals |
+| backend | `apps/backend/sourcing/vendor_provider.py` | Build multi-concept embeddings from intent + specs + context, reuse precomputed vectors, and use OR-based FTS tokenization | required (covered) | required (covered) | n/a | required (covered) | Covered by `tests/test_embedding_and_quantum_regressions.py`, `tests/test_vendor_search_intent.py`, and `tests/test_streaming_and_vendor_search.py` |
+| frontend | `apps/frontend/app/components/Chat.tsx` | Show “Send a Thank-You” copy for the mobile thank-you action | required (covered) | n/a | n/a | n/a | Covered by `app/tests/tip-jar-copy.test.ts`; no interaction, data, or routing logic changed |
+| frontend | `apps/frontend/app/components/sdui/AppView.tsx` | Show “Send a Thank-You” copy in the desktop workspace action and keep current home-entry behavior reflected in tests | required (covered) | required (covered) | n/a | required (covered) | Covered by `app/tests/tip-jar-copy.test.ts` and `app/tests/workspace-home-entry.test.tsx`; browser e2e is n/a because current diff is copy-only and existing home-entry flow is exercised via component tests |
+| frontend | `apps/frontend/app/pop-site/chat/page.tsx` | Show “Send a Thank-You” copy in the Pop nav action while preserving Pop chat/list state behavior | required (covered) | required (covered) | n/a | required (covered) | Covered by `app/tests/tip-jar-copy.test.ts`, `app/tests/pop-chat-focus.test.ts`, and `app/tests/pop-api-routes-logic.test.ts` |
 
 ## Tests Created/Updated
-- Unit: none
-- Integration: `apps/backend/tests/test_anonymous_search.py`, `apps/backend/tests/test_rows_authorization_behavior.py`, `apps/backend/tests/test_rows_authorization.py`
-- E2E: `apps/backend/tests/test_e2e_revenue_flows.py`, `apps/backend/tests/test_e2e_vendor_management.py`
-- Scenario: `apps/backend/tests/test_scenario_revenue_no_db.py`
+- Unit: `apps/backend/tests/test_embedding_and_quantum_regressions.py`, `apps/frontend/app/tests/tip-jar-copy.test.ts`, `apps/frontend/app/tests/workspace-home-entry.test.tsx`
+- Integration: `apps/backend/tests/test_embedding_and_quantum_regressions.py`, `apps/backend/tests/test_vendor_search_intent.py`, `apps/backend/tests/test_streaming_and_vendor_search.py`, `apps/frontend/app/tests/workspace-home-entry.test.tsx`, `apps/frontend/app/tests/pop-api-routes-logic.test.ts`
+- E2E: none
+- Scenario: `apps/backend/tests/test_embedding_and_quantum_regressions.py`, `apps/frontend/app/tests/pop-chat-focus.test.ts`, `apps/frontend/app/tests/pop-api-routes-logic.test.ts`, `apps/frontend/app/tests/workspace-home-entry.test.tsx`
 
 ## Verification Commands
 ### Backend
-- `uv run pytest tests/test_rows_authorization_behavior.py tests/test_rows_search.py tests/test_streaming_and_vendor_search.py tests/test_schema_coverage.py tests/test_scale_serp_provider.py tests/test_ticketmaster_provider.py tests/test_scenario_revenue_no_db.py tests/test_e2e_revenue_flows.py tests/test_e2e_vendor_management.py tests/test_phase4_endpoints.py`
-- `uv run pytest tests/test_anonymous_search.py tests/test_rows_authorization_behavior.py tests/test_rows_authorization.py tests/test_scenario_revenue_no_db.py tests/test_e2e_revenue_flows.py tests/test_e2e_vendor_management.py`
-- `uv run pytest tests/`
+- `uv run pytest tests/test_vendor_search_intent.py tests/test_embedding_and_quantum_regressions.py -q`
+- `uv run pytest tests/test_vendor_search_intent.py tests/test_embedding_and_quantum_regressions.py tests/test_streaming_and_vendor_search.py -q`
 
 ### Frontend
-- n/a
+- `pnpm exec vitest run app/tests/tip-jar-copy.test.ts app/tests/workspace-home-entry.test.tsx`
+- `pnpm exec vitest run app/tests/tip-jar-copy.test.ts app/tests/workspace-home-entry.test.tsx app/tests/pop-chat-focus.test.ts app/tests/pop-api-routes-logic.test.ts`
 
 ## Results
 ### Backend
-- Targeted regression suite: `111 passed`
-- Focused post-fix regression suite: `69 passed`
-- Full backend suite: `1201 passed, 1 xfailed`
+- Unit: pass
+- Integration: pass
+- E2E: n/a
+- Scenario: pass
 
 ### Frontend
-- n/a
+- Unit: pass
+- Integration: pass
+- E2E: n/a
+- Scenario: pass
 
 ## Open Blockers
 - None.
 
 ## Verdict
-- PASS (all required coverage layers for the changed backend surfaces are present and passing)
+- PASS (all required layers for the changed behaviors are covered or explicitly justified as n/a, and the verification commands passed)
