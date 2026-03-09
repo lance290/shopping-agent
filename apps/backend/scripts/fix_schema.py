@@ -72,6 +72,8 @@ EXPECTED_COLS = [
     ("vendor", "price_range_min", "FLOAT", None),
     ("vendor", "price_range_max", "FLOAT", None),
     ("vendor", "slug", "VARCHAR", None),
+    ("vendor", "latitude", "FLOAT", None),
+    ("vendor", "longitude", "FLOAT", None),
 
     # ClickoutEvent — Phase 4 anti-fraud + SDUI attribution (ROOT CAUSE of prod 502)
     ("clickout_event", "bid_id", "INTEGER", None),

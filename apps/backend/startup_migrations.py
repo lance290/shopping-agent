@@ -205,6 +205,10 @@ async def run_startup_migrations(engine) -> None:
         await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_coverage_gap_need_idx ON vendor_coverage_gap (canonical_need);"))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_coverage_gap_last_seen_idx ON vendor_coverage_gap (last_seen_at);"))
 
+        # Vendor geo columns
+        await conn.execute(text("ALTER TABLE vendor ADD COLUMN IF NOT EXISTS latitude FLOAT;"))
+        await conn.execute(text("ALTER TABLE vendor ADD COLUMN IF NOT EXISTS longitude FLOAT;"))
+
         # Seed test vendor (idempotent)
         await conn.execute(text("""
             INSERT INTO vendor (name, email, domain, website, category, description, specialties, status, is_verified, tier_affinity, created_at)
