@@ -171,6 +171,7 @@ class SourcingService:
         intent_payload = search_intent.model_dump() if search_intent else None
         query_embedding = None
         selected_provider_ids = None
+        should_precompute_vendor_embedding = True
 
         if providers:
             raw_provider_ids = [str(p).strip() for p in providers if str(p).strip()]
@@ -182,8 +183,9 @@ class SourcingService:
                     selected_provider_ids = set(raw_provider_ids)
             else:
                 selected_provider_ids = set(raw_provider_ids)
+            should_precompute_vendor_embedding = "vendor_directory" in selected_provider_ids
 
-        if not selected_provider_ids or "vendor_directory" in selected_provider_ids:
+        if should_precompute_vendor_embedding:
             try:
                 query_embedding = await build_query_embedding(
                     vendor_query or query,
@@ -303,21 +305,36 @@ class SourcingService:
                         search_results=results_for_quantum,
                         top_k=len(normalized_results),
                     )
-                    # Apply quantum scores back using the _idx key to match correctly
-                    score_map = {}
-                    for r in reranked:
-                        if r.get("quantum_reranked") and "_idx" in r:
-                            score_map[r["_idx"]] = r
-                    for idx, res in enumerate(normalized_results):
-                        if idx in score_map:
-                            qr = score_map[idx]
-                            res.provenance["quantum_score"] = qr.get("quantum_score", 0.0)
-                            res.provenance["blended_score"] = qr.get("blended_score", 0.0)
-                            res.provenance["novelty_score"] = qr.get("novelty_score", 0.0)
-                            res.provenance["coherence_score"] = qr.get("coherence_score", 0.0)
-                    logger.info(f"[SourcingService] Quantum reranking applied to {len(score_map)} results")
-        except ImportError:
-            pass  # Quantum module not available — classical scoring only
+                elif not query_embedding and any(r.get("embedding") for r in results_for_quantum):
+                    try:
+                        query_embedding = await build_query_embedding(
+                            vendor_query or query,
+                            context_query=query,
+                            intent_payload=intent_payload,
+                        )
+                    except Exception as e:
+                        logger.warning(f"[SourcingService] Lazy query embedding failed for quantum reranking: {e}")
+                    if query_embedding:
+                        reranked = await reranker.rerank_results(
+                            query_embedding=query_embedding,
+                            search_results=results_for_quantum,
+                            top_k=len(normalized_results),
+                        )
+                    else:
+                        reranked = None
+                else:
+                    reranked = None
+                if reranked:
+                    # Write scores back to NormalizedResult.provenance
+                    idx_map = {r["title"]: r for r in reranked}
+                    for res in normalized_results:
+                        qr = idx_map.get(res.title)
+                        if qr:
+                            res.provenance["quantum_score"] = qr.get("quantum_score")
+                            res.provenance["classical_score"] = qr.get("classical_score")
+                            res.provenance["novelty_score"] = qr.get("novelty_score")
+                            res.provenance["coherence_score"] = qr.get("coherence_score")
+                            res.provenance["blended_score"] = qr.get("blended_score")
         except Exception as e:
             logger.warning(f"[SourcingService] Quantum reranking failed (graceful degradation): {e}")
 

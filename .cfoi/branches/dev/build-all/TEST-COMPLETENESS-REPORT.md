@@ -1,43 +1,42 @@
-# Test Completeness Report - 2026-03-09 00:11 PT
+# Test Completeness Report - 2026-03-09 00:31 PT
 
 ## Session Scope
 - Branch: `dev`
-- Changed implementation files: 6
-- Frontend changed: yes
+- Current working tree files in scope: 5
 - Backend changed: yes
+- Frontend changed: no
+- Non-code artifacts changed: yes
 
-## Changed Implementation Files
-- `apps/backend/sourcing/quantum/reranker.py`
+## Changed Files in Final Scope
 - `apps/backend/sourcing/service.py`
-- `apps/backend/sourcing/vendor_provider.py`
-- `apps/frontend/app/components/Chat.tsx`
-- `apps/frontend/app/components/sdui/AppView.tsx`
-- `apps/frontend/app/pop-site/chat/page.tsx`
+- `apps/backend/tests/test_embedding_and_quantum_regressions.py`
+- `apps/backend/tests/test_security_utils.py`
+- `apps/backend/vendor_enrichment.log`
+- `docs/sales/luxury_agents_2Mplus_revised 2/US_HighConfidence_2Mplus-Table 1.csv`
 
 ## Obligation Matrix
 | Surface | Changed File | Behavior | Unit | Integration | E2E | Scenario | Notes |
 |---|---|---|---|---|---|---|---|
-| backend | `apps/backend/sourcing/quantum/reranker.py` | Preserve signed quantum/classical similarity, use pooled full-vector reduction, and skip missing or empty embeddings safely | required (covered) | required (covered) | n/a | required (covered) | Covered by `tests/test_embedding_and_quantum_regressions.py` and `tests/test_streaming_and_vendor_search.py`; browser e2e is n/a because this is internal ranking math with no direct UI contract |
-| backend | `apps/backend/sourcing/service.py` | Share the same vendor embedding contract with the sync path and only precompute embeddings when `vendor_directory` is in scope | required (covered) | required (covered) | n/a | required (covered) | Covered by `tests/test_embedding_and_quantum_regressions.py`, `tests/test_vendor_search_intent.py`, and `tests/test_streaming_and_vendor_search.py`; API/browser e2e is n/a because the change is orchestration internals |
-| backend | `apps/backend/sourcing/vendor_provider.py` | Build multi-concept embeddings from intent + specs + context, reuse precomputed vectors, and use OR-based FTS tokenization | required (covered) | required (covered) | n/a | required (covered) | Covered by `tests/test_embedding_and_quantum_regressions.py`, `tests/test_vendor_search_intent.py`, and `tests/test_streaming_and_vendor_search.py` |
-| frontend | `apps/frontend/app/components/Chat.tsx` | Show “Send a Thank-You” copy for the mobile thank-you action | required (covered) | n/a | n/a | n/a | Covered by `app/tests/tip-jar-copy.test.ts`; no interaction, data, or routing logic changed |
-| frontend | `apps/frontend/app/components/sdui/AppView.tsx` | Show “Send a Thank-You” copy in the desktop workspace action and keep current home-entry behavior reflected in tests | required (covered) | required (covered) | n/a | required (covered) | Covered by `app/tests/tip-jar-copy.test.ts` and `app/tests/workspace-home-entry.test.tsx`; browser e2e is n/a because current diff is copy-only and existing home-entry flow is exercised via component tests |
-| frontend | `apps/frontend/app/pop-site/chat/page.tsx` | Show “Send a Thank-You” copy in the Pop nav action while preserving Pop chat/list state behavior | required (covered) | required (covered) | n/a | required (covered) | Covered by `app/tests/tip-jar-copy.test.ts`, `app/tests/pop-chat-focus.test.ts`, and `app/tests/pop-api-routes-logic.test.ts` |
+| backend | `apps/backend/sourcing/service.py` | Precompute shared query embeddings only when `vendor_directory` is selected, while still lazily computing embeddings for quantum reranking when other providers return embeddings | required (covered) | required (covered) | n/a | required (covered) | Covered by `tests/test_embedding_and_quantum_regressions.py`, `tests/test_vendor_search_intent.py`, and `tests/test_streaming_and_vendor_search.py`; browser e2e is n/a because this is backend orchestration logic |
+| backend | `apps/backend/tests/test_embedding_and_quantum_regressions.py` | Lock in shared embedding-builder and quantum-path orchestration contracts | required (covered) | required (covered) | n/a | required (covered) | Verified directly by the targeted backend regression suite |
+| backend | `apps/backend/tests/test_security_utils.py` | Cover expanded redaction patterns and logging filter behavior for secret-bearing strings | required (covered) | required (covered) | n/a | n/a | Covered by the targeted backend regression suite; no UI or end-to-end contract changed |
+| data/log | `apps/backend/vendor_enrichment.log` | Append enrichment progress entries | n/a | n/a | n/a | n/a | Runtime output artifact only; reviewed for append-only log progression |
+| data | `docs/sales/luxury_agents_2Mplus_revised 2/US_HighConfidence_2Mplus-Table 1.csv` | Add enriched outreach/contact rows for high-confidence luxury agents | n/a | n/a | n/a | n/a | Data artifact reviewed as content update; no executable behavior changed |
 
 ## Tests Created/Updated
-- Unit: `apps/backend/tests/test_embedding_and_quantum_regressions.py`, `apps/frontend/app/tests/tip-jar-copy.test.ts`, `apps/frontend/app/tests/workspace-home-entry.test.tsx`
-- Integration: `apps/backend/tests/test_embedding_and_quantum_regressions.py`, `apps/backend/tests/test_vendor_search_intent.py`, `apps/backend/tests/test_streaming_and_vendor_search.py`, `apps/frontend/app/tests/workspace-home-entry.test.tsx`, `apps/frontend/app/tests/pop-api-routes-logic.test.ts`
+- Unit: `apps/backend/tests/test_embedding_and_quantum_regressions.py`, `apps/backend/tests/test_security_utils.py`
+- Integration: `apps/backend/tests/test_embedding_and_quantum_regressions.py`, `apps/backend/tests/test_vendor_search_intent.py`, `apps/backend/tests/test_streaming_and_vendor_search.py`
 - E2E: none
-- Scenario: `apps/backend/tests/test_embedding_and_quantum_regressions.py`, `apps/frontend/app/tests/pop-chat-focus.test.ts`, `apps/frontend/app/tests/pop-api-routes-logic.test.ts`, `apps/frontend/app/tests/workspace-home-entry.test.tsx`
+- Scenario: `apps/backend/tests/test_embedding_and_quantum_regressions.py`, `apps/backend/tests/test_streaming_and_vendor_search.py`
 
 ## Verification Commands
 ### Backend
-- `uv run pytest tests/test_vendor_search_intent.py tests/test_embedding_and_quantum_regressions.py -q`
-- `uv run pytest tests/test_vendor_search_intent.py tests/test_embedding_and_quantum_regressions.py tests/test_streaming_and_vendor_search.py -q`
+- `uv run pytest tests/test_embedding_and_quantum_regressions.py tests/test_vendor_search_intent.py tests/test_streaming_and_vendor_search.py tests/test_security_utils.py tests/test_scale_serp_provider.py -q`
+- `uv run python -m py_compile observability/logging.py routes/rows_search.py sourcing/providers_search.py sourcing/quantum/reranker.py sourcing/service.py sourcing/vendor_provider.py utils/security.py scripts/discover_vendors.py scripts/enrich_vendors.py scripts/reseed_and_enrich.py scripts/seo_enrich.py`
 
-### Frontend
-- `pnpm exec vitest run app/tests/tip-jar-copy.test.ts app/tests/workspace-home-entry.test.tsx`
-- `pnpm exec vitest run app/tests/tip-jar-copy.test.ts app/tests/workspace-home-entry.test.tsx app/tests/pop-chat-focus.test.ts app/tests/pop-api-routes-logic.test.ts`
+### Non-code Review
+- `git diff -- apps/backend/vendor_enrichment.log`
+- `git diff -- "docs/sales/luxury_agents_2Mplus_revised 2/US_HighConfidence_2Mplus-Table 1.csv"`
 
 ## Results
 ### Backend
@@ -45,15 +44,13 @@
 - Integration: pass
 - E2E: n/a
 - Scenario: pass
+- Syntax validation: pass
 
-### Frontend
-- Unit: pass
-- Integration: pass
-- E2E: n/a
-- Scenario: pass
+### Non-code artifacts
+- Log/data review: pass
 
 ## Open Blockers
 - None.
 
 ## Verdict
-- PASS (all required layers for the changed behaviors are covered or explicitly justified as n/a, and the verification commands passed)
+- PASS (all required executable layers for the current working tree are covered or justified as n/a, and the verification commands passed)

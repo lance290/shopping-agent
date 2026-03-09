@@ -1,30 +1,25 @@
 # Review Loop - Final Report
 
 ## Scope
-- `apps/backend/sourcing/quantum/reranker.py`
 - `apps/backend/sourcing/service.py`
-- `apps/backend/sourcing/vendor_provider.py`
-- `apps/backend/routes/rows_search.py` (integration context)
-- `apps/backend/sourcing/repository.py` (integration context)
-- `apps/frontend/app/components/Chat.tsx`
-- `apps/frontend/app/components/sdui/AppView.tsx`
-- `apps/frontend/app/pop-site/chat/page.tsx`
 - `apps/backend/tests/test_embedding_and_quantum_regressions.py`
-- `apps/backend/tests/test_vendor_search_intent.py`
-- `apps/frontend/app/tests/tip-jar-copy.test.ts`
+- `apps/backend/tests/test_security_utils.py`
+- `apps/backend/vendor_enrichment.log`
+- `docs/sales/luxury_agents_2Mplus_revised 2/US_HighConfidence_2Mplus-Table 1.csv`
 
 ## Findings and Fixes
-- Replaced duplicated multi-concept embedding construction in `rows_search.py` with the shared `build_query_embedding(...)` helper.
-- Unified sync and streaming search so both paths compute and reuse the same `query_embedding` contract for vendor search and quantum reranking.
-- Forwarded `intent_payload` and `query_embedding` consistently through repository search calls.
-- Added regression coverage for shared embedding-builder usage, quantum reranker behavior, and the current OR-based FTS query semantics.
-- Added frontend regression coverage for the “Send a Thank-You” copy across the affected surfaces.
+- Kept the sync search path efficient by precomputing shared query embeddings only when `vendor_directory` is actually selected.
+- Preserved quantum reranking for non-vendor providers by lazily deriving the same shared query embedding when returned results include embeddings.
+- Expanded security regression coverage to include `apikey`/`api-key` redaction variants and direct `SensitiveDataFilter` string-field redaction.
+- Reviewed the appended `vendor_enrichment.log` changes as append-only runtime progress output.
+- Reviewed the luxury-agent CSV changes as data enrichment updates rather than executable code changes.
 
 ## Verification
-- Backend targeted regression suite: `52 passed`
-- Frontend targeted regression suite: `27 passed`
+- Backend targeted regression suite: `77 passed`
+- Backend syntax validation (`py_compile` on changed/related modules): pass
+- Non-code diff review: pass
 
 ## Residual Risk
-- Existing unrelated deprecation warnings remain in older FastAPI/Pydantic code paths, but there are no failing tests or unresolved blockers in the reviewed scope.
+- Existing unrelated deprecation warnings remain in older FastAPI/Pydantic code paths, but there are no failing tests or unresolved blockers in the final reviewed scope.
 
 ✅ FINAL STATUS: APPROVED

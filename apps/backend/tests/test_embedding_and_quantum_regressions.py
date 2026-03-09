@@ -79,8 +79,9 @@ class TestSourcingServiceForwarding:
     def test_search_and_persist_only_builds_embedding_for_vendor_directory_scope(self):
         source = inspect.getsource(SourcingService.search_and_persist)
 
-        assert 'if not selected_provider_ids or "vendor_directory" in selected_provider_ids:' in source
         assert 'selected_provider_ids = normalizer(raw_provider_ids)' in source
+        assert 'should_precompute_vendor_embedding = "vendor_directory" in selected_provider_ids' in source
+        assert 'elif not query_embedding and any(r.get("embedding") for r in results_for_quantum):' in source
 
     def test_stream_path_uses_shared_embedding_builder(self):
         source = inspect.getsource(search_row_listings_stream)
