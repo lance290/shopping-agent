@@ -104,6 +104,7 @@ from models.admin import (
     Notification,
     UserSignal,
     UserPreference,
+    VendorCoverageGap,
 )
 
 __all__ = [
@@ -168,4 +169,5 @@ __all__ = [
     "Notification",
     "UserSignal",
     "UserPreference",
+    "VendorCoverageGap",
 ]

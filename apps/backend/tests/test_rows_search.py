@@ -1,6 +1,7 @@
 """Tests for row search query handling."""
 import pytest
 from unittest.mock import AsyncMock, patch
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from httpx import AsyncClient
 
@@ -314,6 +315,7 @@ async def test_choice_factor_filtering(client: AsyncClient, session: AsyncSessio
         with patch("routes.rows_search.SourcingService") as mock_service_class:
             mock_service = AsyncMock()
             mock_service.search_and_persist = AsyncMock(return_value=([], [], None))
+            mock_service.supersede_stale_bids = AsyncMock(return_value=0)
             mock_service_class.return_value = mock_service
 
             # Mock auth and rate limit
@@ -332,3 +334,119 @@ async def test_choice_factor_filtering(client: AsyncClient, session: AsyncSessio
                     # Only "Green T-Shirt XL" should pass both color and size filters
                     # Note: In the actual implementation, results come from search_and_persist
                     # which returns Bids, but the filtering logic is the same
+
+
+@pytest.mark.asyncio
+async def test_search_records_vendor_coverage_gap(client: AsyncClient, session: AsyncSession, test_user: User):
+    """Test that search records vendor coverage gap."""
+    from models import VendorCoverageGap
+    from services.llm_models import VendorCoverageAssessment
+
+    row = Row(
+        user_id=test_user.id,
+        title="Private jet charter",
+        status="draft",
+        desire_tier="service",
+        service_category="private_aviation",
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    assessment = VendorCoverageAssessment(
+        should_log_gap=True,
+        gap_type="missing_vendors",
+        canonical_need="private jet charter miami",
+        vendor_query="private jet charter miami",
+        geo_hint="Miami",
+        summary="Coverage is thin for private jet charter vendors in Miami.",
+        rationale="Search did not surface enough relevant vendor_directory matches.",
+        suggested_vendor_search_queries=["private jet charter miami", "part 135 operator miami"],
+        confidence=0.93,
+    )
+
+    with patch("routes.rows_search._resolve_user_id_and_guest", AsyncMock(return_value=(test_user.id, False))):
+        with patch("routes.rate_limit.check_rate_limit", return_value=True):
+            with patch("routes.rows_search.assess_vendor_coverage", AsyncMock(return_value=assessment)):
+                with patch("routes.rows_search.SourcingService") as mock_service_class:
+                    mock_service = AsyncMock()
+                    mock_service.search_and_persist = AsyncMock(return_value=([], [], None))
+                    mock_service.supersede_stale_bids = AsyncMock(return_value=0)
+                    mock_service_class.return_value = mock_service
+
+                    response = await client.post(f"/rows/{row.id}/search", json={})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["user_message"]
+    assert "vendor coverage" in payload["user_message"].lower()
+    assert "name and company" in payload["user_message"].lower()
+    saved = await session.exec(select(VendorCoverageGap))
+    gap = saved.first()
+    assert gap is not None
+    assert gap.canonical_need == "private jet charter miami"
+    assert gap.vendor_query == "private jet charter miami"
+    assert gap.status == "new"
+    assert gap.times_seen == 1
+
+
+@pytest.mark.asyncio
+async def test_vendor_coverage_report_endpoint_marks_gap_emailed(client: AsyncClient, session: AsyncSession):
+    """Test that vendor coverage report endpoint marks gap as emailed."""
+    from models import VendorCoverageGap
+    from services.email import EmailResult
+
+    requester = User(
+        email="ea@example.com",
+        name="Taylor EA",
+        company="Acme Family Office",
+        phone_number="555-1111",
+    )
+    session.add(requester)
+    await session.commit()
+    await session.refresh(requester)
+
+    gap = VendorCoverageGap(
+        user_id=requester.id,
+        row_title="Private jet charter",
+        canonical_need="private jet charter miami",
+        search_query="private jet charter miami",
+        vendor_query="private jet charter miami",
+        geo_hint="Miami",
+        desire_tier="service",
+        service_type="private_aviation",
+        summary="Coverage is thin for private jet charter vendors in Miami.",
+        rationale="Need more regional operators.",
+        suggested_queries=["private jet charter miami"],
+        confidence=0.88,
+        status="new",
+    )
+    session.add(gap)
+    await session.commit()
+
+    with patch(
+        "routes.admin_ops.send_vendor_coverage_report_email",
+        AsyncMock(return_value=EmailResult(success=True, message_id="msg-123")),
+    ) as mock_send:
+        response = await client.post(
+            "/admin/ops/vendor-coverage-report",
+            headers={"x-ops-key": "sh_ops_2026_secure_key"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "sent"
+    assert payload["count"] == 1
+    assert payload["message_id"] == "msg-123"
+
+    sent_payload = mock_send.await_args.args[0]
+    assert sent_payload[0]["requester_name"] == "Taylor EA"
+    assert sent_payload[0]["requester_company"] == "Acme Family Office"
+    assert sent_payload[0]["requester_email"] == "ea@example.com"
+    assert sent_payload[0]["requester_phone"] == "555-1111"
+    assert sent_payload[0]["missing_requester_identity"] == []
+
+    await session.refresh(gap)
+    assert gap.status == "emailed"
+    assert gap.emailed_count == 1
+    assert gap.email_sent_at is not None

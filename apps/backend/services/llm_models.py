@@ -56,6 +56,18 @@ class UnifiedDecision(BaseModel):
         return self.desire_tier in ("service", "bespoke", "high_value", "advisory")
 
 
+class VendorCoverageAssessment(BaseModel):
+    should_log_gap: bool = False
+    gap_type: str = "sufficient_coverage"
+    canonical_need: str
+    vendor_query: Optional[str] = None
+    geo_hint: Optional[str] = None
+    summary: str
+    rationale: Optional[str] = None
+    suggested_vendor_search_queries: List[str] = []
+    confidence: float = 0.0
+
+
 class ChatContext(BaseModel):
     user_message: str
     conversation_history: List[Dict[str, str]]

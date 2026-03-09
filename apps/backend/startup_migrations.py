@@ -175,6 +175,36 @@ async def run_startup_migrations(engine) -> None:
         await conn.execute(text("CREATE INDEX IF NOT EXISTS item_bookmark_user_id_idx ON item_bookmark (user_id);"))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS item_bookmark_canonical_url_idx ON item_bookmark (canonical_url);"))
 
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS vendor_coverage_gap (
+                id SERIAL PRIMARY KEY,
+                row_id INTEGER REFERENCES row(id),
+                user_id INTEGER REFERENCES "user"(id),
+                row_title VARCHAR NOT NULL,
+                canonical_need VARCHAR NOT NULL,
+                search_query VARCHAR,
+                vendor_query VARCHAR,
+                geo_hint VARCHAR,
+                desire_tier VARCHAR,
+                service_type VARCHAR,
+                summary TEXT NOT NULL,
+                rationale TEXT,
+                suggested_queries JSONB,
+                assessment JSONB,
+                supporting_context JSONB,
+                confidence FLOAT NOT NULL DEFAULT 0.0,
+                times_seen INTEGER NOT NULL DEFAULT 1,
+                status VARCHAR NOT NULL DEFAULT 'new',
+                emailed_count INTEGER NOT NULL DEFAULT 0,
+                email_sent_at TIMESTAMP,
+                first_seen_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                last_seen_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+        """))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_coverage_gap_status_idx ON vendor_coverage_gap (status);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_coverage_gap_need_idx ON vendor_coverage_gap (canonical_need);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_coverage_gap_last_seen_idx ON vendor_coverage_gap (last_seen_at);"))
+
         # Seed test vendor (idempotent)
         await conn.execute(text("""
             INSERT INTO vendor (name, email, domain, website, category, description, specialties, status, is_verified, tier_affinity, created_at)

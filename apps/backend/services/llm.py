@@ -34,6 +34,7 @@ from services.llm_models import (  # noqa: E402, F401
     DisambiguateAction,
     SimpleAction,
     UnifiedDecision,
+    VendorCoverageAssessment,
     ChatContext,
 )
 
@@ -461,6 +462,66 @@ Return JSON ONLY: {{"subject": "...", "body": "..."}}"""
             "subject": f"Quote Request: {row_title}",
             "body": fallback_body,
         }
+
+
+async def assess_vendor_coverage(
+    row_title: str,
+    search_query: str,
+    desire_tier: Optional[str],
+    service_type: Optional[str],
+    search_intent: Optional[Any],
+    choice_answers: Optional[Any],
+    provider_statuses: List[Dict[str, Any]],
+    results: List[Dict[str, Any]],
+) -> Optional[VendorCoverageAssessment]:
+    """Use the LLM to decide whether a real search exposed a vendor coverage gap."""
+    prompt = f"""You are evaluating whether BuyAnything has adequate vendor coverage for a real user request.
+
+Inputs:
+- Row title: {json.dumps(row_title or '')}
+- Search query: {json.dumps(search_query or '')}
+- Desire tier: {json.dumps(desire_tier or '')}
+- Service type hint: {json.dumps(service_type or '')}
+- Search intent JSON: {json.dumps(search_intent or {})}
+- Choice answers JSON: {json.dumps(choice_answers or {})}
+- Provider statuses JSON: {json.dumps(provider_statuses[:12])}
+- Search results JSON: {json.dumps(results[:12])}
+
+Your task:
+1. Decide whether the main issue is a true vendor supply gap.
+2. Only mark should_log_gap=true when the evidence suggests we need more or better vendors in our vendor database.
+3. If the problem looks like search quality, query generation, filtering, or irrelevant marketplace noise rather than missing vendors, set should_log_gap=false.
+4. Prefer conservative judgment. Do not create sourcing work unless the gap is real and actionable.
+
+Guidance:
+- Commodity product requests often do NOT need vendor database expansion unless the request clearly needs specialized suppliers.
+- Service, bespoke, and high_value requests are the strongest candidates for vendor coverage gaps.
+- If vendor results exist and look meaningfully relevant, that is usually sufficient coverage.
+
+Return JSON ONLY:
+{{
+  "should_log_gap": true,
+  "gap_type": "missing_vendors|weak_vendor_match|sufficient_coverage|search_quality_issue|needs_review",
+  "canonical_need": "short canonical description of the unmet vendor need",
+  "vendor_query": "best query for discovering vendors",
+  "geo_hint": "location if materially relevant, else null",
+  "summary": "1-2 sentence explanation of the opportunity",
+  "rationale": "brief explanation of why this is or is not a real vendor coverage gap",
+  "suggested_vendor_search_queries": ["query 1", "query 2", "query 3"],
+  "confidence": 0.0
+}}"""
+
+    try:
+        text = await call_gemini(prompt, timeout=20.0)
+        parsed = _extract_json(text)
+        if isinstance(parsed.get("suggested_vendor_search_queries"), list):
+            parsed["suggested_vendor_search_queries"] = [
+                str(q).strip() for q in parsed["suggested_vendor_search_queries"] if str(q).strip()
+            ][:5]
+        return VendorCoverageAssessment(**parsed)
+    except Exception as e:
+        logger.warning(f"[VendorCoverage] Assessment failed: {e}")
+        return None
 
 
 async def triage_provider_query(
