@@ -405,6 +405,125 @@ def augment_schema_with_active_deal(
     }
 
 
+def _get_active_deal_amount(active_deal: Dict[str, Any]) -> Optional[float]:
+    amount = active_deal.get("buyer_total")
+    if amount is None:
+        amount = active_deal.get("vendor_quoted_price")
+    return amount
+
+
+def augment_schema_with_active_deal(
+    schema_dict: Optional[Dict[str, Any]],
+    active_deal: Optional[Dict[str, Any]],
+    row: Optional["Row"] = None,
+) -> Dict[str, Any]:
+    """Inject deal payment/status blocks and actions into an already-hydrated schema."""
+    title = getattr(row, "title", "Untitled") if row else "Untitled"
+    status = getattr(row, "status", "sourcing") if row else "sourcing"
+    base_schema = schema_dict or get_minimum_viable_row(title=title, status=status)
+
+    blocks = list(base_schema.get("blocks", [])) if isinstance(base_schema, dict) else []
+    filtered_blocks: List[Dict[str, Any]] = []
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "ActionRow":
+            actions = [
+                action
+                for action in block.get("actions", [])
+                if action.get("intent") not in {"fund_escrow", "mark_terms_agreed", "continue_negotiation"}
+            ]
+            if actions:
+                filtered_block = dict(block)
+                filtered_block["actions"] = actions
+                filtered_blocks.append(filtered_block)
+            continue
+        if active_deal and block.get("type") == "EscrowStatus" and block.get("deal_id"):
+            continue
+        filtered_blocks.append(block)
+
+    if not active_deal:
+        return {
+            **base_schema,
+            "blocks": filtered_blocks,
+        }
+
+    active_status = str(active_deal.get("status", "")).lower()
+    display_status = active_status.replace("_", " ").title() if active_status else "Deal"
+    amount = _get_active_deal_amount(active_deal)
+    actions: List[Dict[str, Any]] = []
+
+    if active_status == "negotiating":
+        actions.append({
+            "label": "Mark Terms Agreed",
+            "intent": "mark_terms_agreed",
+            "deal_id": str(active_deal.get("id", "")),
+            "row_id": str(active_deal.get("row_id", getattr(row, "id", ""))),
+        })
+    elif active_status == "terms_agreed":
+        if amount is not None:
+            actions.append({
+                "label": "Fund Escrow",
+                "intent": "fund_escrow",
+                "deal_id": str(active_deal.get("id", "")),
+                "row_id": str(active_deal.get("row_id", getattr(row, "id", ""))),
+                "amount": amount,
+                "currency": active_deal.get("currency", "USD"),
+            })
+        actions.append({
+            "label": "Continue Negotiation",
+            "intent": "continue_negotiation",
+            "deal_id": str(active_deal.get("id", "")),
+            "row_id": str(active_deal.get("row_id", getattr(row, "id", ""))),
+        })
+        if active_deal.get("vendor_stripe_onboarded") is False and active_deal.get("vendor_id"):
+            actions.append({
+                "label": "Invite Vendor to Connect",
+                "intent": "invite_vendor_connect",
+                "deal_id": str(active_deal.get("id", "")),
+                "row_id": str(active_deal.get("row_id", getattr(row, "id", ""))),
+            })
+
+    vendor_onboarded = active_deal.get("vendor_stripe_onboarded")
+    onboarding_tags: List[str] = []
+    if active_status == "terms_agreed" and vendor_onboarded is False:
+        onboarding_tags.append("Vendor payout setup needed")
+
+    deal_blocks: List[Dict[str, Any]] = [
+        {
+            "type": "BadgeList",
+            "tags": [f"Deal: {display_status}"] + onboarding_tags + ([f"Source: {active_deal['agreement_source'].replace('_', ' ').title()}"] if active_deal.get("agreement_source") else []),
+        }
+    ]
+    if amount is not None:
+        deal_blocks.append({
+            "type": "PriceBlock",
+            "amount": amount,
+            "currency": active_deal.get("currency", "USD"),
+            "label": "Agreed Total" if active_status == "terms_agreed" else "Deal Amount",
+        })
+    if active_deal.get("agreed_terms_summary"):
+        deal_blocks.append({
+            "type": "MarkdownText",
+            "content": str(active_deal["agreed_terms_summary"]),
+        })
+    if active_status in {"funded", "in_transit", "completed"}:
+        deal_blocks.append({
+            "type": "EscrowStatus",
+            "deal_id": str(active_deal.get("id", "")),
+        })
+    if actions:
+        deal_blocks.append({
+            "type": "ActionRow",
+            "actions": actions,
+        })
+
+    return {
+        **base_schema,
+        "blocks": deal_blocks + filtered_blocks,
+    }
+
+
 # Block type → hydrator mapping
 BLOCK_HYDRATORS = {
     "ProductImage": _hydrate_product_image,

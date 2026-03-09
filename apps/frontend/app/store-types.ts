@@ -96,6 +96,24 @@ export interface ActiveDeal {
   vendor_stripe_onboarded?: boolean | null;
 }
 
+export interface ActiveDeal {
+  id: number;
+  row_id: number;
+  status: string;
+  vendor_id?: number | null;
+  vendor_name?: string | null;
+  bid_id?: number | null;
+  vendor_quoted_price?: number | null;
+  buyer_total?: number | null;
+  currency: string;
+  agreed_terms_summary?: string | null;
+  agreement_source?: string | null;
+  stripe_payment_intent_id?: string | null;
+  terms_agreed_at?: string | null;
+  funded_at?: string | null;
+  vendor_stripe_onboarded?: boolean | null;
+}
+
 export interface Row {
   id: number;
   title: string;

@@ -239,7 +239,7 @@ class VendorDirectoryProvider(SourcingProvider):
         stop_words = {"in", "the", "for", "a", "an", "and", "or", "with", "at", "to", "of", "on"}
         fts_words = [w.strip() for w in query.split() if w.strip() and len(w.strip()) > 1 and w.strip().lower() not in stop_words]
         if fts_words:
-            fts_query_str = " | ".join(fts_words)
+            fts_query_str = " & ".join(fts_words)
         else:
             fts_query_str = query
 
