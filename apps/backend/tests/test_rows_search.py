@@ -5,9 +5,10 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from httpx import AsyncClient
 
-from models import Row, RequestSpec, User, AuthSession, hash_token
+from models import Row, RequestSpec, User, AuthSession, hash_token, VendorCoverageGap
+from services.llm_models import VendorCoverageAssessment
 from sourcing import SearchResultWithStatus
-from routes.rows_search import router
+from routes.rows_search import router, _record_vendor_coverage_gap_if_needed
 
 
 @pytest.mark.asyncio
@@ -450,3 +451,50 @@ async def test_vendor_coverage_report_endpoint_marks_gap_emailed(client: AsyncCl
     assert gap.status == "emailed"
     assert gap.emailed_count == 1
     assert gap.email_sent_at is not None
+
+
+@pytest.mark.asyncio
+async def test_vendor_coverage_helper_returns_none_when_persist_fails(session: AsyncSession, test_user: User):
+    row = Row(
+        user_id=test_user.id,
+        title="Private jet charter",
+        status="draft",
+        desire_tier="service",
+        service_category="private_aviation",
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    assessment = VendorCoverageAssessment(
+        should_log_gap=True,
+        gap_type="missing_vendors",
+        canonical_need="private jet charter miami",
+        vendor_query="private jet charter miami",
+        geo_hint="Miami",
+        summary="Coverage is thin for private jet charter vendors in Miami.",
+        rationale="Need more regional operators.",
+        suggested_vendor_search_queries=["private jet charter miami"],
+        confidence=0.88,
+    )
+
+    original_commit = session.commit
+
+    async def fail_commit_once():
+        session.commit = original_commit
+        raise RuntimeError("commit failed")
+
+    with patch("routes.rows_search.assess_vendor_coverage", AsyncMock(return_value=assessment)):
+        session.commit = AsyncMock(side_effect=fail_commit_once)
+        result = await _record_vendor_coverage_gap_if_needed(
+            session=session,
+            row=row,
+            user_id=test_user.id,
+            search_query="private jet charter miami",
+            results=[],
+            provider_statuses=[],
+        )
+
+    assert result is None
+    saved = await session.exec(select(VendorCoverageGap))
+    assert saved.first() is None

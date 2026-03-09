@@ -263,6 +263,7 @@ async def _record_vendor_coverage_gap_if_needed(
     except Exception as e:
         await session.rollback()
         logger.warning(f"[VendorCoverage] Failed to persist gap: {e}")
+        return None
     return assessment.model_dump()
 
 
