@@ -1,11 +1,29 @@
 """
 LLM data models — shared between main llm.py and llm_pop.py.
 """
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel
+from typing import Any, Dict, List, Literal, Optional
+from pydantic import BaseModel, Field
 
 # Valid desire tiers — drives downstream routing
 DESIRE_TIERS = ("commodity", "considered", "service", "bespoke", "high_value", "advisory")
+
+
+LocationRelevance = Literal["none", "endpoint", "service_area", "vendor_proximity"]
+
+
+class LocationTargets(BaseModel):
+    origin: Optional[str] = None
+    destination: Optional[str] = None
+    service_location: Optional[str] = None
+    search_area: Optional[str] = None
+    vendor_market: Optional[str] = None
+
+
+class LocationContext(BaseModel):
+    relevance: LocationRelevance = "none"
+    confidence: float = Field(0.0, ge=0.0, le=1.0)
+    targets: LocationTargets = Field(default_factory=LocationTargets)
+    notes: Optional[str] = None
 
 
 class UserIntent(BaseModel):
@@ -13,14 +31,15 @@ class UserIntent(BaseModel):
     category: str = "request"
     service_type: Optional[str] = None  # vendor_category hint (e.g. "private_aviation")
     search_query: Optional[str] = None
-    constraints: Dict[str, Any] = {}
+    constraints: Dict[str, Any] = Field(default_factory=dict)
+    location_context: Optional[LocationContext] = None
     desire_tier: str = "commodity"  # one of DESIRE_TIERS
     desire_confidence: float = 0.8  # 0.0-1.0
 
 
 class ClarificationAction(BaseModel):
     type: str = "ask_clarification"
-    missing_fields: List[str] = []
+    missing_fields: List[str] = Field(default_factory=list)
 
 
 class DisambiguateOption(BaseModel):
@@ -31,7 +50,7 @@ class DisambiguateOption(BaseModel):
 
 class DisambiguateAction(BaseModel):
     type: str = "disambiguate"
-    options: List[DisambiguateOption] = []
+    options: List[DisambiguateOption] = Field(default_factory=list)
 
 
 class SimpleAction(BaseModel):

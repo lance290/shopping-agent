@@ -105,6 +105,7 @@ from models.admin import (
     UserSignal,
     UserPreference,
     VendorCoverageGap,
+    LocationGeocodeCache,
 )
 
 __all__ = [
@@ -170,4 +171,5 @@ __all__ = [
     "UserSignal",
     "UserPreference",
     "VendorCoverageGap",
+    "LocationGeocodeCache",
 ]

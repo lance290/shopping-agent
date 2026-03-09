@@ -307,7 +307,7 @@ async def search_row_listings(
     if body.search_intent is not None or body.provider_query_map is not None:
         parsed_intent = _parse_intent_payload(body.search_intent)
         row.search_intent = _serialize_json_payload(
-            parsed_intent.model_dump() if parsed_intent else body.search_intent
+            parsed_intent.model_dump(mode="json") if parsed_intent else body.search_intent
         )
         if body.provider_query_map is not None:
             row.provider_query_map = _serialize_json_payload(body.provider_query_map)

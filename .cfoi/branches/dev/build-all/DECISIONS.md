@@ -153,3 +153,26 @@
 2. **Missing unit test for OpenRouter multimodal formatting** — no test verifies the content array `[{type:text}, {type:image_url}]` structure.
 3. **Missing mixed text+image test** — webhook tests cover image-only but not text + image combo.
 4. **Confidence**: High — core implementation is complete, only test coverage gaps remain.
+
+---
+# Scoped Build-All Decisions — PRD-BuyAnything-Location-Aware-Search (2026-03-09)
+
+## Scoped Execution Choice
+- **Decision**: Treat `/build-all` as scoped to the single active-dev PRD file instead of the whole `docs/active-dev/` directory.
+- **Why**: The user explicitly passed one PRD path, and the feature is self-contained enough for one effort.
+- **Confidence**: High
+
+## Effort Slicing Choice
+- **Decision**: Do not slice this PRD into multiple child PRDs.
+- **Why**: The PRD already contains locked v1 behavior, category tables, data contracts, and phased implementation guidance.
+- **Confidence**: High
+
+## Implementation Posture
+- **Decision**: This build-all pass produces effort artifacts, not code implementation.
+- **Why**: The repo’s workflow starts with architecture discovery, effort creation, planning, and task decomposition before `/implement`.
+- **Confidence**: High
+
+## Technical Direction
+- **Decision**: Keep v1 location semantics inside existing `search_intent` JSON and extend backend services rather than introducing new frontend flows.
+- **Why**: This matches the PRD, current schema shape, and minimal-change architecture.
+- **Confidence**: High

@@ -12,6 +12,49 @@ PriceFlexibility = Literal["strict", "flexible"]
 ProviderStatus = Literal["ok", "error", "timeout", "exhausted", "rate_limited"]
 
 FeatureValue = Union[str, List[str]]
+LocationRelevance = Literal["none", "endpoint", "service_area", "vendor_proximity"]
+LocationPrecision = Literal["address", "postal_code", "neighborhood", "city", "metro", "region"]
+LocationResolutionStatus = Literal["resolved", "unresolved", "ambiguous"]
+
+
+class LocationTargets(BaseModel):
+    origin: Optional[str] = None
+    destination: Optional[str] = None
+    service_location: Optional[str] = None
+    search_area: Optional[str] = None
+    vendor_market: Optional[str] = None
+
+    def non_empty_items(self) -> Dict[str, str]:
+        return {
+            key: value.strip()
+            for key, value in self.model_dump().items()
+            if isinstance(value, str) and value.strip()
+        }
+
+
+class LocationContext(BaseModel):
+    relevance: LocationRelevance = "none"
+    confidence: float = Field(0.0, ge=0.0, le=1.0)
+    targets: LocationTargets = Field(default_factory=LocationTargets)
+    notes: Optional[str] = None
+
+
+class LocationResolution(BaseModel):
+    normalized_label: Optional[str] = None
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    precision: Optional[LocationPrecision] = None
+    resolved_by: Optional[str] = None
+    resolved_at: Optional[datetime] = None
+    status: LocationResolutionStatus = "unresolved"
+
+
+class LocationResolutionMap(BaseModel):
+    origin: Optional[LocationResolution] = None
+    destination: Optional[LocationResolution] = None
+    service_location: Optional[LocationResolution] = None
+    search_area: Optional[LocationResolution] = None
+    vendor_market: Optional[LocationResolution] = None
 
 
 class SearchIntent(BaseModel):
@@ -31,6 +74,8 @@ class SearchIntent(BaseModel):
     keywords: List[str] = Field(default_factory=list)
     confidence: float = Field(0.0, ge=0.0, le=1.0)
     raw_input: str = Field("", description="Original free-form text")
+    location_context: LocationContext = Field(default_factory=LocationContext)
+    location_resolution: LocationResolutionMap = Field(default_factory=LocationResolutionMap)
 
     @field_validator("keywords", mode="before")
     @classmethod
@@ -65,6 +110,24 @@ class SearchIntent(BaseModel):
         if value is None:
             return []
         return [item for item in value if item]
+
+    @field_validator("location_context", mode="before")
+    @classmethod
+    def _ensure_location_context(cls, value: object) -> LocationContext:
+        if isinstance(value, LocationContext):
+            return value
+        if not isinstance(value, dict):
+            return LocationContext()
+        return LocationContext.model_validate(value)
+
+    @field_validator("location_resolution", mode="before")
+    @classmethod
+    def _ensure_location_resolution(cls, value: object) -> LocationResolutionMap:
+        if isinstance(value, LocationResolutionMap):
+            return value
+        if not isinstance(value, dict):
+            return LocationResolutionMap()
+        return LocationResolutionMap.model_validate(value)
 
 
 class ProviderQuery(BaseModel):

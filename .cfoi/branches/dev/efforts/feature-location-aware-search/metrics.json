@@ -1,0 +1,17 @@
+{
+  "tasks": {
+    "total": 6,
+    "completed": 0,
+    "inProgress": 0
+  },
+  "currentTask": null,
+  "errorBudget": {
+    "perTask": 3,
+    "currentTaskErrors": 0
+  },
+  "evidence": {},
+  "buildAllScope": {
+    "prd": "docs/active-dev/PRD-BuyAnything-Location-Aware-Search.md",
+    "status": "planned-only"
+  }
+}

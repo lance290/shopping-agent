@@ -12,6 +12,7 @@ Dimensions:
 import logging
 from typing import Dict, List, Optional
 
+from sourcing.location import location_weight_profile, neutral_geo_score
 from sourcing.models import NormalizedResult, SearchIntent
 
 logger = logging.getLogger(__name__)
@@ -53,16 +54,35 @@ def score_results(
         qs = _quality_score(r)
         db = _diversity_bonus(r.source, source_counts, total)
         sf = _source_fit_score(r.source, is_service, service_category)
+        fts_score = _fts_score(r)
+        constraint_score = _constraint_score(r)
+        geo_score = _geo_score(r, intent, rs, fts_score, constraint_score)
+        weights = location_weight_profile(
+            intent.location_context.relevance if intent and intent.location_context else "none"
+        )
+        semantic_signal = rs if r.source != "vendor_directory" else (r.raw_data.get("search_metadata", {}) or {}).get("semantic_score", rs)
+        semantic_weight = weights["semantic"]
+        fts_weight = weights["fts"]
+        geo_weight = weights["geo"]
+        constraint_weight = weights["constraint"]
 
-        # Source fit is a MULTIPLIER, not additive — mismatched sources get a real penalty.
-        # sf=1.0 → full score. sf=0.2 → 44% of base score.
-        base = (rs * 0.45) + (ps * 0.20) + (qs * 0.20) + (db * 0.15)
-        combined = base * (0.3 + 0.7 * sf)
+        base = (
+            semantic_signal * semantic_weight
+            + fts_score * fts_weight
+            + geo_score * geo_weight
+            + constraint_score * constraint_weight
+        )
+        support_bonus = ((ps * 0.4) + (qs * 0.4) + (db * 0.2)) * 0.05
+        combined = min(1.0, base + support_bonus) * (0.3 + 0.7 * sf)
 
         # Enrich provenance with score breakdown
         r.provenance["score"] = {
             "combined": round(combined, 4),
             "relevance": round(rs, 4),
+            "semantic": round(float(semantic_signal), 4),
+            "fts": round(fts_score, 4),
+            "geo": round(geo_score, 4),
+            "constraint": round(constraint_score, 4),
             "source_fit": round(sf, 4),
             "price": round(ps, 4),
             "quality": round(qs, 4),
@@ -251,6 +271,53 @@ def _quality_score(result: NormalizedResult) -> float:
         score += 0.1
 
     return min(score, 1.0)
+
+
+def _fts_score(result: NormalizedResult) -> float:
+    if not isinstance(result.raw_data, dict):
+        return 0.0
+    search_metadata = result.raw_data.get("search_metadata", {}) or {}
+    try:
+        return max(0.0, min(1.0, float(search_metadata.get("fts_score", 0.0))))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _constraint_score(result: NormalizedResult) -> float:
+    provenance = result.provenance if isinstance(result.provenance, dict) else {}
+    raw = provenance.get("constraint_score")
+    if raw is None:
+        search_metadata = result.raw_data.get("search_metadata", {}) if isinstance(result.raw_data, dict) else {}
+        raw = search_metadata.get("constraint_score", 0.0)
+    try:
+        return max(0.0, min(1.0, float(raw)))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _geo_score(
+    result: NormalizedResult,
+    intent: Optional[SearchIntent],
+    semantic_score: float,
+    fts_score: float,
+    constraint_score: float,
+) -> float:
+    if not intent or not intent.location_context:
+        return 0.0
+    if result.source != "vendor_directory":
+        return 0.0
+    mode = intent.location_context.relevance
+    if mode == "none":
+        return 0.0
+    search_metadata = result.raw_data.get("search_metadata", {}) if isinstance(result.raw_data, dict) else {}
+    raw_geo = search_metadata.get("geo_score")
+    try:
+        geo = float(raw_geo)
+    except (TypeError, ValueError):
+        geo = 0.0
+    if geo > 0:
+        return max(0.0, min(1.0, geo))
+    return neutral_geo_score(mode, semantic_score, fts_score, constraint_score)
 
 
 def _diversity_bonus(

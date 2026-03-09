@@ -102,6 +102,16 @@ def constraint_satisfaction_score(
         elif location in searchable:
             score += 0.4
 
+    for location_key in ("service_location", "search_area", "vendor_market"):
+        if location_key in constraints and constraints[location_key]:
+            total_weight += 0.7
+            target = str(constraints[location_key]).lower()
+            service_area = vendor_meta.get("service_area", [])
+            if isinstance(service_area, list) and any(target in str(a).lower() for a in service_area):
+                score += 0.7
+            elif target in searchable:
+                score += 0.45
+
     # --- Budget range ---
     if "budget" in constraints or "max_budget" in constraints or "budget_range" in constraints:
         total_weight += 0.5

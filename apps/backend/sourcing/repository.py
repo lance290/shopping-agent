@@ -70,6 +70,7 @@ class SearchResult(BaseModel):
     is_item_bookmarked: bool = False
     is_emailed: bool = False
     embedding: Optional[List[float]] = Field(None, exclude=True)  # for quantum reranker, not serialized
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class SearchResultWithStatus(BaseModel):
@@ -471,5 +472,4 @@ class SourcingRepository:
                     message=str(e)[:100]
                 )
                 yield (failed_name, [], status, providers_remaining)
-
 

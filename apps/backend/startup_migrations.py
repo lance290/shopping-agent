@@ -205,6 +205,29 @@ async def run_startup_migrations(engine) -> None:
         await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_coverage_gap_need_idx ON vendor_coverage_gap (canonical_need);"))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_coverage_gap_last_seen_idx ON vendor_coverage_gap (last_seen_at);"))
 
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS location_geocode_cache (
+                id SERIAL PRIMARY KEY,
+                cache_key VARCHAR NOT NULL UNIQUE,
+                query_text VARCHAR NOT NULL,
+                normalized_query VARCHAR NOT NULL,
+                country_hint VARCHAR,
+                normalized_label VARCHAR,
+                lat FLOAT,
+                lon FLOAT,
+                precision VARCHAR,
+                status VARCHAR NOT NULL DEFAULT 'unresolved',
+                provider VARCHAR,
+                hit_count INTEGER NOT NULL DEFAULT 0,
+                expires_at TIMESTAMP NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+        """))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS location_geocode_cache_key_idx ON location_geocode_cache (cache_key);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS location_geocode_cache_status_idx ON location_geocode_cache (status);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS location_geocode_cache_expires_idx ON location_geocode_cache (expires_at);"))
+
         # Vendor geo columns
         await conn.execute(text("ALTER TABLE vendor ADD COLUMN IF NOT EXISTS latitude FLOAT;"))
         await conn.execute(text("ALTER TABLE vendor ADD COLUMN IF NOT EXISTS longitude FLOAT;"))

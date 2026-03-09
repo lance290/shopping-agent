@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "effort": "feature-location-aware-search",
+  "created": "2026-03-09T12:00:00Z",
+  "tasks": [
+    {
+      "id": "task-001",
+      "description": "Add typed location intent/resolution contracts and persistence normalization",
+      "e2e_flow": "A location-sensitive request persists location_context and normalized targets inside row.search_intent.",
+      "manual_verification": [
+        "Run backend tests covering search intent parsing and persistence",
+        "Inspect a persisted row.search_intent payload",
+        "Record JSON sample in proof artifact"
+      ],
+      "files": [
+        "apps/backend/sourcing/models.py",
+        "apps/backend/routes/chat_helpers.py",
+        "apps/backend/services/llm_models.py",
+        "apps/backend/tests/test_rows_search_intent.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_rows_search_intent.py",
+        "apps/backend/tests/test_vendor_search_intent.py"
+      ],
+      "dependencies": [],
+      "estimated_minutes": 40,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/location-aware-search-task-001/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/location-aware-search-task-001/manual.md",
+      "automated_command": "uv run pytest apps/backend/tests/test_rows_search_intent.py",
+      "sign_off": "User"
+    },
+    {
+      "id": "task-002",
+      "description": "Implement category-default location mode selection and LLM override handling",
+      "e2e_flow": "Supported categories resolve to the locked v1 location mode table, with only high-confidence LLM overrides applied.",
+      "manual_verification": [
+        "Exercise classification for private_aviation, real_estate, roofing, and commodity requests",
+        "Verify location mode outputs match the v1 table",
+        "Record outputs in proof artifact"
+      ],
+      "files": [
+        "apps/backend/services/llm.py",
+        "apps/backend/routes/chat_helpers.py",
+        "apps/backend/routes/rows_search_helpers.py",
+        "apps/backend/tests/test_rows_search_intent.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_rows_search_intent.py",
+        "apps/backend/tests/test_vendor_search_intent.py"
+      ],
+      "dependencies": [
+        "task-001"
+      ],
+      "estimated_minutes": 35,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/location-aware-search-task-002/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/location-aware-search-task-002/manual.md",
+      "automated_command": "uv run pytest apps/backend/tests/test_vendor_search_intent.py",
+      "sign_off": "User"
+    },
+    {
+      "id": "task-003",
+      "description": "Build durable forward geocode cache and target resolver",
+      "e2e_flow": "A request location is forward-geocoded once, cached durably, and reused on subsequent searches.",
+      "manual_verification": [
+        "Resolve the same location twice and confirm the second lookup is a cache hit",
+        "Verify unresolved locations get a negative-cache entry",
+        "Record timing/log output"
+      ],
+      "files": [
+        "apps/backend/models/admin.py",
+        "apps/backend/startup_migrations.py",
+        "apps/backend/services/location_resolution.py",
+        "apps/backend/tests/test_location_resolution.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_location_resolution.py"
+      ],
+      "dependencies": [
+        "task-001",
+        "task-002"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/location-aware-search-task-003/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/location-aware-search-task-003/manual.md",
+      "automated_command": "uv run pytest apps/backend/tests/test_location_resolution.py",
+      "sign_off": "User"
+    },
+    {
+      "id": "task-004",
+      "description": "Extend vendor retrieval with service-area and geo candidate generation",
+      "e2e_flow": "Local-service and service-area searches merge geo/text candidates with the current vector and FTS vendor results.",
+      "manual_verification": [
+        "Run a local-service search and inspect candidate source composition",
+        "Confirm vendors without coordinates still surface through text fallback",
+        "Record sample ranked candidates"
+      ],
+      "files": [
+        "apps/backend/sourcing/vendor_provider.py",
+        "apps/backend/sourcing/service.py",
+        "apps/backend/routes/rows_search.py",
+        "apps/backend/tests/test_rows_search.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_rows_search.py",
+        "apps/backend/tests/test_streaming_and_vendor_search.py"
+      ],
+      "dependencies": [
+        "task-003"
+      ],
+      "estimated_minutes": 45,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/location-aware-search-task-004/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/location-aware-search-task-004/manual.md",
+      "automated_command": "uv run pytest apps/backend/tests/test_rows_search.py apps/backend/tests/test_streaming_and_vendor_search.py",
+      "sign_off": "User"
+    },
+    {
+      "id": "task-005",
+      "description": "Implement locked v1 ranking weights and geo score normalization",
+      "e2e_flow": "Vendor ranking blends semantic, FTS, geo, and constraint scores using the locked weights for each location mode.",
+      "manual_verification": [
+        "Verify private_aviation avoids HQ-distance bias",
+        "Verify roofing, hvac, and photography can benefit from local relevance",
+        "Verify commodity search geo weight remains zero"
+      ],
+      "files": [
+        "apps/backend/sourcing/scorer.py",
+        "apps/backend/sourcing/quantum/constraint_scorer.py",
+        "apps/backend/tests/test_reranking_strategy.py",
+        "apps/backend/tests/test_vendor_search_intent.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_reranking_strategy.py",
+        "apps/backend/tests/test_vendor_search_intent.py"
+      ],
+      "dependencies": [
+        "task-004"
+      ],
+      "estimated_minutes": 35,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/location-aware-search-task-005/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/location-aware-search-task-005/manual.md",
+      "automated_command": "uv run pytest apps/backend/tests/test_reranking_strategy.py apps/backend/tests/test_vendor_search_intent.py",
+      "sign_off": "User"
+    },
+    {
+      "id": "task-006",
+      "description": "Add integration and regression tests for graceful fallback behavior",
+      "e2e_flow": "Search remains functional across geocode failures, missing vendor geo data, and location-irrelevant categories.",
+      "manual_verification": [
+        "Run targeted backend tests for all supported category cases",
+        "Confirm no failure path aborts search",
+        "Attach test output summary"
+      ],
+      "files": [
+        "apps/backend/tests/test_rows_search.py",
+        "apps/backend/tests/test_vendor_search_intent.py",
+        "apps/backend/tests/test_regression_vendor_queries.py",
+        "apps/backend/tests/test_location_resolution.py"
+      ],
+      "tests_to_write": [
+        "apps/backend/tests/test_location_resolution.py",
+        "apps/backend/tests/test_rows_search.py",
+        "apps/backend/tests/test_vendor_search_intent.py"
+      ],
+      "dependencies": [
+        "task-005"
+      ],
+      "estimated_minutes": 40,
+      "error_budget": 3,
+      "status": "completed",
+      "proof_path": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/location-aware-search-task-006/",
+      "manual_artifact": "/Volumes/PivotNorth/Shopping Agent/.cfoi/branches/dev/proof/location-aware-search-task-006/manual.md",
+      "automated_command": "uv run pytest apps/backend/tests/test_rows_search.py apps/backend/tests/test_vendor_search_intent.py apps/backend/tests/test_regression_vendor_queries.py apps/backend/tests/test_location_resolution.py",
+      "sign_off": "User"
+    }
+  ]
+}

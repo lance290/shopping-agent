@@ -136,3 +136,26 @@ class VendorCoverageGap(SQLModel, table=True):
 
     first_seen_at: datetime = Field(default_factory=datetime.utcnow)
     last_seen_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class LocationGeocodeCache(SQLModel, table=True):
+    """Durable forward geocode cache for location-aware search."""
+    __tablename__ = "location_geocode_cache"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    cache_key: str = Field(index=True, unique=True)
+    query_text: str
+    normalized_query: str = Field(index=True)
+    country_hint: Optional[str] = None
+
+    normalized_label: Optional[str] = None
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    precision: Optional[str] = None
+    status: str = Field(default="unresolved", index=True)
+    provider: Optional[str] = None
+
+    hit_count: int = 0
+    expires_at: datetime
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

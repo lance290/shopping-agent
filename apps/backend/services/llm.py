@@ -88,12 +88,24 @@ YOUR JOB:
 You MUST always return an "intent" object that captures WHAT THE USER WANTS:
 
 {{
-  "intent": {{
+    "intent": {{
     "what": "The core thing they want - e.g., 'private jet charter', 'kids baseball glove', 'custom diamonds'",
     "category": "request",
     "service_type": "optional vendor category hint: private_aviation, roofing, hvac, jewelry, catering, etc. Use when a vendor directory might have relevant providers. null if unsure.",
     "search_query": "The query to find this - derived from WHAT, not conversation snippets",
     "constraints": {{ structured data ONLY: origin, destination, date, size, color, price, recipient, etc. NEVER include 'what', 'is_service', 'service_category', 'search_query', or 'title' in constraints — those belong in the parent intent fields. }},
+    "location_context": {{
+      "relevance": "none|endpoint|service_area|vendor_proximity",
+      "confidence": 0.0-1.0,
+      "targets": {{
+        "origin": "optional place string",
+        "destination": "optional place string",
+        "service_location": "optional place string",
+        "search_area": "optional place string",
+        "vendor_market": "optional place string"
+      }},
+      "notes": "optional short explanation"
+    }},
     "desire_tier": "one of: commodity, considered, service, bespoke, high_value, advisory",
     "desire_confidence": 0.0-1.0
   }}
@@ -132,6 +144,13 @@ VENDOR CATEGORY HINT:
 - Examples: "private_aviation", "roofing", "hvac", "jewelry", "catering", "photography", "auto_repair", "events", "tickets"
 - This is just a hint — the system will ALWAYS search for both vendors and web results regardless.
 - Set to null if no obvious vendor category applies (e.g. "Roblox gift card").
+
+LOCATION MODE RULES:
+- Use "endpoint" when route endpoints matter more than vendor office location. Example: private aviation, yacht charter.
+- Use "service_area" when the vendor must cover a market or region, but physical nearness is secondary. Example: real estate brokers, interior design.
+- Use "vendor_proximity" when local vendor presence matters strongly. Example: roofing, HVAC, photography.
+- Use "none" when location should not materially affect ranking. Example: jewelry or commodity product search unless the user explicitly asks for local.
+- Always fill location_context.targets from any usable location strings you can extract.
 
 === ACTION TYPES ===
 1. "create_row" - Create new request (no active row, or after clarification)
@@ -227,7 +246,7 @@ Examples:
 Return ONLY valid JSON:
 {{
   "message": "Conversational response to user (REQUIRED)",
-  "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}}, "desire_tier": "commodity|considered|service|bespoke|high_value|advisory", "desire_confidence": 0.9 }},
+  "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}}, "location_context": {{"relevance": "none|endpoint|service_area|vendor_proximity", "confidence": 0.0, "targets": {{}}, "notes": null}}, "desire_tier": "commodity|considered|service|bespoke|high_value|advisory", "desire_confidence": 0.9 }},
   "action": {{ "type": "..." }},
   "ui_hint": {{ "layout": "ROW_COMPACT|ROW_MEDIA_LEFT|ROW_TIMELINE", "blocks": ["..."], "value_vector": "unit_price|safety|speed|reliability|durability" }}
 }}"""

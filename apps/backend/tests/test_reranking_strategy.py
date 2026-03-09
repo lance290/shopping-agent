@@ -138,3 +138,118 @@ def test_advisory_tier(mixed_results):
     
     # Vendor should be top for advisory if forced to rank
     assert ranked[0].source == "vendor_directory"
+
+
+def test_vendor_proximity_geo_weight_boosts_local_vendor():
+    intent = SearchIntent.model_validate(
+        {
+            "keywords": ["roof", "repair"],
+            "product_category": "roofing",
+            "location_context": {
+                "relevance": "vendor_proximity",
+                "confidence": 1.0,
+                "targets": {"service_location": "Nashville, TN"},
+            },
+        }
+    )
+    local = NormalizedResult(
+        title="Local Roofing Pro",
+        price=None,
+        source="vendor_directory",
+        url="https://localroof.example.com",
+        merchant_name="Local Roofing Pro",
+        merchant_domain="localroof.example.com",
+        raw_data={"search_metadata": {"semantic_score": 0.55, "fts_score": 0.40, "geo_score": 0.95}},
+        provenance={"vector_similarity": 0.55},
+    )
+    distant = NormalizedResult(
+        title="National Roofing Network",
+        price=None,
+        source="vendor_directory",
+        url="https://nationalroof.example.com",
+        merchant_name="National Roofing Network",
+        merchant_domain="nationalroof.example.com",
+        raw_data={"search_metadata": {"semantic_score": 0.70, "fts_score": 0.45, "geo_score": 0.05}},
+        provenance={"vector_similarity": 0.70},
+    )
+
+    ranked = score_results([distant, local], intent=intent, desire_tier="service")
+
+    assert ranked[0].merchant_name == "Local Roofing Pro"
+
+
+def test_endpoint_mode_does_not_depend_on_hq_distance():
+    intent = SearchIntent.model_validate(
+        {
+            "keywords": ["private", "jet", "charter"],
+            "product_category": "private_aviation",
+            "location_context": {
+                "relevance": "endpoint",
+                "confidence": 1.0,
+                "targets": {"origin": "San Diego, CA", "destination": "Nashville, TN"},
+            },
+        }
+    )
+    route_fit = NormalizedResult(
+        title="Private Aviation Specialist",
+        price=None,
+        source="vendor_directory",
+        url="https://aviation.example.com",
+        merchant_name="Private Aviation Specialist",
+        merchant_domain="aviation.example.com",
+        raw_data={"search_metadata": {"semantic_score": 0.90, "fts_score": 0.40, "geo_score": 0.0, "constraint_score": 0.85}},
+        provenance={"vector_similarity": 0.90},
+    )
+    weak_fit = NormalizedResult(
+        title="Nearby Office But Weak Match",
+        price=None,
+        source="vendor_directory",
+        url="https://nearby.example.com",
+        merchant_name="Nearby Office But Weak Match",
+        merchant_domain="nearby.example.com",
+        raw_data={"search_metadata": {"semantic_score": 0.35, "fts_score": 0.20, "geo_score": 1.0, "constraint_score": 0.0}},
+        provenance={"vector_similarity": 0.35},
+    )
+
+    ranked = score_results([weak_fit, route_fit], intent=intent, desire_tier="service")
+
+    assert ranked[0].merchant_name == "Private Aviation Specialist"
+
+
+def test_marketplace_results_do_not_get_neutral_geo_boost():
+    intent = SearchIntent.model_validate(
+        {
+            "keywords": ["tacos"],
+            "product_category": "food",
+            "location_context": {
+                "relevance": "vendor_proximity",
+                "confidence": 1.0,
+                "targets": {"service_location": "Austin, TX"},
+            },
+        }
+    )
+    marketplace = NormalizedResult(
+        title="Frozen Tacos Pack",
+        price=8.0,
+        source="rainforest",
+        url="https://amazon.example.com/tacos",
+        merchant_name="Amazon",
+        merchant_domain="amazon.example.com",
+        raw_data={"search_metadata": {"geo_score": 1.0}},
+        provenance={},
+    )
+    vendor = NormalizedResult(
+        title="Local Taco Stand",
+        price=None,
+        source="vendor_directory",
+        url="https://localtaco.example.com",
+        merchant_name="Local Taco Stand",
+        merchant_domain="localtaco.example.com",
+        raw_data={"search_metadata": {"semantic_score": 0.55, "fts_score": 0.35, "geo_score": 0.95}},
+        provenance={"vector_similarity": 0.55},
+    )
+
+    ranked = score_results([marketplace, vendor], intent=intent, desire_tier="service")
+
+    assert ranked[0].source == "vendor_directory"
+    assert marketplace.provenance["score"]["geo"] == 0.0

@@ -1,0 +1,78 @@
+{
+  "type": "feature",
+  "name": "location-aware-search",
+  "description": "Implement explicit location semantics, conditional forward geocoding, and geo-aware vendor ranking for BuyAnything search",
+  "created": "2026-03-09T12:00:00Z",
+  "status": "planned",
+  "priority": 0,
+  "parent": null,
+  "prd": "docs/active-dev/PRD-BuyAnything-Location-Aware-Search.md",
+  "definition_of_done": {
+    "version": 1,
+    "status": "active",
+    "thresholds": [
+      {
+        "description": "Search intent persists valid location_context for supported categories",
+        "metric": "location_context_persistence",
+        "target": 1.0,
+        "evidence_required": "tested",
+        "type": "threshold"
+      },
+      {
+        "description": "Geo-aware search degrades gracefully when geocoding fails",
+        "metric": "geocode_failure_graceful_degradation",
+        "target": 1.0,
+        "evidence_required": "tested",
+        "type": "threshold"
+      },
+      {
+        "description": "Commodity search behavior does not regress when location is irrelevant",
+        "metric": "commodity_search_regression_free",
+        "target": 1.0,
+        "evidence_required": "tested",
+        "type": "threshold"
+      }
+    ],
+    "signals": [
+      {
+        "description": "Location mode classification uses locked v1 category defaults and LLM override rules",
+        "metric": "location_mode_classification",
+        "target": 1.0,
+        "weight": 0.25,
+        "evidence_required": "tested",
+        "type": "signal"
+      },
+      {
+        "description": "Vendor retrieval blends vector, FTS, and geo/service-area candidates when applicable",
+        "metric": "hybrid_geo_retrieval",
+        "target": 1.0,
+        "weight": 0.30,
+        "evidence_required": "tested",
+        "type": "signal"
+      },
+      {
+        "description": "Ranking weights match the locked v1 table by location mode",
+        "metric": "ranking_weight_integrity",
+        "target": 1.0,
+        "weight": 0.25,
+        "evidence_required": "tested",
+        "type": "signal"
+      },
+      {
+        "description": "Forward geocode cache is durable and respects v1 TTL rules",
+        "metric": "geocode_cache_durability",
+        "target": 1.0,
+        "weight": 0.20,
+        "evidence_required": "tested",
+        "type": "signal"
+      }
+    ],
+    "confidence": "design-validated",
+    "approval": {
+      "by": "User request via /build-all",
+      "timestamp": "2026-03-09T12:00:00Z",
+      "change_reason": "initial approval for scoped build-all planning artifacts",
+      "change_type": "clarify"
+    }
+  }
+}

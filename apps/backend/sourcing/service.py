@@ -12,6 +12,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models import Bid, Row, Seller
 from models.auth import User
+from services.location_resolution import LocationResolutionService
+from sourcing.location import apply_location_resolution, normalize_search_intent_payload
 from sourcing.models import NormalizedResult, ProviderStatusSnapshot, SearchIntent
 from sourcing.repository import SourcingRepository
 from sourcing.metrics import get_metrics_collector, log_search_start
@@ -167,6 +169,8 @@ class SourcingService:
         # Extract desire_tier for logging/repo context
         desire_tier = row.desire_tier if row else None
         search_intent = self._parse_search_intent(row) if row else None
+        if row and search_intent:
+            search_intent = await self._resolve_search_locations(row, search_intent)
         vendor_query = self.extract_vendor_query(row) if row else None
         intent_payload = search_intent.model_dump() if search_intent else None
         query_embedding = None
@@ -280,6 +284,8 @@ class SourcingService:
             min_price=min_price,
             max_price=max_price,
             desire_tier=desire_tier,
+            is_service=row.is_service if row else None,
+            service_category=row.service_category if row else None,
         )
 
         # 2b. Quantum re-ranking (for results with embeddings)
@@ -368,10 +374,36 @@ class SourcingService:
         try:
             payload = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
             if isinstance(payload, dict):
-                return SearchIntent(**payload)
+                normalized = normalize_search_intent_payload(payload)
+                return SearchIntent(**normalized)
         except Exception as e:
             logger.debug(f"[SourcingService] Could not parse SearchIntent: {e}")
         return None
+
+    async def _resolve_search_locations(self, row: Row, intent: SearchIntent) -> SearchIntent:
+        location_context = intent.location_context
+        if not location_context or location_context.relevance == "none":
+            return intent
+
+        resolver = LocationResolutionService(self.session)
+        resolved_intent = intent
+        for field_name, target in location_context.targets.non_empty_items().items():
+            current = getattr(resolved_intent.location_resolution, field_name, None)
+            if current and current.status == "resolved":
+                continue
+            try:
+                resolution = await resolver.resolve(target)
+            except Exception as exc:
+                logger.warning("[SourcingService] Location resolution failed for %s=%r: %s", field_name, target, exc)
+                continue
+            resolved_intent = apply_location_resolution(resolved_intent, field_name, resolution)
+
+        if row.search_intent != resolved_intent.model_dump(mode="json"):
+            row.search_intent = resolved_intent.model_dump(mode="json")
+            row.updated_at = datetime.utcnow()
+            self.session.add(row)
+            await self.session.commit()
+        return resolved_intent
 
     def _build_enriched_provenance(self, res: NormalizedResult, row: Optional["Row"]) -> dict:
         from sourcing.provenance import build_enriched_provenance
