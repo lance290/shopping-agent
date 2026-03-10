@@ -107,9 +107,10 @@ def row_to_dict(row: Row) -> dict:
 
 def _build_search_intent_json(title: str, search_query: str, constraints: Dict[str, Any], service_category: Optional[str]) -> dict:
     """Build a SearchIntent JSON from LLM intent fields so the scorer can rank by relevance."""
-    # Extract keywords from the title (the core "what")
+    # Extract keywords from the most specific request text we have, not just the row title.
     stop_words = {"a", "an", "the", "for", "my", "i", "me", "to", "and", "or", "of", "in", "on", "with"}
-    keywords = [w for w in title.lower().split() if w not in stop_words and len(w) > 1]
+    keyword_source = (search_query or title or "").strip().lower()
+    keywords = [w for w in keyword_source.split() if w not in stop_words and len(w) > 1]
 
     location_context = resolve_location_context(
         service_category=service_category,

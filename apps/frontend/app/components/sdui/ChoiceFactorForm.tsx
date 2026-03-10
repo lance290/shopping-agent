@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Loader2, Check, Search } from 'lucide-react';
 import type { ChoiceFactorFormBlock } from '../../sdui/types';
 import { useShoppingStore } from '../../store';
-import { saveChoiceAnswerToDb, runSearchApiWithStatus, fetchSingleRowFromDb } from '../../utils/api';
+import { saveChoiceAnswerToDb, runSearchApiWithStatus, fetchSingleRowFromDb, preferredSearchQueryForRow } from '../../utils/api';
 
 export function ChoiceFactorForm({ factors }: ChoiceFactorFormBlock) {
   const activeRowId = useShoppingStore((s) => s.activeRowId);
@@ -70,7 +70,7 @@ export function ChoiceFactorForm({ factors }: ChoiceFactorFormBlock) {
     setSearching(true);
     setIsSearching(true);
     try {
-      const res = await runSearchApiWithStatus(row.title, row.id);
+      const res = await runSearchApiWithStatus(preferredSearchQueryForRow(row), row.id);
       setRowResults(row.id, res.results, res.providerStatuses);
       const freshRow = await fetchSingleRowFromDb(row.id);
       if (freshRow) updateRow(row.id, freshRow);

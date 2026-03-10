@@ -45,6 +45,19 @@ function getEnabledProvidersFromStore(): string[] {
   }
 }
 
+export function preferredSearchQueryForRow(row: Pick<Row, 'title' | 'search_intent'>): string {
+  const fallback = String(row?.title || '').trim();
+  const raw = row?.search_intent;
+  try {
+    const payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const rawInput = typeof payload?.raw_input === 'string' ? payload.raw_input.trim() : '';
+    if (rawInput) return rawInput;
+  } catch {
+    // Fall back to title.
+  }
+  return fallback;
+}
+
 // Helper: Run search with status message
 export const runSearchApiWithStatus = async (
   query: string | null | undefined,

@@ -53,9 +53,24 @@ class SourcingService:
         if not isinstance(payload, dict):
             return None
         product_name = payload.get("product_name")
-        if product_name:
-            return str(product_name)
         raw_input = payload.get("raw_input")
+        location_context = payload.get("location_context") if isinstance(payload.get("location_context"), dict) else {}
+        location_mode = str(location_context.get("relevance") or "none")
+
+        def _significant_words(value: object) -> set[str]:
+            text = str(value or "").lower()
+            return {
+                token for token in _re.findall(r"[a-z0-9]+", text)
+                if len(token) > 2 and token not in {"the", "and", "for", "with", "from", "into", "your"}
+            }
+
+        if product_name:
+            if raw_input and location_mode in {"service_area", "vendor_proximity"}:
+                product_words = _significant_words(product_name)
+                raw_words = _significant_words(raw_input)
+                if len(raw_words - product_words) >= 2:
+                    return str(raw_input)
+            return str(product_name)
         if raw_input:
             return str(raw_input)
         return None

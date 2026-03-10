@@ -187,6 +187,20 @@ class TestExtractVendorQuery:
         result = svc.extract_vendor_query(row)
         assert result == "Roblox gift card"
 
+    def test_prefers_raw_input_for_local_service_requests_when_it_has_more_signal(self):
+        svc = self._get_svc()
+        row = self._make_row({
+            "product_category": "real_estate",
+            "product_name": "Residential real estate listing services",
+            "raw_input": "local boutique luxury real estate firms in Nashville for a modern home with small acreage",
+            "location_context": {
+                "relevance": "service_area",
+                "targets": {"search_area": "Nashville, TN"},
+            },
+        })
+        result = svc.extract_vendor_query(row)
+        assert result == "local boutique luxury real estate firms in Nashville for a modern home with small acreage"
+
 
 class TestLocationAwareIntentNormalization:
     def test_embedding_concepts_use_features_not_legacy_constraints_only(self):

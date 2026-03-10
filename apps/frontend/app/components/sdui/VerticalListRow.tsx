@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useShoppingStore, mapBidToOffer } from '../../store';
 import type { Row, Offer } from '../../store';
-import { runSearchApiWithStatus, fetchSingleRowFromDb, toggleVendorBookmark, toggleItemBookmark, createShareLink, createCommentApi, fetchCommentsApi, fetchWithAuth, AUTH_REQUIRED } from '../../utils/api';
+import { runSearchApiWithStatus, fetchSingleRowFromDb, toggleVendorBookmark, toggleItemBookmark, createShareLink, createCommentApi, fetchCommentsApi, fetchWithAuth, AUTH_REQUIRED, preferredSearchQueryForRow } from '../../utils/api';
 import type { CommentDto } from '../../utils/api';
 import { Trash2, RotateCw, Heart, CheckCircle2, MessageSquare, Share2, Copy, Send, Star } from 'lucide-react';
 import { DynamicRenderer } from './DynamicRenderer';
@@ -114,7 +114,7 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
     e.stopPropagation();
     try {
       setIsSearching(true);
-      const res = await runSearchApiWithStatus(row.title, row.id);
+      const res = await runSearchApiWithStatus(preferredSearchQueryForRow(row), row.id);
       setRowResults(row.id, res.results, res.providerStatuses);
       const freshRow = await fetchSingleRowFromDb(row.id);
       if (freshRow) updateRow(row.id, freshRow);

@@ -434,16 +434,48 @@ async def generate_outreach_email(
     chat_history = kwargs.get("chat_history") or ""
     choice_answers = kwargs.get("choice_answers") or ""
     search_intent = kwargs.get("search_intent") or ""
+    structured_constraints = kwargs.get("structured_constraints") or ""
     sender_company = kwargs.get("sender_company") or ""
+
+    parsed_intent = search_intent
+    if isinstance(search_intent, str):
+        try:
+            parsed_intent = json.loads(search_intent)
+        except Exception:
+            parsed_intent = {}
+    if not isinstance(parsed_intent, dict):
+        parsed_intent = {}
+
+    def _sig_tokens(value: object) -> set[str]:
+        text = str(value or "").lower()
+        return {
+            token for token in re.findall(r"[a-z0-9]+", text)
+            if len(token) > 2 and token not in {"the", "and", "for", "with", "from", "your", "that"}
+        }
+
+    product_name = str(parsed_intent.get("product_name") or "").strip()
+    raw_input = str(parsed_intent.get("raw_input") or "").strip()
+    location_context = parsed_intent.get("location_context") if isinstance(parsed_intent.get("location_context"), dict) else {}
+    location_mode = str(location_context.get("relevance") or "none")
+    request_summary = row_title.strip() or product_name or raw_input or "your request"
+    if raw_input:
+        if not product_name:
+            request_summary = raw_input
+        elif location_mode in {"service_area", "vendor_proximity"} and len(_sig_tokens(raw_input) - _sig_tokens(product_name)) >= 2:
+            request_summary = raw_input
+        elif len(_sig_tokens(raw_input) - _sig_tokens(request_summary)) >= 3:
+            request_summary = raw_input
 
     prompt = f"""You are writing a professional outreach email from a buyer directly to a vendor.
 
 == CONTEXT (raw structured data — do NOT copy these fields verbatim) ==
 Title: {row_title}
+Request summary: {request_summary}
 Vendor: {vendor_company}
 Sender: {safe_sender}{(' at ' + sender_company) if sender_company else ''}
 Search intent JSON: {search_intent}
 Buyer preferences JSON: {choice_answers}
+Structured constraints JSON: {structured_constraints}
 Chat history: {chat_history[:1500] if chat_history else 'N/A'}
 
 == YOUR TASK ==
@@ -467,18 +499,18 @@ Write a natural, professional email where {safe_sender} reaches out DIRECTLY to 
 
 Return JSON ONLY: {{"subject": "...", "body": "..."}}"""
 
-    fallback_body = f"Hi {vendor_company},\n\nI'm looking for: {row_title}.\n\nCould you reply with your pricing and availability?\n\nBest regards,\n{safe_sender}"
+    fallback_body = f"Hi {vendor_company},\n\nI'm looking for: {request_summary}.\n\nCould you reply with your pricing and availability?\n\nBest regards,\n{safe_sender}"
 
     try:
         text = await call_gemini(prompt, timeout=15.0)
         parsed = _extract_json(text)
         return {
-            "subject": parsed.get("subject", f"Quote Request: {row_title}"),
+            "subject": parsed.get("subject", f"Quote Request: {request_summary}"),
             "body": parsed.get("body", fallback_body),
         }
     except Exception:
         return {
-            "subject": f"Quote Request: {row_title}",
+            "subject": f"Quote Request: {request_summary}",
             "body": fallback_body,
         }
 
