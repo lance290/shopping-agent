@@ -370,6 +370,10 @@ async def process_pop_message(
                 session, active_row,
                 title=title if active_row.title != title else None,
                 constraints=constraints if constraints else None,
+                search_query=search_query,
+                is_service=is_service,
+                service_category=service_category,
+                desire_tier=intent.desire_tier,
                 reset_bids=bool(search_query),
             )
             target_row = row
