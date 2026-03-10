@@ -106,6 +106,8 @@ from models.admin import (
     UserPreference,
     VendorCoverageGap,
     LocationGeocodeCache,
+    DiscoveredVendorCandidate,
+    VendorEnrichmentQueueItem,
 )
 
 __all__ = [
@@ -172,4 +174,6 @@ __all__ = [
     "UserPreference",
     "VendorCoverageGap",
     "LocationGeocodeCache",
+    "DiscoveredVendorCandidate",
+    "VendorEnrichmentQueueItem",
 ]

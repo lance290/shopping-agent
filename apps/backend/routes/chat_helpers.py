@@ -105,11 +105,44 @@ def row_to_dict(row: Row) -> dict:
 # INTERNAL HELPERS (replace BFF HTTP calls with direct DB ops)
 # =============================================================================
 
-def _build_search_intent_json(title: str, search_query: str, constraints: Dict[str, Any], service_category: Optional[str]) -> dict:
+async def _resolve_all_location_targets(
+    targets,
+    service_category: Optional[str]
+) -> dict:
+    """Geocode all non-empty location targets."""
+    from services.geocoding import GeocodingService
+    geo_service = GeocodingService()
+    resolution_map = {}
+
+    # Get non-empty targets (targets has .non_empty_items() method)
+    non_empty = targets.non_empty_items() if hasattr(targets, 'non_empty_items') else {}
+
+    for field_name, value in non_empty.items():
+        try:
+            resolution = await geo_service.resolve_location(value, field_name)
+            resolution_map[field_name] = resolution.model_dump()
+            logger.info(
+                f"[ChatHelpers] Geocoded {field_name}='{value}' → "
+                f"status={resolution.status}, lat={resolution.latitude}, lon={resolution.longitude}"
+            )
+        except Exception as e:
+            logger.warning(f"[ChatHelpers] Failed to geocode {field_name}='{value}': {e}")
+            # Store unresolved entry
+            resolution_map[field_name] = {
+                "status": "unresolved",
+                "query": value,
+                "error": str(e)
+            }
+
+    return resolution_map
+
+
+async def _build_search_intent_json(title: str, search_query: str, constraints: Dict[str, Any], service_category: Optional[str]) -> dict:
     """Build a SearchIntent JSON from LLM intent fields so the scorer can rank by relevance."""
-    # Extract keywords from the title (the core "what")
+    # Extract keywords from the most specific request text we have, not just the row title.
     stop_words = {"a", "an", "the", "for", "my", "i", "me", "to", "and", "or", "of", "in", "on", "with"}
-    keywords = [w for w in title.lower().split() if w not in stop_words and len(w) > 1]
+    keyword_source = (search_query or title or "").strip().lower()
+    keywords = [w for w in keyword_source.split() if w not in stop_words and len(w) > 1]
 
     location_context = resolve_location_context(
         service_category=service_category,
@@ -117,6 +150,18 @@ def _build_search_intent_json(title: str, search_query: str, constraints: Dict[s
         constraints=constraints,
         features=constraints,
     )
+
+    # Phase 1.1: Geocode location targets
+    location_resolution = await _resolve_all_location_targets(
+        targets=location_context.targets,
+        service_category=service_category
+    )
+
+    # PHASE 2.1: Use constraints instead of features
+    constraints_dict = {k: v for k, v in constraints.items()
+                        if k not in ("brand", "preferred_brand", "min_price", "max_price", "budget", "max_budget")
+                        and v is not None and str(v).lower() != "not answered"}
+
     intent_data = {
         "product_category": service_category or title.lower().replace(" ", "_"),
         "product_name": title,
@@ -125,12 +170,21 @@ def _build_search_intent_json(title: str, search_query: str, constraints: Dict[s
         "min_price": constraints.get("min_price"),
         "max_price": constraints.get("max_price") or constraints.get("budget") or constraints.get("max_budget"),
         "raw_input": search_query or title,
-        "features": {k: v for k, v in constraints.items()
-                     if k not in ("brand", "preferred_brand", "min_price", "max_price", "budget", "max_budget")
-                     and v is not None and str(v).lower() != "not answered"},
+        "constraints": constraints_dict,
+        "features": constraints_dict,  # DEPRECATED: Keep as alias for backward compatibility
         "location_context": location_context.model_dump(),
-        "location_resolution": {},
+        "location_resolution": location_resolution,
     }
+
+    # Phase 3.1: Log constraint propagation
+    logger.info(
+        f"[ChatHelpers] Built search_intent: "
+        f"location_mode={location_context.relevance}, "
+        f"location_targets={list(location_context.targets.non_empty_items().keys())}, "
+        f"location_resolution={list(location_resolution.keys())}, "
+        f"constraints={list(intent_data['features'].keys())}"
+    )
+
     # Remove None values
     intent_data = {k: v for k, v in intent_data.items() if v is not None}
     return intent_data
@@ -159,7 +213,7 @@ async def _create_row(
         service_category=service_category or None,
         desire_tier=desire_tier,
         structured_constraints=json.dumps(constraints) if constraints else None,
-        search_intent=_build_search_intent_json(title, search_query or title, constraints, service_category),
+        search_intent=await _build_search_intent_json(title, search_query or title, constraints, service_category),
         anonymous_session_id=anonymous_session_id,
         origin_channel=origin_channel,
         origin_user_id=user_id,
@@ -219,7 +273,7 @@ async def _update_row(
         effective_query = search_query or effective_title
         effective_constraints = constraints if constraints is not None else safe_json_loads(row.choice_answers, {}) if row.choice_answers else {}
         effective_service_category = row.service_category
-        row.search_intent = _build_search_intent_json(
+        row.search_intent = await _build_search_intent_json(
             effective_title,
             effective_query,
             effective_constraints if isinstance(effective_constraints, dict) else {},

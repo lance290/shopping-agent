@@ -93,7 +93,7 @@ You MUST always return an "intent" object that captures WHAT THE USER WANTS:
     "category": "request",
     "service_type": "optional vendor category hint: private_aviation, roofing, hvac, jewelry, catering, etc. Use when a vendor directory might have relevant providers. null if unsure.",
     "search_query": "The query to find this - derived from WHAT, not conversation snippets",
-    "constraints": {{ structured data ONLY: origin, destination, date, size, color, price, recipient, etc. NEVER include 'what', 'is_service', 'service_category', 'search_query', or 'title' in constraints — those belong in the parent intent fields. }},
+    "constraints": {{ structured data ONLY: origin, destination, date, size, color, price, recipient, delivery_type, passengers, etc. NEVER include 'what', 'is_service', 'service_category', 'search_query', or 'title' in constraints — those belong in the parent intent fields. }},
     "location_context": {{
       "relevance": "none|endpoint|service_area|vendor_proximity",
       "confidence": 0.0-1.0,
@@ -434,16 +434,48 @@ async def generate_outreach_email(
     chat_history = kwargs.get("chat_history") or ""
     choice_answers = kwargs.get("choice_answers") or ""
     search_intent = kwargs.get("search_intent") or ""
+    structured_constraints = kwargs.get("structured_constraints") or ""
     sender_company = kwargs.get("sender_company") or ""
+
+    parsed_intent = search_intent
+    if isinstance(search_intent, str):
+        try:
+            parsed_intent = json.loads(search_intent)
+        except Exception:
+            parsed_intent = {}
+    if not isinstance(parsed_intent, dict):
+        parsed_intent = {}
+
+    def _sig_tokens(value: object) -> set[str]:
+        text = str(value or "").lower()
+        return {
+            token for token in re.findall(r"[a-z0-9]+", text)
+            if len(token) > 2 and token not in {"the", "and", "for", "with", "from", "your", "that"}
+        }
+
+    product_name = str(parsed_intent.get("product_name") or "").strip()
+    raw_input = str(parsed_intent.get("raw_input") or "").strip()
+    location_context = parsed_intent.get("location_context") if isinstance(parsed_intent.get("location_context"), dict) else {}
+    location_mode = str(location_context.get("relevance") or "none")
+    request_summary = row_title.strip() or product_name or raw_input or "your request"
+    if raw_input:
+        if not product_name:
+            request_summary = raw_input
+        elif location_mode in {"service_area", "vendor_proximity"} and len(_sig_tokens(raw_input) - _sig_tokens(product_name)) >= 2:
+            request_summary = raw_input
+        elif len(_sig_tokens(raw_input) - _sig_tokens(request_summary)) >= 3:
+            request_summary = raw_input
 
     prompt = f"""You are writing a professional outreach email from a buyer directly to a vendor.
 
 == CONTEXT (raw structured data — do NOT copy these fields verbatim) ==
 Title: {row_title}
+Request summary: {request_summary}
 Vendor: {vendor_company}
 Sender: {safe_sender}{(' at ' + sender_company) if sender_company else ''}
 Search intent JSON: {search_intent}
 Buyer preferences JSON: {choice_answers}
+Structured constraints JSON: {structured_constraints}
 Chat history: {chat_history[:1500] if chat_history else 'N/A'}
 
 == YOUR TASK ==
@@ -456,10 +488,34 @@ Write a natural, professional email where {safe_sender} reaches out DIRECTLY to 
 4. Signs off as {safe_sender}{(' — ' + sender_company) if sender_company else ''}.
 5. Keeps it under 200 words, warm but professional.
 
-== CRITICAL RULES ==
+== CRITICAL RULES FOR CONSTRAINT USAGE ==
+You MUST extract and use ALL relevant details from these structured fields:
+1. Search intent JSON → location_context (origin, destination, service_location, vendor_market, search_area)
+2. Buyer preferences JSON → delivery_type, passengers, trip_type, date, wheels_up_time, aircraft_class, etc.
+3. Structured constraints JSON → ALL fields the buyer specified
+4. Location resolution → resolved city/state/coordinates if present
+
+DO NOT write generic "I'm looking for X" or "I need to book a jet" without specifics. ALWAYS include:
+- LOCATION DETAILS: If origin/destination/service_location exists in search_intent JSON, mention them explicitly
+  - Example: "I need a private jet from San Diego (SAN) to Newark (EWR)" NOT "I need to book a jet"
+  - Example: "Looking for luxury real estate brokers serving the Nashville, TN market" NOT "Looking for brokers"
+- DATE/TIME: If date, departure_date, or wheels_up_time exists, mention it
+  - Example: "on February 13, 2026, wheels up at 9:00 AM" NOT "soon"
+- PASSENGER/GROUP SIZE: If passengers, headcount, or number_of_tickets exists, mention it
+  - Example: "for 7 passengers: John Doe, Jane Doe, Bob Smith, etc." NOT "for a group"
+- PRODUCT SPECIFICITY: If delivery_type, size, color, or other product constraints exist, mention them
+  - Example: "physical Roblox gift cards (not digital)" NOT "Roblox gift cards"
+  - Example: "in-store pickup preferred" NOT "delivery options"
+- BUDGET/PRICE: If budget, max_budget, or price range exists, mention it
+  - Example: "Budget range: $15,000-$25,000" NOT "competitive pricing"
+
+If a constraint exists in ANY of the JSON fields, you MUST weave it into natural prose in the email body.
+If location_context.targets has vendor_market or service_location, mention the location even if it's not in constraints.
+
+== CRITICAL RULES (EXISTING) ==
 - The sender is the BUYER, NOT a concierge or third party. Write in first person ("I'm looking for..." or "We're looking for...").
 - NEVER mention "BuyAnything", "concierge", "on behalf of", "my client", or any platform name.
-- NEVER dump raw field names like "Product Category:", "Keywords:", "Product Name:".
+- NEVER dump raw field names like "Product Category:", "Keywords:", "Product Name:", "origin:", "destination:".
 - NEVER mention forms, links, or buttons.
 - NEVER invent details not present in the context above.
 - If details are sparse, keep the email short and simple — don't pad it.
@@ -467,18 +523,18 @@ Write a natural, professional email where {safe_sender} reaches out DIRECTLY to 
 
 Return JSON ONLY: {{"subject": "...", "body": "..."}}"""
 
-    fallback_body = f"Hi {vendor_company},\n\nI'm looking for: {row_title}.\n\nCould you reply with your pricing and availability?\n\nBest regards,\n{safe_sender}"
+    fallback_body = f"Hi {vendor_company},\n\nI'm looking for: {request_summary}.\n\nCould you reply with your pricing and availability?\n\nBest regards,\n{safe_sender}"
 
     try:
         text = await call_gemini(prompt, timeout=15.0)
         parsed = _extract_json(text)
         return {
-            "subject": parsed.get("subject", f"Quote Request: {row_title}"),
+            "subject": parsed.get("subject", f"Quote Request: {request_summary}"),
             "body": parsed.get("body", fallback_body),
         }
     except Exception:
         return {
-            "subject": f"Quote Request: {row_title}",
+            "subject": f"Quote Request: {request_summary}",
             "body": fallback_body,
         }
 

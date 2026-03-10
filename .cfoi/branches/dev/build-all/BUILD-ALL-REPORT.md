@@ -164,3 +164,52 @@ Frontend type-check: Pre-existing errors only (no new errors introduced)
 ## Next Steps
 - Perform manual search QA for `private_aviation`, `real_estate`, `roofing`, and `jewelry`
 - Tune geo radius and category weights against real vendor data if ranking needs adjustment
+
+---
+
+# Scoped Build-All Report - 2026-03-10
+
+## Scope
+- PRD Directory: `docs/active-dev/`
+- Spec Processed: `docs/active-dev/TECHSPEC-BuyAnything-Proactive-Vendor-Discovery.md`
+- Execution Mode: scoped single-spec build-all
+
+## Architecture
+- Backend: FastAPI + SQLModel + asyncpg
+- Frontend: Next.js 15 App Router
+- Search foundation: existing row search, vendor_directory provider, and SSE row streaming
+- New seam: `rows_search.py -> SourcingService -> DiscoveryOrchestrator`
+
+## Execution Summary
+| # | Spec | Effort | Tasks | Status | Notes |
+|---|---|---|---|---|---|
+| 1 | TECHSPEC-BuyAnything-Proactive-Vendor-Discovery.md | feature-proactive-vendor-discovery | 5 | 🟢 Implemented | Backend foundation, route integration, and targeted verification completed |
+
+## Decisions Made
+- Scoped `/build-all` to the single tech spec path requested by the user
+- Locked vendor-discovery dispatch to one runtime seam
+- Chose candidate-first persistence over eager canonical vendor creation
+- Reused existing SSE row streaming instead of adding a second transport
+- Started MVP with one server-side organic discovery adapter
+
+## Quality
+- Tech spec maturity: implementation-ready
+- Architecture fit: strong match with current BuyAnything row search stack
+- Final Verdict: `IMPLEMENTED_AND_TARGETED_VERIFIED`
+
+## Artifacts
+- Effort: `.cfoi/branches/dev/efforts/feature-proactive-vendor-discovery/`
+- Plan: `.cfoi/branches/dev/efforts/feature-proactive-vendor-discovery/plan.md`
+- Tasks: `.cfoi/branches/dev/efforts/feature-proactive-vendor-discovery/tasks.json`
+- Progress: `.cfoi/branches/dev/efforts/feature-proactive-vendor-discovery/PROGRESS.md`
+
+## Verification
+- `apps/backend/.venv/bin/pytest apps/backend/tests/test_vendor_discovery_foundation.py apps/backend/tests/test_rows_search.py apps/backend/tests/test_streaming_search.py apps/backend/tests/test_streaming_and_vendor_search.py apps/backend/tests/test_rows_search_intent.py -q`
+  - Result: `47 passed`
+- `apps/backend/.venv/bin/python -m py_compile apps/backend/models/admin.py apps/backend/models/__init__.py apps/backend/startup_migrations.py apps/backend/sourcing/coverage.py apps/backend/sourcing/service.py apps/backend/sourcing/provenance.py apps/backend/sourcing/discovery/__init__.py apps/backend/sourcing/discovery/classifier.py apps/backend/sourcing/discovery/query_planner.py apps/backend/sourcing/discovery/adapters/base.py apps/backend/sourcing/discovery/adapters/__init__.py apps/backend/sourcing/discovery/adapters/organic.py apps/backend/sourcing/discovery/extractors.py apps/backend/sourcing/discovery/normalization.py apps/backend/sourcing/discovery/dedupe.py apps/backend/sourcing/discovery/orchestrator.py apps/backend/routes/rows_search.py apps/backend/tests/test_vendor_discovery_foundation.py`
+  - Result: `passed`
+
+## Remaining Follow-Up
+- Manual QA against real external search providers in an environment with live search API keys
+- Decide whether to add additional discovery adapters beyond organic search
+- Consider a dedicated persisted audit bundle if production debugging needs more than structured logs and candidate/context records

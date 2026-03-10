@@ -11,6 +11,7 @@ export { AUTH_REQUIRED, fetchWithAuth, backendUrl, getAuthToken, readResponseBod
 export type { SearchApiResponse, DealTransitionPayload } from './api-rows';
 export {
   runSearchApiWithStatus,
+  preferredSearchQueryForRow,
   persistRowToDb,
   selectOfferForRow,
   createRowInDb,

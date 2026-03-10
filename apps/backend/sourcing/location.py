@@ -85,18 +85,18 @@ def _build_request_text(
     ):
         if isinstance(value, str) and value.strip():
             parts.append(value.strip())
-    for source in (constraints, features):
-        if not isinstance(source, dict):
+
+    # PHASE 2.1: Prefer constraints over features
+    constraint_source = constraints if isinstance(constraints, dict) else (features if isinstance(features, dict) else {})
+    for value in constraint_source.values():
+        if value is None:
             continue
-        for value in source.values():
-            if value is None:
-                continue
-            if isinstance(value, list):
-                parts.extend(str(item).strip() for item in value if str(item).strip())
-            else:
-                text = str(value).strip()
-                if text:
-                    parts.append(text)
+        if isinstance(value, list):
+            parts.extend(str(item).strip() for item in value if str(item).strip())
+        else:
+            text = str(value).strip()
+            if text:
+                parts.append(text)
     return " ".join(parts).lower()
 
 

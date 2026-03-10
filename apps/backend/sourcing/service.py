@@ -13,6 +13,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from models import Bid, Row, Seller
 from models.auth import User
 from services.location_resolution import LocationResolutionService
+from sourcing.discovery.classifier import classify_search_path
+from sourcing.discovery.orchestrator import DiscoveryOrchestrator
 from sourcing.location import apply_location_resolution, normalize_search_intent_payload
 from sourcing.models import NormalizedResult, ProviderStatusSnapshot, SearchIntent
 from sourcing.repository import SourcingRepository
@@ -53,9 +55,24 @@ class SourcingService:
         if not isinstance(payload, dict):
             return None
         product_name = payload.get("product_name")
-        if product_name:
-            return str(product_name)
         raw_input = payload.get("raw_input")
+        location_context = payload.get("location_context") if isinstance(payload.get("location_context"), dict) else {}
+        location_mode = str(location_context.get("relevance") or "none")
+
+        def _significant_words(value: object) -> set[str]:
+            text = str(value or "").lower()
+            return {
+                token for token in _re.findall(r"[a-z0-9]+", text)
+                if len(token) > 2 and token not in {"the", "and", "for", "with", "from", "into", "your"}
+            }
+
+        if product_name:
+            if raw_input and location_mode in {"service_area", "vendor_proximity"}:
+                product_words = _significant_words(product_name)
+                raw_words = _significant_words(raw_input)
+                if len(raw_words - product_words) >= 2:
+                    return str(raw_input)
+            return str(product_name)
         if raw_input:
             return str(raw_input)
         return None
@@ -198,6 +215,19 @@ class SourcingService:
                 )
             except Exception as e:
                 logger.warning(f"[SourcingService] Query embedding failed (graceful degradation): {e}")
+
+        search_path = classify_search_path(search_intent, row)
+        if row and search_path == "vendor_discovery_path" and search_intent:
+            return await self._search_vendor_discovery_path(
+                row=row,
+                query=query,
+                providers=providers,
+                min_price=min_price,
+                max_price=max_price,
+                search_intent=search_intent,
+                vendor_query=vendor_query,
+                query_embedding=query_embedding,
+            )
 
         # Resolve user's zip_code for location-aware providers (Kroger, etc.)
         user_zip: Optional[str] = None
@@ -367,6 +397,91 @@ class SourcingService:
 
         return bids, provider_statuses, user_message
 
+    async def search_internal_vendors_only(
+        self,
+        *,
+        query: str,
+        vendor_query: Optional[str],
+        intent_payload: Optional[dict],
+        query_embedding: Optional[List[float]],
+    ):
+        return await self.repo.search_all_with_status(
+            query,
+            providers=["vendor_directory"],
+            vendor_query=vendor_query,
+            intent_payload=intent_payload,
+            query_embedding=query_embedding,
+        )
+
+    async def _search_vendor_discovery_path(
+        self,
+        *,
+        row: Row,
+        query: str,
+        providers: Optional[List[str]],
+        min_price: Optional[float],
+        max_price: Optional[float],
+        search_intent: SearchIntent,
+        vendor_query: Optional[str],
+        query_embedding: Optional[List[float]],
+    ) -> Tuple[List[Bid], List[ProviderStatusSnapshot], Optional[str]]:
+        intent_payload = search_intent.model_dump()
+        internal_response = await self.search_internal_vendors_only(
+            query=query,
+            vendor_query=vendor_query,
+            intent_payload=intent_payload,
+            query_embedding=query_embedding,
+        )
+        internal_results = internal_response.results
+        internal_statuses = list(internal_response.provider_statuses)
+        normalized_internal = internal_response.normalized_results
+        if normalized_internal:
+            normalized_internal = score_results(
+                normalized_internal,
+                intent=search_intent,
+                min_price=min_price,
+                max_price=max_price,
+                desire_tier=row.desire_tier,
+                is_service=row.is_service,
+                service_category=row.service_category,
+            )
+
+        bids: List[Bid] = []
+        if normalized_internal:
+            bids = await self._persist_results(row.id, normalized_internal, row=row)
+
+        orchestrator = DiscoveryOrchestrator(self.session, self)
+        evaluation, discovery_results, discovery_statuses, user_message, session_id = await orchestrator.run_sync(
+            row=row,
+            search_intent=search_intent,
+            internal_results=internal_results,
+        )
+
+        if discovery_results:
+            for result in discovery_results:
+                result.provenance["discovery_session_id"] = session_id
+            persisted_discovery = await self._persist_results(
+                row.id,
+                self._filter_discovery_results_for_bid_persistence(row, discovery_results),
+                row=row,
+            )
+            keep_ids = {bid.id for bid in bids if bid.id is not None}
+            keep_ids.update({bid.id for bid in persisted_discovery if bid.id is not None})
+            if keep_ids:
+                all_bids_stmt = (
+                    select(Bid)
+                    .where(Bid.row_id == row.id, Bid.id.in_(keep_ids))
+                    .options(selectinload(Bid.seller))
+                    .order_by(Bid.combined_score.desc().nullslast(), Bid.id)
+                )
+                all_bids_res = await self.session.exec(all_bids_stmt)
+                bids = list(all_bids_res.all())
+
+        all_statuses = internal_statuses + list(discovery_statuses)
+        if evaluation.status in {"borderline", "insufficient"} and not user_message:
+            user_message = "I’m expanding the search beyond our current vendor database."
+        return bids, all_statuses, user_message
+
     def _parse_search_intent(self, row: Row) -> Optional[SearchIntent]:
         """Parse SearchIntent from row's stored search_intent JSON."""
         if not row or not row.search_intent:
@@ -423,7 +538,11 @@ class SourcingService:
 
         # Pre-resolve all sellers in a single pass to avoid mid-loop commits
         seller_cache: dict[str, Seller] = {}
-        unique_merchants = {(r.merchant_name, r.merchant_domain) for r in results}
+        unique_merchants = {
+            (r.merchant_name, r.merchant_domain)
+            for r in results
+            if not str(r.source or "").startswith("vendor_discovery_")
+        }
         for name, domain in unique_merchants:
             seller_cache[name] = await self._get_or_create_seller(name, domain)
 
@@ -439,7 +558,7 @@ class SourcingService:
         updated_bids_count = 0
 
         for res in results:
-            seller = seller_cache[res.merchant_name]
+            seller = seller_cache.get(res.merchant_name)
             
             existing_bid = None
             if res.canonical_url and res.canonical_url in bids_by_canonical:
@@ -469,7 +588,7 @@ class SourcingService:
                 existing_bid.item_title = res.title
                 existing_bid.image_url = res.image_url
                 existing_bid.source = res.source
-                existing_bid.vendor_id = seller.id
+                existing_bid.vendor_id = seller.id if seller else existing_bid.vendor_id
                 existing_bid.canonical_url = res.canonical_url
                 existing_bid.provenance = provenance_json
                 existing_bid.combined_score = combined_score
@@ -480,13 +599,17 @@ class SourcingService:
                 existing_bid.source_tier = source_tier
                 existing_bid.is_superseded = False
                 existing_bid.superseded_at = None
+                if isinstance(res.raw_data, dict):
+                    existing_bid.contact_email = res.raw_data.get("email") or existing_bid.contact_email
+                    existing_bid.contact_phone = res.raw_data.get("phone") or existing_bid.contact_phone
+                    existing_bid.contact_name = res.merchant_name or existing_bid.contact_name
                 
                 self.session.add(existing_bid)
                 updated_bids_count += 1
             else:
                 new_bid = Bid(
                     row_id=row_id,
-                    vendor_id=seller.id,
+                    vendor_id=seller.id if seller else None,
                     price=res.price,
                     total_cost=self._safe_total_cost(res.price, 0.0),
                     currency=res.currency,
@@ -503,6 +626,9 @@ class SourcingService:
                     quality_score=quality_score_val,
                     diversity_bonus=diversity_bonus_val,
                     source_tier=source_tier,
+                    contact_name=res.merchant_name,
+                    contact_email=res.raw_data.get("email") if isinstance(res.raw_data, dict) else None,
+                    contact_phone=res.raw_data.get("phone") if isinstance(res.raw_data, dict) else None,
                 )
                 self.session.add(new_bid)
                 if new_bid.canonical_url:
@@ -527,6 +653,28 @@ class SourcingService:
             
         logger.info(f"[SourcingService] Row {row_id}: Created {new_bids_count}, Updated {updated_bids_count}, Total {len(all_bids)} bids")
         return all_bids
+
+    @staticmethod
+    def _filter_discovery_results_for_bid_persistence(row: Row, results: List[NormalizedResult]) -> List[NormalizedResult]:
+        high_risk = (row.desire_tier or "").strip().lower() in {"high_value", "advisory"} or (row.service_category or "").strip().lower() in {
+            "private_aviation",
+            "yacht_charter",
+            "real_estate",
+        }
+        if high_risk:
+            return []
+        persisted: List[NormalizedResult] = []
+        for result in results:
+            raw_data = result.raw_data if isinstance(result.raw_data, dict) else {}
+            provenance = result.provenance if isinstance(result.provenance, dict) else {}
+            if not (provenance.get("official_site") or raw_data.get("official_site")):
+                continue
+            if not result.merchant_domain:
+                continue
+            if not (raw_data.get("email") or raw_data.get("phone") or result.url):
+                continue
+            persisted.append(result)
+        return persisted
 
     async def supersede_stale_bids(self, row_id: int, keep_bid_ids: set[int]) -> int:
         """Supersede bids that were NOT part of the latest search results.

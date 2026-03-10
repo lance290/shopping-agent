@@ -228,6 +228,68 @@ async def run_startup_migrations(engine) -> None:
         await conn.execute(text("CREATE INDEX IF NOT EXISTS location_geocode_cache_status_idx ON location_geocode_cache (status);"))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS location_geocode_cache_expires_idx ON location_geocode_cache (expires_at);"))
 
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS discovered_vendor_candidate (
+                id SERIAL PRIMARY KEY,
+                row_id INTEGER NOT NULL REFERENCES row(id),
+                user_id INTEGER REFERENCES "user"(id),
+                vendor_id INTEGER REFERENCES vendor(id),
+                discovery_session_id VARCHAR NOT NULL,
+                adapter_id VARCHAR NOT NULL,
+                discovery_mode VARCHAR NOT NULL,
+                source_type VARCHAR NOT NULL,
+                source_query TEXT NOT NULL,
+                vendor_name VARCHAR NOT NULL,
+                website_url TEXT,
+                canonical_domain VARCHAR,
+                source_url TEXT,
+                snippet TEXT,
+                image_url TEXT,
+                email VARCHAR,
+                phone VARCHAR,
+                location_hint VARCHAR,
+                official_site BOOLEAN NOT NULL DEFAULT FALSE,
+                first_party_contact BOOLEAN NOT NULL DEFAULT FALSE,
+                confidence FLOAT NOT NULL DEFAULT 0.0,
+                completeness_score FLOAT NOT NULL DEFAULT 0.0,
+                trust_score FLOAT NOT NULL DEFAULT 0.0,
+                status VARCHAR NOT NULL DEFAULT 'discovered',
+                raw_payload JSONB,
+                extraction_payload JSONB,
+                provenance JSONB,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+        """))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS discovered_vendor_candidate_row_idx ON discovered_vendor_candidate (row_id);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS discovered_vendor_candidate_session_idx ON discovered_vendor_candidate (discovery_session_id);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS discovered_vendor_candidate_domain_idx ON discovered_vendor_candidate (canonical_domain);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS discovered_vendor_candidate_status_idx ON discovered_vendor_candidate (status);"))
+
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS vendor_enrichment_queue_item (
+                id SERIAL PRIMARY KEY,
+                candidate_id INTEGER NOT NULL REFERENCES discovered_vendor_candidate(id),
+                row_id INTEGER NOT NULL REFERENCES row(id),
+                vendor_id INTEGER REFERENCES vendor(id),
+                discovery_session_id VARCHAR NOT NULL,
+                canonical_domain VARCHAR,
+                discovery_mode VARCHAR NOT NULL,
+                source_provider VARCHAR NOT NULL,
+                confidence FLOAT NOT NULL DEFAULT 0.0,
+                completeness_score FLOAT NOT NULL DEFAULT 0.0,
+                trust_score FLOAT NOT NULL DEFAULT 0.0,
+                status VARCHAR NOT NULL DEFAULT 'queued',
+                retry_count INTEGER NOT NULL DEFAULT 0,
+                next_attempt_at TIMESTAMP,
+                payload JSONB,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+        """))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_enrichment_queue_item_candidate_idx ON vendor_enrichment_queue_item (candidate_id);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_enrichment_queue_item_status_idx ON vendor_enrichment_queue_item (status);"))
+
         # Vendor geo columns
         await conn.execute(text("ALTER TABLE vendor ADD COLUMN IF NOT EXISTS latitude FLOAT;"))
         await conn.execute(text("ALTER TABLE vendor ADD COLUMN IF NOT EXISTS longitude FLOAT;"))

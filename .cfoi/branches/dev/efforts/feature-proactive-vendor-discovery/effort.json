@@ -1,0 +1,71 @@
+{
+  "type": "feature",
+  "name": "proactive-vendor-discovery",
+  "description": "Implement BuyAnything strict DB-first vendor sufficiency scoring with live external discovery, streaming, and candidate persistence",
+  "created": "2026-03-10T16:30:00Z",
+  "status": "implemented",
+  "priority": 0,
+  "parent": null,
+  "prd": "docs/active-dev/TECHSPEC-BuyAnything-Proactive-Vendor-Discovery.md",
+  "definition_of_done": {
+    "version": 1,
+    "status": "active",
+    "thresholds": [
+      {
+        "description": "Vendor-discovery-path searches branch through one orchestrated DB-first sufficiency seam",
+        "metric": "single_dispatch_seam",
+        "target": 1.0,
+        "evidence_required": "tested",
+        "type": "threshold"
+      },
+      {
+        "description": "Borderline and insufficient coverage launch discovery without polluting canonical vendors synchronously",
+        "metric": "candidate_first_persistence",
+        "target": 1.0,
+        "evidence_required": "tested",
+        "type": "threshold"
+      }
+    ],
+    "signals": [
+      {
+        "description": "Coverage scoring follows the locked heuristic-first sufficiency model",
+        "metric": "coverage_scoring_integrity",
+        "target": 1.0,
+        "weight": 0.25,
+        "evidence_required": "tested",
+        "type": "signal"
+      },
+      {
+        "description": "Discovery adapters, normalization, and dedupe stream useful results into the existing row flow",
+        "metric": "streaming_discovery_reuse",
+        "target": 1.0,
+        "weight": 0.30,
+        "evidence_required": "tested",
+        "type": "signal"
+      },
+      {
+        "description": "Persisted discovered candidates and enrichment queue records obey strict guardrails",
+        "metric": "persistence_guardrails",
+        "target": 1.0,
+        "weight": 0.25,
+        "evidence_required": "tested",
+        "type": "signal"
+      },
+      {
+        "description": "Discovery sessions remain auditable through stable session ids and structured logs",
+        "metric": "auditability",
+        "target": 1.0,
+        "weight": 0.20,
+        "evidence_required": "tested",
+        "type": "signal"
+      }
+    ],
+    "confidence": "design-validated",
+    "approval": {
+      "by": "User request via /build-all",
+      "timestamp": "2026-03-10T16:30:00Z",
+      "change_reason": "initial approval for proactive vendor discovery build-all effort",
+      "change_type": "clarify"
+    }
+  }
+}

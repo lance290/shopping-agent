@@ -44,6 +44,8 @@ from sourcing.adapters import build_provider_query_map
 from sourcing.normalizers import normalize_generic_results
 from sourcing.scorer import score_results
 from sourcing.service import SourcingService
+from sourcing.discovery.classifier import classify_search_path
+from sourcing.coverage import evaluate_internal_vendor_coverage
 from sourcing.choice_filter import should_exclude_by_choices
 from sourcing.messaging import determine_search_user_message
 from services.llm import assess_vendor_coverage
@@ -364,6 +366,9 @@ async def search_row_listings(
     # Convert Bids back to SearchResults for response compatibility and UI filtering
     results: List[SearchResult] = []
     for bid in all_bids:
+        provenance = bid.provenance if isinstance(bid.provenance, dict) else {}
+        merchant_name = bid.seller.name if bid.seller else provenance.get("merchant_name") or bid.contact_name or "Unknown"
+        merchant_domain = bid.seller.domain if bid.seller else provenance.get("merchant_domain") or ""
         # Construct click_url with row_id tracking
         click_url = bid.item_url or ""
         if click_url:
@@ -379,10 +384,10 @@ async def search_row_listings(
                 title=bid.item_title,
                 price=bid.price,
                 currency=bid.currency,
-                merchant=bid.seller.name if bid.seller else "Unknown",
+                merchant=merchant_name,
                 url=bid.item_url or "",
                 canonical_url=bid.canonical_url or _normalize_bookmark_url(bid.item_url),
-                merchant_domain=bid.seller.domain or "" if bid.seller else "",
+                merchant_domain=merchant_domain,
                 click_url=click_url,
                 image_url=bid.image_url,
                 source=bid.source,
@@ -529,6 +534,7 @@ async def search_row_listings_stream(
         db_lock = asyncio.Lock()
 
         parsed_intent = _parse_intent_payload(row.search_intent)
+        search_path = classify_search_path(parsed_intent, row)
         intent_payload = parsed_intent.model_dump() if parsed_intent else None
         query_embedding = None
         quantum_reranker = None
@@ -552,6 +558,143 @@ async def search_row_listings_stream(
                     quantum_reranker = None
             except Exception as e:
                 logger.warning(f"[SEARCH STREAM] Quantum reranker init failed (graceful degradation): {e}")
+
+        if parsed_intent and search_path == "vendor_discovery_path":
+            internal_response = await sourcing_service.search_internal_vendors_only(
+                query=sanitized_query,
+                vendor_query=vendor_query,
+                intent_payload=intent_payload,
+                query_embedding=query_embedding,
+            )
+            internal_results = list(internal_response.results)
+            internal_statuses = list(internal_response.provider_statuses)
+            normalized_internal = list(internal_response.normalized_results)
+            if normalized_internal:
+                normalized_internal = score_results(
+                    normalized_internal,
+                    intent=parsed_intent,
+                    min_price=min_price_filter,
+                    max_price=max_price_filter,
+                    desire_tier=row.desire_tier,
+                    is_service=row.is_service,
+                    service_category=row.service_category,
+                )
+                persisted_internal = await sourcing_service._persist_results(row_id, normalized_internal, row=row)
+                all_persisted_bid_ids.update({bid.id for bid in persisted_internal if bid.id is not None})
+            all_results.extend(internal_results)
+            all_statuses.extend(internal_statuses)
+
+            if internal_results:
+                yield f"data: {json.dumps({'provider': 'vendor_directory', 'results': [r.model_dump() for r in internal_results], 'status': internal_statuses[0].model_dump() if internal_statuses else None, 'providers_remaining': 1, 'more_incoming': True, 'phase': 'internal_results', 'coverage_status': 'pending', 'total_results_so_far': len(all_results)})}\n\n"
+
+            evaluation = evaluate_internal_vendor_coverage(
+                internal_results,
+                high_risk=(row.desire_tier or "").strip().lower() in {"high_value", "advisory"},
+            )
+
+            if evaluation.status != "sufficient":
+                orchestrator = sourcing_service._parse_search_intent(row)
+                if orchestrator:
+                    from sourcing.discovery.orchestrator import DiscoveryOrchestrator
+
+                    discovery = DiscoveryOrchestrator(session, sourcing_service)
+                    async for eval_result, normalized_results, status, discovery_session_id, discovery_mode in discovery.stream(
+                        row=row,
+                        search_intent=orchestrator,
+                        internal_results=internal_results,
+                    ):
+                        persisted_discovery = await sourcing_service._persist_results(
+                            row_id,
+                            sourcing_service._filter_discovery_results_for_bid_persistence(row, normalized_results),
+                            row=row,
+                        )
+                        all_persisted_bid_ids.update({bid.id for bid in persisted_discovery if bid.id is not None})
+                        search_results = [
+                            SearchResult(
+                                title=item.title,
+                                price=item.price,
+                                currency=item.currency,
+                                merchant=item.merchant_name,
+                                url=item.url,
+                                canonical_url=item.canonical_url,
+                                merchant_domain=item.merchant_domain,
+                                image_url=item.image_url,
+                                source=item.source,
+                                metadata={
+                                    "discovery_session_id": discovery_session_id,
+                                    "discovery_mode": discovery_mode,
+                                },
+                            )
+                            for item in normalized_results
+                        ]
+                        all_results.extend(search_results)
+                        all_statuses.append(status)
+                        yield f"data: {json.dumps({'provider': status.provider_id, 'results': [r.model_dump() for r in search_results], 'status': status.model_dump(), 'providers_remaining': 0, 'more_incoming': True, 'phase': 'discovery_results', 'coverage_status': eval_result.status, 'discovery_session_id': discovery_session_id, 'total_results_so_far': len(all_results), 'user_message': 'I’m expanding the search beyond our current vendor database.'})}\n\n"
+
+            try:
+                existing_stmt = (
+                    select(Bid)
+                    .where(
+                        Bid.row_id == row_id,
+                        Bid.id.notin_(all_persisted_bid_ids) if all_persisted_bid_ids else True,
+                    )
+                    .options(selectinload(Bid.seller))
+                )
+                existing_res = await session.exec(existing_stmt)
+                existing_bids = [bid for bid in existing_res.all() if not bid.is_superseded]
+                bookmarked_vendors, bookmarked_items, _ = await _load_search_state_for_bids(
+                    session,
+                    user_id,
+                    existing_bids,
+                )
+                protected_existing_ids = {
+                    bid.id
+                    for bid in existing_bids
+                    if bid.id is not None and (
+                        bid.is_selected
+                        or (bid.vendor_id and bid.vendor_id in bookmarked_vendors)
+                        or (_normalize_bookmark_url(bid.canonical_url or bid.item_url) in bookmarked_items)
+                    )
+                }
+                await sourcing_service.supersede_stale_bids(
+                    row_id,
+                    all_persisted_bid_ids | protected_existing_ids,
+                )
+
+                from services.sdui_builder import build_zero_results_schema
+
+                row.status = "bids_arriving" if all_results else "sourcing"
+                if not all_results:
+                    row.ui_schema = build_zero_results_schema(row)
+                    row.ui_schema_version = (row.ui_schema_version or 0) + 1
+                row.updated_at = datetime.utcnow()
+                session.add(row)
+                await session.commit()
+                coverage_assessment = await _record_vendor_coverage_gap_if_needed(
+                    session=session,
+                    row=row,
+                    user_id=user_id,
+                    search_query=sanitized_query,
+                    results=all_results,
+                    provider_statuses=all_statuses,
+                )
+                if coverage_assessment:
+                    requester_message = _build_vendor_coverage_user_message(requester, is_guest)
+                else:
+                    requester_message = None
+            except Exception as e:
+                logger.error(f"[SEARCH STREAM] Failed vendor discovery stream finalization: {e}")
+                requester_message = None
+
+            final_event = {
+                "event": "complete",
+                "total_results": len(all_results),
+                "provider_statuses": [s.model_dump() for s in all_statuses],
+                "more_incoming": False,
+                "user_message": requester_message or (None if evaluation.status == "sufficient" else "I’m expanding the search beyond our current vendor database."),
+            }
+            yield f"data: {json.dumps(final_event)}\n\n"
+            return
 
         generator = sourcing_repo.search_streaming(
             sanitized_query,

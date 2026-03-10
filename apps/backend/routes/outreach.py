@@ -225,6 +225,7 @@ async def send_outreach(
             chat_history=row.chat_history,
             choice_answers=row.choice_answers,
             search_intent=row.search_intent,
+            structured_constraints=row.structured_constraints,
             sender_company=request.sender_company,
         )
         subject = subject or generated["subject"]
@@ -344,6 +345,7 @@ async def generate_email_preview(
         chat_history=row.chat_history,
         choice_answers=row.choice_answers,
         search_intent=row.search_intent,
+        structured_constraints=row.structured_constraints,
         sender_company=request.sender_company,
     )
 
@@ -431,5 +433,4 @@ async def create_quote_link(
         "expires_at": (datetime.utcnow() + timedelta(days=14)).isoformat(),
         "reused": False,
     }
-
 

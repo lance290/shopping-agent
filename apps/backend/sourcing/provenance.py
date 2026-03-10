@@ -18,6 +18,14 @@ def build_enriched_provenance(res, row: Optional[object]) -> dict:
     if res.source and not product_info.get("source_provider"):
         product_info["source_provider"] = res.source
     provenance["product_info"] = product_info
+    provenance.setdefault("merchant_name", res.merchant_name)
+    provenance.setdefault("merchant_domain", res.merchant_domain)
+    if res.raw_data:
+        if isinstance(res.raw_data, dict):
+            if res.raw_data.get("email"):
+                provenance.setdefault("contact_email", res.raw_data.get("email"))
+            if res.raw_data.get("phone"):
+                provenance.setdefault("contact_phone", res.raw_data.get("phone"))
 
     # Enrich matched_features from search intent
     matched_features = list(provenance.get("matched_features", []))
