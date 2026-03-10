@@ -24,6 +24,44 @@ logger = logging.getLogger(__name__)
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/embeddings"
 
+# PHASE 1.4: Category matching semantic mappings
+CATEGORY_MAPPINGS = {
+    "cleaning": ["cleaning", "house", "maid", "janitorial", "home service", "housekeeping"],
+    "roofing": ["roofing", "roof", "contractor", "construction", "roofer"],
+    "hvac": ["hvac", "heating", "cooling", "air conditioning", "furnace", "ac repair"],
+    "jewelry": ["jewelry", "jeweler", "diamond", "engagement", "ring", "gemstone"],
+    "real_estate": ["real estate", "realtor", "broker", "property", "homes", "housing"],
+    "private_aviation": ["private jet", "aviation", "charter", "aircraft", "flight"],
+    "catering": ["catering", "caterer", "food service", "event", "banquet"],
+    "photography": ["photography", "photographer", "photo", "videography"],
+    "interior_design": ["interior design", "designer", "decorator", "home staging"],
+    "yacht_charter": ["yacht", "boat", "charter", "marine", "vessel"],
+}
+
+
+def _vendor_matches_service_category(
+    vendor_category: str,
+    request_category: str,
+    vendor_name: str,
+    vendor_description: str
+) -> bool:
+    """Check if vendor category reasonably matches the service request."""
+    # Extract category hint from vendor
+    vc_lower = vendor_category.lower()
+    vn_lower = vendor_name.lower()
+    vd_lower = vendor_description.lower()
+    rc_lower = request_category.lower()
+
+    # Exact match
+    if rc_lower in vc_lower or rc_lower in vn_lower:
+        return True
+
+    # Semantic mapping
+    request_keywords = CATEGORY_MAPPINGS.get(rc_lower, [rc_lower])
+    vendor_text = f"{vc_lower} {vn_lower} {vd_lower}"
+
+    return any(kw in vendor_text for kw in request_keywords)
+
 
 def _get_openrouter_api_key() -> str:
     """Read at call time so dotenv has loaded."""
@@ -247,6 +285,18 @@ class VendorDirectoryProvider(SourcingProvider):
         location_terms = location_state["terms"] if isinstance(location_state["terms"], list) else []
         geo_resolution = location_state["geo_resolution"] if isinstance(location_state["geo_resolution"], dict) else None
         weight_profile = location_weight_profile(location_mode)
+
+        # PHASE 3.1: Log constraint propagation
+        constraints = {}
+        if intent_payload and isinstance(intent_payload, dict):
+            constraints = intent_payload.get("constraints") or intent_payload.get("features") or {}
+        logger.info(
+            f"[VendorProvider] Search with location_mode={location_mode}, "
+            f"geo_resolution={'resolved' if geo_resolution else 'unresolved'}, "
+            f"location_terms={location_terms}, "
+            f"constraints={list(constraints.keys())}, "
+            f"weights={weight_profile}"
+        )
 
         # Build AND-based tsquery for FTS precision.
         # Previously we used OR (|), but that caused "house cleaning in Denver" 
@@ -528,8 +578,28 @@ class VendorDirectoryProvider(SourcingProvider):
                     )
                     geo_distance_miles = distance
                     if distance <= geo_radius_miles:
-                        geo_score = max(0.2, 1.0 - (distance / geo_radius_miles) * 0.8) * precision_multiplier
+                        # PHASE 2.2: Tier-based scoring with precision multiplier
+                        if distance <= 10:
+                            # Within 10 miles - EXCELLENT
+                            base_score = 1.0
+                        elif distance <= 25:
+                            # 10-25 miles - GOOD
+                            base_score = 0.9 - ((distance - 10) / 15) * 0.2  # 0.9 → 0.7
+                        elif distance <= 50:
+                            # 25-50 miles - ACCEPTABLE
+                            base_score = 0.7 - ((distance - 25) / 25) * 0.3  # 0.7 → 0.4
+                        else:
+                            # 50-75 miles - MARGINAL
+                            base_score = 0.4 - ((distance - 50) / 25) * 0.2  # 0.4 → 0.2
+
+                        geo_score = base_score * precision_multiplier
                         location_match = True
+
+                        # Log distance for observability (Phase 3)
+                        logger.debug(
+                            f"[VendorProvider] {r['name']}: distance={distance:.1f}mi, "
+                            f"base_score={base_score:.2f}, geo_score={geo_score:.2f}"
+                        )
                 if geo_score == 0.0 and store_geo_location:
                     lowered_location = store_geo_location.lower()
                     term_hits = sum(1 for term in location_terms if term and term.lower() in lowered_location)
@@ -597,6 +667,49 @@ class VendorDirectoryProvider(SourcingProvider):
         if has_explicit_location_target and location_mode in {"service_area", "vendor_proximity"} and matched_location_results:
             results = matched_location_results
 
+        # PHASE 1.3: Hard filter by delivery_type constraint
+        if intent_payload and isinstance(intent_payload, dict):
+            constraints = intent_payload.get("constraints") or intent_payload.get("features") or {}
+            delivery_type = str(constraints.get("delivery_type", "")).strip().lower()
+
+            if delivery_type in {"in-store", "in_store", "pickup", "in store"}:
+                # Filter OUT vendors that don't have a physical location
+                before_count = len(results)
+                results = [
+                    r for r in results
+                    if r.metadata and (r.metadata.get("store_geo_location") or "").strip()
+                ]
+                dropped = before_count - len(results)
+                if dropped:
+                    logger.info(
+                        f"[VendorProvider] delivery_type={delivery_type}: "
+                        f"Dropped {dropped}/{before_count} vendors without physical location"
+                    )
+
+        # PHASE 1.4: Filter out mismatched service categories
+        # If request is a SERVICE (not product), ensure vendor category matches
+        if intent_payload and isinstance(intent_payload, dict):
+            service_category = str(intent_payload.get("product_category", "")).strip().lower()
+
+            if location_mode in {"service_area", "vendor_proximity"} and service_category:
+                # This is a local SERVICE request - filter out irrelevant vendors
+                before_count = len(results)
+                results = [
+                    r for r in results
+                    if _vendor_matches_service_category(
+                        vendor_category=r.shipping_info or "",
+                        request_category=service_category,
+                        vendor_name=r.title,
+                        vendor_description=r.description or ""
+                    )
+                ]
+                dropped = before_count - len(results)
+                if dropped:
+                    logger.info(
+                        f"[VendorProvider] Filtered {dropped}/{before_count} vendors with mismatched categories "
+                        f"(request={service_category}, location_mode={location_mode})"
+                    )
+
         # For true local searches, exact geo distance leads among local matches.
         # Service-area searches remain locality-gated but semantically ranked.
         if location_mode == "vendor_proximity":
@@ -606,8 +719,15 @@ class VendorDirectoryProvider(SourcingProvider):
         results = results[:final_limit]
 
         fts_included = sum(1 for r in rows if float(r.get("fts_rank", 0)) > 0)
+        matched_location_count = len(matched_location_results) if matched_location_results else 0
+
+        # PHASE 3.2: Final result summary logging
         logger.info(
-            f"[VendorProvider] Found {len(results)} vendors "
-            f"(candidates={len(rows)}, fts_matched={fts_included}, vec_threshold={threshold})"
+            f"[VendorProvider] Final results: {len(results)} vendors, "
+            f"candidates={len(rows)}, "
+            f"fts_matched={fts_included}, "
+            f"location_matched={matched_location_count}, "
+            f"mode={location_mode}, "
+            f"vec_threshold={threshold}"
         )
         return results

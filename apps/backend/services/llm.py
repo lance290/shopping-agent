@@ -93,7 +93,7 @@ You MUST always return an "intent" object that captures WHAT THE USER WANTS:
     "category": "request",
     "service_type": "optional vendor category hint: private_aviation, roofing, hvac, jewelry, catering, etc. Use when a vendor directory might have relevant providers. null if unsure.",
     "search_query": "The query to find this - derived from WHAT, not conversation snippets",
-    "constraints": {{ structured data ONLY: origin, destination, date, size, color, price, recipient, etc. NEVER include 'what', 'is_service', 'service_category', 'search_query', or 'title' in constraints — those belong in the parent intent fields. }},
+    "constraints": {{ structured data ONLY: origin, destination, date, size, color, price, recipient, delivery_type, passengers, etc. NEVER include 'what', 'is_service', 'service_category', 'search_query', or 'title' in constraints — those belong in the parent intent fields. }},
     "location_context": {{
       "relevance": "none|endpoint|service_area|vendor_proximity",
       "confidence": 0.0-1.0,
@@ -488,10 +488,34 @@ Write a natural, professional email where {safe_sender} reaches out DIRECTLY to 
 4. Signs off as {safe_sender}{(' — ' + sender_company) if sender_company else ''}.
 5. Keeps it under 200 words, warm but professional.
 
-== CRITICAL RULES ==
+== CRITICAL RULES FOR CONSTRAINT USAGE ==
+You MUST extract and use ALL relevant details from these structured fields:
+1. Search intent JSON → location_context (origin, destination, service_location, vendor_market, search_area)
+2. Buyer preferences JSON → delivery_type, passengers, trip_type, date, wheels_up_time, aircraft_class, etc.
+3. Structured constraints JSON → ALL fields the buyer specified
+4. Location resolution → resolved city/state/coordinates if present
+
+DO NOT write generic "I'm looking for X" or "I need to book a jet" without specifics. ALWAYS include:
+- LOCATION DETAILS: If origin/destination/service_location exists in search_intent JSON, mention them explicitly
+  - Example: "I need a private jet from San Diego (SAN) to Newark (EWR)" NOT "I need to book a jet"
+  - Example: "Looking for luxury real estate brokers serving the Nashville, TN market" NOT "Looking for brokers"
+- DATE/TIME: If date, departure_date, or wheels_up_time exists, mention it
+  - Example: "on February 13, 2026, wheels up at 9:00 AM" NOT "soon"
+- PASSENGER/GROUP SIZE: If passengers, headcount, or number_of_tickets exists, mention it
+  - Example: "for 7 passengers: John Doe, Jane Doe, Bob Smith, etc." NOT "for a group"
+- PRODUCT SPECIFICITY: If delivery_type, size, color, or other product constraints exist, mention them
+  - Example: "physical Roblox gift cards (not digital)" NOT "Roblox gift cards"
+  - Example: "in-store pickup preferred" NOT "delivery options"
+- BUDGET/PRICE: If budget, max_budget, or price range exists, mention it
+  - Example: "Budget range: $15,000-$25,000" NOT "competitive pricing"
+
+If a constraint exists in ANY of the JSON fields, you MUST weave it into natural prose in the email body.
+If location_context.targets has vendor_market or service_location, mention the location even if it's not in constraints.
+
+== CRITICAL RULES (EXISTING) ==
 - The sender is the BUYER, NOT a concierge or third party. Write in first person ("I'm looking for..." or "We're looking for...").
 - NEVER mention "BuyAnything", "concierge", "on behalf of", "my client", or any platform name.
-- NEVER dump raw field names like "Product Category:", "Keywords:", "Product Name:".
+- NEVER dump raw field names like "Product Category:", "Keywords:", "Product Name:", "origin:", "destination:".
 - NEVER mention forms, links, or buttons.
 - NEVER invent details not present in the context above.
 - If details are sparse, keep the email short and simple — don't pad it.
