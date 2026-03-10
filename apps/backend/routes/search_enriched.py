@@ -5,8 +5,7 @@ The BFF used to:
 1. Fetch the row from backend
 2. Call triageProviderQuery() to optimize the search query
 3. Call extractSearchIntent() to build structured intent
-4. Patch the row with provider_query
-5. Call POST /rows/{rowId}/search with enriched data
+4. Call POST /rows/{rowId}/search with enriched data
 
 Now this happens in-process, eliminating the HTTP round-trips.
 """
@@ -42,6 +41,7 @@ class EnrichedSearchRequest(BaseModel):
 async def enriched_search(
     body: EnrichedSearchRequest,
     authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -97,11 +97,6 @@ async def enriched_search(
         request_spec_constraints_json=constraints_json,
     )
 
-    # Patch row with provider_query
-    row.provider_query = safe_provider_query
-    session.add(row)
-    await session.commit()
-
     # Now delegate to the existing search logic via internal import
     from routes.rows_search import (
         RowSearchRequest,
@@ -119,6 +114,7 @@ async def enriched_search(
         row_id=row_id,
         body=search_body,
         authorization=authorization,
+        x_anonymous_session_id=x_anonymous_session_id,
         session=session,
     )
 
