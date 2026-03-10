@@ -45,7 +45,9 @@ function getEnabledProvidersFromStore(): string[] {
   }
 }
 
-export function preferredSearchQueryForRow(row: Pick<Row, 'title' | 'search_intent'>): string {
+export function preferredSearchQueryForRow(
+  row: Pick<Row, 'title'> & { search_intent?: unknown }
+): string {
   const fallback = String(row?.title || '').trim();
   const raw = row?.search_intent;
   try {

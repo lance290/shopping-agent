@@ -39,6 +39,7 @@ env:
   NODE_VERSION: '18'
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  FRONTEND_DIR: apps/frontend
 
 jobs:
   # Determine Deployment Strategy
@@ -143,10 +144,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
         
     - name: 📦 Install dependencies
-      run: npm ci
+      run: npm install
+      working-directory: ${{ env.FRONTEND_DIR }}
       
     - name: 🔍 Validate environment
       run: |
@@ -203,10 +204,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
         
     - name: 📦 Install dependencies
-      run: npm ci
+      run: npm install
+      working-directory: ${{ env.FRONTEND_DIR }}
       
     - name: 🚂 Setup Railway CLI
       run: npm install -g @railway/cli
@@ -334,10 +335,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
         
     - name: 📦 Install dependencies
-      run: npm ci
+      run: npm install
+      working-directory: ${{ env.FRONTEND_DIR }}
       
     - name: 🔐 Authenticate to GCP
       uses: google-github-actions/auth@v1
@@ -500,10 +501,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
         
     - name: 📦 Install dependencies
-      run: npm ci
+      run: npm install
+      working-directory: ${{ env.FRONTEND_DIR }}
       
     - name: 🏥 Run comprehensive health checks
       run: |
@@ -557,10 +558,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
         
     - name: 📦 Install dependencies
-      run: npm ci
+      run: npm install
+      working-directory: ${{ env.FRONTEND_DIR }}
       
     - name: ⚡ Install performance testing tools
       run: |
