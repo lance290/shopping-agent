@@ -13,7 +13,11 @@ from sourcing.coverage import CoverageEvaluation, evaluate_internal_vendor_cover
 from sourcing.discovery.adapters.base import DiscoveryBatch
 from sourcing.discovery.adapters.organic import OrganicDiscoveryAdapter
 from sourcing.discovery.classifier import select_discovery_mode
+from sourcing.discovery.classification import classify_candidates, enrich_candidates_for_classification
+from sourcing.discovery.debug import build_discovery_audit_record
 from sourcing.discovery.dedupe import dedupe_discovery_candidates
+from sourcing.discovery.gating import gate_discovery_candidates
+from sourcing.discovery.llm_rerank import rerank_gated_candidates
 from sourcing.discovery.normalization import normalize_discovery_candidates
 from sourcing.discovery.query_planner import build_discovery_queries
 from sourcing.models import NormalizedResult, ProviderStatusSnapshot, SearchIntent
@@ -64,8 +68,15 @@ class DiscoveryOrchestrator:
                 )
             )
             if batch.results:
-                deduped = dedupe_discovery_candidates(batch.results)
-                normalized_results.extend(normalize_discovery_candidates(deduped))
+                processed = await self._process_batch(
+                    row=row,
+                    discovery_session_id=session_id,
+                    discovery_mode=discovery_mode,
+                    query=batch.query,
+                    search_intent=search_intent,
+                    batch=batch,
+                )
+                normalized_results.extend(processed)
 
         user_message = None
         if evaluation.status in {"borderline", "insufficient"}:
@@ -99,7 +110,14 @@ class DiscoveryOrchestrator:
                 latency_ms=batch.latency_ms,
                 message=batch.error_message,
             )
-            normalized_results = normalize_discovery_candidates(dedupe_discovery_candidates(batch.results))
+            normalized_results = await self._process_batch(
+                row=row,
+                discovery_session_id=session_id,
+                discovery_mode=discovery_mode,
+                query=batch.query,
+                search_intent=search_intent,
+                batch=batch,
+            )
             if normalized_results:
                 await self._persist_candidates(row, session_id, discovery_mode, [batch.query], normalized_results)
             yield evaluation, normalized_results, status, session_id, discovery_mode
@@ -131,6 +149,51 @@ class DiscoveryOrchestrator:
                     timeout_seconds=4.0,
                     max_results=5,
                 )
+
+    async def _process_batch(
+        self,
+        *,
+        row: Row,
+        discovery_session_id: str,
+        discovery_mode: str,
+        query: str,
+        search_intent: SearchIntent,
+        batch: DiscoveryBatch,
+    ) -> List[NormalizedResult]:
+        if not batch.results:
+            return []
+        deduped = dedupe_discovery_candidates(batch.results)
+        await enrich_candidates_for_classification(deduped)
+        classified = classify_candidates(
+            deduped,
+            discovery_mode=discovery_mode,
+            intent=search_intent,
+            row=row,
+        )
+        gated = gate_discovery_candidates(
+            classified,
+            discovery_mode=discovery_mode,
+            intent=search_intent,
+            row=row,
+        )
+        reranked, decisions = await rerank_gated_candidates(gated, intent=search_intent, row=row)
+        for item in reranked:
+            candidate_id = item.candidate.canonical_domain or item.candidate.url
+            decision = decisions.get(candidate_id)
+            if decision:
+                item.candidate.trust_signals["llm_rerank_summary"] = decision.fit_summary
+            logger.info(
+                "[VendorDiscovery] %s",
+                build_discovery_audit_record(
+                    discovery_session_id=discovery_session_id,
+                    discovery_mode=discovery_mode,
+                    query=query,
+                    candidate=item,
+                    llm_summary=decision.fit_summary if decision else None,
+                ),
+            )
+        admitted = [item for item in reranked if item.admissible]
+        return normalize_discovery_candidates(admitted)
 
     async def _persist_candidates(
         self,

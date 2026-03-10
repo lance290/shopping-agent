@@ -118,8 +118,12 @@ def test_filter_discovery_results_for_bid_persistence_allows_low_risk_official_s
             merchant_name="Nashville Catering Co",
             merchant_domain="nashvillecatering.example",
             image_url=None,
-            raw_data={"email": "hello@nashvillecatering.example", "official_site": True},
-            provenance={"official_site": True},
+            raw_data={
+                "email": "hello@nashvillecatering.example",
+                "official_site": True,
+                "admissibility_status": "admitted",
+            },
+            provenance={"official_site": True, "score": {"combined": 0.72}},
         )
     ]
     allowed = SourcingService._filter_discovery_results_for_bid_persistence(row, results)
