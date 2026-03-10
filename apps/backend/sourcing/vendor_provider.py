@@ -177,6 +177,22 @@ def _extract_location_search_state(intent_payload: Optional[dict]) -> Dict[str, 
     }
 
 
+def _vendor_result_sort_key(result: SearchResult) -> tuple[float, float, float]:
+    metadata = result.metadata if isinstance(result.metadata, dict) else {}
+    location_mode = str(metadata.get("location_mode") or "none")
+    location_match = bool(metadata.get("location_match"))
+    distance = metadata.get("geo_distance_miles")
+    numeric_distance = float(distance) if isinstance(distance, (int, float)) else None
+    match_score = float(result.match_score or 0.0)
+
+    if location_mode == "vendor_proximity":
+        if location_match and numeric_distance is not None:
+            return (0.0, numeric_distance, -match_score)
+        if location_match:
+            return (1.0, 0.0, -match_score)
+    return (2.0, 0.0, -match_score)
+
+
 class VendorDirectoryProvider(SourcingProvider):
     """Searches our vendor DB using pgvector cosine similarity."""
 
@@ -253,6 +269,7 @@ class VendorDirectoryProvider(SourcingProvider):
         geo_term_2 = location_terms[1] if len(location_terms) > 1 else ""
         geo_term_3 = location_terms[2] if len(location_terms) > 2 else ""
         location_mode_for_query = location_mode if location_mode in {"service_area", "vendor_proximity"} else "none"
+        has_explicit_location_target = bool(location_terms or geo_resolution)
 
         # 2. Hybrid query: UNION of vector-nearest + FTS-matched candidates.
         #    We fetch candidates from BOTH paths and merge/dedup in Python
@@ -304,7 +321,7 @@ class VendorDirectoryProvider(SourcingProvider):
                                    END AS fts_rank
                             FROM vendor
                             WHERE :location_mode = 'vendor_proximity'
-                              AND (
+                             AND (
                                 (
                                   :geo_lat IS NOT NULL AND :geo_lon IS NOT NULL
                                   AND latitude IS NOT NULL AND longitude IS NOT NULL
@@ -328,6 +345,23 @@ class VendorDirectoryProvider(SourcingProvider):
                                 )
                               )
                               AND (:service_category = '' OR lower(category) LIKE ('%%' || lower(:service_category) || '%%'))
+                            ORDER BY
+                              CASE
+                                WHEN :geo_lat IS NOT NULL AND :geo_lon IS NOT NULL
+                                     AND latitude IS NOT NULL AND longitude IS NOT NULL
+                                THEN (
+                                  3959 * acos(
+                                    least(1.0, greatest(-1.0,
+                                      cos(radians(:geo_lat)) * cos(radians(latitude))
+                                      * cos(radians(longitude) - radians(:geo_lon))
+                                      + sin(radians(:geo_lat)) * sin(radians(latitude))
+                                    ))
+                                  )
+                                )
+                                ELSE 1000000
+                              END ASC,
+                              fts_rank DESC,
+                              distance ASC
                             LIMIT :geo_lim
                         ),
                         service_area_candidates AS (
@@ -349,6 +383,7 @@ class VendorDirectoryProvider(SourcingProvider):
                                 OR (:geo_term_3 <> '' AND lower(store_geo_location) LIKE ('%%' || lower(:geo_term_3) || '%%'))
                               )
                               AND (:service_category = '' OR lower(category) LIKE ('%%' || lower(:service_category) || '%%'))
+                            ORDER BY fts_rank DESC, distance ASC
                             LIMIT :geo_lim
                         ),
                         -- Merge and dedup (FTS row wins on tie)
@@ -427,6 +462,7 @@ class VendorDirectoryProvider(SourcingProvider):
         threshold = _get_distance_threshold()
         FTS_NORM_DIVISOR = 5.0  # ts_rank_cd scores typically range 0-5 for our corpus
         results: List[SearchResult] = []
+        matched_location_results: List[SearchResult] = []
         for r in rows:
             fts_rank_raw = float(r.get("fts_rank", 0))
             has_fts_match = fts_rank_raw > 0
@@ -467,12 +503,14 @@ class VendorDirectoryProvider(SourcingProvider):
             geo_distance_miles = None
             text_location_match = 0.0
             store_geo_location = str(r.get("store_geo_location") or "")
+            location_match = False
 
             if location_mode == "service_area":
                 lowered_location = store_geo_location.lower()
                 term_hits = sum(1 for term in location_terms if term and term.lower() in lowered_location)
                 if location_terms:
                     text_location_match = min(1.0, term_hits / len(location_terms))
+                location_match = term_hits > 0
                 geo_score = max(text_location_match * 0.85, neutral_geo_score(location_mode, vec_score, fts_norm, 0.0))
                 if term_hits > 0:
                     constraint_score = 0.8
@@ -491,6 +529,7 @@ class VendorDirectoryProvider(SourcingProvider):
                     geo_distance_miles = distance
                     if distance <= geo_radius_miles:
                         geo_score = max(0.2, 1.0 - (distance / geo_radius_miles) * 0.8) * precision_multiplier
+                        location_match = True
                 if geo_score == 0.0 and store_geo_location:
                     lowered_location = store_geo_location.lower()
                     term_hits = sum(1 for term in location_terms if term and term.lower() in lowered_location)
@@ -498,6 +537,7 @@ class VendorDirectoryProvider(SourcingProvider):
                         text_location_match = min(1.0, term_hits / len(location_terms))
                     if text_location_match > 0:
                         geo_score = max(text_location_match * 0.8, neutral_geo_score(location_mode, vec_score, fts_norm, 0.0))
+                        location_match = True
                 if geo_score == 0.0:
                     geo_score = neutral_geo_score(location_mode, vec_score, fts_norm, 0.0)
                 constraint_score = text_location_match if text_location_match > 0 else 0.0
@@ -524,7 +564,7 @@ class VendorDirectoryProvider(SourcingProvider):
                 except Exception:
                     pass
 
-            results.append(SearchResult(
+            result_item = SearchResult(
                 title=r["name"],
                 price=None,
                 currency="USD",
@@ -545,13 +585,24 @@ class VendorDirectoryProvider(SourcingProvider):
                     "geo_score": round(geo_score, 4),
                     "constraint_score": round(constraint_score, 4),
                     "location_mode": location_mode,
+                    "location_match": location_match,
                     "geo_distance_miles": round(geo_distance_miles, 3) if geo_distance_miles is not None else None,
                     "text_location_match": round(text_location_match, 4),
                 },
-            ))
+            )
+            results.append(result_item)
+            if location_match:
+                matched_location_results.append(result_item)
 
-        # Sort by blended score descending (best matches first)
-        results.sort(key=lambda x: x.match_score or 0, reverse=True)
+        if has_explicit_location_target and location_mode in {"service_area", "vendor_proximity"} and matched_location_results:
+            results = matched_location_results
+
+        # For true local searches, exact geo distance leads among local matches.
+        # Service-area searches remain locality-gated but semantically ranked.
+        if location_mode == "vendor_proximity":
+            results.sort(key=_vendor_result_sort_key)
+        else:
+            results.sort(key=lambda x: x.match_score or 0, reverse=True)
         results = results[:final_limit]
 
         fts_included = sum(1 for r in rows if float(r.get("fts_rank", 0)) > 0)

@@ -74,6 +74,37 @@ async def test_anonymous_search_returns_200(
 
 
 @pytest.mark.asyncio
+async def test_anonymous_enriched_search_returns_200(
+    client: AsyncClient, session: AsyncSession, guest_user: User, guest_row: Row
+):
+    """Regression: POST /api/search must forward anonymous session scoping to row search."""
+    from sourcing import SearchResultWithStatus
+
+    with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+        mock_search = AsyncMock(
+            return_value=SearchResultWithStatus(
+                results=[], provider_statuses=[], all_providers_failed=False
+            )
+        )
+        mock_repo.return_value.search_all_with_status = mock_search
+
+        with patch("routes.rate_limit.check_rate_limit", return_value=True):
+            with patch("routes.search_enriched.triage_provider_query", AsyncMock(return_value="Roblox gift cards")):
+                fake_intent = MagicMock()
+                fake_intent.to_dict.return_value = {"type": "product_search", "primary_item": "Roblox gift cards"}
+                with patch("routes.search_enriched.extract_search_intent", AsyncMock(return_value=fake_intent)):
+                    response = await client.post(
+                        "/api/search",
+                        json={"rowId": guest_row.id, "query": "Roblox gift cards"},
+                        headers={"x-anonymous-session-id": guest_row.anonymous_session_id},
+                    )
+
+    assert response.status_code == 200, (
+        f"Anonymous enriched search should succeed, got {response.status_code}: {response.text}"
+    )
+
+
+@pytest.mark.asyncio
 async def test_anonymous_search_stream_returns_200(
     client: AsyncClient, session: AsyncSession, guest_user: User, guest_row: Row
 ):
