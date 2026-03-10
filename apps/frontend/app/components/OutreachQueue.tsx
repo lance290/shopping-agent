@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Mail, Check, Send, ChevronDown, ChevronUp, Sparkles, Loader2,
+  Mail, Send, Sparkles, Loader2,
   User, AlertCircle, Eye, CheckCircle2, X,
 } from 'lucide-react';
 import { Offer } from '../store';
@@ -11,38 +11,18 @@ import { createOutreachCampaign, approveAndSendCampaign } from '../utils/api-out
 import type { CampaignDetails, CampaignMessage } from '../utils/api-outreach';
 
 interface VendorMatchPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSent?: (bidIds: number[]) => void;
   rowId: number;
   desireTier: string;
   offers: Offer[];
+  selectedBidIds: number[];
 }
 
 type FlowState = 'idle' | 'capture' | 'drafting' | 'review' | 'sending' | 'sent' | 'error';
 
-function matchReasonFromOffer(offer: Offer): string[] {
-  const reasons: string[] = [];
-  if (offer.vendor_name || offer.vendor_company) {
-    reasons.push(`Specialist: ${offer.vendor_company || offer.vendor_name}`);
-  }
-  if (offer.match_score && offer.match_score > 0.7) {
-    reasons.push('Strong match to your request');
-  } else if (offer.match_score && offer.match_score > 0.4) {
-    reasons.push('Potential match');
-  }
-  if (offer.is_service_provider) {
-    reasons.push('Service provider in your area');
-  }
-  if (reasons.length === 0) {
-    reasons.push('Found via vendor directory');
-  }
-  return reasons;
-}
-
-export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatchPanelProps) {
-  const [selectedVendors, setSelectedVendors] = useState<Set<number>>(new Set());
-  const [expandedVendor, setExpandedVendor] = useState<number | null>(null);
-  const [sentBids, setSentBids] = useState<Set<number>>(new Set());
-
-  // Sender capture
+export default function OutreachQueue({ isOpen, onClose, onSent, rowId, desireTier, offers, selectedBidIds }: VendorMatchPanelProps) {
   const [flowState, setFlowState] = useState<FlowState>('idle');
   const [senderName, setSenderName] = useState('');
   const [senderEmail, setSenderEmail] = useState('');
@@ -61,28 +41,24 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
     }).catch(() => {});
   }, []);
 
-  const vendorOffers = offers.filter(o => o.source === 'vendor_directory');
-  if (vendorOffers.length === 0) return null;
-
-  const toggleSelect = (bidId: number) => {
-    setSelectedVendors(prev => {
-      const next = new Set(prev);
-      if (next.has(bidId)) next.delete(bidId);
-      else next.add(bidId);
-      return next;
-    });
-  };
-
-  const startSendFlow = (bidIds: number[]) => {
-    setPendingBidIds(bidIds);
-    setErrorMsg('');
-    // Skip capture if we already have sender info
-    if (senderName.trim() && senderEmail.trim()) {
-      draftCampaign(bidIds, senderName, senderEmail);
-    } else {
-      setFlowState('capture');
+  useEffect(() => {
+    if (!isOpen) {
+      setFlowState('idle');
+      setCampaign(null);
+      setPreviewIdx(0);
+      setErrorMsg('');
+      return;
     }
-  };
+    setPendingBidIds(selectedBidIds);
+    setCampaign(null);
+    setPreviewIdx(0);
+    setErrorMsg('');
+    setFlowState('capture');
+  }, [isOpen, selectedBidIds]);
+
+  const vendorOffers = offers.filter(o => o.source === 'vendor_directory');
+  const selectedOffers = vendorOffers.filter((offer) => typeof offer.bid_id === 'number' && selectedBidIds.includes(offer.bid_id));
+  if (!isOpen || vendorOffers.length === 0) return null;
 
   const draftCampaign = async (bidIds: number[], name: string, email: string) => {
     if (!name.trim()) { setErrorMsg('Please enter your name.'); return; }
@@ -110,14 +86,12 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
     setFlowState('sending');
     const result = await approveAndSendCampaign(campaign.campaign.id);
     if (result) {
-      setSentBids(prev => {
-        const next = new Set(prev);
-        pendingBidIds.forEach(id => next.add(id));
-        return next;
-      });
-      setSelectedVendors(new Set());
+      onSent?.(pendingBidIds);
       setFlowState('sent');
-      setTimeout(() => setFlowState('idle'), 3000);
+      setTimeout(() => {
+        setFlowState('idle');
+        onClose();
+      }, 2000);
     } else {
       setErrorMsg('Failed to send emails. Please try again.');
       setFlowState('error');
@@ -125,9 +99,9 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
   };
 
   const closeModal = () => {
-    setFlowState('idle');
-    setCampaign(null);
     setErrorMsg('');
+    setFlowState('idle');
+    onClose();
   };
 
   const tierLabel = desireTier === 'service' ? 'Service Providers'
@@ -138,121 +112,7 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
   const currentMsg: CampaignMessage | undefined = campaign?.messages[previewIdx];
 
   return (
-    <div className="mt-3">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="text-xs font-semibold text-ink-muted uppercase tracking-wide flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5" />
-          {tierLabel} ({vendorOffers.length})
-        </h4>
-        {selectedVendors.size > 0 && (
-          <button
-            onClick={() => startSendFlow(Array.from(selectedVendors))}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-navy rounded-lg text-xs font-medium hover:bg-gold-dark transition-colors"
-          >
-            <Send className="w-3 h-3" />
-            Send to {selectedVendors.size} Vendor{selectedVendors.size !== 1 ? 's' : ''}
-          </button>
-        )}
-      </div>
-
-      {/* Vendor Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {vendorOffers.map(offer => {
-          const bidId = offer.bid_id || 0;
-          const isSelected = selectedVendors.has(bidId);
-          const isSent = sentBids.has(bidId);
-          const isExpanded = expandedVendor === bidId;
-          const reasons = matchReasonFromOffer(offer);
-
-          return (
-            <div
-              key={bidId}
-              className={`relative border rounded-xl p-4 transition-all cursor-pointer ${
-                isSent
-                  ? 'border-green-300 bg-green-50/50'
-                  : isSelected
-                  ? 'border-gold bg-gold/5 ring-1 ring-gold'
-                  : 'border-warm-grey bg-white hover:border-onyx-muted hover:shadow-sm'
-              }`}
-              onClick={() => !isSent && toggleSelect(bidId)}
-            >
-              {/* Selection indicator */}
-              <div className="absolute top-3 right-3">
-                {isSent ? (
-                  <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Sent
-                  </span>
-                ) : isSelected ? (
-                  <div className="w-5 h-5 rounded-full bg-gold flex items-center justify-center">
-                    <Check className="w-3 h-3 text-white" />
-                  </div>
-                ) : (
-                  <div className="w-5 h-5 rounded-full border-2 border-warm-grey" />
-                )}
-              </div>
-
-              {/* Vendor info */}
-              <div className="pr-8">
-                <h5 className="text-sm font-semibold text-ink leading-tight">
-                  {offer.vendor_company || offer.vendor_name || offer.merchant}
-                </h5>
-                {offer.title && offer.title !== offer.merchant && (
-                  <p className="text-xs text-ink-muted mt-0.5 line-clamp-1">{offer.title}</p>
-                )}
-              </div>
-
-              {/* Match reasons */}
-              <div className="mt-2.5 flex flex-wrap gap-1.5">
-                {reasons.map((reason, i) => (
-                  <span key={i} className="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                    {reason}
-                  </span>
-                ))}
-              </div>
-
-              {/* Single vendor send */}
-              {!isSent && (
-                <div className="mt-4 flex items-center justify-center">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); startSendFlow([bidId]); }}
-                    className="flex items-center gap-1.5 px-4 py-2.5 bg-gold text-navy rounded-lg text-sm font-medium hover:bg-gold-dark transition-colors shadow-sm"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    Select
-                  </button>
-                </div>
-              )}
-
-              {/* Contact info + expand */}
-              <div className="mt-auto pt-3 flex items-center justify-between border-t border-warm-grey">
-                <div className="flex items-center gap-1.5 text-xs text-onyx-muted">
-                  <Mail className="w-3.5 h-3.5" />
-                  {offer.vendor_email || 'Contact available'}
-                </div>
-                {!isSent && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setExpandedVendor(isExpanded ? null : bidId); }}
-                    className="text-onyx-muted hover:text-ink"
-                  >
-                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </button>
-                )}
-              </div>
-
-              {isExpanded && !isSent && (
-                <div className="mt-3 pt-3 border-t border-warm-grey">
-                  <p className="text-xs text-ink-muted">
-                    Click Select to send your deal card to {offer.vendor_company || offer.vendor_name || offer.merchant}.
-                  </p>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ====== Modal Overlay: Capture / Drafting / Review / Sending ====== */}
+    <>
       {flowState !== 'idle' && flowState !== 'sent' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeModal} />
@@ -286,6 +146,19 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
                   <p className="text-sm text-ink-muted">
                     Vendors will reply directly to your email. This personalizes every outreach.
                   </p>
+                  <div className="rounded-lg border border-warm-grey bg-canvas-dark px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      {selectedOffers.length} {tierLabel.toLowerCase()} selected
+                    </p>
+                    <div className="mt-2 space-y-1 max-h-28 overflow-y-auto">
+                      {selectedOffers.map((offer) => (
+                        <div key={offer.bid_id} className="text-sm text-ink">
+                          {offer.vendor_company || offer.vendor_name || offer.merchant}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-ink-muted mb-1 block">Your name</label>
@@ -421,7 +294,7 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gold text-navy rounded-lg text-sm font-medium hover:bg-gold-dark transition-colors"
                   >
                     <Sparkles size={16} />
-                    Draft Emails
+                    Draft RFPs ({pendingBidIds.length})
                   </button>
                 )}
                 {flowState === 'review' && (
@@ -454,6 +327,6 @@ export default function OutreachQueue({ rowId, desireTier, offers }: VendorMatch
           <span className="text-sm font-medium">Emails sent successfully!</span>
         </div>
       )}
-    </div>
+    </>
   );
 }

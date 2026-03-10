@@ -66,7 +66,7 @@ export default function SharePage() {
             className="inline-flex items-center gap-2 bg-gold text-navy px-6 py-2 rounded-lg font-semibold hover:bg-gold-dark transition-colors"
           >
             <ShoppingBag size={16} />
-            Start Shopping
+            Start a Project
           </Link>
         </div>
       </div>
@@ -183,16 +183,16 @@ export default function SharePage() {
 
         {/* CTA */}
         <div className="bg-white rounded-lg shadow-lg p-6 text-center">
-          <h3 className="font-semibold text-ink mb-2">Want to find deals like this?</h3>
+          <h3 className="font-semibold text-ink mb-2">Want an AI Chief of Staff?</h3>
           <p className="text-sm text-ink-muted mb-4">
-            BuyAnything helps you find the best deals across the internet.
+            BuyAnything sources, negotiates, and manages high-value purchases for executives and family offices.
           </p>
           <Link
             href="/"
             className="inline-flex items-center gap-2 bg-gold text-navy px-6 py-3 rounded-lg font-semibold hover:bg-gold-dark transition-colors"
           >
             <ShoppingBag size={16} />
-            Start Shopping
+            Start a Project
           </Link>
         </div>
       </div>

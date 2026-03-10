@@ -19,6 +19,9 @@ async def run_startup_migrations(engine) -> None:
         await conn.execute(text("ALTER TABLE row ADD COLUMN IF NOT EXISTS origin_message_id VARCHAR;"))
         await conn.execute(text("ALTER TABLE row ADD COLUMN IF NOT EXISTS origin_user_id INTEGER;"))
 
+        await conn.execute(text("ALTER TABLE vendor ALTER COLUMN default_commission_rate SET DEFAULT 0.0;"))
+        await conn.execute(text("UPDATE vendor SET default_commission_rate = 0.0 WHERE default_commission_rate IS DISTINCT FROM 0.0;"))
+
         # User columns
         await conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS name TEXT;'))
         await conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS company TEXT;'))
@@ -108,7 +111,7 @@ async def run_startup_migrations(engine) -> None:
                 status VARCHAR NOT NULL DEFAULT 'negotiating',
                 proxy_email_alias VARCHAR UNIQUE NOT NULL,
                 vendor_quoted_price FLOAT,
-                platform_fee_pct FLOAT NOT NULL DEFAULT 0.01,
+                platform_fee_pct FLOAT NOT NULL DEFAULT 0.0,
                 platform_fee_amount FLOAT,
                 buyer_total FLOAT,
                 currency VARCHAR NOT NULL DEFAULT 'USD',
@@ -128,6 +131,7 @@ async def run_startup_migrations(engine) -> None:
         await conn.execute(text("CREATE INDEX IF NOT EXISTS deal_row_id_idx ON deal (row_id);"))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS deal_status_idx ON deal (status);"))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS deal_proxy_alias_idx ON deal (proxy_email_alias);"))
+        await conn.execute(text("ALTER TABLE deal ALTER COLUMN platform_fee_pct SET DEFAULT 0.0;"))
 
         await conn.execute(text("""
             CREATE TABLE IF NOT EXISTS deal_message (
@@ -146,6 +150,87 @@ async def run_startup_migrations(engine) -> None:
             );
         """))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS deal_message_deal_id_idx ON deal_message (deal_id);"))
+
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS vendor_bookmark (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES "user"(id),
+                vendor_id INTEGER NOT NULL REFERENCES vendor(id),
+                source_row_id INTEGER REFERENCES row(id),
+                created_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+        """))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_bookmark_user_id_idx ON vendor_bookmark (user_id);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_bookmark_vendor_id_idx ON vendor_bookmark (vendor_id);"))
+
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS item_bookmark (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES "user"(id),
+                canonical_url VARCHAR NOT NULL,
+                source_row_id INTEGER REFERENCES row(id),
+                created_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+        """))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS item_bookmark_user_id_idx ON item_bookmark (user_id);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS item_bookmark_canonical_url_idx ON item_bookmark (canonical_url);"))
+
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS vendor_coverage_gap (
+                id SERIAL PRIMARY KEY,
+                row_id INTEGER REFERENCES row(id),
+                user_id INTEGER REFERENCES "user"(id),
+                row_title VARCHAR NOT NULL,
+                canonical_need VARCHAR NOT NULL,
+                search_query VARCHAR,
+                vendor_query VARCHAR,
+                geo_hint VARCHAR,
+                desire_tier VARCHAR,
+                service_type VARCHAR,
+                summary TEXT NOT NULL,
+                rationale TEXT,
+                suggested_queries JSONB,
+                assessment JSONB,
+                supporting_context JSONB,
+                confidence FLOAT NOT NULL DEFAULT 0.0,
+                times_seen INTEGER NOT NULL DEFAULT 1,
+                status VARCHAR NOT NULL DEFAULT 'new',
+                emailed_count INTEGER NOT NULL DEFAULT 0,
+                email_sent_at TIMESTAMP,
+                first_seen_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                last_seen_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+        """))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_coverage_gap_status_idx ON vendor_coverage_gap (status);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_coverage_gap_need_idx ON vendor_coverage_gap (canonical_need);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_coverage_gap_last_seen_idx ON vendor_coverage_gap (last_seen_at);"))
+
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS location_geocode_cache (
+                id SERIAL PRIMARY KEY,
+                cache_key VARCHAR NOT NULL UNIQUE,
+                query_text VARCHAR NOT NULL,
+                normalized_query VARCHAR NOT NULL,
+                country_hint VARCHAR,
+                normalized_label VARCHAR,
+                lat FLOAT,
+                lon FLOAT,
+                precision VARCHAR,
+                status VARCHAR NOT NULL DEFAULT 'unresolved',
+                provider VARCHAR,
+                hit_count INTEGER NOT NULL DEFAULT 0,
+                expires_at TIMESTAMP NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+        """))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS location_geocode_cache_key_idx ON location_geocode_cache (cache_key);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS location_geocode_cache_status_idx ON location_geocode_cache (status);"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS location_geocode_cache_expires_idx ON location_geocode_cache (expires_at);"))
+
+        # Vendor geo columns
+        await conn.execute(text("ALTER TABLE vendor ADD COLUMN IF NOT EXISTS latitude FLOAT;"))
+        await conn.execute(text("ALTER TABLE vendor ADD COLUMN IF NOT EXISTS longitude FLOAT;"))
 
         # Seed test vendor (idempotent)
         await conn.execute(text("""

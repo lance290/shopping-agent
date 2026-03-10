@@ -391,6 +391,9 @@ export default function Chat() {
               const providerStatuses = Array.isArray(payload.provider_statuses) ? payload.provider_statuses : undefined;
               const moreIncoming = typeof payload.more_incoming === 'boolean' ? payload.more_incoming : false;
               const userMessage = typeof payload.user_message === 'string' ? payload.user_message : undefined;
+              if (userMessage && !assistantContent.trim()) {
+                assistantContent = userMessage;
+              }
               
               if (rowId) {
                 // Always append during SSE streaming — never replace.
@@ -617,11 +620,11 @@ export default function Chat() {
         <button
           onClick={handleTipJar}
           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors disabled:opacity-60 whitespace-nowrap"
-          title="Support our team"
+          title="Send a Thank-You"
           disabled={isTipJarLoading}
         >
           <span>☕️</span>
-          {isTipJarLoading ? 'Opening…' : 'Tip Jar'}
+          {isTipJarLoading ? 'Opening…' : 'Send a Thank-You'}
         </button>
         <button
           onClick={handleCreateProject}

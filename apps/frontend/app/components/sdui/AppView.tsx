@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useShoppingStore } from '../../store';
 import type { Row } from '../../store';
-import { createProjectInDb, duplicateProjectInDb, fetchSingleRowFromDb, fundDealEscrowInDb } from '../../utils/api';
+import { createProjectInDb, duplicateProjectInDb, fetchSingleRowFromDb } from '../../utils/api';
 import { Bug, FolderPlus, Copy, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { VerticalListRow } from './VerticalListRow';
 import { getMe } from '../../utils/auth';
@@ -51,28 +51,28 @@ const GUIDE_LINKS = [
 
 const HERO_SLIDES = [
   {
-    eyebrow: 'Agent-led commerce',
-    title: 'Tell the chat what to buy. It does the legwork.',
-    description: 'Start with a sentence. BuyAnything searches retail offers, specialist vendors, and relevant guides in one place.',
-    cta: 'Find the best carry-on under $300',
-    image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1200&q=80',
-    highlight: 'Products, vendors, and editorial context together',
+    eyebrow: 'AI Chief of Staff',
+    title: 'Delegate your hardest procurement projects.',
+    description:
+      'We source, negotiate, and organize high-end vendors for events, real estate, and corporate needs. Just drop in your requirements.',
+    cta: 'I need to plan a corporate retreat',
+    image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2938&auto=format&fit=crop',
   },
   {
-    eyebrow: 'High-consideration sourcing',
-    title: 'Use chat for the purchases that normally become a project.',
-    description: 'From private aviation to relocation and bespoke services, describe what you need and let the agent find your options.',
-    cta: 'Need a private jet charter from San Diego to Las Vegas next Friday',
-    image: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1200&q=80',
-    highlight: 'Built for complex requests, not just keyword search',
+    eyebrow: 'Apples-to-Apples Comparison',
+    title: 'Compare vendors in one clean dashboard.',
+    description:
+      'Stop digging through your inbox. We extract the line items, specs, and safety records so you can review three perfect bids in 60 seconds.',
+    cta: 'Find private jet charter quotes',
+    image: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?q=80&w=2940&auto=format&fit=crop',
   },
   {
-    eyebrow: 'Browse into action',
-    title: 'See something you like? Click straight into a search.',
-    description: 'Browse trending categories, editorial guides, or starter projects — then jump into chat to get real options.',
-    cta: 'Find a relocation concierge for a cross-country move',
-    image: 'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80',
-    highlight: 'From browsing to buying in one click',
+    eyebrow: 'Zero Platform Fees',
+    title: 'Pay the vendor, not the middleman.',
+    description:
+      'We are an introduction and sourcing layer. Review quotes with your Principal, approve the best one, and handle payment directly.',
+    cta: 'Find architects for a kitchen remodel',
+    image: 'https://images.unsplash.com/photo-1600607686527-6fb886090705?q=80&w=2938&auto=format&fit=crop',
   },
 ];
 
@@ -168,9 +168,9 @@ export function AppView({ children }: AppViewProps) {
         }
       });
       if (checkoutState === 'success') {
-        setDealBanner({ tone: 'success', message: 'Escrow funding completed. The row has been refreshed.' });
+        setDealBanner({ tone: 'success', message: 'The row has been refreshed.' });
       } else {
-        setDealBanner({ tone: 'warning', message: 'Checkout was canceled. The deal is still ready to fund.' });
+        setDealBanner({ tone: 'warning', message: 'The row was refreshed without any payment action.' });
       }
       window.history.replaceState({}, '', '/app');
       return;
@@ -186,20 +186,17 @@ export function AppView({ children }: AppViewProps) {
     if (isAuthenticated !== true) {
       if (isAuthenticated === false) {
         handledDealLinkRef.current = dealLinkKey;
-        setDealBanner({ tone: 'error', message: 'Sign in to fund this deal.' });
+        setDealBanner({ tone: 'error', message: 'Sign in to view this deal.' });
       }
       return;
     }
 
     handledDealLinkRef.current = dealLinkKey;
-    void fundDealEscrowInDb(dealId).then((result) => {
-      if (result?.checkout_url) {
-        window.location.assign(result.checkout_url);
-        return;
-      }
-      setDealBanner({ tone: 'error', message: 'Unable to launch checkout for this deal.' });
-      window.history.replaceState({}, '', '/app');
+    setDealBanner({
+      tone: 'warning',
+      message: 'BuyAnything no longer launches deal checkout. Handle payment directly with the vendor.',
     });
+    window.history.replaceState({}, '', '/app');
   }, [isAuthenticated, setActiveRowId, updateRow]);
 
   useEffect(() => {
@@ -465,9 +462,9 @@ export function AppView({ children }: AppViewProps) {
                 <p className="mt-1 text-sm text-white/55">A project groups multiple searches together — like a trip, event, or shopping mission.</p>
                 <div className="mt-4 grid gap-3">
                   {[
-                    { name: "Zac's Birthday", prompt: 'I need gifts, party supplies, and a venue for a birthday party', desc: 'Keep gifts, party supplies, and venue ideas in one place.', border: 'border-amber-400/20 hover:border-amber-400/40', bg: 'bg-amber-500/10 hover:bg-amber-500/20', title: 'text-amber-200' },
-                    { name: 'Vegas Trip', prompt: 'I need hotels, flights, outfits, and reservation ideas for a Vegas trip', desc: 'Track hotels, flights, outfits, and reservation ideas together.', border: 'border-violet-400/20 hover:border-violet-400/40', bg: 'bg-violet-500/10 hover:bg-violet-500/20', title: 'text-violet-200' },
-                    { name: 'Kitchen Remodel', prompt: 'I need to compare appliances, fixtures, and contractors for a kitchen remodel', desc: 'Compare appliances, fixtures, contractors, and inspiration links.', border: 'border-sky-400/20 hover:border-sky-400/40', bg: 'bg-sky-500/10 hover:bg-sky-500/20', title: 'text-sky-200' },
+                    { name: 'Executive Home Office', prompt: 'I need to compare high-end AV equipment, custom sit-stand desks, and ergonomic chairs', desc: 'Source premium office setups and secure IT networking.', border: 'border-amber-400/20 hover:border-amber-400/40', bg: 'bg-amber-500/10 hover:bg-amber-500/20', title: 'text-amber-200' },
+                    { name: 'Corporate Retreat', prompt: 'I need to compare private aviation options and estate rentals for a 15-person corporate retreat', desc: 'Track private flights, luxury lodging, and catering bids.', border: 'border-violet-400/20 hover:border-violet-400/40', bg: 'bg-violet-500/10 hover:bg-violet-500/20', title: 'text-violet-200' },
+                    { name: 'Estate Renovations', prompt: 'I need to compare contractors and architects for a luxury kitchen remodel', desc: 'Compare verified contractor bids and architectural quotes.', border: 'border-sky-400/20 hover:border-sky-400/40', bg: 'bg-sky-500/10 hover:bg-sky-500/20', title: 'text-sky-200' },
                   ].map((example) => (
                     <button
                       key={example.name}
@@ -558,11 +555,11 @@ export function AppView({ children }: AppViewProps) {
                     }
                   }}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors disabled:opacity-60"
-                  title="Support our team"
+                  title="Send a Thank-You"
                   disabled={isTipJarLoading}
                 >
                   <span>☕️</span>
-                  {isTipJarLoading ? 'Opening…' : 'Tip Jar'}
+                  {isTipJarLoading ? 'Opening…' : 'Send a Thank-You'}
                 </button>
                 <button
                   onClick={handleCreateProject}

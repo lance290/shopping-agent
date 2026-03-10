@@ -1,22 +1,25 @@
 # Review Loop - Final Report
 
-All critical and major issues have been fixed.
-- Extracted helpers from `rows_search.py` to `rows_search_helpers.py` so it now strictly respects the 500 line limit (currently at 406 lines).
-- Removed unused imports and trailing newlines.
-- Ran backend test suite; 979 tests pass with 11 pre-existing failures unaffected by these structural changes.
-- Committed and pushed to `main` (commit 638b0e2).
+## Scope
+- `apps/backend/sourcing/service.py`
+- `apps/backend/tests/test_embedding_and_quantum_regressions.py`
+- `apps/backend/tests/test_security_utils.py`
+- `apps/backend/vendor_enrichment.log`
+- `docs/sales/luxury_agents_2Mplus_revised 2/US_HighConfidence_2Mplus-Table 1.csv`
+
+## Findings and Fixes
+- Kept the sync search path efficient by precomputing shared query embeddings only when `vendor_directory` is actually selected.
+- Preserved quantum reranking for non-vendor providers by lazily deriving the same shared query embedding when returned results include embeddings.
+- Expanded security regression coverage to include `apikey`/`api-key` redaction variants and direct `SensitiveDataFilter` string-field redaction.
+- Reviewed the appended `vendor_enrichment.log` changes as append-only runtime progress output.
+- Reviewed the luxury-agent CSV changes as data enrichment updates rather than executable code changes.
+
+## Verification
+- Backend targeted regression suite: `77 passed`
+- Backend syntax validation (`py_compile` on changed/related modules): pass
+- Non-code diff review: pass
+
+## Residual Risk
+- Existing unrelated deprecation warnings remain in older FastAPI/Pydantic code paths, but there are no failing tests or unresolved blockers in the final reviewed scope.
 
 ✅ FINAL STATUS: APPROVED
-
----
-
-## Iteration 2 (Homepage dual-state behavior)
-
-- Scope: `apps/frontend/app/components/sdui/AppView.tsx`
-- Call-flow checked: `AppView` ↔ `getMe()` (`app/utils/auth.ts`) and existing store state selectors/actions.
-- Verified requirement alignment:
-  - Anonymous: marketing/trending/guides content in right pane
-  - Authenticated: user list/search rows in right pane
-  - Left chat pane remains present for both
-- Verdict: **PASS_WITH_SUGGESTIONS**
-- Suggestion: split `AppView.tsx` in a future refactor (569 LOC) for maintainability.

@@ -45,6 +45,7 @@ from routes.quotes import router as quotes_router
 from routes.merchants import router as merchants_router
 from routes.checkout import router as checkout_router
 from routes.seller import router as seller_router
+from routes.bookmarks import router as bookmarks_router
 from routes.notifications import router as notifications_router
 from routes.stripe_connect import router as stripe_connect_router
 from routes.chat import router as chat_router
@@ -163,6 +164,7 @@ app.include_router(quotes_router)
 app.include_router(merchants_router)
 app.include_router(checkout_router)
 app.include_router(seller_router)
+app.include_router(bookmarks_router)
 app.include_router(notifications_router)
 app.include_router(stripe_connect_router)
 app.include_router(chat_router)

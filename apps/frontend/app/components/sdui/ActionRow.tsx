@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { ActionRowBlock, ActionObject } from '../../sdui/types';
 import { useShoppingStore } from '../../store';
-import { fetchSingleRowFromDb, fundDealEscrowInDb, transitionDealInDb } from '../../utils/api';
+import { fetchSingleRowFromDb, transitionDealInDb } from '../../utils/api';
 
 function ActionButton({ action }: { action: ActionObject }) {
   const baseClasses = 'inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors';
@@ -67,18 +67,6 @@ function ActionButton({ action }: { action: ActionObject }) {
     await refreshRow();
   }
 
-  async function handleFundEscrow() {
-    if (!dealId) return;
-    setIsSubmitting(true);
-    const result = await fundDealEscrowInDb(dealId);
-    setIsSubmitting(false);
-    if (!result?.checkout_url) {
-      window.alert('Unable to start checkout right now.');
-      return;
-    }
-    window.location.assign(result.checkout_url);
-  }
-
   switch (action.intent) {
     case 'outbound_affiliate':
       return (
@@ -103,25 +91,6 @@ function ActionButton({ action }: { action: ActionObject }) {
       return (
         <button className={`${baseClasses} bg-emerald-500 text-white hover:bg-emerald-600`}>
           {action.label}
-        </button>
-      );
-
-    case 'fund_escrow':
-      return (
-        <button
-          type="button"
-          disabled={isSubmitting || !dealId}
-          onClick={() => {
-            void handleFundEscrow();
-          }}
-          className={`${baseClasses} bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-60`}
-        >
-          {action.label}
-          {action.amount != null && (
-            <span className="ml-1 opacity-80">
-              ({action.currency || 'USD'} {action.amount.toLocaleString()})
-            </span>
-          )}
         </button>
       );
 

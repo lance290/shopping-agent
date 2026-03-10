@@ -26,6 +26,8 @@ class Vendor(SQLModel, table=True):
     # Classification
     category: Optional[str] = Field(default=None, index=True)
     store_geo_location: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     specialties: Optional[str] = None
     description: Optional[str] = None
     tagline: Optional[str] = None
@@ -44,7 +46,7 @@ class Vendor(SQLModel, table=True):
     user_id: Optional[int] = Field(default=None, foreign_key="user.id")
     stripe_account_id: Optional[str] = Field(default=None, index=True)
     stripe_onboarding_complete: bool = False
-    default_commission_rate: float = 0.05
+    default_commission_rate: float = 0.00
     verification_level: str = "unverified"
     reputation_score: float = 0.0
     # Tier affinity for scorer matching (commodity, considered, luxury, enterprise)

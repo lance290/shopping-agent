@@ -1,14 +1,17 @@
 """Admin operations routes — DB diagnostics, cleanup, vendor restore."""
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, UploadFile, File
 from typing import Optional
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from sqlalchemy import text
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
-from models import User
+from models import User, VendorCoverageGap
 from dependencies import require_admin
+from services.email import send_vendor_coverage_report_email
 import os
 
 router = APIRouter(tags=["admin"])
@@ -24,6 +27,7 @@ def _get_restore_key() -> str:
 @router.post("/admin/ops/restore-vendors")
 async def restore_vendors_endpoint(
     x_restore_key: str = Header(None),
+    dump_file: Optional[UploadFile] = File(None),
     session: AsyncSession = Depends(get_session),
 ):
     """
@@ -34,7 +38,24 @@ async def restore_vendors_endpoint(
         raise HTTPException(status_code=403, detail="Invalid restore key")
 
     from scripts.restore_vendors import restore_vendors_logic
-    
+
+    if dump_file is not None:
+        payload = await dump_file.read()
+        if not payload:
+            raise HTTPException(status_code=400, detail="Uploaded dump file is empty")
+        data_dir = Path(__file__).parent.parent / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        filename = (dump_file.filename or "").lower()
+        is_gzip = filename.endswith(".gz") or dump_file.content_type in {"application/gzip", "application/x-gzip"}
+        json_path = data_dir / "vendors_prod_dump.json"
+        gz_path = data_dir / "vendors_prod_dump.json.gz"
+        if is_gzip:
+            json_path.unlink(missing_ok=True)
+            gz_path.write_bytes(payload)
+        else:
+            gz_path.unlink(missing_ok=True)
+            json_path.write_bytes(payload)
+
     try:
         count = await restore_vendors_logic(session)
         return {"status": "success", "restored_count": count}
@@ -191,3 +212,82 @@ async def db_cleanup(
         ))).scalar()
 
     return {"deleted": deleted, "days_kept": days, "db_size_after": new_size}
+
+
+@router.post("/admin/ops/vendor-coverage-report")
+async def send_vendor_coverage_report(
+    x_ops_key: str = Header(None),
+    status: str = "new",
+    limit: int = 25,
+    mark_emailed: bool = True,
+    session: AsyncSession = Depends(get_session),
+):
+    """Send the current vendor coverage gap queue as an email report."""
+    if x_ops_key != _get_ops_key():
+        raise HTTPException(status_code=403, detail="Invalid ops key")
+
+    stmt = (
+        select(VendorCoverageGap)
+        .where(VendorCoverageGap.status == status)
+        .order_by(VendorCoverageGap.confidence.desc(), VendorCoverageGap.last_seen_at.desc())
+        .limit(limit)
+    )
+    result = await session.exec(stmt)
+    gaps = list(result.all())
+    if not gaps:
+        return {"status": "noop", "count": 0, "report_status": status}
+
+    requesters: dict[int, User] = {}
+    for gap in gaps:
+        if gap.user_id and gap.user_id not in requesters:
+            requester = await session.get(User, gap.user_id)
+            if requester:
+                requesters[gap.user_id] = requester
+
+    payload = [
+        {
+            "id": gap.id,
+            "row_title": gap.row_title,
+            "canonical_need": gap.canonical_need,
+            "search_query": gap.search_query,
+            "vendor_query": gap.vendor_query,
+            "geo_hint": gap.geo_hint,
+            "summary": gap.summary,
+            "rationale": gap.rationale,
+            "confidence": gap.confidence,
+            "times_seen": gap.times_seen,
+            "suggested_queries": gap.suggested_queries or [],
+            "requester_name": requesters.get(gap.user_id).name if gap.user_id in requesters else None,
+            "requester_company": requesters.get(gap.user_id).company if gap.user_id in requesters else None,
+            "requester_email": requesters.get(gap.user_id).email if gap.user_id in requesters else None,
+            "requester_phone": requesters.get(gap.user_id).phone_number if gap.user_id in requesters else None,
+            "missing_requester_identity": [
+                field
+                for field, value in {
+                    "name": requesters.get(gap.user_id).name if gap.user_id in requesters else None,
+                    "company": requesters.get(gap.user_id).company if gap.user_id in requesters else None,
+                }.items()
+                if not (value or "").strip()
+            ] if gap.user_id in requesters else ["name", "company"],
+        }
+        for gap in gaps
+    ]
+    email_result = await send_vendor_coverage_report_email(payload, report_label=status)
+    if not email_result.success:
+        raise HTTPException(status_code=500, detail=email_result.error or "Failed to send report")
+
+    if mark_emailed:
+        sent_at = datetime.utcnow()
+        for gap in gaps:
+            gap.status = "emailed"
+            gap.email_sent_at = sent_at
+            gap.emailed_count = (gap.emailed_count or 0) + 1
+            session.add(gap)
+        await session.commit()
+
+    return {
+        "status": "sent",
+        "count": len(gaps),
+        "report_status": status,
+        "message_id": email_result.message_id,
+    }

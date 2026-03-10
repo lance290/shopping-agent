@@ -58,7 +58,7 @@ async def test_e2e_create_row_and_fetch(client, auth_user_and_token, session):
     # Create row
     resp = await client.post(
         "/rows",
-        json={"title": "Standing desk", "status": "sourcing"},
+        json={"title": "Standing desk", "status": "sourcing", "request_spec": {"item_name": "Standing desk", "constraints": "[]", "quantity": 1}},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code in (200, 201)

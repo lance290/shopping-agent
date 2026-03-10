@@ -104,3 +104,58 @@ class UserPreference(SQLModel, table=True):
     weight: float = 1.0  # Learned weight for this preference
 
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class VendorCoverageGap(SQLModel, table=True):
+    """Actionable unmet vendor coverage signals derived from real searches."""
+    __tablename__ = "vendor_coverage_gap"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    row_id: Optional[int] = Field(default=None, foreign_key="row.id", index=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+
+    row_title: str
+    canonical_need: str = Field(index=True)
+    search_query: Optional[str] = None
+    vendor_query: Optional[str] = None
+    geo_hint: Optional[str] = Field(default=None, index=True)
+    desire_tier: Optional[str] = Field(default=None, index=True)
+    service_type: Optional[str] = Field(default=None, index=True)
+
+    summary: str
+    rationale: Optional[str] = None
+    suggested_queries: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    assessment: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    supporting_context: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+
+    confidence: float = 0.0
+    times_seen: int = 1
+    status: str = Field(default="new", index=True)
+    emailed_count: int = 0
+    email_sent_at: Optional[datetime] = None
+
+    first_seen_at: datetime = Field(default_factory=datetime.utcnow)
+    last_seen_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class LocationGeocodeCache(SQLModel, table=True):
+    """Durable forward geocode cache for location-aware search."""
+    __tablename__ = "location_geocode_cache"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    cache_key: str = Field(index=True, unique=True)
+    query_text: str
+    normalized_query: str = Field(index=True)
+    country_hint: Optional[str] = None
+
+    normalized_label: Optional[str] = None
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    precision: Optional[str] = None
+    status: str = Field(default="unresolved", index=True)
+    provider: Optional[str] = None
+
+    hit_count: int = 0
+    expires_at: datetime
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

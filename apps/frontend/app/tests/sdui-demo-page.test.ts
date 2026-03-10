@@ -51,18 +51,18 @@ const JET_CHARTER_SCHEMA = {
   ],
 };
 
-const ESCROW_SCHEMA = {
+const QUOTE_ACCEPTED_SCHEMA = {
   version: 3,
   layout: 'ROW_TIMELINE',
   blocks: [
-    { type: 'MarkdownText', content: '**Yacht Charter — Mediterranean**' },
-    { type: 'PriceBlock', amount: 45000, currency: 'USD', label: 'Escrow Amount' },
-    { type: 'EscrowStatus', deal_id: 'deal_789' },
+    { type: 'MarkdownText', content: '**Yacht Charter — Quote Accepted**' },
+    { type: 'PriceBlock', amount: 45000, currency: 'USD', label: 'Agreed Total' },
+    { type: 'BadgeList', tags: ['Handle payment directly with vendor', 'Tip after delivery'] },
     { type: 'Timeline', steps: [
       { label: 'Sourcing', status: 'done' },
       { label: 'Negotiating', status: 'done' },
-      { label: 'Funded', status: 'active' },
-      { label: 'In Transit', status: 'pending' },
+      { label: 'Terms Agreed', status: 'active' },
+      { label: 'Vendor Paid Directly', status: 'pending' },
       { label: 'Delivered', status: 'pending' },
     ]},
     { type: 'ActionRow', actions: [{ label: 'Leave a Tip', intent: 'send_tip', amount: 500 }] },
@@ -136,8 +136,8 @@ const MESSAGE_HISTORY_SCHEMA = {
       { sender: 'NetJets', text: 'We can offer a Citation CJ3+ for $18,500' },
     ]},
     { type: 'ActionRow', actions: [
-      { label: 'Accept Quote', intent: 'fund_escrow', amount: 18500 },
-      { label: 'Counter Offer', intent: 'contact_vendor' },
+      { label: 'Request Revision', intent: 'contact_vendor' },
+      { label: 'Review Notes', intent: 'view_raw' },
     ]},
   ],
 };
@@ -146,7 +146,7 @@ describe('SDUI Demo Page Schemas', () => {
   const schemas = [
     { name: 'Grocery', schema: GROCERY_SCHEMA },
     { name: 'Jet Charter', schema: JET_CHARTER_SCHEMA },
-    { name: 'Escrow', schema: ESCROW_SCHEMA },
+    { name: 'Quote Accepted', schema: QUOTE_ACCEPTED_SCHEMA },
     { name: 'Swap Claim', schema: SWAP_CLAIM_SCHEMA },
     { name: 'Compact Text', schema: COMPACT_TEXT_SCHEMA },
     { name: 'Choice Factors', schema: CHOICE_FACTOR_SCHEMA },
@@ -184,7 +184,7 @@ describe('SDUI Demo Page Schemas', () => {
     }
   });
 
-  test('all 13 block types are represented across demos', () => {
+  test('all 12 block types are represented across demos', () => {
     const allTypes = new Set<string>();
     for (const { schema } of schemas) {
       for (const block of schema.blocks) {
@@ -203,6 +203,6 @@ describe('SDUI Demo Page Schemas', () => {
     expect(allTypes).toContain('ActionRow');
     expect(allTypes).toContain('ReceiptUploader');
     expect(allTypes).toContain('WalletLedger');
-    expect(allTypes).toContain('EscrowStatus');
+    expect(allTypes).not.toContain('EscrowStatus');
   });
 });

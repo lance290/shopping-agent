@@ -1,33 +1,42 @@
-# Test Completeness Report - 2026-03-07
+# Test Completeness Report - 2026-03-09 00:31 PT
 
 ## Session Scope
-- Branch: dev
-- Changed implementation files: 7
-- Frontend changed: yes
+- Branch: `dev`
+- Current working tree files in scope: 5
 - Backend changed: yes
+- Frontend changed: no
+- Non-code artifacts changed: yes
+
+## Changed Files in Final Scope
+- `apps/backend/sourcing/service.py`
+- `apps/backend/tests/test_embedding_and_quantum_regressions.py`
+- `apps/backend/tests/test_security_utils.py`
+- `apps/backend/vendor_enrichment.log`
+- `docs/sales/luxury_agents_2Mplus_revised 2/US_HighConfidence_2Mplus-Table 1.csv`
 
 ## Obligation Matrix
 | Surface | Changed File | Behavior | Unit | Integration | E2E | Scenario | Notes |
 |---|---|---|---|---|---|---|---|
-| backend | `apps/backend/dependencies.py` | Add strict session expiry and guest ID isolation | n/a | covered | n/a | covered | Validated by existing test_auth.py |
-| backend | `apps/backend/routes/rows.py` | Fix duplicate TypeError and isolate anonymous reads/writes | n/a | covered | n/a | covered | Evaluated in `test_rows_authorization.py` |
-| backend | `apps/backend/routes/rows_search.py` | Anonymous user isolation for search/streams | n/a | covered | n/a | covered | Evaluated in `test_rows_search.py` |
-| backend | `apps/backend/routes/projects.py` | Scoped anonymous project fetching and creation | n/a | covered | n/a | covered | Addressed in `test_anonymous_projects.py` |
-| backend | `apps/backend/routes/admin_ops.py` | Externalize hardcoded admin credentials | n/a | n/a | n/a | n/a | Purely configuration binding |
-| frontend | `apps/frontend/app/utils/anonymous-session.ts` | Gracefully handle lacking localStorage in environments | covered | n/a | n/a | n/a | Handled implicitly via suite resilience |
+| backend | `apps/backend/sourcing/service.py` | Precompute shared query embeddings only when `vendor_directory` is selected, while still lazily computing embeddings for quantum reranking when other providers return embeddings | required (covered) | required (covered) | n/a | required (covered) | Covered by `tests/test_embedding_and_quantum_regressions.py`, `tests/test_vendor_search_intent.py`, and `tests/test_streaming_and_vendor_search.py`; browser e2e is n/a because this is backend orchestration logic |
+| backend | `apps/backend/tests/test_embedding_and_quantum_regressions.py` | Lock in shared embedding-builder and quantum-path orchestration contracts | required (covered) | required (covered) | n/a | required (covered) | Verified directly by the targeted backend regression suite |
+| backend | `apps/backend/tests/test_security_utils.py` | Cover expanded redaction patterns and logging filter behavior for secret-bearing strings | required (covered) | required (covered) | n/a | n/a | Covered by the targeted backend regression suite; no UI or end-to-end contract changed |
+| data/log | `apps/backend/vendor_enrichment.log` | Append enrichment progress entries | n/a | n/a | n/a | n/a | Runtime output artifact only; reviewed for append-only log progression |
+| data | `docs/sales/luxury_agents_2Mplus_revised 2/US_HighConfidence_2Mplus-Table 1.csv` | Add enriched outreach/contact rows for high-confidence luxury agents | n/a | n/a | n/a | n/a | Data artifact reviewed as content update; no executable behavior changed |
 
 ## Tests Created/Updated
-- Unit: None
-- Integration: `apps/backend/tests/test_rows_authorization.py`, `apps/backend/tests/test_anonymous_projects.py`
-- E2E: n/a
-- Scenario: n/a
+- Unit: `apps/backend/tests/test_embedding_and_quantum_regressions.py`, `apps/backend/tests/test_security_utils.py`
+- Integration: `apps/backend/tests/test_embedding_and_quantum_regressions.py`, `apps/backend/tests/test_vendor_search_intent.py`, `apps/backend/tests/test_streaming_and_vendor_search.py`
+- E2E: none
+- Scenario: `apps/backend/tests/test_embedding_and_quantum_regressions.py`, `apps/backend/tests/test_streaming_and_vendor_search.py`
 
 ## Verification Commands
 ### Backend
-- `cd apps/backend && uv run python3 -m pytest tests/test_rows_authorization.py tests/test_anonymous_projects.py tests/test_rows_search.py tests/test_rows_search_intent.py tests/test_rows_search_persistence.py -q`
+- `uv run pytest tests/test_embedding_and_quantum_regressions.py tests/test_vendor_search_intent.py tests/test_streaming_and_vendor_search.py tests/test_security_utils.py tests/test_scale_serp_provider.py -q`
+- `uv run python -m py_compile observability/logging.py routes/rows_search.py sourcing/providers_search.py sourcing/quantum/reranker.py sourcing/service.py sourcing/vendor_provider.py utils/security.py scripts/discover_vendors.py scripts/enrich_vendors.py scripts/reseed_and_enrich.py scripts/seo_enrich.py`
 
-### Frontend
-- n/a
+### Non-code Review
+- `git diff -- apps/backend/vendor_enrichment.log`
+- `git diff -- "docs/sales/luxury_agents_2Mplus_revised 2/US_HighConfidence_2Mplus-Table 1.csv"`
 
 ## Results
 ### Backend
@@ -35,15 +44,13 @@
 - Integration: pass
 - E2E: n/a
 - Scenario: pass
+- Syntax validation: pass
 
-### Frontend
-- Unit: n/a
-- Integration: n/a
-- E2E: n/a
-- Scenario: n/a
+### Non-code artifacts
+- Log/data review: pass
 
 ## Open Blockers
 - None.
 
 ## Verdict
-- PASS (all required layers covered + passing)
+- PASS (all required executable layers for the current working tree are covered or justified as n/a, and the verification commands passed)

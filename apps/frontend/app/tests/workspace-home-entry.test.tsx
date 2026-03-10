@@ -82,7 +82,7 @@ describe('Workspace home entry UX', () => {
       />
     );
 
-    expect(screen.getByText('Hi, I\'m Annie!')).toBeInTheDocument();
+    expect(screen.getByText('BuyAnything Intelligence')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Find the best carry-on under $300' }));
     expect(onPromptSelect).toHaveBeenCalledWith('Find the best carry-on under $300');
   });
@@ -95,12 +95,12 @@ describe('Workspace home entry UX', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Tell the chat what to buy. It does the legwork.')).toBeInTheDocument();
+      expect(screen.getByText('Delegate your hardest procurement projects.')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Ask chat now/i }));
 
-    expect(useShoppingStore.getState().cardClickQuery).toBe('Find the best carry-on under $300');
+    expect(useShoppingStore.getState().cardClickQuery).toBe('I need to plan a corporate retreat');
   });
 
   test('hero prompt handoff triggers chat submission through the shared store bridge', async () => {
@@ -118,7 +118,7 @@ describe('Workspace home entry UX', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Tell the chat what to buy. It does the legwork.')).toBeInTheDocument();
+      expect(screen.getByText('Delegate your hardest procurement projects.')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Ask chat now/i }));
@@ -134,7 +134,7 @@ describe('Workspace home entry UX', () => {
 
     const [, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit];
     const payload = JSON.parse(String(requestInit.body));
-    expect(payload.messages[0].content).toBe('Find the best carry-on under $300');
+    expect(payload.messages[0].content).toBe('I need to plan a corporate retreat');
     expect(payload.activeRowId).toBeNull();
   });
 
@@ -149,9 +149,9 @@ describe('Workspace home entry UX', () => {
       expect(screen.getByText(/Start with a real project/i)).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/Zac's Birthday/i)).toBeInTheDocument();
-    expect(screen.getByText(/Vegas Trip/i)).toBeInTheDocument();
-    expect(screen.getByText(/Kitchen Remodel/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Executive Home Office$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Corporate Retreat$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Estate Renovations$/i)).toBeInTheDocument();
 
     expect(screen.queryByText(/What the home screen should communicate/i)).not.toBeInTheDocument();
   });
@@ -184,15 +184,15 @@ describe('Workspace home entry UX', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Zac's Birthday/i)).toBeInTheDocument();
+      expect(screen.getByText(/^Executive Home Office$/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText(/Zac's Birthday/i).closest('button')!);
+    fireEvent.click(screen.getByText(/^Executive Home Office$/i).closest('button')!);
 
     await waitFor(() => {
       const query = useShoppingStore.getState().cardClickQuery;
       expect(query).toBeTruthy();
-      expect(query!).toContain('birthday party');
+      expect(query!).toContain('high-end AV equipment');
     });
   });
 });

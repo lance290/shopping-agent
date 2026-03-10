@@ -65,7 +65,7 @@ async def create_campaign(
     bids_result = await session.exec(
         select(Bid).where(
             Bid.row_id == body.row_id,
-            Bid.source == "vendor_directory",
+            Bid.source.in_(["vendor_directory", "seller_quote", "registered_merchant"]) | (Bid.is_service_provider == True)
         )
     )
     vendor_bids = bids_result.all()

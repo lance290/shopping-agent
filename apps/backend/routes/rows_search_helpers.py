@@ -2,6 +2,7 @@ import re
 import json
 from typing import Optional, Any
 from models import Row, RequestSpec
+from sourcing.location import normalize_search_intent_payload
 from sourcing.choice_filter import extract_choice_constraints
 from sourcing.models import SearchIntent
 from utils.json_utils import safe_json_loads
@@ -94,6 +95,7 @@ def _parse_intent_payload(payload: Optional[Any]) -> Optional[SearchIntent]:
         except json.JSONDecodeError:
             return None
     try:
-        return SearchIntent.model_validate(data)
+        normalized = normalize_search_intent_payload(data) if isinstance(data, dict) else data
+        return SearchIntent.model_validate(normalized)
     except Exception:
         return None

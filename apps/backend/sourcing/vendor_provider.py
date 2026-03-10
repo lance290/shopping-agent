@@ -11,12 +11,13 @@ import math
 import os
 import logging
 import time
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import httpx
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from sourcing.location import location_weight_profile, neutral_geo_score, precision_weight_multiplier
 from sourcing.repository import SearchResult, SourcingProvider
 
 logger = logging.getLogger(__name__)
@@ -86,6 +87,96 @@ def _weighted_blend(vecs: List[List[float]], weights: List[float]) -> List[float
     return blended
 
 
+def _build_embedding_concepts(
+    query: str,
+    context_query: Optional[str] = None,
+    intent_payload: Optional[dict] = None,
+) -> List[tuple[str, float]]:
+    core_product = (query or "").strip()
+    specs_parts: List[str] = []
+
+    if isinstance(intent_payload, dict):
+        product_name = intent_payload.get("product_name")
+        if product_name and str(product_name).strip():
+            core_product = str(product_name).strip()
+
+        constraints = intent_payload.get("features") or intent_payload.get("constraints", {})
+        if isinstance(constraints, dict):
+            for _, value in constraints.items():
+                if value and str(value).lower() not in ("none", "null", "", "not answered"):
+                    specs_parts.append(str(value))
+
+        keywords = intent_payload.get("keywords", [])
+        if isinstance(keywords, list):
+            specs_parts.extend([
+                str(keyword)
+                for keyword in keywords
+                if keyword and str(keyword).strip().lower() != core_product.lower()
+            ])
+
+    concepts: List[tuple[str, float]] = [(core_product, 0.60)]
+    if specs_parts:
+        concepts.append((" ".join(specs_parts[:10]), 0.25))
+    else:
+        concepts[0] = (concepts[0][0], 0.80)
+
+    cleaned_context = (context_query or "").strip()
+    if cleaned_context and cleaned_context.lower() != core_product.lower():
+        remaining_weight = 1.0 - sum(weight for _, weight in concepts)
+        if remaining_weight > 0.05:
+            concepts.append((cleaned_context, remaining_weight))
+
+    total_weight = sum(weight for _, weight in concepts)
+    if total_weight <= 0:
+        return [(core_product, 1.0)] if core_product else []
+    return [(text, weight / total_weight) for text, weight in concepts if text]
+
+
+async def build_query_embedding(
+    query: str,
+    context_query: Optional[str] = None,
+    intent_payload: Optional[dict] = None,
+    pre_computed: Optional[List[float]] = None,
+) -> Optional[List[float]]:
+    if pre_computed:
+        return pre_computed
+
+    concepts = _build_embedding_concepts(query, context_query=context_query, intent_payload=intent_payload)
+    if not concepts:
+        return None
+
+    texts = [text for text, _ in concepts]
+    weights = [weight for _, weight in concepts]
+    vecs = await _embed_texts(texts)
+    if not vecs or len(vecs) != len(concepts):
+        return None
+    if len(vecs) == 1:
+        return vecs[0]
+    return _weighted_blend(vecs, weights)
+
+
+def _extract_location_search_state(intent_payload: Optional[dict]) -> Dict[str, object]:
+    if not isinstance(intent_payload, dict):
+        return {"mode": "none", "terms": [], "geo_resolution": None, "service_category": None}
+    location_context = intent_payload.get("location_context") or {}
+    location_resolution = intent_payload.get("location_resolution") or {}
+    targets = location_context.get("targets") or {}
+    mode = str(location_context.get("relevance") or "none")
+    terms = [str(value).strip() for value in targets.values() if isinstance(value, str) and value.strip()]
+    geo_resolution = None
+    for field_name in ("service_location", "search_area", "vendor_market", "origin", "destination"):
+        resolved = location_resolution.get(field_name)
+        if isinstance(resolved, dict) and resolved.get("status") == "resolved":
+            geo_resolution = resolved
+            break
+    return {
+        "mode": mode,
+        "terms": terms[:3],
+        "geo_resolution": geo_resolution,
+        "service_category": intent_payload.get("product_category"),
+    }
+
+
 class VendorDirectoryProvider(SourcingProvider):
     """Searches our vendor DB using pgvector cosine similarity."""
 
@@ -113,35 +204,33 @@ class VendorDirectoryProvider(SourcingProvider):
         """
         context_query = kwargs.get("context_query")
         pre_computed = kwargs.get("query_embedding")
+        intent_payload = kwargs.get("intent_payload")
         t0 = time.monotonic()
 
         # 1. Embed — reuse pre-computed if available, otherwise call API
+        embedding = await build_query_embedding(
+            query,
+            context_query=context_query,
+            intent_payload=intent_payload,
+            pre_computed=pre_computed,
+        )
         if pre_computed:
-            embedding = pre_computed
             logger.info(f"[VendorProvider] Using pre-computed query embedding (skipped API call)")
-        elif context_query and context_query.strip().lower() != query.strip().lower():
-            vecs = await _embed_texts([query, context_query])
-            if not vecs or len(vecs) < 2:
-                logger.info("[VendorProvider] No embedding — skipping vector search")
-                return []
-            embedding = _weighted_blend(vecs, [0.7, 0.3])
-            logger.info(f"[VendorProvider] Blended embedding: 70% '{query}' + 30% '{context_query}'")
-        else:
-            vecs = await _embed_texts([query])
-            if not vecs:
-                logger.info("[VendorProvider] No embedding — skipping vector search")
-                return []
-            embedding = vecs[0]
+        if not embedding:
+            logger.info("[VendorProvider] No embedding — skipping vector search")
+            return []
 
         t_embed = time.monotonic()
         logger.info(f"[VendorProvider] Embedding took {t_embed - t0:.2f}s")
 
         vec_str = "[" + ",".join(str(f) for f in embedding) + "]"
 
-        # Hybrid scoring weights
-        vector_weight = float(os.getenv("VENDOR_VECTOR_WEIGHT", "0.7"))
-        fts_weight = 1.0 - vector_weight
         final_limit = kwargs.get("limit", 15)
+        location_state = _extract_location_search_state(intent_payload)
+        location_mode = str(location_state["mode"])
+        location_terms = location_state["terms"] if isinstance(location_state["terms"], list) else []
+        geo_resolution = location_state["geo_resolution"] if isinstance(location_state["geo_resolution"], dict) else None
+        weight_profile = location_weight_profile(location_mode)
 
         # Build AND-based tsquery for FTS precision.
         # Previously we used OR (|), but that caused "house cleaning in Denver" 
@@ -153,6 +242,17 @@ class VendorDirectoryProvider(SourcingProvider):
             fts_query_str = " & ".join(fts_words)
         else:
             fts_query_str = query
+
+        service_category = str(location_state.get("service_category") or "").strip()
+        geo_lat = geo_resolution.get("lat") if geo_resolution else None
+        geo_lon = geo_resolution.get("lon") if geo_resolution else None
+        geo_precision = geo_resolution.get("precision") if geo_resolution else None
+        precision_multiplier = precision_weight_multiplier(str(geo_precision) if geo_precision else None)
+        geo_radius_miles = float(os.getenv("VENDOR_PROXIMITY_RADIUS_MILES", "75"))
+        geo_term_1 = location_terms[0] if len(location_terms) > 0 else ""
+        geo_term_2 = location_terms[1] if len(location_terms) > 1 else ""
+        geo_term_3 = location_terms[2] if len(location_terms) > 2 else ""
+        location_mode_for_query = location_mode if location_mode in {"service_area", "vendor_proximity"} else "none"
 
         # 2. Hybrid query: UNION of vector-nearest + FTS-matched candidates.
         #    We fetch candidates from BOTH paths and merge/dedup in Python
@@ -166,6 +266,7 @@ class VendorDirectoryProvider(SourcingProvider):
                         vec_candidates AS (
                             SELECT id, name, description, tagline, website, email, phone,
                                    image_url, category, embedding::text AS embedding_text,
+                                   store_geo_location, latitude, longitude,
                                    (embedding <=> CAST(:qvec AS vector)) AS distance,
                                    CASE
                                      WHEN search_vector IS NOT NULL
@@ -181,6 +282,7 @@ class VendorDirectoryProvider(SourcingProvider):
                         fts_candidates AS (
                             SELECT id, name, description, tagline, website, email, phone,
                                    image_url, category, embedding::text AS embedding_text,
+                                   store_geo_location, latitude, longitude,
                                    (embedding <=> CAST(:qvec AS vector)) AS distance,
                                    ts_rank_cd(search_vector, to_tsquery('english', :fts_query)) AS fts_rank
                             FROM vendor
@@ -190,12 +292,80 @@ class VendorDirectoryProvider(SourcingProvider):
                             ORDER BY ts_rank_cd(search_vector, to_tsquery('english', :fts_query)) DESC
                             LIMIT :fts_lim
                         ),
+                        geo_candidates AS (
+                            SELECT id, name, description, tagline, website, email, phone,
+                                   image_url, category, embedding::text AS embedding_text,
+                                   store_geo_location, latitude, longitude,
+                                   (embedding <=> CAST(:qvec AS vector)) AS distance,
+                                   CASE
+                                     WHEN search_vector IS NOT NULL
+                                     THEN ts_rank_cd(search_vector, to_tsquery('english', :fts_query))
+                                     ELSE 0
+                                   END AS fts_rank
+                            FROM vendor
+                            WHERE :location_mode = 'vendor_proximity'
+                              AND (
+                                (
+                                  :geo_lat IS NOT NULL AND :geo_lon IS NOT NULL
+                                  AND latitude IS NOT NULL AND longitude IS NOT NULL
+                                  AND (
+                                    3959 * acos(
+                                      least(1.0, greatest(-1.0,
+                                        cos(radians(:geo_lat)) * cos(radians(latitude))
+                                        * cos(radians(longitude) - radians(:geo_lon))
+                                        + sin(radians(:geo_lat)) * sin(radians(latitude))
+                                      ))
+                                    )
+                                  ) <= :geo_radius_miles
+                                )
+                                OR (
+                                  store_geo_location IS NOT NULL
+                                  AND (
+                                    (:geo_term_1 <> '' AND lower(store_geo_location) LIKE ('%%' || lower(:geo_term_1) || '%%'))
+                                    OR (:geo_term_2 <> '' AND lower(store_geo_location) LIKE ('%%' || lower(:geo_term_2) || '%%'))
+                                    OR (:geo_term_3 <> '' AND lower(store_geo_location) LIKE ('%%' || lower(:geo_term_3) || '%%'))
+                                  )
+                                )
+                              )
+                              AND (:service_category = '' OR lower(category) LIKE ('%%' || lower(:service_category) || '%%'))
+                            LIMIT :geo_lim
+                        ),
+                        service_area_candidates AS (
+                            SELECT id, name, description, tagline, website, email, phone,
+                                   image_url, category, embedding::text AS embedding_text,
+                                   store_geo_location, latitude, longitude,
+                                   (embedding <=> CAST(:qvec AS vector)) AS distance,
+                                   CASE
+                                     WHEN search_vector IS NOT NULL
+                                     THEN ts_rank_cd(search_vector, to_tsquery('english', :fts_query))
+                                     ELSE 0
+                                   END AS fts_rank
+                            FROM vendor
+                            WHERE :location_mode = 'service_area'
+                              AND store_geo_location IS NOT NULL
+                              AND (
+                                (:geo_term_1 <> '' AND lower(store_geo_location) LIKE ('%%' || lower(:geo_term_1) || '%%'))
+                                OR (:geo_term_2 <> '' AND lower(store_geo_location) LIKE ('%%' || lower(:geo_term_2) || '%%'))
+                                OR (:geo_term_3 <> '' AND lower(store_geo_location) LIKE ('%%' || lower(:geo_term_3) || '%%'))
+                              )
+                              AND (:service_category = '' OR lower(category) LIKE ('%%' || lower(:service_category) || '%%'))
+                            LIMIT :geo_lim
+                        ),
                         -- Merge and dedup (FTS row wins on tie)
                         merged AS (
                             SELECT * FROM fts_candidates
                             UNION ALL
                             SELECT * FROM vec_candidates v
                             WHERE NOT EXISTS (SELECT 1 FROM fts_candidates f WHERE f.id = v.id)
+                            UNION ALL
+                            SELECT * FROM geo_candidates g
+                            WHERE NOT EXISTS (SELECT 1 FROM fts_candidates f WHERE f.id = g.id)
+                              AND NOT EXISTS (SELECT 1 FROM vec_candidates v WHERE v.id = g.id)
+                            UNION ALL
+                            SELECT * FROM service_area_candidates s
+                            WHERE NOT EXISTS (SELECT 1 FROM fts_candidates f WHERE f.id = s.id)
+                              AND NOT EXISTS (SELECT 1 FROM vec_candidates v WHERE v.id = s.id)
+                              AND NOT EXISTS (SELECT 1 FROM geo_candidates g WHERE g.id = s.id)
                         )
                         SELECT * FROM merged
                     """),
@@ -204,13 +374,22 @@ class VendorDirectoryProvider(SourcingProvider):
                         "fts_query": fts_query_str,
                         "vec_lim": final_limit * 2,
                         "fts_lim": final_limit,
+                        "geo_lim": final_limit,
+                        "location_mode": location_mode_for_query,
+                        "geo_lat": geo_lat,
+                        "geo_lon": geo_lon,
+                        "geo_radius_miles": geo_radius_miles,
+                        "geo_term_1": geo_term_1,
+                        "geo_term_2": geo_term_2,
+                        "geo_term_3": geo_term_3,
+                        "service_category": service_category,
                     },
                 )
                 rows = result.mappings().all()
                 t_db = time.monotonic()
                 logger.info(
                     f"[VendorProvider] Hybrid query took {t_db - t_embed:.2f}s, "
-                    f"{len(rows)} candidates (weights: vec={vector_weight}, fts={fts_weight})"
+                    f"{len(rows)} candidates (mode={location_mode}, weights={weight_profile})"
                 )
         except Exception as e:
             # If search_vector column doesn't exist yet, fall back to vector-only
@@ -221,7 +400,7 @@ class VendorDirectoryProvider(SourcingProvider):
                         result = await conn.execute(
                             sa.text(
                                 "SELECT id, name, description, tagline, website, email, phone, "
-                                "image_url, category, "
+                                "image_url, category, store_geo_location, latitude, longitude, "
                                 "(embedding <=> CAST(:qvec AS vector)) AS distance, "
                                 "0::float AS fts_rank "
                                 "FROM vendor "
@@ -281,10 +460,60 @@ class VendorDirectoryProvider(SourcingProvider):
             elif merchant_domain:
                 favicon = f"https://www.google.com/s2/favicons?domain={merchant_domain}&sz=128"
 
-            # Blend vector similarity (0-1) with normalized FTS rank (0-1)
-            vec_score = 1.0 - float(r["distance"])
+            vec_score = max(0.0, 1.0 - float(r["distance"]))
             fts_norm = min(fts_rank_raw / FTS_NORM_DIVISOR, 1.0)
-            blended = vector_weight * vec_score + fts_weight * fts_norm
+            constraint_score = 0.0
+            geo_score = 0.0
+            geo_distance_miles = None
+            text_location_match = 0.0
+            store_geo_location = str(r.get("store_geo_location") or "")
+
+            if location_mode == "service_area":
+                lowered_location = store_geo_location.lower()
+                term_hits = sum(1 for term in location_terms if term and term.lower() in lowered_location)
+                if location_terms:
+                    text_location_match = min(1.0, term_hits / len(location_terms))
+                geo_score = max(text_location_match * 0.85, neutral_geo_score(location_mode, vec_score, fts_norm, 0.0))
+                if term_hits > 0:
+                    constraint_score = 0.8
+            elif location_mode == "vendor_proximity":
+                lat = r.get("latitude")
+                lon = r.get("longitude")
+                if geo_lat is not None and geo_lon is not None and lat is not None and lon is not None:
+                    lat1 = math.radians(float(geo_lat))
+                    lon1 = math.radians(float(geo_lon))
+                    lat2 = math.radians(float(lat))
+                    lon2 = math.radians(float(lon))
+                    dlon = lon2 - lon1
+                    distance = 3959 * math.acos(
+                        max(-1.0, min(1.0, math.sin(lat1) * math.sin(lat2) + math.cos(lat1) * math.cos(lat2) * math.cos(dlon)))
+                    )
+                    geo_distance_miles = distance
+                    if distance <= geo_radius_miles:
+                        geo_score = max(0.2, 1.0 - (distance / geo_radius_miles) * 0.8) * precision_multiplier
+                if geo_score == 0.0 and store_geo_location:
+                    lowered_location = store_geo_location.lower()
+                    term_hits = sum(1 for term in location_terms if term and term.lower() in lowered_location)
+                    if location_terms:
+                        text_location_match = min(1.0, term_hits / len(location_terms))
+                    if text_location_match > 0:
+                        geo_score = max(text_location_match * 0.8, neutral_geo_score(location_mode, vec_score, fts_norm, 0.0))
+                if geo_score == 0.0:
+                    geo_score = neutral_geo_score(location_mode, vec_score, fts_norm, 0.0)
+                constraint_score = text_location_match if text_location_match > 0 else 0.0
+            elif location_mode == "endpoint":
+                lowered_blob = f"{(r.get('description') or '').lower()} {(r.get('tagline') or '').lower()} {store_geo_location.lower()}"
+                term_hits = sum(1 for term in location_terms if term and term.lower() in lowered_blob)
+                if location_terms:
+                    constraint_score = min(1.0, term_hits / len(location_terms))
+                geo_score = 0.0 if not geo_resolution else 0.05 * precision_multiplier
+
+            blended = (
+                weight_profile["semantic"] * vec_score
+                + weight_profile["fts"] * fts_norm
+                + weight_profile["geo"] * geo_score
+                + weight_profile["constraint"] * constraint_score
+            )
 
             # Parse vendor embedding for quantum reranker
             vendor_embedding = None
@@ -310,6 +539,15 @@ class VendorDirectoryProvider(SourcingProvider):
                 shipping_info=f"Category: {r['category'] or 'General'}" if r["category"] else None,
                 description=r["tagline"] or r["description"] or None,
                 embedding=vendor_embedding,
+                metadata={
+                    "semantic_score": round(vec_score, 4),
+                    "fts_score": round(fts_norm, 4),
+                    "geo_score": round(geo_score, 4),
+                    "constraint_score": round(constraint_score, 4),
+                    "location_mode": location_mode,
+                    "geo_distance_miles": round(geo_distance_miles, 3) if geo_distance_miles is not None else None,
+                    "text_location_match": round(text_location_match, 4),
+                },
             ))
 
         # Sort by blended score descending (best matches first)

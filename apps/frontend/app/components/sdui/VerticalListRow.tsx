@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useShoppingStore, mapBidToOffer } from '../../store';
 import type { Row, Offer } from '../../store';
-import { runSearchApiWithStatus, fetchSingleRowFromDb, toggleLikeApi, createShareLink, createCommentApi, fetchCommentsApi, fetchWithAuth, AUTH_REQUIRED } from '../../utils/api';
+import { runSearchApiWithStatus, fetchSingleRowFromDb, toggleVendorBookmark, toggleItemBookmark, createShareLink, createCommentApi, fetchCommentsApi, fetchWithAuth, AUTH_REQUIRED } from '../../utils/api';
 import type { CommentDto } from '../../utils/api';
-import { Trash2, RotateCw, Heart, CheckCircle2, MessageSquare, Share2, Copy } from 'lucide-react';
+import { Trash2, RotateCw, Heart, CheckCircle2, MessageSquare, Share2, Copy, Send, Star } from 'lucide-react';
 import { DynamicRenderer } from './DynamicRenderer';
 import { validateUISchema } from '../../sdui/types';
 import VendorContactModal from '../VendorContactModal';
@@ -18,6 +18,15 @@ interface VerticalListRowProps {
   isExpanded: boolean;
   onSelect: () => void;
   onToggleExpand: () => void;
+}
+
+const SERVICE_FIRST_DESIRE_TIERS = new Set(['service', 'bespoke', 'high_value', 'advisory']);
+
+function isCustomVendorOffer(offer: Offer): boolean {
+  return offer.source === 'vendor_directory'
+    || offer.source === 'seller_quote'
+    || offer.source === 'registered_merchant'
+    || offer.is_service_provider === true;
 }
 
 export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, onToggleExpand }: VerticalListRowProps) {
@@ -36,11 +45,22 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
   const hasSchema = !!(row.ui_schema && validateUISchema(row.ui_schema));
   const bidCount = row.bids?.length ?? 0;
   const [sortMode, setSortMode] = useState<'relevance' | 'price_asc' | 'price_desc'>('relevance');
+  const [rfpSelectedBidIds, setRfpSelectedBidIds] = useState<Set<number>>(new Set());
+  const [rfpSentBidIds, setRfpSentBidIds] = useState<Set<number>>(() => {
+    const emailedIds = new Set<number>();
+    for (const bid of row.bids || []) {
+      if (bid.is_emailed && bid.id) emailedIds.add(bid.id);
+    }
+    return emailedIds;
+  });
+  const [isOutreachOpen, setIsOutreachOpen] = useState(false);
   const unsortedOffers = offers.length > 0 ? offers : (row.bids || []).map(mapBidToOffer);
+  const prefersCustomVendors = row.is_service === true || SERVICE_FIRST_DESIRE_TIERS.has(row.desire_tier || '');
   const displayOffers = [...unsortedOffers].sort((a, b) => {
-    // Liked/selected always float to top
-    if (a.is_liked && !b.is_liked) return -1;
-    if (!a.is_liked && b.is_liked) return 1;
+    const aIsSaved = !!(a.is_vendor_bookmarked || a.is_item_bookmarked || a.is_liked);
+    const bIsSaved = !!(b.is_vendor_bookmarked || b.is_item_bookmarked || b.is_liked);
+    if (aIsSaved && !bIsSaved) return -1;
+    if (!aIsSaved && bIsSaved) return 1;
     if (a.is_selected && !b.is_selected) return -1;
     if (!a.is_selected && b.is_selected) return 1;
 
@@ -54,6 +74,12 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
       const pb = b.price ?? -Infinity;
       return pb - pa;
     }
+    if (prefersCustomVendors) {
+      const aIsCustomVendor = isCustomVendorOffer(a);
+      const bIsCustomVendor = isCustomVendorOffer(b);
+      if (aIsCustomVendor && !bIsCustomVendor) return -1;
+      if (!aIsCustomVendor && bIsCustomVendor) return 1;
+    }
     // Default: relevance (combined_score descending)
     const sa = a.match_score;
     const sb = b.match_score;
@@ -62,11 +88,27 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
     if (sb != null) return 1;
     return 0;
   });
+  const rfpEligibleOffers = useMemo(
+    () => displayOffers.filter((offer) => offer.source === 'vendor_directory' && typeof offer.bid_id === 'number'),
+    [displayOffers],
+  );
+  const selectedRfpBidIds = useMemo(
+    () => rfpEligibleOffers
+      .map((offer) => offer.bid_id as number)
+      .filter((bidId) => rfpSelectedBidIds.has(bidId) && !rfpSentBidIds.has(bidId)),
+    [rfpEligibleOffers, rfpSelectedBidIds, rfpSentBidIds],
+  );
   
   const requestDeleteRow = useShoppingStore((s) => s.requestDeleteRow);
   const setIsSearching = useShoppingStore((s) => s.setIsSearching);
   const setRowResults = useShoppingStore((s) => s.setRowResults);
   const updateRow = useShoppingStore((s) => s.updateRow);
+
+  useEffect(() => {
+    const validBidIds = new Set(rfpEligibleOffers.map((offer) => offer.bid_id as number));
+    setRfpSelectedBidIds((prev) => new Set(Array.from(prev).filter((bidId) => validBidIds.has(bidId))));
+    setRfpSentBidIds((prev) => new Set(Array.from(prev).filter((bidId) => validBidIds.has(bidId))));
+  }, [rfpEligibleOffers]);
 
   const handleRerunSearch = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -86,6 +128,21 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     requestDeleteRow(row.id);
+  };
+
+  const toggleRfpBid = (bidId: number) => {
+    setRfpSelectedBidIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(bidId)) next.delete(bidId);
+      else next.add(bidId);
+      return next;
+    });
+  };
+
+  const handleOpenRfps = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (selectedRfpBidIds.length === 0) return;
+    setIsOutreachOpen(true);
   };
 
   return (
@@ -112,6 +169,22 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
              row.status}
           </p>
         </div>
+
+        {rfpEligibleOffers.length > 0 && (
+          <button
+            onClick={handleOpenRfps}
+            disabled={selectedRfpBidIds.length === 0}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              selectedRfpBidIds.length > 0
+                ? 'bg-status-success text-white hover:bg-status-success/90'
+                : 'bg-canvas-dark text-onyx-muted cursor-not-allowed'
+            }`}
+            title={selectedRfpBidIds.length > 0 ? 'Draft outreach for selected vendors' : 'Select vendors below to start outreach'}
+          >
+            <Send size={14} />
+            Start Outreach{selectedRfpBidIds.length > 0 ? ` (${selectedRfpBidIds.length})` : ''}
+          </button>
+        )}
         
         {/* Quick Actions — always visible on mobile, hover on desktop */}
         <div className="flex items-center gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity pr-2">
@@ -205,15 +278,31 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
               <p className="text-sm text-onyx-muted italic">No options found yet.</p>
             )}
             {displayOffers.map((offer, i) => (
-              <BidCard key={offer.bid_id ?? i} offer={offer} row={row} />
+              <BidCard
+                key={offer.bid_id ?? i}
+                offer={offer}
+                row={row}
+                isRfpSelected={typeof offer.bid_id === 'number' ? rfpSelectedBidIds.has(offer.bid_id) : false}
+                isRfpSent={typeof offer.bid_id === 'number' ? rfpSentBidIds.has(offer.bid_id) : false}
+                onToggleRfpSelection={typeof offer.bid_id === 'number' && offer.source === 'vendor_directory'
+                  ? () => toggleRfpBid(offer.bid_id as number)
+                  : undefined}
+              />
             ))}
           </div>
 
-          {displayOffers.some((o) => o.source === 'vendor_directory') && (
+          {rfpEligibleOffers.length > 0 && (
             <OutreachQueue
+              isOpen={isOutreachOpen}
+              onClose={() => setIsOutreachOpen(false)}
+              onSent={(bidIds) => {
+                setRfpSentBidIds((prev) => new Set([...Array.from(prev), ...bidIds]));
+                setRfpSelectedBidIds((prev) => new Set(Array.from(prev).filter((bidId) => !bidIds.includes(bidId))));
+              }}
               rowId={row.id}
               desireTier={row.desire_tier || 'service'}
               offers={displayOffers}
+              selectedBidIds={selectedRfpBidIds}
             />
           )}
         </div>
@@ -239,7 +328,19 @@ function friendlySource(source: string): string {
   return SOURCE_DISPLAY_NAMES[source] || source.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function BidCard({ offer, row }: { offer: Offer; row: Row }) {
+function BidCard({
+  offer,
+  row,
+  isRfpSelected,
+  isRfpSent,
+  onToggleRfpSelection,
+}: {
+  offer: Offer;
+  row: Row;
+  isRfpSelected: boolean;
+  isRfpSent: boolean;
+  onToggleRfpSelection?: () => void;
+}) {
   const [showContactModal, setShowContactModal] = useState(false);
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [commentText, setCommentText] = useState('');
@@ -251,20 +352,46 @@ function BidCard({ offer, row }: { offer: Offer; row: Row }) {
     : 'Request Quote';
 
   const isVendor = offer.source === 'vendor_directory' || offer.is_service_provider;
+  const showRfpToggle = typeof onToggleRfpSelection === 'function';
 
   const handleToggleLike = async () => {
     if (!offer.bid_id || isLikeLoading) return;
     setIsLikeLoading(true);
-    updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_liked: !offer.is_liked });
-    try {
-      const result = await toggleLikeApi(row.id, !!offer.is_liked, offer.bid_id);
-      if (result === AUTH_REQUIRED) {
-        updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_liked: offer.is_liked });
-        alert('Sign in to save favorites');
-      } else if (result && typeof result === 'object' && 'is_liked' in result) {
-        updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_liked: result.is_liked });
+
+    if (isVendor && offer.vendor_id) {
+      const wasBookmarked = !!offer.is_vendor_bookmarked;
+      updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_vendor_bookmarked: !wasBookmarked, is_liked: !wasBookmarked });
+      try {
+        const result = await toggleVendorBookmark(offer.vendor_id, wasBookmarked, row.id);
+        if (result === AUTH_REQUIRED || !result) {
+          updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, { is_vendor_bookmarked: wasBookmarked, is_liked: wasBookmarked });
+          if (result === AUTH_REQUIRED) alert('Sign in to save to Rolodex');
+        }
+      } catch { /* optimistic UI already applied */ }
+    } else {
+      const bookmarkUrl = offer.canonical_url || (offer.url && offer.url !== '#' ? offer.url : undefined);
+      if (!bookmarkUrl) {
+        setIsLikeLoading(false);
+        return;
       }
-    } catch { /* optimistic UI already applied */ }
+      const wasBookmarked = !!offer.is_item_bookmarked;
+      updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, {
+        canonical_url: bookmarkUrl,
+        is_item_bookmarked: !wasBookmarked,
+        is_liked: !wasBookmarked,
+      });
+      try {
+        const result = await toggleItemBookmark(bookmarkUrl, wasBookmarked, row.id);
+        if (result === AUTH_REQUIRED || !result) {
+          updateRowOffer(row.id, (o) => o.bid_id === offer.bid_id, {
+            canonical_url: bookmarkUrl,
+            is_item_bookmarked: wasBookmarked,
+            is_liked: wasBookmarked,
+          });
+          if (result === AUTH_REQUIRED) alert('Sign in to save products');
+        }
+      } catch { /* optimistic UI already applied */ }
+    }
     setIsLikeLoading(false);
   };
 
@@ -344,22 +471,62 @@ function BidCard({ offer, row }: { offer: Offer; row: Row }) {
         )}
         <div className="flex-1 min-w-0">
           <p className="text-sm text-ink truncate">{offer.title}</p>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className="text-sm font-semibold text-ink">{priceStr}</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-canvas-dark text-ink-muted">{friendlySource(offer.source)}</span>
             {offer.merchant && offer.merchant !== 'Unknown' && (
               <span className="text-[10px] text-onyx-muted">{offer.merchant}</span>
             )}
+            {offer.is_vendor_bookmarked && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-0.5">
+                <Star size={8} className="fill-current" /> Saved to Rolodex
+              </span>
+            )}
+            {!offer.is_vendor_bookmarked && offer.is_item_bookmarked && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-0.5">
+                <Heart size={8} className="fill-current" /> Saved Product
+              </span>
+            )}
+            {isRfpSent && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">Emailed</span>
+            )}
+            {offer.is_selected && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gold/10 text-gold-dark border border-gold/20 flex items-center gap-0.5">
+                <CheckCircle2 size={8} /> Selected
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
+          {showRfpToggle && (
+            <button
+              onClick={onToggleRfpSelection}
+              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                isRfpSent
+                  ? 'bg-green-50 text-green-700 border border-green-200'
+                  : isRfpSelected
+                  ? 'bg-gold/15 text-gold-dark border border-gold/30'
+                  : 'bg-canvas-dark text-ink-muted border border-warm-grey hover:border-gold/30 hover:text-ink'
+              }`}
+              title={isRfpSent ? 'Included in outreach this session' : isRfpSelected ? 'Remove from outreach' : 'Add to outreach'}
+            >
+              {isRfpSent ? 'Sent' : isRfpSelected ? 'In Outreach' : 'Add to Outreach'}
+            </button>
+          )}
           <button
             onClick={handleToggleLike}
-            className={`p-1.5 rounded-md transition-colors ${offer.is_liked ? 'text-red-500 bg-red-50' : 'text-onyx-muted hover:text-red-500 hover:bg-red-50'}`}
-            title={offer.is_liked ? 'Unlike' : 'Like'}
-            aria-pressed={!!offer.is_liked}
+            className={`p-1.5 rounded-md transition-colors ${
+              isVendor && offer.vendor_id
+                ? (offer.is_vendor_bookmarked ? 'text-amber-500 bg-amber-50' : 'text-onyx-muted hover:text-amber-500 hover:bg-amber-50')
+                : (offer.is_item_bookmarked ? 'text-red-500 bg-red-50' : 'text-onyx-muted hover:text-red-500 hover:bg-red-50')
+            }`}
+            title={isVendor && offer.vendor_id ? (offer.is_vendor_bookmarked ? 'Remove from Rolodex' : 'Save to Rolodex') : (offer.is_item_bookmarked ? 'Remove saved product' : 'Save product')}
+            aria-pressed={isVendor && offer.vendor_id ? !!offer.is_vendor_bookmarked : !!offer.is_item_bookmarked}
           >
-            <Heart size={14} className={offer.is_liked ? 'fill-current' : ''} />
+            {isVendor && offer.vendor_id
+              ? <Star size={14} className={offer.is_vendor_bookmarked ? 'fill-current' : ''} />
+              : <Heart size={14} className={offer.is_item_bookmarked ? 'fill-current' : ''} />
+            }
           </button>
           <button
             onClick={handleSelect}

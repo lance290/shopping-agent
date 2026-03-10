@@ -49,6 +49,8 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # --- Config ---
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/chat")

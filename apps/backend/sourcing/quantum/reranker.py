@@ -12,8 +12,7 @@ capture non-linear relationships cosine similarity misses.
 
 import logging
 import os
-from threading import Lock
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import numpy as np
 
@@ -31,14 +30,21 @@ def _l2_normalize(x: np.ndarray) -> np.ndarray:
 
 def _reduce_embedding(embedding: np.ndarray, n_modes: int) -> np.ndarray:
     """Reduce high-dimensional embedding to quantum parameters [0, π]."""
-    embedding = _l2_normalize(embedding)
-    reduced = embedding[:n_modes] if len(embedding) > n_modes else embedding
-    if len(reduced) < n_modes:
-        reduced = np.pad(reduced, (0, n_modes - len(reduced)), "constant")
-    mean_val = float(np.mean(reduced))
-    std_val = float(np.std(reduced)) + 1e-8
-    normalized = np.clip((reduced - mean_val) / std_val, -2.0, 2.0)
-    return (normalized + 2.0) / 4.0 * np.pi
+    embedding = _l2_normalize(np.asarray(embedding, dtype=np.float64).ravel())
+    if embedding.size == 0:
+        return np.zeros(n_modes, dtype=np.float64)
+
+    pooled = np.array(
+        [float(chunk.mean()) if chunk.size else 0.0 for chunk in np.array_split(embedding, n_modes)],
+        dtype=np.float64,
+    )
+    mean_val = float(np.mean(pooled))
+    std_val = float(np.std(pooled))
+    if std_val < 1e-8:
+        normalized = np.clip(pooled - mean_val, -1.0, 1.0)
+    else:
+        normalized = np.clip((pooled - mean_val) / std_val, -3.0, 3.0)
+    return normalized / 3.0 * np.pi
 
 
 def _simulate_quantum_kernel(query_params: np.ndarray, candidate_params: np.ndarray) -> float:
@@ -96,9 +102,9 @@ def _simulate_quantum_kernel(query_params: np.ndarray, candidate_params: np.ndar
 
     # Phase 5: Measurement — weighted average of absolute amplitudes
     weights = np.array([1.0 / (i + 1) for i in range(n)])
-    weighted_sum = np.sum(weights * np.abs(output))
-    total_weight = np.sum(weights)
-    return float(weighted_sum / total_weight)
+    signed_sum = float(np.sum(weights * output))
+    magnitude_sum = float(np.sum(weights * np.abs(output))) + 1e-12
+    return float(np.clip(signed_sum / magnitude_sum, -1.0, 1.0))
 
 
 class QuantumReranker:
@@ -115,7 +121,6 @@ class QuantumReranker:
     ):
         self.n_modes = n_modes
         self.blend_factor = blend_factor
-        self._lock = Lock()
         self._enabled = QUANTUM_RERANKING_ENABLED
         logger.info(
             f"QuantumReranker initialized: n_modes={n_modes}, blend={blend_factor}, enabled={self._enabled}"
@@ -133,11 +138,10 @@ class QuantumReranker:
         if not self._enabled:
             return 0.0
         try:
-            with self._lock:
-                q_params = _reduce_embedding(query_embedding, self.n_modes)
-                c_params = _reduce_embedding(candidate_embedding, self.n_modes)
-                raw = _simulate_quantum_kernel(q_params, c_params)
-                return min(1.0, max(0.0, raw))
+            q_params = _reduce_embedding(query_embedding, self.n_modes)
+            c_params = _reduce_embedding(candidate_embedding, self.n_modes)
+            raw = _simulate_quantum_kernel(q_params, c_params)
+            return float(np.clip(raw, -1.0, 1.0))
         except Exception as e:
             logger.error(f"Quantum similarity failed: {e}")
             return 0.0
@@ -150,27 +154,30 @@ class QuantumReranker:
         """Cosine similarity between two embeddings."""
         q = _l2_normalize(query_embedding)
         c = _l2_normalize(candidate_embedding)
-        return float(np.clip(np.dot(q, c), 0.0, 1.0))
+        return float(np.clip(np.dot(q, c), -1.0, 1.0))
+
+    def _normalize_similarity(self, score: float) -> float:
+        return float(np.clip((score + 1.0) / 2.0, 0.0, 1.0))
 
     def _novelty_score(self, quantum: float, classical: float) -> float:
         """High novelty = quantum found something classical missed."""
-        return max(0.0, quantum - classical)
+        quantum_signal = self._normalize_similarity(quantum)
+        classical_signal = self._normalize_similarity(classical)
+        return max(0.0, quantum_signal - classical_signal)
 
     def _coherence_score(self, quantum: float, classical: float) -> float:
         """Measures match robustness via quantum coherence."""
-        if classical < 0.1:
-            return quantum
-        return max(0.0, min(1.0, quantum * (1.0 - abs(quantum - classical))))
+        quantum_signal = self._normalize_similarity(quantum)
+        classical_signal = self._normalize_similarity(classical)
+        return max(0.0, 1.0 - abs(quantum_signal - classical_signal))
 
     def _blended_score(
         self, quantum: float, classical: float, novelty: float, coherence: float
     ) -> float:
-        return (
-            self.blend_factor * quantum
-            + (1.0 - self.blend_factor) * classical
-            + 0.1 * novelty
-            + 0.1 * coherence
-        )
+        quantum_signal = self._normalize_similarity(quantum)
+        classical_signal = self._normalize_similarity(classical)
+        base_score = self.blend_factor * quantum_signal + (1.0 - self.blend_factor) * classical_signal
+        return float(np.clip(0.9 * base_score + 0.05 * base_score * coherence + 0.05 * novelty, 0.0, 1.0))
 
     async def rerank_results(
         self,
@@ -197,12 +204,15 @@ class QuantumReranker:
 
         for result in search_results:
             candidate_embedding = result.get("embedding")
-            if not candidate_embedding:
+            if candidate_embedding is None:
                 # No embedding — keep result with neutral quantum scores
                 enhanced.append(result)
                 continue
 
-            candidate_emb = np.array(candidate_embedding, dtype=np.float32)
+            candidate_emb = np.asarray(candidate_embedding, dtype=np.float32).ravel()
+            if candidate_emb.size == 0:
+                enhanced.append(result)
+                continue
 
             q_score = self.quantum_similarity(query_emb, candidate_emb)
             c_score = self.classical_similarity(query_emb, candidate_emb)

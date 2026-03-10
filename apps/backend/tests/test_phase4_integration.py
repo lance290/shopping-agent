@@ -167,6 +167,65 @@ async def test_notifications_mark_read_wrong_user(client, session, _make_auth):
 
 
 @pytest.mark.asyncio
+async def test_vendor_bookmark_crud_endpoints(client, session, _make_auth):
+    user, token = await _make_auth(session, email="vendor-bookmark@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    vendor = Seller(name="Vendor Bookmark Co", email="vendor-bookmark-co@example.com")
+    session.add(vendor)
+    await session.commit()
+    await session.refresh(vendor)
+
+    list_resp = await client.get("/bookmarks/vendors", headers=headers)
+    assert list_resp.status_code == 200
+    assert list_resp.json() == []
+
+    create_resp = await client.post(f"/bookmarks/vendors/{vendor.id}", headers=headers)
+    assert create_resp.status_code == 200
+    assert create_resp.json()["status"] == "bookmarked"
+
+    list_resp = await client.get("/bookmarks/vendors", headers=headers)
+    assert list_resp.status_code == 200
+    assert [entry["vendor_id"] for entry in list_resp.json()] == [vendor.id]
+
+    delete_resp = await client.delete(f"/bookmarks/vendors/{vendor.id}", headers=headers)
+    assert delete_resp.status_code == 200
+    assert delete_resp.json()["status"] == "removed"
+
+    list_resp = await client.get("/bookmarks/vendors", headers=headers)
+    assert list_resp.status_code == 200
+    assert list_resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_item_bookmark_crud_endpoints(client, session, _make_auth):
+    user, token = await _make_auth(session, email="item-bookmark@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {"canonical_url": "https://www.amazon.com/dp/ABC123?tag=legacy&utm_source=test"}
+
+    list_resp = await client.get("/bookmarks/items", headers=headers)
+    assert list_resp.status_code == 200
+    assert list_resp.json() == []
+
+    create_resp = await client.post("/bookmarks/items", json=payload, headers=headers)
+    assert create_resp.status_code == 200
+    assert create_resp.json()["status"] == "bookmarked"
+    assert create_resp.json()["canonical_url"] == "https://amazon.com/dp/ABC123"
+
+    list_resp = await client.get("/bookmarks/items", headers=headers)
+    assert list_resp.status_code == 200
+    assert [entry["canonical_url"] for entry in list_resp.json()] == ["https://amazon.com/dp/ABC123"]
+
+    delete_resp = await client.request("DELETE", "/bookmarks/items", json=payload, headers=headers)
+    assert delete_resp.status_code == 200
+    assert delete_resp.json()["status"] == "removed"
+
+    list_resp = await client.get("/bookmarks/items", headers=headers)
+    assert list_resp.status_code == 200
+    assert list_resp.json() == []
+
+
+@pytest.mark.asyncio
 async def test_notifications_mark_all_read(client, session, _make_auth):
     """POST /notifications/read-all marks all unread notifications as read."""
     user, token = await _make_auth(session, email="notif-all@example.com")
@@ -324,7 +383,7 @@ async def test_earnings_zero_for_new_merchant(client, session, _make_auth, _make
     data = resp.json()
     assert data["total_earnings"] == 0.0
     assert data["completed_transactions"] == 0
-    assert data["commission_rate"] == 0.05
+    assert data["commission_rate"] == 0.00
 
 
 # ── PRD 09: Admin Metrics ────────────────────────────────────────────

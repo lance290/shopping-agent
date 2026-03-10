@@ -188,6 +188,50 @@ class TestExtractVendorQuery:
         assert result == "Roblox gift card"
 
 
+class TestLocationAwareIntentNormalization:
+    def test_embedding_concepts_use_features_not_legacy_constraints_only(self):
+        from sourcing.vendor_provider import _build_embedding_concepts
+
+        concepts = _build_embedding_concepts(
+            "roof repair",
+            context_query="roof repair in nashville",
+            intent_payload={
+                "product_name": "Roof repair",
+                "features": {"service_location": "Nashville, TN", "urgency": "asap"},
+                "keywords": ["roof", "repair"],
+            },
+        )
+
+        joined = " ".join(text for text, _ in concepts).lower()
+        assert "nashville" in joined
+        assert "asap" in joined
+
+    def test_location_mode_extracted_for_vendor_proximity(self):
+        from sourcing.vendor_provider import _extract_location_search_state
+
+        state = _extract_location_search_state(
+            {
+                "product_category": "roofing",
+                "location_context": {
+                    "relevance": "vendor_proximity",
+                    "targets": {"service_location": "Nashville, TN"},
+                },
+                "location_resolution": {
+                    "service_location": {
+                        "status": "resolved",
+                        "lat": 36.1627,
+                        "lon": -86.7816,
+                        "precision": "city",
+                    }
+                },
+            }
+        )
+
+        assert state["mode"] == "vendor_proximity"
+        assert state["terms"] == ["Nashville, TN"]
+        assert state["geo_resolution"]["lat"] == 36.1627
+
+
 # =============================================================================
 # 3. Vector Similarity Scoring — Scorer Uses Embedding Distance
 # =============================================================================
@@ -409,3 +453,14 @@ class TestRepositoryVendorQueryRouting:
         await repo.search_all_with_status("standing desk")
         
         assert captured_queries.get("query") == "standing desk"
+
+
+class TestVendorFtsQuerySemantics:
+    def test_vendor_provider_uses_or_fts_query_join(self):
+        """Vendor FTS should keep the current OR join semantics unless intentionally changed."""
+        import inspect
+        from sourcing.vendor_provider import VendorDirectoryProvider
+
+        source = inspect.getsource(VendorDirectoryProvider.search)
+
+        assert 'fts_query_str = " | ".join(fts_words)' in source

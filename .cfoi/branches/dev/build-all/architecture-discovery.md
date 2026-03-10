@@ -51,3 +51,24 @@
 - Affiliate tags empty: AMAZON_AFFILIATE_TAG, EBAY_CAMPAIGN_ID, SKIMLINKS_PUBLISHER_ID
 - No Stripe Connect configured (no application_fee, no connected accounts)
 - BFF uses OpenRouter/Gemini (`gemini-3-flash-preview`)
+
+---
+
+# Architecture Discovery - 2026-03-09 (/build-all scoped to PRD-BuyAnything-Location-Aware-Search)
+
+## Tech Stack
+- **Backend:** FastAPI + SQLModel + asyncpg
+- **Frontend:** Next.js 15 App Router
+- **Search:** Existing hybrid vendor search using vector + FTS
+- **Geo Infrastructure:** PostGIS available in infra; vendor records already include `store_geo_location`, `latitude`, and `longitude`
+
+## Relevant Existing Patterns
+- `row.search_intent` is already persisted as JSON and should hold additive location data for v1.
+- Chat intent is built in `routes/chat_helpers.py` and consumed in `sourcing/service.py`.
+- Vendor retrieval runs through `sourcing/vendor_provider.py` and already supports vector + FTS blending.
+- User profile location uses a reverse-geocode flow in `routes/auth_profile.py`; forward geocoding should follow the same service/error-handling style, but with a durable cache.
+
+## Constraints
+- Incomplete vendor geo data means any geo-aware feature must preserve text fallback.
+- Existing build-all artifacts already exist on this branch; this run appends rather than replacing prior reports.
+- Dirty worktree detected before this run; unrelated user changes must not be reverted.

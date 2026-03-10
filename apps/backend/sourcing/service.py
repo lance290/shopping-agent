@@ -12,11 +12,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models import Bid, Row, Seller
 from models.auth import User
+from services.location_resolution import LocationResolutionService
+from sourcing.location import apply_location_resolution, normalize_search_intent_payload
 from sourcing.models import NormalizedResult, ProviderStatusSnapshot, SearchIntent
 from sourcing.repository import SourcingRepository
 from sourcing.metrics import get_metrics_collector, log_search_start
 from sourcing.scorer import score_results
 from sourcing.parsers import _parse_numeric, _parse_price_value
+from sourcing.vendor_provider import build_query_embedding
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +27,6 @@ logger = logging.getLogger(__name__)
 _MIN_KEYS = {"min_price", "price_min", "minimum_price", "minimum_value", "minimum value", "minimum price"}
 _MAX_KEYS = {"max_price", "price_max", "maximum_price", "maximum_value", "maximum value", "maximum price"}
 _RANGE_KEYS = {"price", "budget"}
-
-
 
 
 class SourcingService:
@@ -167,6 +168,36 @@ class SourcingService:
         
         # Extract desire_tier for logging/repo context
         desire_tier = row.desire_tier if row else None
+        search_intent = self._parse_search_intent(row) if row else None
+        if row and search_intent:
+            search_intent = await self._resolve_search_locations(row, search_intent)
+        vendor_query = self.extract_vendor_query(row) if row else None
+        intent_payload = search_intent.model_dump() if search_intent else None
+        query_embedding = None
+        selected_provider_ids = None
+        should_precompute_vendor_embedding = True
+
+        if providers:
+            raw_provider_ids = [str(p).strip() for p in providers if str(p).strip()]
+            normalizer = getattr(self.repo, "_normalize_provider_filter", None)
+            if callable(normalizer):
+                try:
+                    selected_provider_ids = normalizer(raw_provider_ids)
+                except Exception:
+                    selected_provider_ids = set(raw_provider_ids)
+            else:
+                selected_provider_ids = set(raw_provider_ids)
+            should_precompute_vendor_embedding = "vendor_directory" in selected_provider_ids
+
+        if should_precompute_vendor_embedding:
+            try:
+                query_embedding = await build_query_embedding(
+                    vendor_query or query,
+                    context_query=query,
+                    intent_payload=intent_payload,
+                )
+            except Exception as e:
+                logger.warning(f"[SourcingService] Query embedding failed (graceful degradation): {e}")
 
         # Resolve user's zip_code for location-aware providers (Kroger, etc.)
         user_zip: Optional[str] = None
@@ -187,6 +218,9 @@ class SourcingService:
                 max_price=max_price,
                 desire_tier=desire_tier,
                 zip_code=user_zip,
+                vendor_query=vendor_query,
+                intent_payload=intent_payload,
+                query_embedding=query_embedding,
             )
 
             normalized_results = search_response.normalized_results
@@ -243,7 +277,6 @@ class SourcingService:
         )
 
         # 2. Score & Rank Results
-        search_intent = self._parse_search_intent(row) if row else None
         desire_tier = row.desire_tier if row else None
         normalized_results = score_results(
             normalized_results,
@@ -251,6 +284,8 @@ class SourcingService:
             min_price=min_price,
             max_price=max_price,
             desire_tier=desire_tier,
+            is_service=row.is_service if row else None,
+            service_category=row.service_category if row else None,
         )
 
         # 2b. Quantum re-ranking (for results with embeddings)
@@ -270,36 +305,42 @@ class SourcingService:
                     }
                     results_for_quantum.append(rd)
 
-                # Get query embedding from search intent
-                query_emb = None
-                if row.search_intent:
-                    try:
-                        intent_data = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
-                        query_emb = intent_data.get("query_embedding")
-                    except Exception:
-                        pass
-
-                if query_emb and any(r.get("embedding") for r in results_for_quantum):
+                if query_embedding and any(r.get("embedding") for r in results_for_quantum):
                     reranked = await reranker.rerank_results(
-                        query_embedding=query_emb,
+                        query_embedding=query_embedding,
                         search_results=results_for_quantum,
                         top_k=len(normalized_results),
                     )
-                    # Apply quantum scores back using the _idx key to match correctly
-                    score_map = {}
-                    for r in reranked:
-                        if r.get("quantum_reranked") and "_idx" in r:
-                            score_map[r["_idx"]] = r
-                    for idx, res in enumerate(normalized_results):
-                        if idx in score_map:
-                            qr = score_map[idx]
-                            res.provenance["quantum_score"] = qr.get("quantum_score", 0.0)
-                            res.provenance["blended_score"] = qr.get("blended_score", 0.0)
-                            res.provenance["novelty_score"] = qr.get("novelty_score", 0.0)
-                            res.provenance["coherence_score"] = qr.get("coherence_score", 0.0)
-                    logger.info(f"[SourcingService] Quantum reranking applied to {len(score_map)} results")
-        except ImportError:
-            pass  # Quantum module not available — classical scoring only
+                elif not query_embedding and any(r.get("embedding") for r in results_for_quantum):
+                    try:
+                        query_embedding = await build_query_embedding(
+                            vendor_query or query,
+                            context_query=query,
+                            intent_payload=intent_payload,
+                        )
+                    except Exception as e:
+                        logger.warning(f"[SourcingService] Lazy query embedding failed for quantum reranking: {e}")
+                    if query_embedding:
+                        reranked = await reranker.rerank_results(
+                            query_embedding=query_embedding,
+                            search_results=results_for_quantum,
+                            top_k=len(normalized_results),
+                        )
+                    else:
+                        reranked = None
+                else:
+                    reranked = None
+                if reranked:
+                    # Write scores back to NormalizedResult.provenance
+                    idx_map = {r["title"]: r for r in reranked}
+                    for res in normalized_results:
+                        qr = idx_map.get(res.title)
+                        if qr:
+                            res.provenance["quantum_score"] = qr.get("quantum_score")
+                            res.provenance["classical_score"] = qr.get("classical_score")
+                            res.provenance["novelty_score"] = qr.get("novelty_score")
+                            res.provenance["coherence_score"] = qr.get("coherence_score")
+                            res.provenance["blended_score"] = qr.get("blended_score")
         except Exception as e:
             logger.warning(f"[SourcingService] Quantum reranking failed (graceful degradation): {e}")
 
@@ -333,10 +374,36 @@ class SourcingService:
         try:
             payload = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
             if isinstance(payload, dict):
-                return SearchIntent(**payload)
+                normalized = normalize_search_intent_payload(payload)
+                return SearchIntent(**normalized)
         except Exception as e:
             logger.debug(f"[SourcingService] Could not parse SearchIntent: {e}")
         return None
+
+    async def _resolve_search_locations(self, row: Row, intent: SearchIntent) -> SearchIntent:
+        location_context = intent.location_context
+        if not location_context or location_context.relevance == "none":
+            return intent
+
+        resolver = LocationResolutionService(self.session)
+        resolved_intent = intent
+        for field_name, target in location_context.targets.non_empty_items().items():
+            current = getattr(resolved_intent.location_resolution, field_name, None)
+            if current and current.status == "resolved":
+                continue
+            try:
+                resolution = await resolver.resolve(target)
+            except Exception as exc:
+                logger.warning("[SourcingService] Location resolution failed for %s=%r: %s", field_name, target, exc)
+                continue
+            resolved_intent = apply_location_resolution(resolved_intent, field_name, resolution)
+
+        if row.search_intent != resolved_intent.model_dump(mode="json"):
+            row.search_intent = resolved_intent.model_dump(mode="json")
+            row.updated_at = datetime.utcnow()
+            self.session.add(row)
+            await self.session.commit()
+        return resolved_intent
 
     def _build_enriched_provenance(self, res: NormalizedResult, row: Optional["Row"]) -> dict:
         from sourcing.provenance import build_enriched_provenance

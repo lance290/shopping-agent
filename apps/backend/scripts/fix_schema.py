@@ -38,6 +38,13 @@ EXPECTED_COLS = [
     ("row", "desire_tier", "VARCHAR(20)", None),
     ("row", "structured_constraints", "TEXT", None),
     ("row", "is_service", "BOOLEAN", "false"),
+    ("project", "anonymous_session_id", "VARCHAR", None),
+    ("project", "shopping_mode", "VARCHAR", None),
+    ("project", "ui_schema_updated_at", "TIMESTAMP", None),
+    ("row", "anonymous_session_id", "VARCHAR", None),
+    ("row", "brand_name", "VARCHAR", None),
+    ("row", "retailer_sku", "VARCHAR", None),
+    ("wallet_transaction", "campaign_id", "INTEGER", None),
     ("row", "service_category", "VARCHAR", None),
     ("row", "origin_channel", "VARCHAR", None),
     ("row", "origin_message_id", "VARCHAR", None),
@@ -65,6 +72,8 @@ EXPECTED_COLS = [
     ("vendor", "price_range_min", "FLOAT", None),
     ("vendor", "price_range_max", "FLOAT", None),
     ("vendor", "slug", "VARCHAR", None),
+    ("vendor", "latitude", "FLOAT", None),
+    ("vendor", "longitude", "FLOAT", None),
 
     # ClickoutEvent — Phase 4 anti-fraud + SDUI attribution (ROOT CAUSE of prod 502)
     ("clickout_event", "bid_id", "INTEGER", None),
@@ -163,6 +172,26 @@ EXPECTED_COLS = [
     # PopSwapClaim — verification + payment timestamps
     ("pop_swap_claim", "verified_at", "TIMESTAMP", None),
     ("pop_swap_claim", "paid_at", "TIMESTAMP", None),
+
+    # VendorCoverageGap
+    ("vendor_coverage_gap", "row_id", "INTEGER", None),
+    ("vendor_coverage_gap", "user_id", "INTEGER", None),
+    ("vendor_coverage_gap", "row_title", "VARCHAR", None),
+    ("vendor_coverage_gap", "canonical_need", "VARCHAR", None),
+    ("vendor_coverage_gap", "search_query", "VARCHAR", None),
+    ("vendor_coverage_gap", "vendor_query", "VARCHAR", None),
+    ("vendor_coverage_gap", "geo_hint", "VARCHAR", None),
+    ("vendor_coverage_gap", "desire_tier", "VARCHAR", None),
+    ("vendor_coverage_gap", "service_type", "VARCHAR", None),
+    ("vendor_coverage_gap", "summary", "TEXT", None),
+    ("vendor_coverage_gap", "rationale", "TEXT", None),
+    ("vendor_coverage_gap", "confidence", "FLOAT", "0.0"),
+    ("vendor_coverage_gap", "times_seen", "INTEGER", "1"),
+    ("vendor_coverage_gap", "status", "VARCHAR", "'new'"),
+    ("vendor_coverage_gap", "emailed_count", "INTEGER", "0"),
+    ("vendor_coverage_gap", "email_sent_at", "TIMESTAMP", None),
+    ("vendor_coverage_gap", "first_seen_at", "TIMESTAMP", "NOW()"),
+    ("vendor_coverage_gap", "last_seen_at", "TIMESTAMP", "NOW()"),
 ]
 
 # Tables to migrate (order matters for FK constraints)
@@ -284,6 +313,45 @@ async def fix_schema(conn):
     except Exception as e:
         print(f"[SCHEMA-FIX] WARNING: Could not create audit_log table: {e}")
 
+    try:
+        vg_row = await conn.execute(text(
+            "SELECT 1 FROM information_schema.tables WHERE table_name = 'vendor_coverage_gap'"
+        ))
+        if vg_row.first() is None:
+            await conn.execute(text("""
+                CREATE TABLE vendor_coverage_gap (
+                    id SERIAL PRIMARY KEY,
+                    row_id INTEGER REFERENCES row(id),
+                    user_id INTEGER REFERENCES "user"(id),
+                    row_title VARCHAR NOT NULL,
+                    canonical_need VARCHAR NOT NULL,
+                    search_query VARCHAR,
+                    vendor_query VARCHAR,
+                    geo_hint VARCHAR,
+                    desire_tier VARCHAR,
+                    service_type VARCHAR,
+                    summary TEXT NOT NULL,
+                    rationale TEXT,
+                    suggested_queries JSONB,
+                    assessment JSONB,
+                    supporting_context JSONB,
+                    confidence FLOAT NOT NULL DEFAULT 0.0,
+                    times_seen INTEGER NOT NULL DEFAULT 1,
+                    status VARCHAR NOT NULL DEFAULT 'new',
+                    emailed_count INTEGER NOT NULL DEFAULT 0,
+                    email_sent_at TIMESTAMP,
+                    first_seen_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    last_seen_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_coverage_gap_status_idx ON vendor_coverage_gap (status)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_coverage_gap_need_idx ON vendor_coverage_gap (canonical_need)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS vendor_coverage_gap_last_seen_idx ON vendor_coverage_gap (last_seen_at)"))
+            print("[SCHEMA-FIX] Created vendor_coverage_gap table with indexes")
+            added += 1
+    except Exception as e:
+        print(f"[SCHEMA-FIX] WARNING: Could not create vendor_coverage_gap table: {e}")
+
     # Fix vendor.embedding column type: varchar -> vector(1536)
     try:
         row = await conn.execute(text(
@@ -350,6 +418,9 @@ async def fix_schema(conn):
         ("bid", "provenance", "JSONB"),
         ("vendor", "seo_content", "JSONB"),
         ("vendor", "schema_markup", "JSONB"),
+        ("vendor_coverage_gap", "suggested_queries", "JSONB"),
+        ("vendor_coverage_gap", "assessment", "JSONB"),
+        ("vendor_coverage_gap", "supporting_context", "JSONB"),
     ]
     for table, col, pgtype in JSON_COLS:
         tbl_check = await conn.execute(text(

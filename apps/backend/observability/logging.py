@@ -19,6 +19,7 @@ from contextvars import ContextVar
 from typing import Optional, Dict, Any
 
 from pythonjsonlogger import jsonlogger
+from utils.security import redact_secrets_from_text
 
 # Context variable for correlation ID (thread-safe request tracking)
 _correlation_id_ctx: ContextVar[Optional[str]] = ContextVar("correlation_id", default=None)
@@ -73,25 +74,33 @@ class SensitiveDataFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         # Redact sensitive data in message
+        if isinstance(record.msg, str):
+            record.msg = redact_secrets_from_text(record.msg)
+
         if hasattr(record, "args") and record.args:
-            record.args = self._redact_dict(record.args)
+            record.args = self._redact_value(record.args)
 
         # Redact sensitive data in extra fields
         for key in list(record.__dict__.keys()):
             if key.lower() in self.SENSITIVE_KEYS:
                 setattr(record, key, "[REDACTED]")
+            else:
+                setattr(record, key, self._redact_value(getattr(record, key)))
 
         return True
 
-    def _redact_dict(self, data: Any) -> Any:
-        """Recursively redact sensitive keys in dictionaries."""
+    def _redact_value(self, data: Any) -> Any:
         if isinstance(data, dict):
             return {
-                k: "[REDACTED]" if k.lower() in self.SENSITIVE_KEYS else self._redact_dict(v)
+                k: "[REDACTED]" if k.lower() in self.SENSITIVE_KEYS else self._redact_value(v)
                 for k, v in data.items()
             }
-        elif isinstance(data, (list, tuple)):
-            return [self._redact_dict(item) for item in data]
+        if isinstance(data, tuple):
+            return tuple(self._redact_value(item) for item in data)
+        if isinstance(data, list):
+            return [self._redact_value(item) for item in data]
+        if isinstance(data, str):
+            return redact_secrets_from_text(data)
         return data
 
 
@@ -163,6 +172,7 @@ def setup_logging() -> None:
     logging.getLogger("uvicorn.error").setLevel(logging.INFO)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 def get_logger(name: str) -> logging.Logger:

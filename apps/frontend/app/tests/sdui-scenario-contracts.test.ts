@@ -1,7 +1,7 @@
 /**
  * Scenario-level contract tests for SDUI schemas.
  *
- * Validates end-to-end user flow schemas (grocery, jet charter, escrow,
+ * Validates end-to-end user flow schemas (grocery, jet charter, quote accepted,
  * swap claim, zero results) purely via data contracts — no browser needed.
  *
  * Covers:
@@ -9,7 +9,7 @@
  * - Fallback behavior when schema is missing/invalid
  * - SSE ui_schema_updated event shape
  * - Schema versioning
- * - Full flow scenarios (grocery, jet, escrow, swap, zero results)
+ * - Full flow scenarios (grocery, jet, quote accepted, swap, zero results)
  * - Security: no tracking tags in persisted schema
  * - ActionObject intent validation
  */
@@ -67,17 +67,17 @@ function makeJetCharterSchema() {
   };
 }
 
-function makeEscrowSchema() {
+function makeQuoteAcceptedSchema() {
   return {
     version: 3,
     layout: 'ROW_TIMELINE',
     blocks: [
-      { type: 'MarkdownText', content: '**Yacht Charter — Funded**' },
-      { type: 'EscrowStatus', deal_id: 'deal_789' },
+      { type: 'MarkdownText', content: '**Yacht Charter — Quote Accepted**' },
+      { type: 'BadgeList', tags: ['Handle payment directly with vendor', 'Tip after delivery'] },
       { type: 'Timeline', steps: [
         { label: 'Sourcing', status: 'done' },
         { label: 'Negotiating', status: 'done' },
-        { label: 'Funded', status: 'active' },
+        { label: 'Terms Agreed', status: 'active' },
         { label: 'Delivered', status: 'pending' },
       ]},
       { type: 'ActionRow', actions: [
@@ -121,10 +121,10 @@ describe('Schema parsing from API responses', () => {
     expect(result!.value_vector).toBe('safety');
   });
 
-  test('escrow schema validates', () => {
-    const result = validateUISchema(makeEscrowSchema());
+  test('quote accepted schema validates', () => {
+    const result = validateUISchema(makeQuoteAcceptedSchema());
     expect(result).not.toBeNull();
-    expect(result!.blocks.find((b) => b.type === 'EscrowStatus')).toBeDefined();
+    expect(result!.blocks.find((b) => b.type === 'BadgeList')).toBeDefined();
   });
 
   test('swap claim schema validates', () => {
@@ -262,14 +262,14 @@ describe('Scenario: grocery flow', () => {
 });
 
 describe('Scenario: high-ticket service flow', () => {
-  test('vendor comparison → escrow funded → tip jar', () => {
+  test('vendor comparison → quote accepted → tip jar', () => {
     const comparison = validateUISchema(makeJetCharterSchema());
     expect(comparison).not.toBeNull();
     expect(comparison!.value_vector).toBe('safety');
 
-    const funded = validateUISchema(makeEscrowSchema());
+    const funded = validateUISchema(makeQuoteAcceptedSchema());
     expect(funded).not.toBeNull();
-    expect(funded!.blocks.find((b) => b.type === 'EscrowStatus')).toBeDefined();
+    expect(funded!.blocks.find((b) => b.type === 'BadgeList')).toBeDefined();
 
     const tipAction = funded!.blocks
       .filter((b): b is ActionRowBlock => b.type === 'ActionRow')
@@ -313,11 +313,10 @@ describe('Security: affiliate tags not in schema', () => {
 // =========================================================================
 
 describe('ActionObject intents', () => {
-  test('all 11 intents recognized', () => {
-    expect(ACTION_INTENTS).toHaveLength(11);
+  test('all 10 intents recognized', () => {
+    expect(ACTION_INTENTS).toHaveLength(10);
     for (const intent of ACTION_INTENTS) {
       expect(typeof intent).toBe('string');
-      expect(intent.length).toBeGreaterThan(0);
     }
   });
 

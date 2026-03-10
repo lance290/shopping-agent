@@ -28,7 +28,6 @@ export const VALUE_VECTORS: ValueVector[] = ['unit_price', 'safety', 'speed', 'r
 export type ActionIntent =
   | 'outbound_affiliate'
   | 'claim_swap'
-  | 'fund_escrow'
   | 'send_tip'
   | 'contact_vendor'
   | 'view_all_bids'
@@ -41,7 +40,6 @@ export type ActionIntent =
 export const ACTION_INTENTS: ActionIntent[] = [
   'outbound_affiliate',
   'claim_swap',
-  'fund_escrow',
   'send_tip',
   'contact_vendor',
   'view_all_bids',
@@ -68,8 +66,7 @@ export type BlockType =
   | 'ChoiceFactorForm'
   | 'ActionRow'
   | 'ReceiptUploader'
-  | 'WalletLedger'
-  | 'EscrowStatus';
+  | 'WalletLedger';
 
 export const BLOCK_TYPES: BlockType[] = [
   'ProductImage',
@@ -84,10 +81,9 @@ export const BLOCK_TYPES: BlockType[] = [
   'ActionRow',
   'ReceiptUploader',
   'WalletLedger',
-  'EscrowStatus',
 ];
 
-export const STATE_DRIVEN_BLOCKS: BlockType[] = ['ReceiptUploader', 'WalletLedger', 'EscrowStatus'];
+export const STATE_DRIVEN_BLOCKS: BlockType[] = ['ReceiptUploader', 'WalletLedger'];
 
 // ---------------------------------------------------------------------------
 // Block Data Shapes
@@ -194,11 +190,6 @@ export interface WalletLedgerBlock {
   type: 'WalletLedger';
 }
 
-export interface EscrowStatusBlock {
-  type: 'EscrowStatus';
-  deal_id: string;
-}
-
 // Union of all block types
 export type UIBlock =
   | ProductImageBlock
@@ -212,8 +203,7 @@ export type UIBlock =
   | ChoiceFactorFormBlock
   | ActionRowBlock
   | ReceiptUploaderBlock
-  | WalletLedgerBlock
-  | EscrowStatusBlock;
+  | WalletLedgerBlock;
 
 // ---------------------------------------------------------------------------
 // Top-Level Schema

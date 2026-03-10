@@ -200,4 +200,6 @@ async def test_reset_bids_clears_existing_bids(client: AsyncClient, session):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert refreshed.status_code == 200
-    assert refreshed.json().get("bids") == []
+    bids = refreshed.json().get("bids")
+    print("REFRESHED BIDS:", bids)
+    assert bids == []

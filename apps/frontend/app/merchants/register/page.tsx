@@ -252,9 +252,9 @@ export default function MerchantRegisterPage() {
               </div>
             </div>
 
-            {/* Platform Fee Disclosure (PRD 08) */}
+            {/* Affiliate Disclosure (PRD 08) */}
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
-              <strong>Platform Fee Notice:</strong> BuyAnything.ai charges a 5% platform fee on completed transactions processed through Stripe Connect. Affiliate commissions may also apply to marketplace-sourced offers.{' '}
+              <strong>Disclosure:</strong> BuyAnything.ai is an introduction and sourcing platform. You deal directly with the buyers. Affiliate commissions may apply to marketplace-sourced offers, but there is no platform fee to register.{' '}
               <Link href="/disclosure" className="underline hover:text-amber-900">Full disclosure</Link>
             </div>
 

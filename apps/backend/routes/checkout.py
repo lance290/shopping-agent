@@ -151,13 +151,13 @@ async def create_checkout_session(
     # Check for Stripe Connect: look up merchant via bid's seller
     connected_account_id = None
     platform_fee_cents = 0
-    commission_rate = float(os.getenv("DEFAULT_PLATFORM_FEE_RATE", "0.05"))
+    commission_rate = 0.00
     if bid.vendor_id:
         vendor = await session.get(Vendor, bid.vendor_id)
         if vendor and vendor.stripe_account_id and vendor.stripe_onboarding_complete:
             connected_account_id = vendor.stripe_account_id
-            commission_rate = vendor.default_commission_rate
-            platform_fee_cents = int(round(unit_amount * commission_rate))
+            commission_rate = 0.0
+            platform_fee_cents = 0
 
     session_params = {
         "mode": "payment",
@@ -168,15 +168,11 @@ async def create_checkout_session(
             "bid_id": str(bid.id),
             "row_id": str(row.id),
             "user_id": str(auth_session.user_id),
-            "commission_rate": str(commission_rate),
         },
     }
 
-    # Add Stripe Connect params if merchant has connected account
+    # Add Stripe Connect params if merchant has connected account (0% platform fee)
     if connected_account_id:
-        session_params["payment_intent_data"] = {
-            "application_fee_amount": platform_fee_cents,
-        }
         session_params["stripe_account"] = connected_account_id
         session_params["metadata"]["connected_account"] = connected_account_id
 
@@ -351,7 +347,19 @@ async def stripe_webhook(request: Request):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
 
-    if webhook_secret:
+    is_production = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("ENVIRONMENT") == "production")
+    
+    if not webhook_secret:
+        if is_production:
+            logger.error("[STRIPE WEBHOOK] Missing STRIPE_WEBHOOK_SECRET in production")
+            raise HTTPException(status_code=500, detail="Webhook configuration error")
+        else:
+            # Dev mode fallback
+            try:
+                event = json.loads(payload)
+            except json.JSONDecodeError:
+                raise HTTPException(status_code=400, detail="Invalid JSON")
+    else:
         try:
             event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
         except stripe.SignatureVerificationError:
@@ -359,12 +367,6 @@ async def stripe_webhook(request: Request):
         except Exception as e:
             logger.error(f"[STRIPE WEBHOOK] Error: {e}")
             raise HTTPException(status_code=400, detail="Webhook error")
-    else:
-        # Dev mode — parse without verification
-        try:
-            event = json.loads(payload)
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid JSON")
 
     event_type = event.get("type") if isinstance(event, dict) else event.type
 
@@ -416,7 +418,7 @@ async def _handle_checkout_completed(event):
     async for db_session in get_session():
         try:
             # Calculate platform fee from metadata
-            fee_rate = float(metadata.get("commission_rate", "0.0"))
+            fee_rate = 0.0
             connected = metadata.get("connected_account")
             amount_dollars = amount_total / 100.0
             fee_amount = round(amount_dollars * fee_rate, 2) if fee_rate > 0 else None

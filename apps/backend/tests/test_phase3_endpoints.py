@@ -295,5 +295,5 @@ async def test_deal_fund_requires_terms_agreed(client: AsyncClient, auth_user_an
         f"/deals/{deal.id}/fund",
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert resp.status_code == 400
-    assert "terms_agreed" in resp.json()["detail"]
+    assert resp.status_code == 410
+    assert "retired" in resp.json()["detail"].lower()

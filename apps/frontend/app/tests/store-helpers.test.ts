@@ -117,6 +117,31 @@ describe('mapBidToOffer', () => {
     const offer = mapBidToOffer(bid);
     expect(offer.click_url).toBe('/api/out?url=https%3A%2F%2Fshop.com%2Fitem&bid_id=8&source=test');
   });
+
+  test('preserves canonical_url and bookmark flags', () => {
+    const bid: Bid = {
+      id: 9,
+      price: 75,
+      currency: 'USD',
+      item_title: 'Saved Item',
+      item_url: 'https://www.amazon.com/dp/ABC123?tag=legacy',
+      canonical_url: 'https://amazon.com/dp/ABC123',
+      image_url: null,
+      source: 'amazon',
+      is_selected: false,
+      is_liked: true,
+      is_item_bookmarked: true,
+      is_vendor_bookmarked: false,
+      is_emailed: true,
+    };
+
+    const offer = mapBidToOffer(bid);
+    expect(offer.canonical_url).toBe('https://amazon.com/dp/ABC123');
+    expect(offer.is_item_bookmarked).toBe(true);
+    expect(offer.is_vendor_bookmarked).toBe(false);
+    expect(offer.is_emailed).toBe(true);
+    expect(offer.is_liked).toBe(true);
+  });
 });
 
 describe('parseChoiceFactors', () => {

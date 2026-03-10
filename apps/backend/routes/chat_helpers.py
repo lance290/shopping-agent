@@ -15,6 +15,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from models.rows import Row, Project
 from models.bids import Bid
 from models import RequestSpec
+from sourcing.location import resolve_location_context
 from utils.json_utils import safe_json_loads
 from services.sdui_builder import build_ui_schema
 
@@ -110,6 +111,12 @@ def _build_search_intent_json(title: str, search_query: str, constraints: Dict[s
     stop_words = {"a", "an", "the", "for", "my", "i", "me", "to", "and", "or", "of", "in", "on", "with"}
     keywords = [w for w in title.lower().split() if w not in stop_words and len(w) > 1]
 
+    location_context = resolve_location_context(
+        service_category=service_category,
+        desire_tier=None,
+        constraints=constraints,
+        features=constraints,
+    )
     intent_data = {
         "product_category": service_category or title.lower().replace(" ", "_"),
         "product_name": title,
@@ -121,6 +128,8 @@ def _build_search_intent_json(title: str, search_query: str, constraints: Dict[s
         "features": {k: v for k, v in constraints.items()
                      if k not in ("brand", "preferred_brand", "min_price", "max_price", "budget", "max_budget")
                      and v is not None and str(v).lower() != "not answered"},
+        "location_context": location_context.model_dump(),
+        "location_resolution": {},
     }
     # Remove None values
     intent_data = {k: v for k, v in intent_data.items() if v is not None}

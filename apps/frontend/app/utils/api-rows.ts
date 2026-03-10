@@ -17,11 +17,6 @@ export interface DealTransitionPayload {
   stripe_payment_intent_id?: string;
 }
 
-export interface DealFundingResponse {
-  checkout_url?: string;
-  session_id?: string;
-}
-
 const PROVIDER_ALIASES: Record<string, string> = {
   rainforest: 'amazon',
   google: 'serpapi',
@@ -94,11 +89,13 @@ export const runSearchApiWithStatus = async (
         currency: String(r?.currency ?? 'USD'),
         merchant: String(r?.merchant ?? 'Unknown'),
         url: String(r?.url ?? '#'),
+        canonical_url: typeof r?.canonical_url === 'string' ? r.canonical_url : undefined,
         image_url: typeof r?.image_url === 'string' ? r.image_url : null,
         rating: Number.isFinite(rating) ? rating : null,
         reviews_count: Number.isFinite(reviewsCount) ? reviewsCount : null,
         shipping_info: typeof r?.shipping_info === 'string' ? r.shipping_info : null,
         source: sourceRaw,
+        vendor_id: typeof r?.vendor_id === 'number' ? r.vendor_id : undefined,
         merchant_domain: typeof r?.merchant_domain === 'string' ? r.merchant_domain : undefined,
         click_url: typeof r?.click_url === 'string' ? r.click_url : undefined,
         match_score: typeof r?.match_score === 'number' ? r.match_score : undefined,
@@ -106,6 +103,9 @@ export const runSearchApiWithStatus = async (
         is_selected: typeof r?.is_selected === 'boolean' ? r.is_selected : undefined,
         is_liked: r?.is_liked === true,
         liked_at: typeof r?.liked_at === 'string' ? r.liked_at : undefined,
+        is_vendor_bookmarked: r?.is_vendor_bookmarked === true,
+        is_item_bookmarked: r?.is_item_bookmarked === true,
+        is_emailed: r?.is_emailed === true,
         is_service_provider: isServiceProvider,
         vendor_email: typeof r?.vendor_email === 'string' ? r.vendor_email : undefined,
         vendor_name: typeof r?.vendor_name === 'string' ? r.vendor_name : undefined,
@@ -372,21 +372,5 @@ export const transitionDealInDb = async (dealId: number, payload: DealTransition
   } catch (err) {
     console.error('[API] Transition deal error:', err);
     return false;
-  }
-};
-
-export const fundDealEscrowInDb = async (dealId: number): Promise<DealFundingResponse | null> => {
-  try {
-    const res = await fetchWithAuth(`/api/deals/${dealId}/fund`, {
-      method: 'POST',
-    });
-    if (!res.ok) {
-      console.error('[API] Fund deal failed:', res.status, await res.text().catch(() => ''));
-      return null;
-    }
-    return await res.json() as DealFundingResponse;
-  } catch (err) {
-    console.error('[API] Fund deal error:', err);
-    return null;
   }
 };

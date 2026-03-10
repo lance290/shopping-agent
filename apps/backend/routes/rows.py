@@ -12,8 +12,11 @@ from sqlalchemy.orm import selectinload, defer, joinedload
 from database import get_session
 from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project, User, Vendor
 from models.deals import Deal, DealMessage
+from models.bookmarks import VendorBookmark, ItemBookmark
+from models.outreach import OutreachMessage
 from dependencies import get_current_session, resolve_user_id, resolve_user_id_and_guest_flag, GUEST_EMAIL
 from routes.rows_search import router as rows_search_router
+from routes.bookmarks import _normalize_bookmark_url
 from sourcing.safety import SafetyService
 from services.sdui_builder import augment_schema_with_active_deal
 from utils.json_utils import safe_json_loads
@@ -61,6 +64,7 @@ class BidRead(BaseModel):
     currency: str
     item_title: str
     item_url: Optional[str] = None
+    canonical_url: Optional[str] = None
     image_url: Optional[str] = None
     source: str
     is_selected: bool = False
@@ -70,7 +74,11 @@ class BidRead(BaseModel):
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
+    vendor_id: Optional[int] = None
     seller: Optional[SellerRead] = None
+    is_vendor_bookmarked: bool = False
+    is_item_bookmarked: bool = False
+    is_emailed: bool = False
 
 
 class ActiveDealRead(BaseModel):
@@ -222,6 +230,74 @@ async def _load_active_deal_summaries(session: AsyncSession, rows: List[Row]) ->
     return summaries
 
 
+async def _load_bookmark_state_for_bids(
+    session: AsyncSession, user_id: int, rows: List[Row],
+) -> tuple[set[int], set[str], set[int]]:
+    """Return (bookmarked_vendor_ids, bookmarked_item_urls, emailed_bid_ids) for the given user and rows."""
+    all_vendor_ids: set[int] = set()
+    all_item_urls: set[str] = set()
+    row_ids: list[int] = []
+    for row in rows:
+        row_ids.append(row.id)
+        for bid in (row.bids or []):
+            if bid.vendor_id:
+                all_vendor_ids.add(bid.vendor_id)
+            bookmark_url = _normalize_bookmark_url(bid.canonical_url or bid.item_url)
+            if bookmark_url:
+                all_item_urls.add(bookmark_url)
+
+    bookmarked_vendor_ids: set[int] = set()
+    if all_vendor_ids:
+        bm_result = await session.exec(
+            select(VendorBookmark.vendor_id)
+            .where(VendorBookmark.user_id == user_id, VendorBookmark.vendor_id.in_(all_vendor_ids))
+        )
+        bookmarked_vendor_ids = set(bm_result.all())
+
+    bookmarked_item_urls: set[str] = set()
+    if all_item_urls:
+        item_result = await session.exec(
+            select(ItemBookmark.canonical_url)
+            .where(ItemBookmark.user_id == user_id, ItemBookmark.canonical_url.in_(all_item_urls))
+        )
+        bookmarked_item_urls = set(item_result.all())
+
+    emailed_bid_ids: set[int] = set()
+    if row_ids:
+        om_result = await session.exec(
+            select(OutreachMessage.bid_id)
+            .where(
+                OutreachMessage.bid_id.isnot(None),
+                OutreachMessage.status.in_(("sent", "delivered", "replied")),
+            )
+            .where(OutreachMessage.bid_id.in_(
+                select(Bid.id).where(Bid.row_id.in_(row_ids))
+            ))
+        )
+        emailed_bid_ids = {bid_id for bid_id in om_result.all() if bid_id is not None}
+
+    return bookmarked_vendor_ids, bookmarked_item_urls, emailed_bid_ids
+
+
+def _enrich_bid_dict(
+    bid_dict: dict,
+    db_bid: Bid,
+    bookmarked_vendor_ids: set[int],
+    bookmarked_item_urls: set[str],
+    emailed_bid_ids: set[int],
+) -> dict:
+    """Inject vendor state indicators into a serialized bid dict."""
+    bookmark_url = _normalize_bookmark_url(db_bid.canonical_url or db_bid.item_url)
+    is_vendor_bookmarked = bool(db_bid.vendor_id and db_bid.vendor_id in bookmarked_vendor_ids)
+    is_item_bookmarked = bool(bookmark_url and bookmark_url in bookmarked_item_urls)
+    bid_dict["canonical_url"] = db_bid.canonical_url or bookmark_url
+    bid_dict["is_vendor_bookmarked"] = is_vendor_bookmarked
+    bid_dict["is_item_bookmarked"] = is_item_bookmarked
+    bid_dict["is_liked"] = is_vendor_bookmarked or is_item_bookmarked
+    bid_dict["is_emailed"] = bool(db_bid.id and db_bid.id in emailed_bid_ids)
+    return bid_dict
+
+
 def _serialize_row(row: Row, active_deal: Optional[dict]) -> dict:
     payload = RowReadWithBids.model_validate(row, from_attributes=True).model_dump()
     payload["active_deal"] = active_deal
@@ -336,13 +412,43 @@ async def read_rows(
     )
     rows = result.all()
     
-    # Apply price filters from choice_answers to each row's bids
-    for row in rows:
-        row.bids = [b for b in row.bids if not b.is_superseded]
-        row.bids = filter_bids_by_price(row)
-
     active_deals = await _load_active_deal_summaries(session, rows)
-    return [_serialize_row(row, active_deals.get(row.id)) for row in rows]
+    bookmarked_vendors, bookmarked_items, emailed_bids = await _load_bookmark_state_for_bids(session, user_id, rows)
+    
+    results = []
+    for row in rows:
+        from routes.rows_search import _extract_filters
+        from sourcing.filters import should_include_result
+        min_price, max_price, _ = _extract_filters(row, None)
+        
+        payload = RowReadWithBids.model_validate(row, from_attributes=True).model_dump()
+        payload["active_deal"] = active_deals.get(row.id)
+        payload["ui_schema"] = augment_schema_with_active_deal(payload.get("ui_schema"), payload["active_deal"], row)
+        
+        filtered_bids = []
+        for db_bid in row.bids:
+            if db_bid.is_superseded:
+                continue
+                
+            source = str(db_bid.source or "").lower()
+            if not should_include_result(
+                price=db_bid.price,
+                source=source,
+                desire_tier=row.desire_tier,
+                min_price=min_price,
+                max_price=max_price,
+                is_service_provider=db_bid.is_service_provider,
+            ):
+                continue
+            
+            bid_dict = BidRead.model_validate(db_bid, from_attributes=True).model_dump()
+            _enrich_bid_dict(bid_dict, db_bid, bookmarked_vendors, bookmarked_items, emailed_bids)
+            filtered_bids.append(bid_dict)
+            
+        payload["bids"] = filtered_bids
+        results.append(payload)
+        
+    return results
 
 
 @router.get("/rows/{row_id}", response_model=RowReadWithBids)
@@ -370,13 +476,43 @@ async def read_row(
     
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
-    
-    # Apply price filter from choice_answers
-    row.bids = [b for b in row.bids if not b.is_superseded]
-    row.bids = filter_bids_by_price(row)
 
+    if is_guest and row.anonymous_session_id and row.anonymous_session_id != x_anonymous_session_id:
+        raise HTTPException(status_code=404, detail="Row not found")
+    
     active_deals = await _load_active_deal_summaries(session, [row])
-    return _serialize_row(row, active_deals.get(row.id))
+    bookmarked_vendors, bookmarked_items, emailed_bids = await _load_bookmark_state_for_bids(session, user_id, [row])
+    
+    from routes.rows_search import _extract_filters
+    from sourcing.filters import should_include_result
+    min_price, max_price, _ = _extract_filters(row, None)
+    
+    payload = RowReadWithBids.model_validate(row, from_attributes=True).model_dump()
+    payload["active_deal"] = active_deals.get(row.id)
+    payload["ui_schema"] = augment_schema_with_active_deal(payload.get("ui_schema"), payload["active_deal"], row)
+    
+    filtered_bids = []
+    for db_bid in row.bids:
+        if db_bid.is_superseded:
+            continue
+            
+        source = str(db_bid.source or "").lower()
+        if not should_include_result(
+            price=db_bid.price,
+            source=source,
+            desire_tier=row.desire_tier,
+            min_price=min_price,
+            max_price=max_price,
+            is_service_provider=db_bid.is_service_provider,
+        ):
+            continue
+        
+        bid_dict = BidRead.model_validate(db_bid, from_attributes=True).model_dump()
+        _enrich_bid_dict(bid_dict, db_bid, bookmarked_vendors, bookmarked_items, emailed_bids)
+        filtered_bids.append(bid_dict)
+        
+    payload["bids"] = filtered_bids
+    return payload
 
 
 @router.delete("/rows/{row_id}")
@@ -446,13 +582,11 @@ async def update_row(
         row.status = "closed"
 
     if reset_bids:
-        from sqlalchemy import update as sql_update
-        await session.exec(
-            sql_update(Bid).where(
-                Bid.row_id == row_id,
-                Bid.is_superseded == False,
-            ).values(is_superseded=True, superseded_at=datetime.utcnow())
-        )
+        bids_result = await session.exec(select(Bid).where(Bid.row_id == row_id, Bid.is_superseded == False))
+        for b in bids_result.all():
+            b.is_superseded = True
+            b.superseded_at = datetime.utcnow()
+            session.add(b)
 
     # JSONB columns need native dicts/lists, not JSON strings
     jsonb_fields = {"choice_factors", "choice_answers", "search_intent", "provider_query_map", "chat_history"}

@@ -22,14 +22,14 @@ const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
     return (
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center px-6 text-onyx-muted">
-            <div className="w-14 h-14 rounded-full bg-white border border-warm-grey flex items-center justify-center mb-5 shadow-sm">
-              <Bot className="w-6 h-6 text-gold-dark" />
+          <div className="flex flex-col items-center justify-center text-center mt-20 mb-12 opacity-0 animate-fade-in px-4">
+            <div className="w-16 h-16 bg-gradient-to-tr from-gold to-gold-light rounded-2xl flex items-center justify-center mb-6 shadow-sm ring-1 ring-black/5">
+              <span className="text-2xl" role="img" aria-label="sparkles">✨</span>
             </div>
             <div className="text-[10px] uppercase tracking-[0.16em] text-onyx-muted/80 font-medium">Welcome</div>
-            <h3 className="text-xl font-semibold text-onyx mt-2 mb-2">Hi, I&apos;m Annie!</h3>
+            <h3 className="text-xl font-semibold text-onyx mt-2 mb-2">BuyAnything Intelligence</h3>
             <p className="text-sm max-w-sm leading-relaxed text-onyx-muted">
-              I&apos;m your AI shopping assistant. Describe what you&apos;re looking for, or ask for ideas, and I&apos;ll do the legwork.
+              Your AI Chief of Staff for sourcing and procurement. Describe your project requirements, and I&apos;ll secure vetted vendor bids for you.
             </p>
             {promptSuggestions.length > 0 && (
               <div className="mt-8 w-full max-w-md space-y-3">

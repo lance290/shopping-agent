@@ -45,15 +45,14 @@ describe('SDUI Constants', () => {
     expect(LAYOUT_TOKENS).toContain('ROW_TIMELINE');
   });
 
-  test('BLOCK_TYPES has 13 types', () => {
-    expect(BLOCK_TYPES).toHaveLength(13);
+  test('BLOCK_TYPES has 12 types', () => {
+    expect(BLOCK_TYPES).toHaveLength(12);
   });
 
-  test('ACTION_INTENTS has 11 intents', () => {
-    expect(ACTION_INTENTS).toHaveLength(11);
+  test('ACTION_INTENTS has 10 intents', () => {
+    expect(ACTION_INTENTS).toHaveLength(10);
     expect(ACTION_INTENTS).toContain('outbound_affiliate');
     expect(ACTION_INTENTS).toContain('claim_swap');
-    expect(ACTION_INTENTS).toContain('fund_escrow');
     expect(ACTION_INTENTS).toContain('send_tip');
     expect(ACTION_INTENTS).toContain('contact_vendor');
     expect(ACTION_INTENTS).toContain('view_all_bids');
@@ -73,11 +72,11 @@ describe('SDUI Constants', () => {
     expect(VALUE_VECTORS).toContain('durability');
   });
 
-  test('STATE_DRIVEN_BLOCKS has 3 types', () => {
-    expect(STATE_DRIVEN_BLOCKS).toHaveLength(3);
+  test('STATE_DRIVEN_BLOCKS has 2 types', () => {
+    expect(STATE_DRIVEN_BLOCKS).toHaveLength(2);
     expect(STATE_DRIVEN_BLOCKS).toContain('ReceiptUploader');
     expect(STATE_DRIVEN_BLOCKS).toContain('WalletLedger');
-    expect(STATE_DRIVEN_BLOCKS).toContain('EscrowStatus');
+    expect(STATE_DRIVEN_BLOCKS).not.toContain('EscrowStatus');
   });
 
   test('LIMITS match spec', () => {

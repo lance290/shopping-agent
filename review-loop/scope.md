@@ -1,16 +1,20 @@
-# Review Scope - phase2-full-implementation (Pop Swap Selectors)
+# Review Scope - Quantum reranker + vendor embedding regressions
 
 ## Files to Review
-- apps/backend/routes/pop_helpers.py (modified)
-- apps/backend/routes/pop_list.py (modified)
-- apps/backend/routes/pop_offers.py (modified)
-- apps/backend/tests/test_pop_list_offers.py (modified)
-- apps/frontend/app/api/pop/swap/[id]/claim/route.ts (added)
+- apps/backend/sourcing/quantum/reranker.py (modified)
+- apps/backend/sourcing/service.py (modified)
+- apps/backend/sourcing/vendor_provider.py (modified)
+- apps/frontend/app/components/Chat.tsx (modified)
+- apps/frontend/app/components/sdui/AppView.tsx (modified)
 - apps/frontend/app/pop-site/chat/page.tsx (modified)
-- apps/frontend/app/pop-site/chat/PopListSidebar.tsx (modified)
-- apps/frontend/app/pop-site/list/[id]/page.tsx (modified)
-- apps/frontend/app/pop-site/list/[id]/components/PopListItems.tsx (modified)
-- apps/frontend/app/pop-site/list/[id]/components/PopListItemCard.tsx (modified)
-- apps/frontend/app/pop-site/list/[id]/components/types.ts (modified)
+- apps/backend/routes/rows_search.py (integration context)
+- apps/backend/sourcing/repository.py (integration context)
+- apps/backend/tests/test_embedding_and_quantum_regressions.py (added)
+- apps/frontend/app/tests/tip-jar-copy.test.ts (added)
 
-## Review Started: 2026-03-06
+## Out of Scope (unchanged)
+- docs/quantum-research/*.md
+- vendor_enrichment.log
+- CSV and other non-code artifacts in the working tree
+
+## Review Started: 2026-03-08 23:52 PT

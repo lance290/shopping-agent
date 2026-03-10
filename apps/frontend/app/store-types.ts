@@ -9,12 +9,13 @@ export interface Offer {
   currency: string;
   merchant: string;
   url: string;
+  canonical_url?: string;
   image_url: string | null;
   rating: number | null;
   reviews_count: number | null;
   shipping_info: string | null;
   source: string;
-  // New fields
+  vendor_id?: number;
   merchant_domain?: string;
   click_url?: string;
   match_score?: number;
@@ -33,6 +34,9 @@ export interface Offer {
   like_count?: number;
   comment_count?: number;
   outreach_status?: 'contacted' | 'quoted' | 'pending';
+  is_vendor_bookmarked?: boolean;
+  is_item_bookmarked?: boolean;
+  is_emailed?: boolean;
 }
 
 export type ProviderStatusType = 'ok' | 'error' | 'timeout' | 'exhausted' | 'rate_limited';
@@ -51,6 +55,7 @@ export interface Bid {
   currency: string;
   item_title: string;
   item_url: string | null;
+  canonical_url?: string | null;
   image_url: string | null;
   source: string;
   is_selected: boolean;
@@ -61,12 +66,34 @@ export interface Bid {
   contact_name?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;
+  vendor_id?: number | null;
   seller?: {
     name: string;
     domain: string | null;
     description?: string;
     tagline?: string;
   };
+  is_vendor_bookmarked?: boolean;
+  is_item_bookmarked?: boolean;
+  is_emailed?: boolean;
+}
+
+export interface ActiveDeal {
+  id: number;
+  row_id: number;
+  status: string;
+  vendor_id?: number | null;
+  vendor_name?: string | null;
+  bid_id?: number | null;
+  vendor_quoted_price?: number | null;
+  buyer_total?: number | null;
+  currency: string;
+  agreed_terms_summary?: string | null;
+  agreement_source?: string | null;
+  stripe_payment_intent_id?: string | null;
+  terms_agreed_at?: string | null;
+  funded_at?: string | null;
+  vendor_stripe_onboarded?: boolean | null;
 }
 
 export interface ActiveDeal {

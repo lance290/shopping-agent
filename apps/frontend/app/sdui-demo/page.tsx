@@ -46,18 +46,18 @@ const JET_CHARTER_SCHEMA = {
   ],
 };
 
-const ESCROW_SCHEMA = {
+const QUOTE_ACCEPTED_SCHEMA = {
   version: 3,
   layout: 'ROW_TIMELINE',
   blocks: [
-    { type: 'MarkdownText', content: '**Yacht Charter — Mediterranean** \\n 7-day luxury charter, Dubrovnik to Split' },
-    { type: 'PriceBlock', amount: 45000, currency: 'USD', label: 'Escrow Amount' },
-    { type: 'EscrowStatus', deal_id: 'deal_789' },
+    { type: 'MarkdownText', content: '**Yacht Charter — Quote Accepted** \\n 7-day luxury charter, Dubrovnik to Split' },
+    { type: 'PriceBlock', amount: 45000, currency: 'USD', label: 'Agreed Total' },
+    { type: 'BadgeList', tags: ['Handle payment directly with vendor', 'Tip after delivery'] },
     { type: 'Timeline', steps: [
       { label: 'Sourcing', status: 'done' },
       { label: 'Negotiating', status: 'done' },
-      { label: 'Funded', status: 'active' },
-      { label: 'In Transit', status: 'pending' },
+      { label: 'Terms Agreed', status: 'active' },
+      { label: 'Vendor Paid Directly', status: 'pending' },
       { label: 'Delivered', status: 'pending' },
     ]},
     { type: 'ActionRow', actions: [
@@ -145,18 +145,18 @@ const MESSAGE_HISTORY_SCHEMA = {
       { sender: 'You', text: 'Can you do round-trip with a 3-day layover in Aspen?' },
     ]},
     { type: 'ActionRow', actions: [
-      { label: 'Accept Quote', intent: 'fund_escrow', amount: 18500 },
-      { label: 'Counter Offer', intent: 'contact_vendor' },
+      { label: 'Request Revision', intent: 'contact_vendor' },
+      { label: 'Review Notes', intent: 'view_raw' },
     ]},
   ],
 };
 
-type SchemaKey = 'grocery' | 'jet' | 'escrow' | 'swap' | 'compact' | 'choice' | 'zero' | 'wallet' | 'messages';
+type SchemaKey = 'grocery' | 'jet' | 'quote_accepted' | 'swap' | 'compact' | 'choice' | 'zero' | 'wallet' | 'messages';
 
 const SCHEMAS: Record<SchemaKey, { label: string; description: string; schema: Record<string, unknown> }> = {
   grocery: { label: 'Grocery Comparison', description: 'ROW_MEDIA_LEFT — image + price + badges + actions', schema: GROCERY_SCHEMA },
   jet: { label: 'Jet Charter (Service)', description: 'ROW_TIMELINE — specs grid + safety badges + progress', schema: JET_CHARTER_SCHEMA },
-  escrow: { label: 'Escrow Funded', description: 'ROW_TIMELINE — post-purchase tracking with escrow status', schema: ESCROW_SCHEMA },
+  quote_accepted: { label: 'Quote Accepted', description: 'ROW_TIMELINE — post-negotiation tracking with direct vendor payment', schema: QUOTE_ACCEPTED_SCHEMA },
   swap: { label: 'Pop Swap Claimed', description: 'ROW_COMPACT — receipt uploader for swap redemption', schema: SWAP_CLAIM_SCHEMA },
   compact: { label: 'Product Search', description: 'ROW_COMPACT — text-heavy comparison with affiliate links', schema: COMPACT_TEXT_SCHEMA },
   choice: { label: 'Choice Factors', description: 'ROW_COMPACT — interactive form for refining bespoke requests', schema: CHOICE_FACTOR_SCHEMA },
@@ -229,7 +229,7 @@ export default function SDUIDemoPage() {
 
         {/* Primitives Registry */}
         <div className="mt-12 border-t border-gray-200 pt-8">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">v0 Primitive Registry (13 blocks)</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-4">v0 Primitive Registry (12 blocks)</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {[
               { name: 'ProductImage', category: 'Display' },
@@ -244,7 +244,6 @@ export default function SDUIDemoPage() {
               { name: 'ActionRow', category: 'Interactive' },
               { name: 'ReceiptUploader', category: 'State-Driven' },
               { name: 'WalletLedger', category: 'State-Driven' },
-              { name: 'EscrowStatus', category: 'State-Driven' },
             ].map((block) => (
               <div key={block.name} className="bg-white rounded-lg border border-gray-200 px-3 py-2">
                 <p className="text-sm font-mono font-medium text-gray-800">{block.name}</p>

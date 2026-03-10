@@ -6,16 +6,16 @@ export default function TermsPage() {
 
       <div className="prose prose-gray max-w-none space-y-8">
         <section>
-          <h2 className="text-xl font-semibold text-ink mb-3">1. Introduction Platform</h2>
+          <h2 className="text-xl font-semibold text-ink mb-3">1. Introduction Platform & SaaS Service</h2>
           <p className="text-ink-muted leading-relaxed">
-            BuyAnything is an introduction platform. We connect buyers with sellers — both through affiliate links to major retailers and through direct introductions to vendors in our network. We do not sell products or services ourselves, do not hold inventory, and do not process payments between buyers and vendors (except through affiliate networks where applicable).
+            BuyAnything is an AI-powered sourcing and introduction platform designed for professionals, Family Offices, and Executives. We connect buyers with sellers—both through affiliate links to major retailers and through direct introductions to vendors in our network. We do not sell products or services ourselves, do not hold inventory, and do not act as an escrow agent or financial intermediary. Any optional payments processed via Stripe are passed directly to the vendor or apply to our own SaaS software subscriptions.
           </p>
         </section>
 
         <section>
           <h2 className="text-xl font-semibold text-ink mb-3">2. No Warranties on Vendor Performance</h2>
           <p className="text-ink-muted leading-relaxed">
-            When we connect you with a vendor, we facilitate the introduction only. We do not guarantee the quality, pricing, availability, or timeliness of any vendor&apos;s products or services. Any transaction between you and a vendor is between you and that vendor directly. We encourage you to verify vendor credentials and terms before committing to any purchase.
+            When we connect you with a vendor, we facilitate the introduction and assist in organizing quotes only. We do not guarantee the quality, pricing, availability, or timeliness of any vendor&apos;s products or services. Any transaction, contract, or agreement between you and a vendor is between you and that vendor directly. We do not provide &quot;buyer protection&quot; or hold funds in escrow. We strongly encourage you to verify vendor credentials and terms before wiring funds or committing to any purchase off-platform.
           </p>
         </section>
 

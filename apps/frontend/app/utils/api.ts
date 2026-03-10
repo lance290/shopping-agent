@@ -8,7 +8,7 @@
 export { AUTH_REQUIRED, fetchWithAuth, backendUrl, getAuthToken, readResponseBodySafe } from './api-core';
 
 // Row / Project / Search
-export type { SearchApiResponse, DealTransitionPayload, DealFundingResponse } from './api-rows';
+export type { SearchApiResponse, DealTransitionPayload } from './api-rows';
 export {
   runSearchApiWithStatus,
   persistRowToDb,
@@ -24,7 +24,6 @@ export {
   saveChoiceAnswerToDb,
   saveChatHistory,
   transitionDealInDb,
-  fundDealEscrowInDb,
 } from './api-rows';
 
 // Comments
@@ -53,6 +52,10 @@ export { submitBugReport, fetchBugReport } from './api-bugs';
 // Bids / Provenance
 export type { ProvenanceData, ProductInfo, ChatExcerpt, BidWithProvenance } from './api-bids';
 export { fetchBidWithProvenance } from './api-bids';
+
+// Vendor Bookmarks
+export type { VendorBookmarkResponse, ItemBookmarkResponse } from './api-bookmarks';
+export { toggleVendorBookmark, fetchVendorBookmarks, toggleItemBookmark, fetchItemBookmarks } from './api-bookmarks';
 
 // Share Links
 export type { ShareLinkCreate, ShareLinkResponse, ShareContentResponse, ShareMetricsResponse } from './api-shares';

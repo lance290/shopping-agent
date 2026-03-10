@@ -3,7 +3,7 @@ Email service for outreach and handoff emails.
 Uses Resend for transactional email delivery.
 """
 import os
-from typing import Optional
+from typing import Any, Optional
 from dataclasses import dataclass
 
 try:
@@ -64,10 +64,7 @@ def _viral_footer_html(unsubscribe_url: str = "", tracking_pixel_url: str = "") 
         <p style="color: #999; font-size: 12px; text-align: center;">
             {unsub}
         </p>
-        <p style="color: #bbb; font-size: 10px; text-align: center;">
-            BuyAnything.ai is a marketplace platform. We may earn a referral fee or commission
-            when transactions are completed through our platform.
-        </p>
+        
         {pixel}
     """
 
@@ -79,7 +76,6 @@ def _viral_footer_text() -> str:
         "Need to buy anything? Let us handle it.\n"
         "From private jets to plumbing — one request, multiple quotes, zero legwork.\n"
         f"Try BuyAnything free: {APP_BASE_URL}?ref=email\n\n"
-        "Disclosure: BuyAnything.ai may earn a referral fee or commission on transactions.\n"
     )
 
 
@@ -240,8 +236,8 @@ async def send_custom_outreach_email(
         </div>
 
         <p style="text-align: center; margin: 30px 0;">
-            <a href="{quote_url}"
-               style="background: #2563eb; color: white; padding: 12px 24px;
+            <a href="{quote_url}" 
+               style="background: #2563eb; color: white; padding: 12px 24px; 
                       text-decoration: none; border-radius: 6px; font-weight: bold;">
                 Submit Your Quote
             </a>
@@ -279,7 +275,7 @@ Submit your quote: {quote_url}
         except Exception as e:
             print(f"[RESEND ERROR] {e}")
             return EmailResult(success=False, error=str(e))
-
+    
     # Demo mode
     print(f"[DEMO EMAIL] To: {to_email}")
     print(f"[DEMO EMAIL] Reply-To: {reply_to_email}")
@@ -287,6 +283,102 @@ Submit your quote: {quote_url}
     print(f"[DEMO EMAIL] Quote URL: {quote_url}")
 
     return EmailResult(success=True, message_id="demo-custom-" + quote_token[:8])
+
+
+async def send_vendor_coverage_report_email(
+    gaps: list[dict[str, Any]],
+    report_label: str = "new",
+) -> EmailResult:
+    """Send an email-friendly vendor coverage report to the admin inbox."""
+    if not ADMIN_EMAIL:
+        return EmailResult(success=False, error="ADMIN_NOTIFY_EMAIL is not set")
+
+    safe_label = (report_label or "new").strip()
+    subject = f"Vendor Coverage Report: {len(gaps)} {safe_label} gaps"
+    items_html = ""
+    items_text = []
+    for gap in gaps:
+        suggested = gap.get("suggested_queries") or []
+        suggested_html = "".join(f"<li><code>{q}</code></li>" for q in suggested if q)
+        suggested_text = "\n".join(f"    - {q}" for q in suggested if q)
+        geo = gap.get("geo_hint") or "None"
+        confidence = float(gap.get("confidence") or 0.0)
+        requester_name = gap.get("requester_name") or "Unknown"
+        requester_company = gap.get("requester_company") or "Unknown"
+        requester_email = gap.get("requester_email") or "Unknown"
+        requester_phone = gap.get("requester_phone") or "Unknown"
+        missing_requester_identity = gap.get("missing_requester_identity") or []
+        missing_requester_html = ""
+        missing_requester_text = ""
+        if missing_requester_identity:
+            missing_requester_html = f"<p style=\"margin: 0 0 6px 0; font-size: 14px; color: #b45309;\"><strong>Missing requester details:</strong> {', '.join(missing_requester_identity)}</p>"
+            missing_requester_text = f"  Missing requester details: {', '.join(missing_requester_identity)}\n"
+        items_html += f"""
+        <div style="border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; margin: 0 0 16px 0;">
+            <p style="margin: 0 0 8px 0;"><strong>{gap.get('canonical_need', 'Unknown need')}</strong></p>
+            <p style="margin: 0 0 8px 0; color: #4b5563;">{gap.get('summary', '')}</p>
+            <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Row:</strong> {gap.get('row_title', '')}</p>
+            <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Requester:</strong> {requester_name}</p>
+            <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Requester company:</strong> {requester_company}</p>
+            <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Requester email:</strong> {requester_email}</p>
+            <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Requester phone:</strong> {requester_phone}</p>
+            <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Search query:</strong> {gap.get('search_query', '')}</p>
+            <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Vendor query:</strong> {gap.get('vendor_query', '')}</p>
+            <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Geo hint:</strong> {geo}</p>
+            <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Confidence:</strong> {confidence:.2f}</p>
+            <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Rationale:</strong> {gap.get('rationale', '')}</p>
+            {missing_requester_html}
+            <div style="font-size: 14px;"><strong>Suggested discovery queries:</strong><ul>{suggested_html or '<li>None</li>'}</ul></div>
+        </div>
+        """
+        items_text.append(
+            f"- {gap.get('canonical_need', 'Unknown need')}\n"
+            f"  Summary: {gap.get('summary', '')}\n"
+            f"  Row: {gap.get('row_title', '')}\n"
+            f"  Requester: {requester_name}\n"
+            f"  Requester company: {requester_company}\n"
+            f"  Requester email: {requester_email}\n"
+            f"  Requester phone: {requester_phone}\n"
+            f"  Search query: {gap.get('search_query', '')}\n"
+            f"  Vendor query: {gap.get('vendor_query', '')}\n"
+            f"  Geo hint: {geo}\n"
+            f"  Confidence: {confidence:.2f}\n"
+            f"  Rationale: {gap.get('rationale', '')}\n"
+            f"{missing_requester_text}"
+            f"  Suggested discovery queries:\n{suggested_text or '    - None'}"
+        )
+
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 720px; margin: 0 auto;">
+        <h2>Vendor Coverage Report</h2>
+        <p>{len(gaps)} actionable vendor coverage gaps are currently marked <strong>{safe_label}</strong>.</p>
+        {items_html}
+    </body>
+    </html>
+    """
+    text_content = "Vendor Coverage Report\n\n" + "\n\n".join(items_text)
+
+    to_email, subject = _maybe_intercept(ADMIN_EMAIL, subject)
+    if RESEND_API_KEY and resend is not None:
+        try:
+            params: resend.Emails.SendParams = {
+                "from": f"{FROM_NAME} <{FROM_EMAIL}>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+                "text": text_content,
+            }
+            response = resend.Emails.send(params)
+            return EmailResult(success=True, message_id=response.get("id"))
+        except Exception as e:
+            print(f"[RESEND ERROR] {e}")
+            return EmailResult(success=False, error=str(e))
+
+    print(f"[DEMO EMAIL] To: {to_email}")
+    print(f"[DEMO EMAIL] Subject: {subject}")
+    print(text_content)
+    return EmailResult(success=True, message_id=f"demo-vendor-coverage-{len(gaps)}")
 
 
 async def send_deal_outreach_email(
@@ -299,7 +391,6 @@ async def send_deal_outreach_email(
 ) -> EmailResult:
     """
     Send a vendor outreach email via the Deal proxy relay.
-
     - FROM: BuyAnything <proxy_alias@shopper.buy-anything.com>
     - REPLY-TO: proxy_alias@shopper.buy-anything.com (relay intercepts replies)
     - No quote form link — vendor just replies to negotiate.

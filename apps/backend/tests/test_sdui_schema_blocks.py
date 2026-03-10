@@ -20,7 +20,6 @@ from services.sdui_schema import (
     ChoiceFactorFormBlock,
     DataGridBlock,
     DataGridItem,
-    EscrowStatusBlock,
     FeatureListBlock,
     MarkdownTextBlock,
     MessageItem,
@@ -247,10 +246,3 @@ class TestWalletLedgerBlock:
     def test_valid(self):
         b = WalletLedgerBlock()
         assert b.type == "WalletLedger"
-
-
-class TestEscrowStatusBlock:
-    def test_valid(self):
-        b = EscrowStatusBlock(deal_id="deal_456")
-        assert b.type == "EscrowStatus"
-        assert b.deal_id == "deal_456"

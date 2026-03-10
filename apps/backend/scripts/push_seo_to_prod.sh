@@ -21,15 +21,22 @@ source .env 2>/dev/null || true
 
 echo "=== Step 1: Count enriched vendors in local DB ==="
 uv run python3 - <<'PY'
+import asyncio
 import os
-from sqlalchemy import create_engine, text
-url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5437/shopping_agent").replace("+asyncpg","").replace("?ssl=disable","").replace("?sslmode=disable","")
-e = create_engine(url + "?sslmode=disable")
-with e.connect() as c:
-    total  = c.execute(text("SELECT COUNT(*) FROM vendor")).scalar()
-    w_seo  = c.execute(text("SELECT COUNT(*) FROM vendor WHERE seo_content IS NOT NULL")).scalar()
-    w_slug = c.execute(text("SELECT COUNT(*) FROM vendor WHERE slug IS NOT NULL")).scalar()
-    print(f"  total={total}  with_seo_content={w_seo}  with_slug={w_slug}")
+import asyncpg
+
+async def main():
+    url = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@127.0.0.1:5437/shopping_agent?ssl=disable")
+    conn = await asyncpg.connect(url)
+    try:
+        total = await conn.fetchval("SELECT COUNT(*) FROM vendor")
+        w_seo = await conn.fetchval("SELECT COUNT(*) FROM vendor WHERE seo_content IS NOT NULL")
+        w_slug = await conn.fetchval("SELECT COUNT(*) FROM vendor WHERE slug IS NOT NULL")
+        print(f"  total={total}  with_seo_content={w_seo}  with_slug={w_slug}")
+    finally:
+        await conn.close()
+
+asyncio.run(main())
 PY
 
 echo ""
@@ -46,7 +53,7 @@ echo "=== Step 4: Push compressed dump to production ==="
 HTTP_STATUS=$(curl -s -o /tmp/restore_response.json -w "%{http_code}" \
   -X POST "$PROD_BACKEND/admin/ops/restore-vendors" \
   -H "X-Restore-Key: $RESTORE_KEY" \
-  -H "Content-Type: application/json")
+  -F "dump_file=@$DUMP_GZ;type=application/gzip")
 
 echo "  HTTP status: $HTTP_STATUS"
 cat /tmp/restore_response.json
@@ -62,13 +69,20 @@ fi
 echo ""
 echo "=== Step 5: Spot-check a vendor page ==="
 SLUG=$(uv run python3 - <<'PY'
+import asyncio
 import os
-from sqlalchemy import create_engine, text
-url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5437/shopping_agent").replace("+asyncpg","").replace("?ssl=disable","").replace("?sslmode=disable","")
-e = create_engine(url + "?sslmode=disable")
-with e.connect() as c:
-    row = c.execute(text("SELECT slug FROM vendor WHERE slug IS NOT NULL LIMIT 1")).fetchone()
-    print(row[0] if row else "")
+import asyncpg
+
+async def main():
+    url = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@127.0.0.1:5437/shopping_agent?ssl=disable")
+    conn = await asyncpg.connect(url)
+    try:
+        row = await conn.fetchrow("SELECT slug FROM vendor WHERE slug IS NOT NULL LIMIT 1")
+        print(row[0] if row else "")
+    finally:
+        await conn.close()
+
+asyncio.run(main())
 PY
 )
 if [ -n "$SLUG" ]; then

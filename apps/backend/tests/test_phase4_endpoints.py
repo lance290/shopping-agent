@@ -305,19 +305,6 @@ def test_stripe_connect_response_model():
         total_earnings=1234.56,
         pending_payouts=100.00,
         completed_transactions=42,
-        commission_rate=0.05,
+        commission_rate=0.0,
     )
     assert earnings.completed_transactions == 42
-
-
-def test_email_outreach_disclosure():
-    """PRD 08 R4: Outreach email templates include affiliate disclosure."""
-    import inspect
-    from services.email import send_outreach_email, send_reminder_email
-
-    # Check the source code of both functions for disclosure text
-    outreach_src = inspect.getsource(send_outreach_email)
-    assert "referral fee or commission" in outreach_src, "Outreach email missing disclosure"
-
-    reminder_src = inspect.getsource(send_reminder_email)
-    assert "referral fee or commission" in reminder_src, "Reminder email missing disclosure"

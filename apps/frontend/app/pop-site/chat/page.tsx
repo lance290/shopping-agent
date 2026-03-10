@@ -454,7 +454,7 @@ function PopChatInner() {
               rel="noopener noreferrer"
               className="text-xs flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-50 text-green-700 hover:bg-green-100 transition-colors mr-2"
             >
-              <span>☕️</span> Tip Jar
+              <span>☕️</span> Send a Thank-You
             </a>
             {listItems.length > 0 && (
               <Link

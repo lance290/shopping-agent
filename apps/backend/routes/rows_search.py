@@ -1,3 +1,5 @@
+import asyncio
+
 """Rows search routes - sourcing/search for procurement rows."""
 from fastapi import APIRouter, Depends, HTTPException, Header
 from fastapi.responses import StreamingResponse
@@ -13,8 +15,11 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
-from models import Row, RequestSpec, Bid, Seller, User
+from models import Row, RequestSpec, Bid, Seller, User, VendorCoverageGap
+from models.bookmarks import VendorBookmark, ItemBookmark
+from models.outreach import OutreachMessage
 from dependencies import get_current_session
+from routes.bookmarks import _normalize_bookmark_url
 
 GUEST_EMAIL = "guest@buy-anything.com"
 
@@ -41,6 +46,7 @@ from sourcing.scorer import score_results
 from sourcing.service import SourcingService
 from sourcing.choice_filter import should_exclude_by_choices
 from sourcing.messaging import determine_search_user_message
+from services.llm import assess_vendor_coverage
 
 router = APIRouter(tags=["rows"])
 logger = logging.getLogger(__name__)
@@ -69,6 +75,198 @@ class SearchResponse(BaseModel):
     user_message: Optional[str] = None
 
 
+async def _load_search_state_for_bids(
+    session: AsyncSession,
+    user_id: int,
+    bids: List[Bid],
+) -> tuple[set[int], set[str], set[int]]:
+    vendor_ids = {bid.vendor_id for bid in bids if bid.vendor_id}
+    item_urls = {
+        normalized
+        for bid in bids
+        if (normalized := _normalize_bookmark_url(bid.canonical_url or bid.item_url))
+    }
+    bid_ids = {bid.id for bid in bids if bid.id is not None}
+
+    bookmarked_vendor_ids: set[int] = set()
+    if vendor_ids:
+        result = await session.exec(
+            select(VendorBookmark.vendor_id)
+            .where(VendorBookmark.user_id == user_id, VendorBookmark.vendor_id.in_(vendor_ids))
+        )
+        bookmarked_vendor_ids = set(result.all())
+
+    bookmarked_item_urls: set[str] = set()
+    if item_urls:
+        result = await session.exec(
+            select(ItemBookmark.canonical_url)
+            .where(ItemBookmark.user_id == user_id, ItemBookmark.canonical_url.in_(item_urls))
+        )
+        bookmarked_item_urls = set(result.all())
+
+    emailed_bid_ids: set[int] = set()
+    if bid_ids:
+        result = await session.exec(
+            select(OutreachMessage.bid_id)
+            .where(
+                OutreachMessage.bid_id.isnot(None),
+                OutreachMessage.bid_id.in_(bid_ids),
+                OutreachMessage.status.in_(("sent", "delivered", "replied")),
+            )
+        )
+        emailed_bid_ids = {bid_id for bid_id in result.all() if bid_id is not None}
+
+    return bookmarked_vendor_ids, bookmarked_item_urls, emailed_bid_ids
+
+
+def _build_vendor_coverage_context(
+    results: List[SearchResult],
+    provider_statuses: List[ProviderStatusSnapshot],
+) -> dict[str, Any]:
+    source_counts: dict[str, int] = {}
+    top_results: list[dict[str, Any]] = []
+    vendor_results: list[dict[str, Any]] = []
+
+    for res in results:
+        source = (getattr(res, "source", "") or "unknown").lower()
+        source_counts[source] = source_counts.get(source, 0) + 1
+
+        if len(top_results) < 12:
+            top_results.append(
+                {
+                    "title": getattr(res, "title", ""),
+                    "merchant": getattr(res, "merchant", ""),
+                    "source": getattr(res, "source", ""),
+                    "price": getattr(res, "price", None),
+                    "match_score": getattr(res, "match_score", None),
+                }
+            )
+
+        if source == "vendor_directory" and len(vendor_results) < 8:
+            vendor_results.append(
+                {
+                    "title": getattr(res, "title", ""),
+                    "merchant": getattr(res, "merchant", ""),
+                    "description": getattr(res, "description", None),
+                    "match_score": getattr(res, "match_score", None),
+                }
+            )
+
+    return {
+        "source_counts": source_counts,
+        "top_results": top_results,
+        "vendor_results": vendor_results,
+        "provider_statuses": [status.model_dump() for status in provider_statuses],
+    }
+
+
+def _missing_requester_identity_fields(requester: Optional[User], is_guest: bool) -> list[str]:
+    if is_guest or not requester:
+        return ["name", "company"]
+    missing: list[str] = []
+    if not (requester.name or "").strip():
+        missing.append("name")
+    if not (requester.company or "").strip():
+        missing.append("company")
+    return missing
+
+
+def _build_vendor_coverage_user_message(requester: Optional[User], is_guest: bool) -> str:
+    missing = _missing_requester_identity_fields(requester, is_guest)
+    base = "I’m not seeing strong vendor coverage for this request yet, so I’ve flagged it internally and we’ll expand the vendor set as quickly as we can."
+    if not missing:
+        return base
+    if len(missing) == 2:
+        return base + " When you have a moment, send me your name and company so I can attach them to the sourcing request."
+    return base + f" When you have a moment, send me your {missing[0]} so I can attach it to the sourcing request."
+
+
+async def _record_vendor_coverage_gap_if_needed(
+    session: AsyncSession,
+    row: Row,
+    user_id: int,
+    search_query: str,
+    results: List[SearchResult],
+    provider_statuses: List[ProviderStatusSnapshot],
+) -> Optional[dict[str, Any]]:
+    context = _build_vendor_coverage_context(results, provider_statuses)
+    assessment = await assess_vendor_coverage(
+        row_title=row.title or "",
+        search_query=search_query,
+        desire_tier=row.desire_tier,
+        service_type=row.service_category,
+        search_intent=row.search_intent,
+        choice_answers=row.choice_answers,
+        provider_statuses=context["provider_statuses"],
+        results=context["top_results"],
+    )
+    if not assessment or not assessment.should_log_gap:
+        return None
+
+    normalized_geo = (assessment.geo_hint or "").strip().lower()
+    existing_stmt = select(VendorCoverageGap).where(
+        VendorCoverageGap.canonical_need == assessment.canonical_need,
+        VendorCoverageGap.desire_tier == row.desire_tier,
+        VendorCoverageGap.service_type == row.service_category,
+    )
+    existing_res = await session.exec(existing_stmt)
+    existing = None
+    for candidate in existing_res.all():
+        candidate_geo = (candidate.geo_hint or "").strip().lower()
+        if candidate_geo == normalized_geo:
+            existing = candidate
+            break
+
+    now = datetime.utcnow()
+    if existing:
+        existing.row_id = row.id
+        existing.user_id = user_id
+        existing.row_title = row.title or existing.row_title
+        existing.search_query = search_query
+        existing.vendor_query = assessment.vendor_query or existing.vendor_query
+        existing.geo_hint = assessment.geo_hint or existing.geo_hint
+        existing.summary = assessment.summary
+        existing.rationale = assessment.rationale
+        existing.suggested_queries = assessment.suggested_vendor_search_queries
+        existing.assessment = assessment.model_dump()
+        existing.supporting_context = context
+        existing.confidence = max(existing.confidence or 0.0, assessment.confidence)
+        existing.times_seen = (existing.times_seen or 0) + 1
+        existing.last_seen_at = now
+        existing.status = "new"
+        session.add(existing)
+    else:
+        session.add(
+            VendorCoverageGap(
+                row_id=row.id,
+                user_id=user_id,
+                row_title=row.title or "",
+                canonical_need=assessment.canonical_need,
+                search_query=search_query,
+                vendor_query=assessment.vendor_query,
+                geo_hint=assessment.geo_hint,
+                desire_tier=row.desire_tier,
+                service_type=row.service_category,
+                summary=assessment.summary,
+                rationale=assessment.rationale,
+                suggested_queries=assessment.suggested_vendor_search_queries,
+                assessment=assessment.model_dump(),
+                supporting_context=context,
+                confidence=assessment.confidence,
+                first_seen_at=now,
+                last_seen_at=now,
+            )
+        )
+
+    try:
+        await session.commit()
+    except Exception as e:
+        await session.rollback()
+        logger.warning(f"[VendorCoverage] Failed to persist gap: {e}")
+        return None
+    return assessment.model_dump()
+
+
 @router.post("/rows/{row_id}/search", response_model=SearchResponse)
 async def search_row_listings(
     row_id: int,
@@ -80,6 +278,7 @@ async def search_row_listings(
     from routes.rate_limit import check_rate_limit
 
     user_id, is_guest = await _resolve_user_id_and_guest(authorization, session)
+    requester = None if is_guest else await session.get(User, user_id)
 
     rate_key = f"search:{user_id}"
     if not check_rate_limit(rate_key, "search"):
@@ -90,6 +289,9 @@ async def search_row_listings(
     )
     row = result.first()
     if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    if is_guest and row.anonymous_session_id and row.anonymous_session_id != x_anonymous_session_id:
         raise HTTPException(status_code=404, detail="Row not found")
 
     spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
@@ -105,7 +307,7 @@ async def search_row_listings(
     if body.search_intent is not None or body.provider_query_map is not None:
         parsed_intent = _parse_intent_payload(body.search_intent)
         row.search_intent = _serialize_json_payload(
-            parsed_intent.model_dump() if parsed_intent else body.search_intent
+            parsed_intent.model_dump(mode="json") if parsed_intent else body.search_intent
         )
         if body.provider_query_map is not None:
             row.provider_query_map = _serialize_json_payload(body.provider_query_map)
@@ -127,22 +329,37 @@ async def search_row_listings(
         providers=body.providers,
     )
 
-    # Supersede stale bids AFTER persist — only bids not returned by the new search.
-    # This preserves good results from providers that returned different URLs on refinement.
     search_bid_ids = {b.id for b in bids}
-    await sourcing_service.supersede_stale_bids(row_id, search_bid_ids)
     preserved_stmt = (
         select(Bid)
         .where(
             Bid.row_id == row_id,
             Bid.id.notin_(search_bid_ids) if search_bid_ids else True,
-            (Bid.is_liked == True) | (Bid.is_selected == True),
         )
         .options(selectinload(Bid.seller))
     )
     preserved_res = await session.exec(preserved_stmt)
-    preserved_bids = preserved_res.all()
-    all_bids = list(bids) + list(preserved_bids)
+    candidate_bids = [bid for bid in preserved_res.all() if not bid.is_superseded]
+
+    bookmarked_vendors, bookmarked_items, emailed_bid_ids = await _load_search_state_for_bids(
+        session,
+        user_id,
+        list(bids) + candidate_bids,
+    )
+    preserved_bids = []
+    for bid in candidate_bids:
+        bookmark_url = _normalize_bookmark_url(bid.canonical_url or bid.item_url)
+        if (
+            bid.is_selected
+            or (bid.vendor_id and bid.vendor_id in bookmarked_vendors)
+            or (bookmark_url and bookmark_url in bookmarked_items)
+        ):
+            preserved_bids.append(bid)
+
+    keep_bid_ids = search_bid_ids | {bid.id for bid in preserved_bids if bid.id is not None}
+    await sourcing_service.supersede_stale_bids(row_id, keep_bid_ids)
+
+    all_bids = list(bids) + preserved_bids
 
     # Convert Bids back to SearchResults for response compatibility and UI filtering
     results: List[SearchResult] = []
@@ -164,14 +381,22 @@ async def search_row_listings(
                 currency=bid.currency,
                 merchant=bid.seller.name if bid.seller else "Unknown",
                 url=bid.item_url or "",
-                merchant_domain=bid.seller.domain if bid.seller else "",
+                canonical_url=bid.canonical_url or _normalize_bookmark_url(bid.item_url),
+                merchant_domain=bid.seller.domain or "" if bid.seller else "",
                 click_url=click_url,
                 image_url=bid.image_url,
                 source=bid.source,
                 bid_id=bid.id,
+                vendor_id=bid.vendor_id,
                 is_selected=bid.is_selected,
-                is_liked=bid.is_liked,
+                is_liked=(
+                    bool(bid.vendor_id and bid.vendor_id in bookmarked_vendors)
+                    or bool(_normalize_bookmark_url(bid.canonical_url or bid.item_url) in bookmarked_items)
+                ),
                 liked_at=bid.liked_at.isoformat() if bid.liked_at else None,
+                is_vendor_bookmarked=bool(bid.vendor_id and bid.vendor_id in bookmarked_vendors),
+                is_item_bookmarked=bool(_normalize_bookmark_url(bid.canonical_url or bid.item_url) in bookmarked_items),
+                is_emailed=bool(bid.id and bid.id in emailed_bid_ids),
                 # Optional fields that might be missing in Bid but exist in SearchResult
                 shipping_info=None, # Bid has shipping_cost (float), SearchResult has shipping_info (str)
                 rating=None, 
@@ -227,6 +452,20 @@ async def search_row_listings(
 
     await session.commit()
 
+    try:
+        coverage_assessment = await _record_vendor_coverage_gap_if_needed(
+            session=session,
+            row=row,
+            user_id=user_id,
+            search_query=sanitized_query,
+            results=results,
+            provider_statuses=provider_statuses,
+        )
+        if coverage_assessment and not user_message:
+            user_message = _build_vendor_coverage_user_message(requester, is_guest)
+    except Exception as e:
+        logger.warning(f"[VendorCoverage] Failed to record sync gap: {e}")
+
     return SearchResponse(results=results, provider_statuses=provider_statuses, user_message=user_message)
 
 
@@ -245,6 +484,7 @@ async def search_row_listings_stream(
     from routes.rate_limit import check_rate_limit
 
     user_id, is_guest = await _resolve_user_id_and_guest(authorization, session)
+    requester = None if is_guest else await session.get(User, user_id)
 
     rate_key = f"search:{user_id}"
     if not check_rate_limit(rate_key, "search"):
@@ -255,6 +495,9 @@ async def search_row_listings_stream(
     )
     row = result.first()
     if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    if is_guest and row.anonymous_session_id and row.anonymous_session_id != x_anonymous_session_id:
         raise HTTPException(status_code=404, detail="Row not found")
 
     spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
@@ -283,77 +526,20 @@ async def search_row_listings_stream(
         all_results: List[SearchResult] = []
         all_statuses: List[ProviderStatusSnapshot] = []
         all_persisted_bid_ids: set[int] = set()
+        db_lock = asyncio.Lock()
 
-        # Multi-concept weighted embedding — shared by vendor_provider + quantum reranker
-        # Extract 2-3 concepts from parsed intent, embed each, weighted-blend.
-        # This prevents "Nashville" from diluting "charter jet" in the embedding.
+        parsed_intent = _parse_intent_payload(row.search_intent)
+        intent_payload = parsed_intent.model_dump() if parsed_intent else None
         query_embedding = None
         quantum_reranker = None
         try:
-            from sourcing.vendor_provider import _embed_texts, _weighted_blend
+            from sourcing.vendor_provider import build_query_embedding
 
-            # Build concept list from parsed intent
-            concepts = []  # (text, weight)
-            core_product = vendor_query or sanitized_query
-
-            # Parse search_intent for richer concept extraction
-            specs_parts = []
-            if row.search_intent:
-                try:
-                    intent_data = json.loads(row.search_intent) if isinstance(row.search_intent, str) else row.search_intent
-                    if isinstance(intent_data, dict):
-                        # Use product_name as core if available (cleaner than vendor_query)
-                        pn = intent_data.get("product_name")
-                        if pn and str(pn).strip():
-                            core_product = str(pn).strip()
-                        # Gather constraints as specs concept
-                        constraints = intent_data.get("constraints", {})
-                        if isinstance(constraints, dict):
-                            for k, v in constraints.items():
-                                if v and str(v).lower() not in ("none", "null", "", "not answered"):
-                                    specs_parts.append(str(v))
-                        # Keywords also contribute to specs
-                        kws = intent_data.get("keywords", [])
-                        if isinstance(kws, list):
-                            specs_parts.extend([str(k) for k in kws if k and str(k).lower() != core_product.lower()])
-                except Exception:
-                    pass
-
-            # Concept 1: core product (dominant — what they want)
-            concepts.append((core_product, 0.60))
-
-            # Concept 2: specifications/constraints (refining details)
-            if specs_parts:
-                specs_text = " ".join(specs_parts[:10])  # cap at 10 parts
-                concepts.append((specs_text, 0.25))
-            else:
-                # If no specs, give more weight to core
-                concepts[0] = (concepts[0][0], 0.80)
-
-            # Concept 3: full query context (lowest weight — prevents dilution)
-            if sanitized_query.strip().lower() != core_product.strip().lower():
-                remaining_weight = 1.0 - sum(w for _, w in concepts)
-                if remaining_weight > 0.05:
-                    concepts.append((sanitized_query, remaining_weight))
-
-            # Normalize weights to sum to 1.0
-            total_w = sum(w for _, w in concepts)
-            concepts = [(t, w / total_w) for t, w in concepts]
-
-            # Embed all concepts in one batched API call
-            texts = [t for t, _ in concepts]
-            weights = [w for _, w in concepts]
-            vecs = await _embed_texts(texts)
-
-            if vecs and len(vecs) == len(concepts):
-                if len(vecs) == 1:
-                    query_embedding = vecs[0]
-                else:
-                    query_embedding = _weighted_blend(vecs, weights)
-                concept_log = " + ".join(f"{w:.0%} '{t[:40]}'" for t, w in concepts)
-                logger.info(f"[SEARCH STREAM] Multi-concept embedding: {concept_log}")
-            else:
-                logger.warning("[SEARCH STREAM] Embedding call returned unexpected result count")
+            query_embedding = await build_query_embedding(
+                vendor_query or sanitized_query,
+                context_query=sanitized_query,
+                intent_payload=intent_payload,
+            )
         except Exception as e:
             logger.warning(f"[SEARCH STREAM] Query embedding failed: {e}")
 
@@ -367,17 +553,25 @@ async def search_row_listings_stream(
             except Exception as e:
                 logger.warning(f"[SEARCH STREAM] Quantum reranker init failed (graceful degradation): {e}")
 
-        async for provider_name, results, status, providers_remaining in sourcing_repo.search_streaming(
+        generator = sourcing_repo.search_streaming(
             sanitized_query,
             providers=body.providers,
             min_price=min_price_filter,
             max_price=max_price_filter,
             desire_tier=row.desire_tier,
             vendor_query=vendor_query,
+            intent_payload=intent_payload,
             query_embedding=query_embedding,  # shared — vendor_provider skips its own embed call
-        ):
-            all_statuses.append(status)
+        )
 
+        async def get_next_batch():
+            try:
+                # Use anext to manually pull from the async generator
+                return await anext(generator)
+            except StopAsyncIteration:
+                return None
+
+        async def process_batch(provider_name, results, status, providers_remaining):
             # Convert and filter results
             from sourcing.filters import should_include_result as _should_include
             filtered_batch = []
@@ -402,13 +596,14 @@ async def search_row_listings_stream(
                     continue
                 filtered_batch.append(r)
             
+            persisted_bid_ids = set()
             if filtered_batch:
                 try:
                     normalized_batch = normalize_generic_results(filtered_batch, provider_name)
                     if normalized_batch:
                         normalized_batch = score_results(
                             normalized_batch,
-                            intent=sourcing_service._parse_search_intent(row),
+                            intent=parsed_intent,
                             min_price=min_price_filter,
                             max_price=max_price_filter,
                             desire_tier=row.desire_tier,
@@ -483,29 +678,104 @@ async def search_row_listings_stream(
                                 logger.info(f"[SEARCH STREAM] Filtered {dropped} low-score vendor results (< {VENDOR_MIN_SCORE})")
 
                         if normalized_batch:
-                            persisted_bids = await sourcing_service._persist_results(row_id, normalized_batch)
-                            all_persisted_bid_ids.update(b.id for b in persisted_bids if b.id)
+                            async with db_lock:
+                                persisted_bids = await sourcing_service._persist_results(row_id, normalized_batch)
+                                persisted_bid_ids.update(b.id for b in persisted_bids if b.id)
                 except Exception as err:
                     logger.error(f"[SEARCH STREAM] Failed to persist results for provider {provider_name}: {err}")
+                    
+            return provider_name, filtered_batch, status, persisted_bid_ids
 
-            all_results.extend(filtered_batch)
+        pending_fetches = set()
+        pending_fetches.add(asyncio.create_task(get_next_batch()))
+        pending_processes = set()
+        
+        # We need to compute total providers from the body to know when we're fully done
+        # search_streaming yields providers_remaining, but we also want a fallback
+        # in case all tasks fail. We'll rely on the tasks draining.
+        providers_completed = 0
+        last_providers_remaining = len(body.providers) if body.providers else 8 # rough estimate
+
+        while pending_fetches or pending_processes:
+            done, _ = await asyncio.wait(
+                pending_fetches | pending_processes,
+                return_when=asyncio.FIRST_COMPLETED
+            )
             
-            # Build SSE event
-            event_data = {
-                "provider": provider_name,
-                "results": [r.model_dump() for r in filtered_batch],
-                "status": status.model_dump(),
-                "providers_remaining": providers_remaining,
-                "more_incoming": providers_remaining > 0,
-                "total_results_so_far": len(all_results),
-            }
-            
-            yield f"data: {json.dumps(event_data)}\n\n"
+            for task in done:
+                if task in pending_fetches:
+                    pending_fetches.remove(task)
+                    try:
+                        batch = await task
+                        if batch is not None:
+                            # Start fetching the next batch immediately
+                            pending_fetches.add(asyncio.create_task(get_next_batch()))
+                            
+                            provider_name, results, status, providers_remaining = batch
+                            last_providers_remaining = providers_remaining
+                            all_statuses.append(status)
+                            
+                            # Start processing this batch in the background
+                            pending_processes.add(asyncio.create_task(
+                                process_batch(provider_name, results, status, providers_remaining)
+                            ))
+                    except Exception as e:
+                        logger.error(f"[SEARCH STREAM] Generator error: {e}")
+                        
+                elif task in pending_processes:
+                    pending_processes.remove(task)
+                    try:
+                        provider_name, filtered_batch, status, persisted_bid_ids = await task
+                        providers_completed += 1
+                        
+                        all_persisted_bid_ids.update(persisted_bid_ids)
+                        all_results.extend(filtered_batch)
+                        
+                        # We calculate remaining based on pending processes + last known remaining from fetch
+                        # This ensures the frontend doesn't think we're done until all processing is complete
+                        actual_remaining = last_providers_remaining + len(pending_processes)
+                        
+                        event_data = {
+                            "provider": provider_name,
+                            "results": [r.model_dump() for r in filtered_batch],
+                            "status": status.model_dump(),
+                            "providers_remaining": actual_remaining,
+                            "more_incoming": actual_remaining > 0,
+                            "total_results_so_far": len(all_results),
+                        }
+                        
+                        yield f"data: {json.dumps(event_data)}\n\n"
+                    except Exception as e:
+                        logger.error(f"[SEARCH STREAM] Processing error: {e}")
         
         # Supersede stale bids AFTER all providers complete.
         # Only bids not returned by any provider in this search get retired.
         try:
-            await sourcing_service.supersede_stale_bids(row_id, all_persisted_bid_ids)
+            existing_stmt = (
+                select(Bid)
+                .where(
+                    Bid.row_id == row_id,
+                    Bid.id.notin_(all_persisted_bid_ids) if all_persisted_bid_ids else True,
+                )
+                .options(selectinload(Bid.seller))
+            )
+            existing_res = await session.exec(existing_stmt)
+            existing_bids = [bid for bid in existing_res.all() if not bid.is_superseded]
+            bookmarked_vendors, bookmarked_items, _ = await _load_search_state_for_bids(
+                session,
+                user_id,
+                existing_bids,
+            )
+            protected_existing_ids = {
+                bid.id
+                for bid in existing_bids
+                if bid.id is not None and (
+                    bid.is_selected
+                    or (bid.vendor_id and bid.vendor_id in bookmarked_vendors)
+                    or (_normalize_bookmark_url(bid.canonical_url or bid.item_url) in bookmarked_items)
+                )
+            }
+            await sourcing_service.supersede_stale_bids(row_id, all_persisted_bid_ids | protected_existing_ids)
         except Exception as e:
             logger.error(f"[SEARCH STREAM] Failed to supersede stale bids: {e}")
 
@@ -525,8 +795,31 @@ async def search_row_listings_stream(
             row.updated_at = datetime.utcnow()
             session.add(row)
             await session.commit()
+            coverage_assessment = await _record_vendor_coverage_gap_if_needed(
+                session=session,
+                row=row,
+                user_id=user_id,
+                search_query=sanitized_query,
+                results=all_results,
+                provider_statuses=all_statuses,
+            )
+            if coverage_assessment and not user_message:
+                user_message = _build_vendor_coverage_user_message(requester, is_guest)
         except Exception as e:
             logger.error(f"[SEARCH STREAM] Failed to update row status after completion: {e}")
+            try:
+                coverage_assessment = await _record_vendor_coverage_gap_if_needed(
+                    session=session,
+                    row=row,
+                    user_id=user_id,
+                    search_query=sanitized_query,
+                    results=all_results,
+                    provider_statuses=all_statuses,
+                )
+                if coverage_assessment and not user_message:
+                    user_message = _build_vendor_coverage_user_message(requester, is_guest)
+            except Exception as e:
+                logger.error(f"[SEARCH STREAM] Failed to record vendor coverage gap: {e}")
 
         # Final event with complete status
         final_event = {

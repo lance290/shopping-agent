@@ -115,3 +115,52 @@ Frontend type-check: Pre-existing errors only (no new errors introduced)
 - **Admin Dashboard:** Requires `is_admin=True` on user record
 - **Mobile:** Basic tabbed layout; tile dimensions not yet optimized for small screens
 - **Pre-existing TS errors:** `ReportBugModal.test.tsx` (vi globals), `share/[token]/page.tsx` (unknown type), `vendor-tiles-persistence.test.ts` (missing exports) — none introduced by Phase 3
+
+---
+
+# Scoped Build-All Report - 2026-03-09
+
+## Scope
+- PRD Directory: `docs/active-dev/`
+- PRD Processed: `docs/active-dev/PRD-BuyAnything-Location-Aware-Search.md`
+- Execution Mode: scoped single-PRD build-all
+
+## Architecture
+- Backend: FastAPI + SQLModel + asyncpg
+- Frontend: Next.js 15 App Router
+- Search: existing hybrid vendor search (vector + FTS), not yet geo-aware
+- Geo data available: `vendor.store_geo_location`, `vendor.latitude`, `vendor.longitude`
+
+## Execution Summary
+| # | PRD | Effort | Tasks | Status | Notes |
+|---|---|---|---|---|---|
+| 1 | PRD-BuyAnything-Location-Aware-Search.md | feature-location-aware-search | 6 | 🟢 Implemented | Backend implementation completed and targeted backend verification passed |
+
+## Decisions Made
+- Scoped `/build-all` to the single PRD path requested by the user
+- Kept the PRD as one effort instead of slicing
+- Chose backend-first implementation using existing `search_intent` persistence
+- Added location semantics inside existing `search_intent` JSON rather than widening `row` columns
+- Used durable DB-backed forward geocode caching with synchronous first-resolution and graceful fallback
+- Kept geo retrieval additive to vector + FTS rather than introducing hard exclusion on incomplete vendor geo
+
+## Quality
+- PRD maturity: implementation-ready enough for task execution
+- Architecture fit: strong match with current backend search stack
+- Final Verdict: `IMPLEMENTED_AND_VERIFIED`
+
+## Artifacts
+- Effort: `.cfoi/branches/dev/efforts/feature-location-aware-search/`
+- Plan: `.cfoi/branches/dev/efforts/feature-location-aware-search/plan.md`
+- Tasks: `.cfoi/branches/dev/efforts/feature-location-aware-search/tasks.json`
+- Progress: `.cfoi/branches/dev/efforts/feature-location-aware-search/PROGRESS.md`
+
+## Verification
+- `apps/backend/.venv/bin/pytest apps/backend/tests/test_rows_search_intent.py apps/backend/tests/test_vendor_search_intent.py apps/backend/tests/test_reranking_strategy.py apps/backend/tests/test_location_resolution.py -q`
+  - Result: `41 passed`
+- `apps/backend/.venv/bin/pytest apps/backend/tests/test_rows_search.py apps/backend/tests/test_streaming_and_vendor_search.py apps/backend/tests/test_regression_vendor_queries.py -q`
+  - Result: `43 passed`
+
+## Next Steps
+- Perform manual search QA for `private_aviation`, `real_estate`, `roofing`, and `jewelry`
+- Tune geo radius and category weights against real vendor data if ranking needs adjustment

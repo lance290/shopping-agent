@@ -44,6 +44,7 @@ def _build_provenance(result: SearchResult, provider_id: str) -> dict:
         "matched_features": matched_features,
         "chat_excerpts": [],
         "source_provider": provider_id,
+        "search_metadata": getattr(result, "metadata", {}) or {},
     }
 
     # Preserve vector similarity score for the scorer (vendor_directory uses this)
@@ -65,6 +66,8 @@ def _normalize_result(result: SearchResult, provider_id: str) -> NormalizedResul
     # Carry vendor embedding through for quantum reranker
     if getattr(result, "embedding", None):
         raw_data["embedding"] = result.embedding
+    if getattr(result, "metadata", None):
+        raw_data["search_metadata"] = result.metadata
 
     return NormalizedResult(
         title=result.title,
