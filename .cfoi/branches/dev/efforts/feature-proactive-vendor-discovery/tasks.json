@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "effort": "feature-proactive-vendor-discovery",
+  "created": "2026-03-10T16:30:00Z",
+  "tasks": [
+    {
+      "id": "task-001",
+      "description": "Add candidate persistence models, migrations, and exports",
+      "status": "completed"
+    },
+    {
+      "id": "task-002",
+      "description": "Implement classifier, coverage scorer, query planner, and dedupe foundation",
+      "status": "completed"
+    },
+    {
+      "id": "task-003",
+      "description": "Implement discovery adapters, normalization, and orchestrator",
+      "status": "completed"
+    },
+    {
+      "id": "task-004",
+      "description": "Integrate sync and streaming row search through the new vendor discovery seam",
+      "status": "completed"
+    },
+    {
+      "id": "task-005",
+      "description": "Add targeted tests, run verification, and update build-all artifacts",
+      "status": "completed"
+    }
+  ]
+}

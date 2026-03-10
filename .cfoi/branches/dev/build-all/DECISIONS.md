@@ -176,3 +176,31 @@
 - **Decision**: Keep v1 location semantics inside existing `search_intent` JSON and extend backend services rather than introducing new frontend flows.
 - **Why**: This matches the PRD, current schema shape, and minimal-change architecture.
 - **Confidence**: High
+
+---
+# Scoped Build-All Decisions — TECHSPEC-BuyAnything-Proactive-Vendor-Discovery (2026-03-10)
+
+## Scoped Execution Choice
+- **Decision**: Treat `/build-all` as scoped to `docs/active-dev/TECHSPEC-BuyAnything-Proactive-Vendor-Discovery.md`.
+- **Why**: The user provided a single tech spec path and asked for full workflow execution against that document.
+- **Confidence**: High
+
+## Integration Seam
+- **Decision**: Lock the implementation seam at `rows_search.py -> SourcingService -> DiscoveryOrchestrator`.
+- **Why**: The current repo already has too many potential pathing surfaces (`search_enriched.py`, `rows_search.py`, `service.py`, providers). A single runtime seam avoids drift.
+- **Confidence**: High
+
+## Persistence Safety
+- **Decision**: Persist discovered candidates first and avoid default synchronous canonical `Vendor` creation.
+- **Why**: The current canonical vendor table is durable and high-risk to pollute. Candidate-first persistence preserves the row/result UX without forcing premature vendor promotion.
+- **Confidence**: High
+
+## MVP Discovery Adapter Strategy
+- **Decision**: Implement one server-side organic discovery adapter for MVP instead of a larger source matrix.
+- **Why**: It satisfies the tech spec’s adapter abstraction and keeps the first implementation testable without browser automation.
+- **Confidence**: Medium
+
+## Streaming Reuse
+- **Decision**: Reuse existing SSE `search_results` events instead of introducing a new transport.
+- **Why**: The frontend already handles row streaming, dedupe, and loading states. Extending payload semantics is lower risk than creating a second delivery path.
+- **Confidence**: High

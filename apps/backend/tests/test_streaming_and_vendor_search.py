@@ -272,6 +272,23 @@ class TestNewSearchReplacesBids:
             "Must track persisted bid IDs to know which bids to keep"
         )
 
+    def test_vendor_discovery_stream_branch_runs_completion_bookkeeping(self):
+        """The vendor discovery SSE branch must still retire stale bids and update zero-results UI state."""
+        import inspect
+        from routes.rows_search import search_row_listings_stream
+
+        source = inspect.getsource(search_row_listings_stream)
+
+        assert "search_path == \"vendor_discovery_path\"" in source, (
+            "Expected a dedicated vendor discovery streaming branch"
+        )
+        assert "build_zero_results_schema" in source, (
+            "Vendor discovery streaming branch must update zero-results UI state"
+        )
+        assert "protected_existing_ids" in source, (
+            "Vendor discovery streaming branch must preserve liked/selected stale bids"
+        )
+
     def test_supersede_stale_bids_protects_liked_and_selected(self):
         """supersede_stale_bids must only retire bids that are not liked/selected."""
         import inspect

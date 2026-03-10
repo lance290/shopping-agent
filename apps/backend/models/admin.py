@@ -159,3 +159,70 @@ class LocationGeocodeCache(SQLModel, table=True):
     expires_at: datetime
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class DiscoveredVendorCandidate(SQLModel, table=True):
+    """Row-linked vendor candidates discovered live outside the canonical vendor DB."""
+    __tablename__ = "discovered_vendor_candidate"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    row_id: int = Field(foreign_key="row.id", index=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    vendor_id: Optional[int] = Field(default=None, foreign_key="vendor.id", index=True)
+
+    discovery_session_id: str = Field(index=True)
+    adapter_id: str = Field(index=True)
+    discovery_mode: str = Field(index=True)
+    source_type: str = Field(index=True)
+    source_query: str
+
+    vendor_name: str
+    website_url: Optional[str] = None
+    canonical_domain: Optional[str] = Field(default=None, index=True)
+    source_url: Optional[str] = None
+    snippet: Optional[str] = None
+    image_url: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    location_hint: Optional[str] = None
+
+    official_site: bool = False
+    first_party_contact: bool = False
+    confidence: float = 0.0
+    completeness_score: float = 0.0
+    trust_score: float = 0.0
+    status: str = Field(default="discovered", index=True)
+
+    raw_payload: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    extraction_payload: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    provenance: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class VendorEnrichmentQueueItem(SQLModel, table=True):
+    """Queue item for asynchronous enrichment/promotion of discovered vendors."""
+    __tablename__ = "vendor_enrichment_queue_item"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    candidate_id: int = Field(foreign_key="discovered_vendor_candidate.id", index=True)
+    row_id: int = Field(foreign_key="row.id", index=True)
+    vendor_id: Optional[int] = Field(default=None, foreign_key="vendor.id", index=True)
+
+    discovery_session_id: str = Field(index=True)
+    canonical_domain: Optional[str] = Field(default=None, index=True)
+    discovery_mode: str = Field(index=True)
+    source_provider: str = Field(index=True)
+
+    confidence: float = 0.0
+    completeness_score: float = 0.0
+    trust_score: float = 0.0
+    status: str = Field(default="queued", index=True)
+    retry_count: int = 0
+    next_attempt_at: Optional[datetime] = None
+
+    payload: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
