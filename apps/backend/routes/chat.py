@@ -366,24 +366,17 @@ async def chat_endpoint(
 
                 next_constraints = dict(constraints) if title_changed else {**existing_constraints, **constraints}
 
-                # Update desire_tier on the row
-                row.desire_tier = tier
-                row.structured_constraints = json.dumps(next_constraints) if next_constraints else row.structured_constraints
-
                 yield sse_event("action_started", {"type": "update_row", "row_id": active_row_id})
                 row = await _update_row(
                     session, row,
                     title=title if title_changed else None,
                     constraints=next_constraints if constraints else None,
+                    search_query=search_query,
+                    is_service=is_service or (active_row_data or {}).get("is_service", False),
+                    service_category=service_category or (active_row_data or {}).get("service_category"),
+                    desire_tier=tier,
                     reset_bids=title_changed,
                 )
-                # Refresh search_intent so scorer has current relevance data
-                row_service_cat_for_intent = service_category or (active_row_data or {}).get("service_category")
-                row.search_intent = _build_search_intent_json(
-                    row.title, search_query or row.title, next_constraints, row_service_cat_for_intent,
-                )
-                session.add(row)
-                await session.commit()
                 yield sse_event("row_updated", {"row": row_to_dict(row)})
 
                 # Regenerate factors if needed

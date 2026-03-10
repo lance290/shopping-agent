@@ -186,6 +186,10 @@ async def _update_row(
     row: Row,
     title: Optional[str] = None,
     constraints: Optional[Dict[str, Any]] = None,
+    search_query: Optional[str] = None,
+    is_service: Optional[bool] = None,
+    service_category: Optional[str] = None,
+    desire_tier: Optional[str] = None,
     reset_bids: bool = False,
 ) -> Row:
     """Update an existing Row directly in DB."""
@@ -203,6 +207,24 @@ async def _update_row(
         row.title = title
     if constraints is not None:
         row.choice_answers = constraints
+        row.structured_constraints = json.dumps(constraints) if constraints else None
+    if is_service is not None:
+        row.is_service = is_service
+    if service_category is not None:
+        row.service_category = service_category
+    if desire_tier is not None:
+        row.desire_tier = desire_tier
+    if title or constraints is not None or service_category is not None:
+        effective_title = row.title or title or "Shopping Request"
+        effective_query = search_query or effective_title
+        effective_constraints = constraints if constraints is not None else safe_json_loads(row.choice_answers, {}) if row.choice_answers else {}
+        effective_service_category = row.service_category
+        row.search_intent = _build_search_intent_json(
+            effective_title,
+            effective_query,
+            effective_constraints if isinstance(effective_constraints, dict) else {},
+            effective_service_category,
+        )
     if reset_bids:
         row.ui_schema = None  # Invalidate SDUI schema — rebuilt after next search
     row.updated_at = datetime.utcnow()

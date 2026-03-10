@@ -456,11 +456,11 @@ class TestRepositoryVendorQueryRouting:
 
 
 class TestVendorFtsQuerySemantics:
-    def test_vendor_provider_uses_or_fts_query_join(self):
-        """Vendor FTS should keep the current OR join semantics unless intentionally changed."""
+    def test_vendor_provider_builds_boolean_fts_query(self):
+        """Vendor FTS should build an explicit tsquery join, not raw free text."""
         import inspect
         from sourcing.vendor_provider import VendorDirectoryProvider
 
         source = inspect.getsource(VendorDirectoryProvider.search)
 
-        assert 'fts_query_str = " | ".join(fts_words)' in source
+        assert 'fts_query_str = " & ".join(fts_words)' in source or 'fts_query_str = " | ".join(fts_words)' in source

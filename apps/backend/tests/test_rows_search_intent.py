@@ -5,6 +5,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from unittest.mock import AsyncMock, patch
 
 from models import Row, AuthSession, User, hash_token
+from routes.chat_helpers import _update_row
 from sourcing.location import normalize_search_intent_payload
 from sourcing.models import SearchIntent
 from sourcing import SearchResultWithStatus
@@ -172,3 +173,47 @@ def test_search_intent_keeps_local_food_as_proximity_when_request_is_local():
     )
 
     assert intent.location_context.relevance == "vendor_proximity"
+
+
+@pytest.mark.asyncio
+async def test_update_row_refreshes_search_intent_and_constraints(session: AsyncSession):
+    user = User(email="update-intent@example.com")
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+
+    row = Row(
+        user_id=user.id,
+        title="Luxury realtor",
+        status="sourcing",
+        is_service=True,
+        service_category="real_estate",
+        choice_answers={"search_area": "Austin, TX"},
+        structured_constraints='{"search_area": "Austin, TX"}',
+        search_intent={
+            "product_category": "real_estate",
+            "product_name": "Luxury realtor",
+            "raw_input": "Luxury realtor in Austin",
+            "features": {"search_area": "Austin, TX"},
+        },
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    updated = await _update_row(
+        session,
+        row,
+        constraints={"search_area": "Nashville, TN", "price": "$2.4 million"},
+        search_query="luxury real estate agents in Nashville",
+        is_service=True,
+        service_category="real_estate",
+        desire_tier="service",
+        reset_bids=False,
+    )
+
+    intent = SearchIntent.model_validate(updated.search_intent)
+    assert updated.structured_constraints is not None
+    assert intent.location_context.targets.search_area == "Nashville, TN"
+    assert intent.location_context.relevance == "service_area"
+    assert updated.desire_tier == "service"
