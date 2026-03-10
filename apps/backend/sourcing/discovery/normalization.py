@@ -8,9 +8,17 @@ from sourcing.discovery.adapters.base import DiscoveryCandidate
 from sourcing.models import NormalizedResult
 
 
-def normalize_discovery_candidates(candidates: List[DiscoveryCandidate]) -> List[NormalizedResult]:
+def normalize_discovery_candidates(candidates: List[object]) -> List[NormalizedResult]:
     normalized: List[NormalizedResult] = []
-    for candidate in candidates:
+    for item in candidates:
+        candidate = item.candidate if hasattr(item, "candidate") else item
+        final_score = getattr(item, "final_score", None)
+        admissible = getattr(item, "admissible", True)
+        rejection_reasons = getattr(item, "rejection_reasons", [])
+        heuristic_fit = getattr(item, "heuristic_fit", None)
+        trust_score = getattr(item, "trust_score", None)
+        location_score = getattr(item, "location_score", None)
+        classification = candidate.classification or {}
         normalized.append(
             NormalizedResult(
                 title=candidate.title,
@@ -31,6 +39,13 @@ def normalize_discovery_candidates(candidates: List[DiscoveryCandidate]) -> List
                     "source_type": candidate.source_type,
                     "official_site": candidate.official_site,
                     "first_party_contact": candidate.first_party_contact,
+                    "candidate_type": classification.get("candidate_type"),
+                    "classification_confidence": classification.get("confidence"),
+                    "location_evidence": classification.get("location_evidence", []),
+                    "service_category_evidence": classification.get("service_category_evidence", []),
+                    "admissibility_status": "admitted" if admissible else "rejected",
+                    "rejection_reasons": list(rejection_reasons),
+                    "llm_rerank_summary": candidate.trust_signals.get("llm_rerank_summary"),
                 },
                 provenance={
                     "source_provider": candidate.adapter_id,
@@ -38,6 +53,20 @@ def normalize_discovery_candidates(candidates: List[DiscoveryCandidate]) -> List
                     "official_site": candidate.official_site,
                     "first_party_contact": candidate.first_party_contact,
                     "trust_signals": candidate.trust_signals,
+                    "candidate_type": classification.get("candidate_type"),
+                    "classification_confidence": classification.get("confidence"),
+                    "location_evidence": classification.get("location_evidence", []),
+                    "service_category_evidence": classification.get("service_category_evidence", []),
+                    "admissibility_status": "admitted" if admissible else "rejected",
+                    "rejection_reasons": list(rejection_reasons),
+                    "llm_rerank_summary": candidate.trust_signals.get("llm_rerank_summary"),
+                    "score": {
+                        "combined": final_score,
+                        "relevance": heuristic_fit,
+                        "semantic": heuristic_fit,
+                        "geo": location_score,
+                        "quality": trust_score,
+                    } if final_score is not None else {},
                 },
             )
         )

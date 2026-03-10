@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "effort": "feature-discovery-quality-gating",
+  "created": "2026-03-10T23:10:00Z",
+  "tasks": [
+    {
+      "id": "task-001",
+      "description": "Stop default official-site labeling and add classification-ready discovery candidate metadata",
+      "status": "completed"
+    },
+    {
+      "id": "task-002",
+      "description": "Implement candidate classification and discovery-mode admissibility gating",
+      "status": "completed"
+    },
+    {
+      "id": "task-003",
+      "description": "Add LLM-assisted reranking with heuristic-only fallback",
+      "status": "completed"
+    },
+    {
+      "id": "task-004",
+      "description": "Integrate the full pipeline into DiscoveryOrchestrator and normalization/provenance",
+      "status": "completed"
+    },
+    {
+      "id": "task-005",
+      "description": "Add targeted regressions and verification for discovery quality gating",
+      "status": "completed"
+    }
+  ]
+}

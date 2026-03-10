@@ -15,6 +15,7 @@ from models.auth import User
 from services.location_resolution import LocationResolutionService
 from sourcing.discovery.classifier import classify_search_path
 from sourcing.discovery.orchestrator import DiscoveryOrchestrator
+from sourcing.discovery.gating import visibility_threshold as discovery_visibility_threshold
 from sourcing.location import apply_location_resolution, normalize_search_intent_payload
 from sourcing.models import NormalizedResult, ProviderStatusSnapshot, SearchIntent
 from sourcing.repository import SourcingRepository
@@ -667,6 +668,11 @@ class SourcingService:
         for result in results:
             raw_data = result.raw_data if isinstance(result.raw_data, dict) else {}
             provenance = result.provenance if isinstance(result.provenance, dict) else {}
+            score = provenance.get("score", {}) if isinstance(provenance.get("score"), dict) else {}
+            if raw_data.get("admissibility_status") != "admitted":
+                continue
+            if float(score.get("combined") or 0.0) < discovery_visibility_threshold():
+                continue
             if not (provenance.get("official_site") or raw_data.get("official_site")):
                 continue
             if not result.merchant_domain:

@@ -1,0 +1,63 @@
+{
+  "type": "feature",
+  "name": "discovery-quality-gating",
+  "description": "Implement candidate classification, admissibility gating, and LLM-assisted reranking for BuyAnything live vendor discovery",
+  "created": "2026-03-10T23:10:00Z",
+  "status": "implemented",
+  "priority": 0,
+  "parent": "feature-proactive-vendor-discovery",
+  "prd": "docs/active-dev/TECHSPEC-BuyAnything-Discovery-Result-Quality-Gating.md",
+  "definition_of_done": {
+    "version": 1,
+    "status": "active",
+    "thresholds": [
+      {
+        "description": "Discovery candidates are classified and gated before normalization and row visibility",
+        "metric": "pre_ranking_admissibility",
+        "target": 1.0,
+        "evidence_required": "tested",
+        "type": "threshold"
+      },
+      {
+        "description": "Organic discovery no longer defaults all results to official_site",
+        "metric": "provenance_integrity",
+        "target": 1.0,
+        "evidence_required": "tested",
+        "type": "threshold"
+      }
+    ],
+    "signals": [
+      {
+        "description": "Location-sensitive discovery suppresses non-local candidates when stronger local matches exist",
+        "metric": "locality_gating",
+        "target": 1.0,
+        "weight": 0.3,
+        "evidence_required": "tested",
+        "type": "signal"
+      },
+      {
+        "description": "LLM reranking only affects candidates that already passed deterministic gates and falls back safely",
+        "metric": "llm_rerank_safety",
+        "target": 1.0,
+        "weight": 0.35,
+        "evidence_required": "tested",
+        "type": "signal"
+      },
+      {
+        "description": "Discovery audit logging explains acceptance, suppression, and persistence decisions",
+        "metric": "auditability",
+        "target": 1.0,
+        "weight": 0.35,
+        "evidence_required": "tested",
+        "type": "signal"
+      }
+    ],
+    "confidence": "design-validated",
+    "approval": {
+      "by": "User request via /build-all",
+      "timestamp": "2026-03-10T23:10:00Z",
+      "change_reason": "initial approval for discovery quality gating build-all effort",
+      "change_type": "clarify"
+    }
+  }
+}

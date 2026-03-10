@@ -204,3 +204,36 @@
 - **Decision**: Reuse existing SSE `search_results` events instead of introducing a new transport.
 - **Why**: The frontend already handles row streaming, dedupe, and loading states. Extending payload semantics is lower risk than creating a second delivery path.
 - **Confidence**: High
+
+---
+# Scoped Build-All Decisions — TECHSPEC-BuyAnything-Discovery-Result-Quality-Gating (2026-03-10)
+
+## Scoped Execution Choice
+- **Decision**: Treat `/build-all` as scoped to `docs/active-dev/TECHSPEC-BuyAnything-Discovery-Result-Quality-Gating.md`.
+- **Why**: The user explicitly passed a single corrective tech spec and wanted the full workflow executed against that document.
+- **Confidence**: High
+
+## Root Cause Framing
+- **Decision**: Treat discovery result quality as an ingress/provenance problem first, not a ranking-only problem.
+- **Why**: The existing organic adapter was marking nearly every result as `official_site=True`, which polluted the candidate pool before any reranking occurred.
+- **Confidence**: High
+
+## Integration Strategy
+- **Decision**: Keep classification, gating, reranking, and audit logging inside `DiscoveryOrchestrator`.
+- **Why**: The earlier tech spec explicitly locked the seam at `rows_search.py -> SourcingService -> DiscoveryOrchestrator`. Reusing that seam avoids rules leaking into routes or the generic scorer.
+- **Confidence**: High
+
+## LLM Role
+- **Decision**: Add LLM influence only after deterministic admissibility checks, with explicit heuristic-only fallback if the LLM path times out or fails.
+- **Why**: The user wanted the LLM to be more influential in reranking because the data is noisy, but not to become the truth source for invalid candidates.
+- **Confidence**: High
+
+## Threshold Strategy
+- **Decision**: Treat row visibility and score blend weights as config-driven defaults rather than hard product contracts.
+- **Why**: The follow-up spec review correctly identified implementation drift risk if one engineer treats thresholds as loose hints and another hardcodes them permanently.
+- **Confidence**: High
+
+## Shallow Fetch Activation
+- **Decision**: Implement shallow-fetch classification enrichment as config-gated (`DISCOVERY_SHALLOW_FETCH_ENABLED`) instead of always-on.
+- **Why**: It satisfies the spec without making local tests and no-key environments slow or flaky; the repo can turn it on in controlled environments with real provider traffic.
+- **Confidence**: Medium

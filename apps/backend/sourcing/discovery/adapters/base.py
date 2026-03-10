@@ -25,6 +25,7 @@ class DiscoveryCandidate:
     raw_payload: dict[str, Any] = field(default_factory=dict)
     extraction_payload: dict[str, Any] = field(default_factory=dict)
     trust_signals: dict[str, Any] = field(default_factory=dict)
+    classification: dict[str, Any] | None = None
 
 
 @dataclass

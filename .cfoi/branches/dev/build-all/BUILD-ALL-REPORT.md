@@ -213,3 +213,53 @@ Frontend type-check: Pre-existing errors only (no new errors introduced)
 - Manual QA against real external search providers in an environment with live search API keys
 - Decide whether to add additional discovery adapters beyond organic search
 - Consider a dedicated persisted audit bundle if production debugging needs more than structured logs and candidate/context records
+
+---
+
+# Scoped Build-All Report - 2026-03-10 (Discovery Quality Gating)
+
+## Scope
+- PRD Directory: `docs/active-dev/`
+- Spec Processed: `docs/active-dev/TECHSPEC-BuyAnything-Discovery-Result-Quality-Gating.md`
+- Execution Mode: scoped single-spec build-all
+
+## Architecture
+- Backend: FastAPI + SQLModel + asyncpg
+- Frontend: Next.js 15 App Router
+- Discovery seam reused: `rows_search.py -> SourcingService -> DiscoveryOrchestrator`
+- Fix posture: pre-ranking candidate cleaning, not category hardcoding
+
+## Execution Summary
+| # | Spec | Effort | Tasks | Status | Notes |
+|---|---|---|---|---|---|
+| 1 | TECHSPEC-BuyAnything-Discovery-Result-Quality-Gating.md | feature-discovery-quality-gating | 5 | 🟢 Implemented | Classification, gating, reranking fallback, and discovery audit logging completed |
+
+## Decisions Made
+- Scoped `/build-all` to the single tech spec path requested by the user
+- Kept all quality-gating logic inside the existing discovery seam instead of scattering rules across routes and scorers
+- Made the organic adapter retrieval-only by removing default `official_site=True`
+- Added heuristic-first candidate classification and discovery-mode gating before normalization
+- Added LLM reranking only after deterministic admissibility checks, with explicit heuristic-only fallback on timeout/error
+- Made row visibility and persistence thresholds config-driven defaults rather than product contracts
+
+## Quality
+- Tech spec maturity: implementation-ready
+- Architecture fit: strong follow-on fit to the existing proactive vendor discovery foundation
+- Final Verdict: `IMPLEMENTED_AND_TARGETED_VERIFIED`
+
+## Artifacts
+- Effort: `.cfoi/branches/dev/efforts/feature-discovery-quality-gating/`
+- Plan: `.cfoi/branches/dev/efforts/feature-discovery-quality-gating/plan.md`
+- Tasks: `.cfoi/branches/dev/efforts/feature-discovery-quality-gating/tasks.json`
+- Progress: `.cfoi/branches/dev/efforts/feature-discovery-quality-gating/PROGRESS.md`
+
+## Verification
+- `apps/backend/.venv/bin/pytest apps/backend/tests/test_discovery_quality_gating.py apps/backend/tests/test_vendor_discovery_foundation.py apps/backend/tests/test_rows_search.py apps/backend/tests/test_streaming_search.py apps/backend/tests/test_streaming_and_vendor_search.py apps/backend/tests/test_rows_search_intent.py -q`
+  - Result: `54 passed`
+- `apps/backend/.venv/bin/python -m py_compile apps/backend/sourcing/discovery/adapters/base.py apps/backend/sourcing/discovery/adapters/organic.py apps/backend/sourcing/discovery/classification.py apps/backend/sourcing/discovery/gating.py apps/backend/sourcing/discovery/llm_rerank.py apps/backend/sourcing/discovery/debug.py apps/backend/sourcing/discovery/dedupe.py apps/backend/sourcing/discovery/normalization.py apps/backend/sourcing/discovery/orchestrator.py apps/backend/sourcing/service.py apps/backend/tests/test_discovery_quality_gating.py apps/backend/tests/test_vendor_discovery_foundation.py`
+  - Result: `passed`
+
+## Remaining Follow-Up
+- Run manual QA against live search providers with real API keys, especially for real estate, whisky, yacht charter, and aircraft broker flows
+- Decide whether to enable shallow-fetch classification enrichment by default or keep it config-gated initially
+- Consider persisting structured audit bundles if production debugging needs more than logs and candidate records
