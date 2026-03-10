@@ -656,6 +656,7 @@ class VendorDirectoryProvider(SourcingProvider):
                     "constraint_score": round(constraint_score, 4),
                     "location_mode": location_mode,
                     "location_match": location_match,
+                    "store_geo_location": store_geo_location,
                     "geo_distance_miles": round(geo_distance_miles, 3) if geo_distance_miles is not None else None,
                     "text_location_match": round(text_location_match, 4),
                 },
@@ -709,7 +710,6 @@ class VendorDirectoryProvider(SourcingProvider):
                         f"[VendorProvider] Filtered {dropped}/{before_count} vendors with mismatched categories "
                         f"(request={service_category}, location_mode={location_mode})"
                     )
-
         # For true local searches, exact geo distance leads among local matches.
         # Service-area searches remain locality-gated but semantically ranked.
         if location_mode == "vendor_proximity":
