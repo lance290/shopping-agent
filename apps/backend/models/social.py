@@ -157,3 +157,51 @@ class PurchaseEvent(SQLModel, table=True):
     revenue_type: str = "affiliate"               # "affiliate", "stripe_connect", "transaction_fee"
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class RequestFeedback(SQLModel, table=True):
+    __tablename__ = "request_feedback"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    row_id: int = Field(foreign_key="row.id", index=True)
+    bid_id: Optional[int] = Field(default=None, foreign_key="bid.id", index=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    feedback_type: str = Field(index=True)
+    score: Optional[float] = None
+    comment: Optional[str] = None
+    metadata_json: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class RequestEvent(SQLModel, table=True):
+    __tablename__ = "request_event"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    row_id: int = Field(foreign_key="row.id", index=True)
+    bid_id: Optional[int] = Field(default=None, foreign_key="bid.id", index=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    event_type: str = Field(index=True)
+    event_value: Optional[str] = None
+    metadata_json: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class SourceMemory(SQLModel, table=True):
+    """Persistent memory about domains and sources (Tech Spec §8.1, PRD §11.3)."""
+    __tablename__ = "source_memory"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    domain: str = Field(index=True)
+    source_name: Optional[str] = None
+    source_type: Optional[str] = None  # e.g., vendor_directory, amazon, serpapi
+    source_subtype: Optional[str] = None
+    trust_score: float = 0.0
+    prestige_score: float = 0.0
+    success_count: int = 0
+    surface_count: int = 0
+    shortlist_count: int = 0
+    contact_success_count: int = 0
+    negative_count: int = 0
+    last_seen_at: Optional[datetime] = None
+    notes: Optional[str] = None
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -428,6 +428,53 @@ async def test_admin_metrics_success(client, session, _make_auth):
     assert data["period"]["days"] == 7
 
 
+# ── Trust Metrics Admin Endpoint ──────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_admin_trust_metrics_success(client, session, _make_auth):
+    """GET /admin/trust-metrics returns trust metrics object for admin."""
+    admin, token = await _make_auth(session, email="admin-trust@example.com", is_admin=True)
+    resp = await client.get(
+        "/admin/trust-metrics",
+        params={"days": 7},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["period"]["days"] == 7
+    assert "resolution" in data
+    assert "outcome_coverage_rate" in data["resolution"]
+    assert "resolution_rate" in data["resolution"]
+    assert "feedback" in data
+    assert "by_type" in data["feedback"]
+    assert "search_funnel" in data
+    assert "searches_requested" in data["search_funnel"]
+    assert "avg_time_to_trusted_option_seconds" in data["search_funnel"]
+    assert "candidates_saved" in data["search_funnel"]
+    assert "candidates_selected" in data["search_funnel"]
+    assert "save_rate" in data["search_funnel"]
+    assert "acted_on_rate" in data["search_funnel"]
+    assert "trusted_result_rate" in data["search_funnel"]
+    assert "routing" in data
+    assert "mode_breakdown" in data["routing"]
+    assert "outcome_by_route" in data["routing"]
+    assert "provider" in data
+    assert "cohort" in data
+    assert "desire_tier" in data
+
+
+@pytest.mark.asyncio
+async def test_admin_trust_metrics_requires_admin(client, session, _make_auth):
+    """GET /admin/trust-metrics returns 403 for non-admin user."""
+    user, token = await _make_auth(session, email="notadmin-trust@example.com")
+    resp = await client.get(
+        "/admin/trust-metrics",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 403
+
+
 # ── PRD 12: Admin Outreach Check ─────────────────────────────────────
 
 

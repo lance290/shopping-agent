@@ -130,6 +130,10 @@ export interface Row {
   service_category?: string; // e.g., "private_aviation", "catering"
   desire_tier?: string;      // commodity, considered, service, bespoke, high_value, advisory
   selected_providers?: string; // JSON string: {"amazon": true, "serpapi": false, ...}
+  row_outcome?: string | null;   // resolution: solved, partially_solved, not_solved
+  row_quality_assessment?: string | null;  // quality: results_were_strong, results_were_noisy, had_to_search_manually, routing_was_wrong
+  outcome_note?: string | null;  // free-form assistant annotation
+  routing_mode?: string | null;  // affiliate_only, sourcing_only, affiliate_plus_sourcing
   ui_schema?: Record<string, unknown> | null;  // SDUI schema (JSONB from backend)
   ui_schema_version?: number;                   // 0 = no schema, increments on rebuild
   active_deal?: ActiveDeal | null;

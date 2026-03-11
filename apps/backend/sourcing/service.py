@@ -218,6 +218,20 @@ class SourcingService:
                 logger.warning(f"[SourcingService] Query embedding failed (graceful degradation): {e}")
 
         search_path = classify_search_path(search_intent, row)
+
+        # Persist routing_mode for trust-metric analysis (Trust Metrics PRD §7.1)
+        # Note: affiliate_plus_sourcing is reserved for a future hybrid search path
+        # that runs both vendor discovery AND affiliate providers simultaneously.
+        if row:
+            resolved_mode = (
+                "sourcing_only" if search_path == "vendor_discovery_path"
+                else "affiliate_only"
+            )
+            if row.routing_mode != resolved_mode:
+                row.routing_mode = resolved_mode
+                self.session.add(row)
+                await self.session.commit()
+
         if row and search_path == "vendor_discovery_path" and search_intent:
             return await self._search_vendor_discovery_path(
                 row=row,
@@ -662,8 +676,6 @@ class SourcingService:
             "yacht_charter",
             "real_estate",
         }
-        if high_risk:
-            return []
         persisted: List[NormalizedResult] = []
         for result in results:
             raw_data = result.raw_data if isinstance(result.raw_data, dict) else {}
@@ -671,11 +683,23 @@ class SourcingService:
             score = provenance.get("score", {}) if isinstance(provenance.get("score"), dict) else {}
             if raw_data.get("admissibility_status") != "admitted":
                 continue
-            if float(score.get("combined") or 0.0) < discovery_visibility_threshold():
+            min_score = max(discovery_visibility_threshold(), 0.7 if high_risk else 0.0)
+            if float(score.get("combined") or 0.0) < min_score:
+                continue
+            candidate_type = str(raw_data.get("candidate_type") or provenance.get("candidate_type") or "").strip()
+            if high_risk and candidate_type in {"directory_or_aggregator", "listing_or_inventory_page", "editorial_or_irrelevant"}:
                 continue
             if not (provenance.get("official_site") or raw_data.get("official_site")):
                 continue
             if not result.merchant_domain:
+                continue
+            if high_risk and not (
+                raw_data.get("first_party_contact")
+                or provenance.get("first_party_contact")
+                or raw_data.get("email")
+                or raw_data.get("phone")
+                or candidate_type in {"brokerage_or_agent_site", "marketplace_or_exchange", "brand_site", "official_vendor_site"}
+            ):
                 continue
             if not (raw_data.get("email") or raw_data.get("phone") or result.url):
                 continue

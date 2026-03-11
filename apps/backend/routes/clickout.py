@@ -3,11 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from fastapi.responses import RedirectResponse
 from typing import Optional
 import asyncio
+import json
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
-from models import ClickoutEvent
+from models import ClickoutEvent, RequestEvent
 from dependencies import get_current_session
 from sourcing import extract_merchant_domain
 from affiliate import link_resolver, ClickContext
@@ -97,6 +98,24 @@ async def clickout_redirect(
                 log_session.add(event)
                 await log_session.commit()
                 await log_session.refresh(event)
+
+                if row_id is not None:
+                    request_event = RequestEvent(
+                        row_id=row_id,
+                        bid_id=bid_id,
+                        user_id=user_id,
+                        event_type="candidate_clicked",
+                        event_value=source,
+                        metadata_json=json.dumps(
+                            {
+                                "clickout_event_id": event.id,
+                                "merchant_domain": merchant_domain,
+                                "handler_name": resolved.handler_name,
+                            }
+                        ),
+                    )
+                    log_session.add(request_event)
+                    await log_session.commit()
                 
                 await audit_log(
                     session=log_session,

@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException, Header
 from typing import Optional, List
 from urllib.parse import parse_qsl, urlsplit, urlunsplit, urlencode
@@ -6,7 +7,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from database import get_session
 from dependencies import get_current_session
-from models import Vendor, Row, Bid
+from models import Vendor, Row, Bid, RequestEvent
 from models.bookmarks import VendorBookmark, ItemBookmark
 from pydantic import BaseModel
 
@@ -119,6 +120,16 @@ async def bookmark_vendor(
         )
         session.add(bookmark)
     await _sync_vendor_bookmark_like_state(session, auth_session.user_id, vendor_id, True)
+
+    # Trust event: candidate_saved (PRD §9 implicit feedback)
+    if source_row_id is not None:
+        session.add(RequestEvent(
+            row_id=source_row_id,
+            user_id=auth_session.user_id,
+            event_type="candidate_saved",
+            event_value="vendor_bookmark",
+            metadata_json=json.dumps({"vendor_id": vendor_id}),
+        ))
     await session.commit()
 
     return {"status": "bookmarked", "vendor_id": vendor_id}
@@ -197,6 +208,16 @@ async def bookmark_item(
         )
         session.add(bookmark)
     await _sync_item_bookmark_like_state(session, auth_session.user_id, canonical_url, True)
+
+    # Trust event: candidate_saved (PRD §9 implicit feedback)
+    if payload.source_row_id is not None:
+        session.add(RequestEvent(
+            row_id=payload.source_row_id,
+            user_id=auth_session.user_id,
+            event_type="candidate_saved",
+            event_value="item_bookmark",
+            metadata_json=json.dumps({"canonical_url": canonical_url}),
+        ))
     await session.commit()
 
     return {"status": "bookmarked", "canonical_url": canonical_url}

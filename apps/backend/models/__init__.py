@@ -56,6 +56,9 @@ from models.social import (
     RowComment,
     ClickoutEvent,
     PurchaseEvent,
+    RequestFeedback,
+    RequestEvent,
+    SourceMemory,
 )
 
 # Marketplace models
@@ -143,6 +146,9 @@ __all__ = [
     "ItemBookmark",
     "ClickoutEvent",
     "PurchaseEvent",
+    "RequestFeedback",
+    "RequestEvent",
+    "SourceMemory",
     # Marketplace
     "VendorProfile",
     "SellerQuote",

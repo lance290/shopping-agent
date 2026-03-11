@@ -61,3 +61,7 @@ export { toggleVendorBookmark, fetchVendorBookmarks, toggleItemBookmark, fetchIt
 // Share Links
 export type { ShareLinkCreate, ShareLinkResponse, ShareContentResponse, ShareMetricsResponse } from './api-shares';
 export { createShareLink, resolveShareLink, getShareMetrics } from './api-shares';
+
+// Trust Metrics — feedback, outcomes, events
+export type { FeedbackType, ResolutionType, QualityType, OutcomeType, FeedbackPayload, OutcomePayload, EventPayload } from './api-trust';
+export { submitFeedback, submitOutcome, logEvent, FEEDBACK_OPTIONS, RESOLUTION_OPTIONS, QUALITY_OPTIONS, OUTCOME_OPTIONS } from './api-trust';

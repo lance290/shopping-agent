@@ -71,6 +71,58 @@ def test_clickout_event_fraud_defaults():
     assert event.user_agent is None
 
 
+def test_request_feedback_model():
+    from models import RequestFeedback
+    feedback = RequestFeedback(
+        row_id=1,
+        bid_id=2,
+        user_id=3,
+        feedback_type="good_lead",
+        score=0.9,
+        comment="Strong fit",
+    )
+    assert feedback.row_id == 1
+    assert feedback.bid_id == 2
+    assert feedback.feedback_type == "good_lead"
+    assert feedback.score == 0.9
+
+
+def test_request_event_model():
+    from models import RequestEvent
+    event = RequestEvent(
+        row_id=1,
+        bid_id=2,
+        user_id=3,
+        event_type="candidate_clicked",
+        event_value="amazon",
+    )
+    assert event.row_id == 1
+    assert event.bid_id == 2
+    assert event.event_type == "candidate_clicked"
+    assert event.event_value == "amazon"
+
+
+def test_row_outcome_fields():
+    from models import Row
+    row = Row(title="Test row", status="sourcing", user_id=1)
+    assert row.row_outcome is None
+    assert row.outcome_note is None
+    row.row_outcome = "solved"
+    row.outcome_note = "Found it on first search"
+    assert row.row_outcome == "solved"
+    assert row.outcome_note == "Found it on first search"
+
+
+def test_outcome_endpoint_request_body():
+    from routes.rows import RowOutcomeUpdate
+    body = RowOutcomeUpdate(outcome="partially_solved", note="Needed one more search")
+    assert body.outcome == "partially_solved"
+    assert body.note == "Needed one more search"
+
+    body_no_note = RowOutcomeUpdate(outcome="solved")
+    assert body_no_note.note is None
+
+
 def test_merchant_verification_fields():
     """PRD 10: Merchant model has verification and reputation fields."""
     from models import Merchant

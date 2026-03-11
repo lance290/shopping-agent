@@ -5,7 +5,8 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from httpx import AsyncClient
 
-from models import Row, RequestSpec, User, AuthSession, hash_token, VendorCoverageGap
+from models import Row, RequestSpec, User, AuthSession, hash_token, VendorCoverageGap, RequestEvent, RequestFeedback, Bid, SourceMemory, Vendor
+from models.outreach import OutreachCampaign, OutreachMessage
 from services.llm_models import VendorCoverageAssessment
 from sourcing import SearchResultWithStatus
 from routes.rows_search import router, _record_vendor_coverage_gap_if_needed
@@ -498,3 +499,382 @@ async def test_vendor_coverage_helper_returns_none_when_persist_fails(session: A
     assert result is None
     saved = await session.exec(select(VendorCoverageGap))
     assert saved.first() is None
+
+
+@pytest.mark.asyncio
+async def test_search_records_request_events(client: AsyncClient, session: AsyncSession, test_user: User):
+    auth_session = AuthSession(
+        email=test_user.email or "test@example.com",
+        user_id=test_user.id,
+        session_token_hash=hash_token("test-token-events"),
+        revoked_at=None,
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    row = Row(
+        user_id=test_user.id,
+        title="Eventful search",
+        status="draft",
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+        mock_search = AsyncMock(
+            return_value=SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
+        )
+        mock_repo.return_value.search_all_with_status = mock_search
+
+        with patch("routes.rows_search.SourcingService") as mock_service_class:
+            mock_service = AsyncMock()
+            mock_service.search_and_persist = AsyncMock(return_value=([], [], None))
+            mock_service.supersede_stale_bids = AsyncMock(return_value=0)
+            mock_service_class.return_value = mock_service
+
+            with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+                with patch("routes.rate_limit.check_rate_limit", return_value=True):
+                    response = await client.post(
+                        f"/rows/{row.id}/search",
+                        json={"query": "eventful search query"},
+                        headers={"authorization": "Bearer test-token-events"},
+                    )
+
+    assert response.status_code == 200
+    events = await session.exec(
+        select(RequestEvent).where(RequestEvent.row_id == row.id).order_by(RequestEvent.id)
+    )
+    saved_events = events.all()
+    assert [event.event_type for event in saved_events] == ["search_requested", "search_completed"]
+    assert saved_events[0].event_value == "eventful search query"
+
+
+@pytest.mark.asyncio
+async def test_outcome_endpoint_persists_outcome_and_event(client: AsyncClient, session: AsyncSession, test_user: User):
+    auth_session = AuthSession(
+        email=test_user.email or "test@example.com",
+        user_id=test_user.id,
+        session_token_hash=hash_token("test-token-outcome"),
+        revoked_at=None,
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    row = Row(
+        user_id=test_user.id,
+        title="Outcome row",
+        status="draft",
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+        response = await client.post(
+            f"/rows/{row.id}/outcome",
+            json={"outcome": "solved", "note": "Found exact match on first try"},
+            headers={"authorization": "Bearer test-token-outcome"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["outcome"] == "solved"
+    assert data["quality"] is None
+
+    await session.refresh(row)
+    assert row.row_outcome == "solved"
+    assert row.outcome_note == "Found exact match on first try"
+
+    events = await session.exec(select(RequestEvent).where(RequestEvent.row_id == row.id))
+    event = events.first()
+    assert event is not None
+    assert event.event_type == "outcome_recorded"
+    assert event.event_value == "solved"
+
+
+@pytest.mark.asyncio
+async def test_outcome_endpoint_rejects_invalid_outcome(client: AsyncClient, session: AsyncSession, test_user: User):
+    auth_session = AuthSession(
+        email=test_user.email or "test@example.com",
+        user_id=test_user.id,
+        session_token_hash=hash_token("test-token-badoutcome"),
+        revoked_at=None,
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    row = Row(user_id=test_user.id, title="Bad outcome row", status="draft")
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+        # Invalid resolution value
+        response = await client.post(
+            f"/rows/{row.id}/outcome",
+            json={"outcome": "not_a_valid_outcome"},
+            headers={"authorization": "Bearer test-token-badoutcome"},
+        )
+    assert response.status_code == 422
+
+    with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+        # results_were_noisy is a quality, not a resolution
+        response = await client.post(
+            f"/rows/{row.id}/outcome",
+            json={"outcome": "results_were_noisy"},
+            headers={"authorization": "Bearer test-token-badoutcome"},
+        )
+    assert response.status_code == 422
+
+    with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+        # Neither outcome nor quality provided
+        response = await client.post(
+            f"/rows/{row.id}/outcome",
+            json={"note": "just a note"},
+            headers={"authorization": "Bearer test-token-badoutcome"},
+        )
+    assert response.status_code == 422
+
+    with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+        # Valid quality submission
+        response = await client.post(
+            f"/rows/{row.id}/outcome",
+            json={"quality": "results_were_strong"},
+            headers={"authorization": "Bearer test-token-badoutcome"},
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["quality"] == "results_were_strong"
+
+
+@pytest.mark.asyncio
+async def test_patch_row_selection_emits_candidate_selected_event(client: AsyncClient, session: AsyncSession, test_user: User):
+    auth_session = AuthSession(
+        email=test_user.email or "test@example.com",
+        user_id=test_user.id,
+        session_token_hash=hash_token("test-token-select-patch"),
+        revoked_at=None,
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    row = Row(user_id=test_user.id, title="Selection row", status="draft")
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    bid = Bid(
+        row_id=row.id,
+        item_title="Trusted option",
+        item_url="https://broker.example/trusted",
+        source="vendor_directory",
+        merchant_domain="broker.example",
+    )
+    session.add(bid)
+    await session.commit()
+    await session.refresh(bid)
+
+    response = await client.patch(
+        f"/rows/{row.id}",
+        json={"selected_bid_id": bid.id},
+        headers={"authorization": "Bearer test-token-select-patch"},
+    )
+
+    assert response.status_code == 200
+
+    await session.refresh(bid)
+    assert bid.is_selected is True
+
+    events = await session.exec(
+        select(RequestEvent).where(
+            RequestEvent.row_id == row.id,
+            RequestEvent.event_type == "candidate_selected",
+        )
+    )
+    event = events.first()
+    assert event is not None
+    assert event.bid_id == bid.id
+    assert event.event_value == "vendor_directory"
+
+
+@pytest.mark.asyncio
+async def test_outcome_endpoint_updates_source_memory_with_aggregated_signals(client: AsyncClient, session: AsyncSession, test_user: User):
+    auth_session = AuthSession(
+        email=test_user.email or "test@example.com",
+        user_id=test_user.id,
+        session_token_hash=hash_token("test-token-source-memory"),
+        revoked_at=None,
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    row = Row(user_id=test_user.id, title="Memory row", status="draft")
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    vendor = Vendor(name="Broker Example", email="sales@broker.example", domain="broker.example")
+    session.add(vendor)
+    await session.commit()
+    await session.refresh(vendor)
+
+    selected_bid = Bid(
+        row_id=row.id,
+        vendor_id=vendor.id,
+        item_title="Selected option",
+        item_url="https://broker.example/selected",
+        source="vendor_directory",
+        source_tier="registered",
+        merchant_domain="broker.example",
+        canonical_url="https://broker.example/selected",
+        is_selected=True,
+        is_liked=True,
+    )
+    second_bid = Bid(
+        row_id=row.id,
+        vendor_id=vendor.id,
+        item_title="Second option",
+        item_url="https://broker.example/second",
+        source="vendor_directory",
+        source_tier="registered",
+        merchant_domain="broker.example",
+        canonical_url="https://broker.example/second",
+    )
+    session.add(selected_bid)
+    session.add(second_bid)
+    await session.commit()
+    await session.refresh(selected_bid)
+
+    campaign = OutreachCampaign(
+        row_id=row.id,
+        user_id=test_user.id,
+        request_summary="Need a broker",
+    )
+    session.add(campaign)
+    await session.commit()
+    await session.refresh(campaign)
+
+    session.add(OutreachMessage(
+        campaign_id=campaign.id,
+        vendor_id=vendor.id,
+        bid_id=selected_bid.id,
+        direction="outbound",
+        channel="email",
+        status="sent",
+        body="hello",
+    ))
+    await session.commit()
+
+    response = await client.post(
+        f"/rows/{row.id}/outcome",
+        json={"outcome": "solved"},
+        headers={"authorization": "Bearer test-token-source-memory"},
+    )
+
+    assert response.status_code == 200
+
+    memory_result = await session.exec(
+        select(SourceMemory).where(
+            SourceMemory.domain == "broker.example",
+            SourceMemory.source_type == "vendor_directory",
+            SourceMemory.source_subtype == "registered",
+        )
+    )
+    memory = memory_result.first()
+    assert memory is not None
+    assert memory.surface_count == 2
+    assert memory.shortlist_count == 1
+    assert memory.contact_success_count == 1
+    assert memory.success_count == 1
+    assert memory.trust_score == 0.5
+
+
+@pytest.mark.asyncio
+async def test_feedback_endpoint_persists_feedback_and_event(client: AsyncClient, session: AsyncSession, test_user: User):
+    auth_session = AuthSession(
+        email=test_user.email or "test@example.com",
+        user_id=test_user.id,
+        session_token_hash=hash_token("test-token-feedback"),
+        revoked_at=None,
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    row = Row(
+        user_id=test_user.id,
+        title="Feedback row",
+        status="draft",
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+        response = await client.post(
+            f"/rows/{row.id}/feedback",
+            json={
+                "feedback_type": "good_lead",
+                "score": 0.8,
+                "comment": "Strong option",
+                "metadata": {"premium_fit": True},
+            },
+            headers={"authorization": "Bearer test-token-feedback"},
+        )
+
+    assert response.status_code == 200
+    feedback_rows = await session.exec(select(RequestFeedback).where(RequestFeedback.row_id == row.id))
+    feedback = feedback_rows.first()
+    assert feedback is not None
+    assert feedback.feedback_type == "good_lead"
+    assert feedback.score == 0.8
+
+    events = await session.exec(select(RequestEvent).where(RequestEvent.row_id == row.id))
+    event = events.first()
+    assert event is not None
+    assert event.event_type == "feedback_submitted"
+    assert event.event_value == "good_lead"
+
+
+@pytest.mark.asyncio
+async def test_events_endpoint_persists_generic_event(client: AsyncClient, session: AsyncSession, test_user: User):
+    auth_session = AuthSession(
+        email=test_user.email or "test@example.com",
+        user_id=test_user.id,
+        session_token_hash=hash_token("test-token-events"),
+        revoked_at=None,
+    )
+    session.add(auth_session)
+    await session.commit()
+
+    row = Row(
+        user_id=test_user.id,
+        title="Events row",
+        status="draft",
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+
+    with patch("routes.auth.get_current_session", AsyncMock(return_value=auth_session)):
+        response = await client.post(
+            f"/rows/{row.id}/events",
+            json={
+                "event_type": "candidate_clicked",
+                "event_value": "amazon",
+                "metadata": {"offer_url": "https://example.com/item"},
+            },
+            headers={"authorization": "Bearer test-token-events"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert "id" in data
+
+    events = await session.exec(select(RequestEvent).where(RequestEvent.row_id == row.id))
+    event = events.first()
+    assert event is not None
+    assert event.event_type == "candidate_clicked"
+    assert event.event_value == "amazon"
+    assert event.user_id == test_user.id

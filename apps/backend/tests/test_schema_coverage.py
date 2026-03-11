@@ -55,7 +55,7 @@ def _get_all_model_columns():
 # Tables that fix_schema.py creates from scratch (full CREATE TABLE).
 # Columns in these tables don't need to be in EXPECTED_COLS because
 # the CREATE TABLE statement already includes them.
-TABLES_CREATED_FROM_SCRATCH = {"vendor", "request_spec", "brand_portal_token", "campaign", "coupon_campaign", "group_thread", "receipt", "row_comment", "row_reaction", "vendor_bookmark", "item_bookmark"}
+TABLES_CREATED_FROM_SCRATCH = {"vendor", "request_spec", "brand_portal_token", "campaign", "coupon_campaign", "group_thread", "receipt", "row_comment", "row_reaction", "vendor_bookmark", "item_bookmark", "request_feedback", "request_event", "source_memory", "discovered_vendor_candidate", "location_geocode_cache", "vendor_enrichment_queue_item"}
 
 # Core columns that every table gets from SQLModel/create_all — these
 # are always present on the DB and don't need fix_schema entries.

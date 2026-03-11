@@ -99,6 +99,11 @@ EXPECTED_COLS = [
     # Row — SDUI + provider selection
     ("row", "selected_providers", "VARCHAR", None),
     ("row", "ui_schema_version", "INTEGER", "0"),
+    # Row — outcome capture (Trust Metrics PRD §8.2)
+    ("row", "row_outcome", "VARCHAR", None),
+    ("row", "row_quality_assessment", "VARCHAR", None),
+    ("row", "outcome_note", "VARCHAR", None),
+    ("row", "routing_mode", "VARCHAR", None),
 
     # Project — SDUI
     ("project", "ui_schema_version", "INTEGER", "0"),
@@ -185,6 +190,9 @@ EXPECTED_COLS = [
     ("vendor_coverage_gap", "service_type", "VARCHAR", None),
     ("vendor_coverage_gap", "summary", "TEXT", None),
     ("vendor_coverage_gap", "rationale", "TEXT", None),
+    ("vendor_coverage_gap", "suggested_queries", "JSONB", None),
+    ("vendor_coverage_gap", "assessment", "JSONB", None),
+    ("vendor_coverage_gap", "supporting_context", "JSONB", None),
     ("vendor_coverage_gap", "confidence", "FLOAT", "0.0"),
     ("vendor_coverage_gap", "times_seen", "INTEGER", "1"),
     ("vendor_coverage_gap", "status", "VARCHAR", "'new'"),
@@ -351,6 +359,90 @@ async def fix_schema(conn):
             added += 1
     except Exception as e:
         print(f"[SCHEMA-FIX] WARNING: Could not create vendor_coverage_gap table: {e}")
+
+    try:
+        feedback_row = await conn.execute(text(
+            "SELECT 1 FROM information_schema.tables WHERE table_name = 'request_feedback'"
+        ))
+        if feedback_row.first() is None:
+            await conn.execute(text("""
+                CREATE TABLE request_feedback (
+                    id SERIAL PRIMARY KEY,
+                    row_id INTEGER REFERENCES row(id),
+                    bid_id INTEGER REFERENCES bid(id),
+                    user_id INTEGER REFERENCES "user"(id),
+                    feedback_type VARCHAR NOT NULL,
+                    score FLOAT,
+                    comment TEXT,
+                    metadata_json TEXT,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS request_feedback_row_id_idx ON request_feedback (row_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS request_feedback_bid_id_idx ON request_feedback (bid_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS request_feedback_user_id_idx ON request_feedback (user_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS request_feedback_type_idx ON request_feedback (feedback_type)"))
+            print("[SCHEMA-FIX] Created request_feedback table with indexes")
+            added += 1
+    except Exception as e:
+        print(f"[SCHEMA-FIX] WARNING: Could not create request_feedback table: {e}")
+
+    try:
+        event_row = await conn.execute(text(
+            "SELECT 1 FROM information_schema.tables WHERE table_name = 'request_event'"
+        ))
+        if event_row.first() is None:
+            await conn.execute(text("""
+                CREATE TABLE request_event (
+                    id SERIAL PRIMARY KEY,
+                    row_id INTEGER REFERENCES row(id),
+                    bid_id INTEGER REFERENCES bid(id),
+                    user_id INTEGER REFERENCES "user"(id),
+                    event_type VARCHAR NOT NULL,
+                    event_value VARCHAR,
+                    metadata_json TEXT,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS request_event_row_id_idx ON request_event (row_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS request_event_bid_id_idx ON request_event (bid_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS request_event_user_id_idx ON request_event (user_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS request_event_type_idx ON request_event (event_type)"))
+            print("[SCHEMA-FIX] Created request_event table with indexes")
+            added += 1
+    except Exception as e:
+        print(f"[SCHEMA-FIX] WARNING: Could not create request_event table: {e}")
+
+    try:
+        source_memory_row = await conn.execute(text(
+            "SELECT 1 FROM information_schema.tables WHERE table_name = 'source_memory'"
+        ))
+        if source_memory_row.first() is None:
+            await conn.execute(text("""
+                CREATE TABLE source_memory (
+                    id SERIAL PRIMARY KEY,
+                    domain VARCHAR NOT NULL,
+                    source_name VARCHAR,
+                    source_type VARCHAR,
+                    source_subtype VARCHAR,
+                    trust_score FLOAT NOT NULL DEFAULT 0.0,
+                    prestige_score FLOAT NOT NULL DEFAULT 0.0,
+                    success_count INTEGER NOT NULL DEFAULT 0,
+                    surface_count INTEGER NOT NULL DEFAULT 0,
+                    shortlist_count INTEGER NOT NULL DEFAULT 0,
+                    contact_success_count INTEGER NOT NULL DEFAULT 0,
+                    negative_count INTEGER NOT NULL DEFAULT 0,
+                    last_seen_at TIMESTAMP,
+                    notes VARCHAR,
+                    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS source_memory_domain_idx ON source_memory (domain)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS source_memory_source_type_idx ON source_memory (source_type)"))
+            print("[SCHEMA-FIX] Created source_memory table with indexes")
+            added += 1
+    except Exception as e:
+        print(f"[SCHEMA-FIX] WARNING: Could not create source_memory table: {e}")
 
     # Fix vendor.embedding column type: varchar -> vector(1536)
     try:

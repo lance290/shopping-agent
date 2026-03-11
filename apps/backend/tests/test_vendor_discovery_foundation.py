@@ -100,11 +100,55 @@ def test_dedupe_keeps_same_name_same_geo_when_domains_differ():
 
 def test_filter_discovery_results_for_bid_persistence_blocks_high_risk_categories():
     row = Row(title="Buy Gulfstream", desire_tier="high_value", service_category="private_aviation")
-    allowed = SourcingService._filter_discovery_results_for_bid_persistence(
-        row,
-        [],
-    )
+    results = [
+        NormalizedResult(
+            title="Jet Broker Directory",
+            url="https://directory.example/gulfstream",
+            canonical_url="https://directory.example/gulfstream",
+            source="vendor_discovery_google_organic",
+            merchant_name="Jet Broker Directory",
+            merchant_domain="directory.example",
+            image_url=None,
+            raw_data={
+                "official_site": False,
+                "admissibility_status": "admitted",
+                "candidate_type": "directory_or_aggregator",
+            },
+            provenance={"official_site": False, "score": {"combined": 0.92}},
+        )
+    ]
+    allowed = SourcingService._filter_discovery_results_for_bid_persistence(row, results)
     assert allowed == []
+
+
+def test_filter_discovery_results_for_bid_persistence_allows_high_risk_strong_discovered_vendor():
+    row = Row(title="Sell mansion", desire_tier="service", service_category="real_estate")
+    results = [
+        NormalizedResult(
+            title="Belle Meade Estates",
+            url="https://bellemeadeestates.example",
+            canonical_url="https://bellemeadeestates.example",
+            source="vendor_discovery_google_organic",
+            merchant_name="Belle Meade Estates",
+            merchant_domain="bellemeadeestates.example",
+            image_url=None,
+            raw_data={
+                "official_site": True,
+                "admissibility_status": "admitted",
+                "candidate_type": "brokerage_or_agent_site",
+                "first_party_contact": True,
+                "email": "hello@bellemeadeestates.example",
+            },
+            provenance={
+                "official_site": True,
+                "first_party_contact": True,
+                "candidate_type": "brokerage_or_agent_site",
+                "score": {"combined": 0.82},
+            },
+        )
+    ]
+    allowed = SourcingService._filter_discovery_results_for_bid_persistence(row, results)
+    assert len(allowed) == 1
 
 
 def test_filter_discovery_results_for_bid_persistence_allows_low_risk_official_site():

@@ -3,9 +3,9 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useShoppingStore, mapBidToOffer } from '../../store';
 import type { Row, Offer } from '../../store';
-import { runSearchApiWithStatus, fetchSingleRowFromDb, toggleVendorBookmark, toggleItemBookmark, createShareLink, createCommentApi, fetchCommentsApi, fetchWithAuth, AUTH_REQUIRED, preferredSearchQueryForRow } from '../../utils/api';
-import type { CommentDto } from '../../utils/api';
-import { Trash2, RotateCw, Heart, CheckCircle2, MessageSquare, Share2, Copy, Send, Star } from 'lucide-react';
+import { runSearchApiWithStatus, fetchSingleRowFromDb, toggleVendorBookmark, toggleItemBookmark, createShareLink, createCommentApi, fetchCommentsApi, fetchWithAuth, AUTH_REQUIRED, preferredSearchQueryForRow, submitFeedback, submitOutcome, FEEDBACK_OPTIONS, RESOLUTION_OPTIONS, QUALITY_OPTIONS } from '../../utils/api';
+import type { CommentDto, FeedbackType, ResolutionType, QualityType } from '../../utils/api';
+import { Trash2, RotateCw, Heart, CheckCircle2, MessageSquare, Share2, Copy, Send, Star, ThumbsUp, ThumbsDown, ChevronDown } from 'lucide-react';
 import { DynamicRenderer } from './DynamicRenderer';
 import { validateUISchema } from '../../sdui/types';
 import VendorContactModal from '../VendorContactModal';
@@ -54,9 +54,12 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
     return emailedIds;
   });
   const [isOutreachOpen, setIsOutreachOpen] = useState(false);
-  const unsortedOffers = offers.length > 0 ? offers : (row.bids || []).map(mapBidToOffer);
+  const unsortedOffers = useMemo(
+    () => offers.length > 0 ? offers : (row.bids || []).map(mapBidToOffer),
+    [offers, row.bids],
+  );
   const prefersCustomVendors = row.is_service === true || SERVICE_FIRST_DESIRE_TIERS.has(row.desire_tier || '');
-  const displayOffers = [...unsortedOffers].sort((a, b) => {
+  const displayOffers = useMemo(() => [...unsortedOffers].sort((a, b) => {
     const aIsSaved = !!(a.is_vendor_bookmarked || a.is_item_bookmarked || a.is_liked);
     const bIsSaved = !!(b.is_vendor_bookmarked || b.is_item_bookmarked || b.is_liked);
     if (aIsSaved && !bIsSaved) return -1;
@@ -87,7 +90,7 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
     if (sa != null) return -1;
     if (sb != null) return 1;
     return 0;
-  });
+  }), [unsortedOffers, sortMode, prefersCustomVendors]);
   const rfpEligibleOffers = useMemo(
     () => displayOffers.filter((offer) => offer.source === 'vendor_directory' && typeof offer.bid_id === 'number'),
     [displayOffers],
@@ -291,6 +294,15 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
             ))}
           </div>
 
+          {/* Outcome selector — request-level feedback (Trust Metrics PRD §8.2) */}
+          {displayOffers.length > 0 && (
+            <RowOutcomeSelector
+              rowId={row.id}
+              currentResolution={row.row_outcome as ResolutionType | undefined}
+              currentQuality={row.row_quality_assessment as QualityType | undefined}
+            />
+          )}
+
           {rfpEligibleOffers.length > 0 && (
             <OutreachQueue
               isOpen={isOutreachOpen}
@@ -307,6 +319,115 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function RowOutcomeSelector({
+  rowId,
+  currentResolution,
+  currentQuality,
+}: {
+  rowId: number;
+  currentResolution?: ResolutionType;
+  currentQuality?: QualityType;
+}) {
+  const [resolution, setResolution] = useState<ResolutionType | undefined>(currentResolution);
+  const [quality, setQuality] = useState<QualityType | undefined>(currentQuality);
+  const [openMenu, setOpenMenu] = useState<'resolution' | 'quality' | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleResolution = async (val: ResolutionType) => {
+    setIsSaving(true);
+    const result = await submitOutcome(rowId, { outcome: val });
+    setIsSaving(false);
+    if (result === AUTH_REQUIRED) { alert('Sign in to rate this search'); return; }
+    if (!result || typeof result !== 'object' || !('status' in result)) { alert('Failed to save'); return; }
+    setResolution(val);
+    setOpenMenu(null);
+  };
+
+  const handleQuality = async (val: QualityType) => {
+    setIsSaving(true);
+    const result = await submitOutcome(rowId, { quality: val });
+    setIsSaving(false);
+    if (result === AUTH_REQUIRED) { alert('Sign in to rate this search'); return; }
+    if (!result || typeof result !== 'object' || !('status' in result)) { alert('Failed to save'); return; }
+    setQuality(val);
+    setOpenMenu(null);
+  };
+
+  const resLabel = RESOLUTION_OPTIONS.find((o) => o.type === resolution)?.label;
+  const qualLabel = QUALITY_OPTIONS.find((o) => o.type === quality)?.label;
+
+  const pillClass = (
+    selected: string | undefined,
+    positive: string[],
+    negative: string[],
+  ) =>
+    selected
+      ? positive.includes(selected)
+        ? 'bg-green-50 border-green-200 text-green-700'
+        : negative.includes(selected)
+        ? 'bg-orange-50 border-orange-200 text-orange-700'
+        : 'bg-blue-50 border-blue-200 text-blue-700'
+      : 'bg-canvas-dark border-warm-grey text-ink-muted hover:border-gold/30';
+
+  return (
+    <div className="flex items-center gap-2 pt-2 border-t border-warm-grey/50 flex-wrap">
+      <span className="text-[10px] text-onyx-muted font-medium uppercase tracking-wide">How did this go?</span>
+      {/* Resolution selector */}
+      <div className="relative">
+        <button
+          onClick={() => setOpenMenu(openMenu === 'resolution' ? null : 'resolution')}
+          disabled={isSaving}
+          className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg border transition-colors ${pillClass(resolution, ['solved'], ['not_solved'])}`}
+        >
+          {resLabel || 'Outcome'}
+          <ChevronDown size={12} className={`transition-transform ${openMenu === 'resolution' ? 'rotate-180' : ''}`} />
+        </button>
+        {openMenu === 'resolution' && (
+          <div className="absolute left-0 bottom-full mb-1 z-50 bg-white border border-warm-grey rounded-lg shadow-lg py-1 min-w-[160px]">
+            {RESOLUTION_OPTIONS.map((opt) => (
+              <button
+                key={opt.type}
+                onClick={() => handleResolution(opt.type)}
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-canvas-dark transition-colors ${
+                  resolution === opt.type ? 'font-semibold text-gold-dark' : 'text-ink'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {/* Quality selector */}
+      <div className="relative">
+        <button
+          onClick={() => setOpenMenu(openMenu === 'quality' ? null : 'quality')}
+          disabled={isSaving}
+          className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg border transition-colors ${pillClass(quality, ['results_were_strong'], ['results_were_noisy', 'routing_was_wrong'])}`}
+        >
+          {qualLabel || 'Result quality'}
+          <ChevronDown size={12} className={`transition-transform ${openMenu === 'quality' ? 'rotate-180' : ''}`} />
+        </button>
+        {openMenu === 'quality' && (
+          <div className="absolute left-0 bottom-full mb-1 z-50 bg-white border border-warm-grey rounded-lg shadow-lg py-1 min-w-[180px]">
+            {QUALITY_OPTIONS.map((opt) => (
+              <button
+                key={opt.type}
+                onClick={() => handleQuality(opt.type)}
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-canvas-dark transition-colors ${
+                  quality === opt.type ? 'font-semibold text-gold-dark' : 'text-ink'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -346,6 +467,8 @@ function BidCard({
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState<CommentDto[]>([]);
   const [isLikeLoading, setIsLikeLoading] = useState(false);
+  const [showFeedbackMenu, setShowFeedbackMenu] = useState(false);
+  const [feedbackSent, setFeedbackSent] = useState<FeedbackType | null>(null);
   const updateRowOffer = useShoppingStore((s) => s.updateRowOffer);
   const priceStr = offer.price !== null && offer.price !== undefined
     ? `$${offer.price.toFixed(2)}`
@@ -431,6 +554,21 @@ function BidCard({
       setComments((prev) => [result as CommentDto, ...prev]);
       setCommentText('');
     }
+  };
+
+  const handleFeedback = async (feedbackType: FeedbackType) => {
+    if (!offer.bid_id) return;
+    const result = await submitFeedback(row.id, { bid_id: offer.bid_id, feedback_type: feedbackType });
+    if (result === AUTH_REQUIRED) {
+      alert('Sign in to rate this result');
+      return;
+    }
+    if (!result || typeof result !== 'object' || !('status' in result)) {
+      alert('Failed to save result feedback');
+      return;
+    }
+    setFeedbackSent(feedbackType);
+    setShowFeedbackMenu(false);
   };
 
   return (
@@ -542,6 +680,41 @@ function BidCard({
           >
             <MessageSquare size={14} />
           </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowFeedbackMenu(!showFeedbackMenu)}
+              className={`p-1.5 rounded-md transition-colors ${
+                feedbackSent
+                  ? feedbackSent === 'good_lead' || feedbackSent === 'saved_me_time'
+                    ? 'text-green-600 bg-green-50'
+                    : 'text-orange-600 bg-orange-50'
+                  : 'text-onyx-muted hover:text-ink hover:bg-canvas-dark'
+              }`}
+              title={feedbackSent ? `Feedback: ${feedbackSent}` : 'Rate this result'}
+            >
+              {feedbackSent && (feedbackSent === 'good_lead' || feedbackSent === 'saved_me_time')
+                ? <ThumbsUp size={14} className="fill-current" />
+                : feedbackSent
+                ? <ThumbsDown size={14} className="fill-current" />
+                : <ThumbsUp size={14} />
+              }
+            </button>
+            {showFeedbackMenu && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-warm-grey rounded-lg shadow-lg py-1 min-w-[160px]">
+                {FEEDBACK_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.type}
+                    onClick={() => handleFeedback(opt.type)}
+                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-canvas-dark transition-colors ${
+                      feedbackSent === opt.type ? 'font-semibold text-gold-dark' : 'text-ink'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {isVendor ? (
             <button
               onClick={() => setShowContactModal(true)}

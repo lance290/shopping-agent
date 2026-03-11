@@ -50,6 +50,12 @@ class RowBase(SQLModel):
     desire_tier: Optional[str] = None  # commodity, considered, service, bespoke, high_value, advisory
     structured_constraints: Optional[str] = None  # JSON of extracted structured constraints
 
+    # Outcome capture (Trust Metrics PRD §8.2)
+    row_outcome: Optional[str] = None  # resolution: solved, partially_solved, not_solved
+    row_quality_assessment: Optional[str] = None  # quality: results_were_strong, results_were_noisy, had_to_search_manually, routing_was_wrong
+    outcome_note: Optional[str] = None  # free-form assistant annotation
+    routing_mode: Optional[str] = None  # affiliate_only, sourcing_only, affiliate_plus_sourcing
+
     # Per-row provider selection (JSON object: {"amazon": true, "serpapi": false, ...})
     selected_providers: Optional[str] = None
 

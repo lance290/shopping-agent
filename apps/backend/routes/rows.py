@@ -4,13 +4,14 @@ from pydantic import BaseModel
 from typing import Any, Optional, List
 from datetime import datetime
 import json
+from urllib.parse import urlparse
 
 from sqlmodel import select, delete
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload, defer, joinedload
 
 from database import get_session
-from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project, User, Vendor
+from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project, User, Vendor, RequestFeedback, RequestEvent, SourceMemory
 from models.deals import Deal, DealMessage
 from models.bookmarks import VendorBookmark, ItemBookmark
 from models.outreach import OutreachMessage
@@ -128,6 +129,27 @@ class RowUpdate(BaseModel):
     reset_bids: Optional[bool] = None
     is_service: Optional[bool] = None
     service_category: Optional[str] = None
+
+
+class RowOutcomeUpdate(BaseModel):
+    outcome: Optional[str] = None  # resolution: solved, partially_solved, not_solved
+    quality: Optional[str] = None  # quality: results_were_strong, results_were_noisy, had_to_search_manually, routing_was_wrong
+    note: Optional[str] = None
+
+
+class RequestFeedbackCreate(BaseModel):
+    bid_id: Optional[int] = None
+    feedback_type: str
+    score: Optional[float] = None
+    comment: Optional[str] = None
+    metadata: Optional[dict[str, Any]] = None
+
+
+class RequestEventCreate(BaseModel):
+    bid_id: Optional[int] = None
+    event_type: str
+    event_value: Optional[str] = None
+    metadata: Optional[dict[str, Any]] = None
 
 
 def _default_choice_factors_for_row(row: Row) -> list:
@@ -570,9 +592,11 @@ async def update_row(
         bids_result = await session.exec(select(Bid).where(Bid.row_id == row_id, Bid.is_superseded == False))
         bids = bids_result.all()
         found = False
+        selected_bid: Optional[Bid] = None
         for row_bid in bids:
             if row_bid.id == selected_bid_id:
                 found = True
+                selected_bid = row_bid
             row_bid.is_selected = row_bid.id == selected_bid_id
             session.add(row_bid)
 
@@ -580,6 +604,14 @@ async def update_row(
             raise HTTPException(status_code=404, detail="Option not found")
 
         row.status = "closed"
+        if selected_bid is not None:
+            session.add(RequestEvent(
+                row_id=row_id,
+                bid_id=selected_bid.id,
+                user_id=user_id,
+                event_type="candidate_selected",
+                event_value=selected_bid.source,
+            ))
 
     if reset_bids:
         bids_result = await session.exec(select(Bid).where(Bid.row_id == row_id, Bid.is_superseded == False))
@@ -650,6 +682,294 @@ async def update_row(
     return row
 
 
+@router.post("/rows/{row_id}/feedback")
+async def create_row_feedback(
+    row_id: int,
+    body: RequestFeedbackCreate,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    user_id = await resolve_user_id(authorization, session)
+
+    result = await session.exec(
+        select(Row).where(Row.id == row_id, Row.user_id == user_id)
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    if body.bid_id is not None:
+        bid_result = await session.exec(
+            select(Bid).where(Bid.id == body.bid_id, Bid.row_id == row_id)
+        )
+        bid = bid_result.first()
+        if not bid:
+            raise HTTPException(status_code=404, detail="Bid not found")
+
+    feedback = RequestFeedback(
+        row_id=row_id,
+        bid_id=body.bid_id,
+        user_id=user_id,
+        feedback_type=body.feedback_type,
+        score=body.score,
+        comment=body.comment,
+        metadata_json=json.dumps(body.metadata) if body.metadata is not None else None,
+    )
+    session.add(feedback)
+
+    event = RequestEvent(
+        row_id=row_id,
+        bid_id=body.bid_id,
+        user_id=user_id,
+        event_type="feedback_submitted",
+        event_value=body.feedback_type,
+        metadata_json=json.dumps(
+            {
+                "score": body.score,
+                "has_comment": bool((body.comment or "").strip()),
+            }
+        ),
+    )
+    session.add(event)
+    await session.commit()
+    await session.refresh(feedback)
+
+    return {"id": feedback.id, "status": "ok"}
+
+
+@router.post("/rows/{row_id}/outcome")
+async def record_row_outcome(
+    row_id: int,
+    body: RowOutcomeUpdate,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    user_id = await resolve_user_id(authorization, session)
+
+    result = await session.exec(
+        select(Row).where(Row.id == row_id, Row.user_id == user_id)
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    VALID_RESOLUTIONS = {"solved", "partially_solved", "not_solved"}
+    VALID_QUALITY = {
+        "results_were_strong", "results_were_noisy",
+        "had_to_search_manually", "routing_was_wrong",
+    }
+
+    if body.outcome is None and body.quality is None:
+        raise HTTPException(
+            status_code=422,
+            detail="At least one of outcome or quality must be provided",
+        )
+
+    if body.outcome is not None and body.outcome not in VALID_RESOLUTIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"outcome must be one of: {', '.join(sorted(VALID_RESOLUTIONS))}",
+        )
+    if body.quality is not None and body.quality not in VALID_QUALITY:
+        raise HTTPException(
+            status_code=422,
+            detail=f"quality must be one of: {', '.join(sorted(VALID_QUALITY))}",
+        )
+
+    if body.outcome is not None:
+        row.row_outcome = body.outcome
+    if body.quality is not None:
+        row.row_quality_assessment = body.quality
+    if body.note is not None:
+        row.outcome_note = body.note
+    row.updated_at = datetime.utcnow()
+    session.add(row)
+
+    event_meta: dict = {}
+    if body.outcome:
+        event_meta["outcome"] = body.outcome
+    if body.quality:
+        event_meta["quality"] = body.quality
+    if body.note:
+        event_meta["note"] = body.note
+
+    event = RequestEvent(
+        row_id=row_id,
+        user_id=user_id,
+        event_type="outcome_recorded",
+        event_value=body.outcome or body.quality,
+        metadata_json=json.dumps(event_meta) if event_meta else None,
+    )
+    session.add(event)
+    await session.commit()
+
+    # Source memory write-back (PRD §11.3, Tech Spec §8.1)
+    if body.outcome in ("solved", "partially_solved", "not_solved"):
+        try:
+            await _update_source_memory(session, row_id, user_id, body.outcome)
+        except Exception:
+            pass  # Non-fatal: don't block outcome response
+
+    return {
+        "row_id": row_id,
+        "outcome": row.row_outcome,
+        "quality": row.row_quality_assessment,
+        "status": "ok",
+    }
+
+
+async def _update_source_memory(
+    session: AsyncSession, row_id: int, user_id: Optional[int], outcome: str
+) -> None:
+    row_result = await session.exec(
+        select(Row)
+        .where(Row.id == row_id)
+        .options(selectinload(Row.bids))
+    )
+    row = row_result.first()
+    if not row or not row.bids:
+        return
+
+    is_success = outcome in ("solved", "partially_solved")
+    bookmarked_vendor_ids: set[int] = set()
+    bookmarked_item_urls: set[str] = set()
+    emailed_bid_ids: set[int] = set()
+
+    if user_id is not None:
+        (
+            bookmarked_vendor_ids,
+            bookmarked_item_urls,
+            emailed_bid_ids,
+        ) = await _load_bookmark_state_for_bids(session, user_id, [row])
+
+    now = datetime.utcnow()
+    aggregates: dict[tuple[str, Optional[str], Optional[str]], dict[str, int]] = {}
+
+    for bid in row.bids:
+        domain = _source_memory_domain_for_bid(bid)
+        if not domain:
+            continue
+        source_type = bid.source or None
+        source_subtype = bid.source_tier
+        key = (domain, source_type, source_subtype)
+        if key not in aggregates:
+            aggregates[key] = {
+                "surface": 0,
+                "shortlist": 0,
+                "selected": 0,
+                "contacted": 0,
+            }
+
+        bookmark_url = _normalize_bookmark_url(bid.canonical_url or bid.item_url)
+        is_shortlisted = (
+            bid.is_liked
+            or bool(bid.vendor_id and bid.vendor_id in bookmarked_vendor_ids)
+            or bool(bookmark_url and bookmark_url in bookmarked_item_urls)
+        )
+
+        aggregates[key]["surface"] += 1
+        if is_shortlisted:
+            aggregates[key]["shortlist"] += 1
+        if bid.is_selected:
+            aggregates[key]["selected"] += 1
+        if bid.id is not None and bid.id in emailed_bid_ids:
+            aggregates[key]["contacted"] += 1
+
+    for (domain, source_type, source_subtype), counts in aggregates.items():
+        existing = await session.exec(
+            select(SourceMemory).where(
+                SourceMemory.domain == domain,
+                SourceMemory.source_type == source_type,
+                SourceMemory.source_subtype == source_subtype,
+            )
+        )
+        mem = existing.first()
+        success_delta = counts["selected"] if is_success else 0
+        negative_delta = counts["surface"] if outcome == "not_solved" else 0
+        if mem:
+            mem.surface_count += counts["surface"]
+            mem.shortlist_count += counts["shortlist"]
+            mem.contact_success_count += counts["contacted"]
+            mem.success_count += success_delta
+            mem.negative_count += negative_delta
+            mem.last_seen_at = now
+            mem.updated_at = now
+        else:
+            mem = SourceMemory(
+                domain=domain,
+                source_type=source_type,
+                source_subtype=source_subtype,
+                surface_count=counts["surface"],
+                success_count=success_delta,
+                negative_count=negative_delta,
+                shortlist_count=counts["shortlist"],
+                contact_success_count=counts["contacted"],
+                last_seen_at=now,
+                updated_at=now,
+            )
+        mem.trust_score = round(mem.success_count / max(mem.surface_count, 1), 4)
+        session.add(mem)
+
+    await session.commit()
+
+
+def _source_memory_domain_for_bid(bid: Bid) -> Optional[str]:
+    merchant_domain = getattr(bid, "merchant_domain", None)
+    if merchant_domain:
+        return merchant_domain.lower()
+    for candidate_url in (getattr(bid, "canonical_url", None), getattr(bid, "item_url", None)):
+        if not candidate_url:
+            continue
+        parsed = urlparse(candidate_url)
+        host = parsed.netloc.lower()
+        if host.startswith("www."):
+            host = host[4:]
+        if host:
+            return host
+    if bid.source:
+        return bid.source.lower()
+    return None
+
+
+@router.post("/rows/{row_id}/events")
+async def create_row_event(
+    row_id: int,
+    body: RequestEventCreate,
+    authorization: Optional[str] = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    user_id = await resolve_user_id(authorization, session)
+
+    result = await session.exec(
+        select(Row).where(Row.id == row_id, Row.user_id == user_id)
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    if body.bid_id is not None:
+        bid_result = await session.exec(
+            select(Bid).where(Bid.id == body.bid_id, Bid.row_id == row_id)
+        )
+        bid = bid_result.first()
+        if not bid:
+            raise HTTPException(status_code=404, detail="Bid not found")
+
+    event = RequestEvent(
+        row_id=row_id,
+        bid_id=body.bid_id,
+        user_id=user_id,
+        event_type=body.event_type,
+        event_value=body.event_value,
+        metadata_json=json.dumps(body.metadata) if body.metadata is not None else None,
+    )
+    session.add(event)
+    await session.commit()
+    await session.refresh(event)
+
+    return {"id": event.id, "status": "ok"}
+
+
 @router.post("/rows/{row_id}/options/{option_id}/select")
 async def select_row_option(
     row_id: int,
@@ -683,6 +1003,15 @@ async def select_row_option(
     row.status = "closed"
     row.updated_at = datetime.utcnow()
     session.add(row)
+
+    # Trust event: candidate_selected (PRD §7.2 — acted on)
+    session.add(RequestEvent(
+        row_id=row_id,
+        bid_id=option_id,
+        user_id=user_id,
+        event_type="candidate_selected",
+        event_value=bid.source,
+    ))
 
     await session.commit()
 

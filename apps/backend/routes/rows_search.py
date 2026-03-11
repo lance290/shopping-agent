@@ -15,7 +15,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
-from models import Row, RequestSpec, Bid, Seller, User, VendorCoverageGap
+from models import Row, RequestSpec, Bid, Seller, User, VendorCoverageGap, RequestEvent
 from models.bookmarks import VendorBookmark, ItemBookmark
 from models.outreach import OutreachMessage
 from dependencies import get_current_session
@@ -75,6 +75,27 @@ class SearchResponse(BaseModel):
     results: List[SearchResult]
     provider_statuses: List[ProviderStatusSnapshot]
     user_message: Optional[str] = None
+
+
+async def _log_request_event(
+    session: AsyncSession,
+    *,
+    row_id: int,
+    user_id: int,
+    event_type: str,
+    event_value: Optional[str] = None,
+    bid_id: Optional[int] = None,
+    metadata: Optional[dict[str, Any]] = None,
+) -> None:
+    event = RequestEvent(
+        row_id=row_id,
+        bid_id=bid_id,
+        user_id=user_id,
+        event_type=event_type,
+        event_value=event_value,
+        metadata_json=json.dumps(metadata) if metadata is not None else None,
+    )
+    session.add(event)
 
 
 async def _load_search_state_for_bids(
@@ -323,6 +344,21 @@ async def search_row_listings(
 
     # Initialize SourcingService
     sourcing_service = SourcingService(session, get_sourcing_repo())
+    await _log_request_event(
+        session,
+        row_id=row_id,
+        user_id=user_id,
+        event_type="search_requested",
+        event_value=sanitized_query,
+        metadata={
+            "providers": body.providers or [],
+            "is_guest": is_guest,
+            "has_search_intent": body.search_intent is not None,
+            "has_provider_query_map": body.provider_query_map is not None,
+            "routing_mode": row.routing_mode,
+        },
+    )
+    await session.commit()
 
     # Execute search and persist results as Bids
     bids, provider_statuses, user_message = await sourcing_service.search_and_persist(
@@ -471,6 +507,19 @@ async def search_row_listings(
     except Exception as e:
         logger.warning(f"[VendorCoverage] Failed to record sync gap: {e}")
 
+    await _log_request_event(
+        session,
+        row_id=row_id,
+        user_id=user_id,
+        event_type="search_completed",
+        metadata={
+            "result_count": len(results),
+            "provider_status_count": len(provider_statuses),
+            "had_user_message": bool(user_message),
+        },
+    )
+    await session.commit()
+
     return SearchResponse(results=results, provider_statuses=provider_statuses, user_message=user_message)
 
 
@@ -505,6 +554,19 @@ async def search_row_listings_stream(
     if is_guest and row.anonymous_session_id and row.anonymous_session_id != x_anonymous_session_id:
         raise HTTPException(status_code=404, detail="Row not found")
 
+    await _log_request_event(
+        session,
+        row_id=row_id,
+        user_id=user_id,
+        event_type="search_stream_requested",
+        metadata={
+            "providers": body.providers or [],
+            "is_guest": is_guest,
+            "routing_mode": row.routing_mode,
+        },
+    )
+    await session.commit()
+
     spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
     spec = spec_result.first()
 
@@ -535,6 +597,18 @@ async def search_row_listings_stream(
 
         parsed_intent = _parse_intent_payload(row.search_intent)
         search_path = classify_search_path(parsed_intent, row)
+
+        # Auto-set routing_mode for trust-metric analysis
+        _STREAM_PATH_TO_MODE = {
+            "commodity_marketplace_path": "affiliate_only",
+            "vendor_discovery_path": "sourcing_only",
+        }
+        _resolved_mode = _STREAM_PATH_TO_MODE.get(search_path, "affiliate_plus_sourcing")
+        if row.routing_mode != _resolved_mode:
+            row.routing_mode = _resolved_mode
+            session.add(row)
+            await session.commit()
+
         intent_payload = parsed_intent.model_dump() if parsed_intent else None
         query_embedding = None
         quantum_reranker = None
