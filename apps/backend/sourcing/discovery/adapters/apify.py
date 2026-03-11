@@ -1,7 +1,8 @@
 """Generic Apify adapter for vendor discovery.
 
-The LLM selects which Apify Actor to run and with what parameters.
-This adapter is a thin execution layer — it does not decide *what* to scrape.
+The LLM discovers Actors dynamically from the Apify Store API, selects which
+to run, and provides parameters. This adapter is a thin execution layer —
+it does not decide *what* to scrape.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ import time
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
+import httpx
 from apify_client import ApifyClientAsync
 
 from sourcing.discovery.adapters.base import DiscoveryBatch, DiscoveryCandidate
@@ -19,63 +21,85 @@ from sourcing.discovery.adapters.base import DiscoveryBatch, DiscoveryCandidate
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Actor Registry — describes available Actors so the LLM can pick one.
-# Each entry tells the LLM what the Actor does, what params it accepts,
-# and how to normalise its output into a DiscoveryCandidate.
+# Dynamic Actor Discovery — searches the Apify Store API at runtime
 # ---------------------------------------------------------------------------
 
-ACTOR_REGISTRY: Dict[str, Dict[str, Any]] = {
-    "compass/crawler-google-places": {
-        "description": "Google Maps / Places scraper. Returns local businesses with ratings, reviews, phone, address, and website.",
-        "best_for": ["local businesses", "service providers", "restaurants", "brokerages", "agents", "contractors"],
-        "param_hints": {
-            "searchStringsArray": "list[str] — search queries",
-            "maxCrawledPlacesPerSearch": "int — max results per query (default 5)",
-            "language": "str — language code (default 'en')",
-        },
-        "normalizer": "_normalize_google_maps",
-    },
-    "apify/instagram-scraper": {
-        "description": "Instagram scraper. Returns posts, profiles, and hashtag results with images, captions, follower counts.",
-        "best_for": ["boutique artisans", "luxury goods makers", "bespoke creators", "visual portfolios", "custom jewelry", "fashion designers"],
-        "param_hints": {
-            "search": "str — hashtag or keyword to search",
-            "searchType": "str — 'hashtag' or 'user' (default 'hashtag')",
-            "resultsLimit": "int — max results (default 10)",
-        },
-        "normalizer": "_normalize_instagram",
-    },
-    "apify/website-content-crawler": {
-        "description": "Deep website crawler. Extracts full page text/markdown from a given URL. Use for vendor verification and contact extraction.",
-        "best_for": ["vendor verification", "contact extraction", "deep enrichment of a known vendor URL"],
-        "param_hints": {
-            "startUrls": "list[dict] — [{url: 'https://...'}]",
-            "maxCrawlPages": "int — max pages to crawl (default 3)",
-            "crawlerType": "str — 'cheerio' (fast) or 'playwright' (JS-rendered)",
-        },
-        "normalizer": "_normalize_website_content",
-    },
-    "voyager/tripadvisor-scraper": {
-        "description": "TripAdvisor scraper. Returns reviews, ratings, and business details for hospitality and travel services.",
-        "best_for": ["hotels", "restaurants", "tour operators", "travel services", "yacht charters", "private chefs"],
-        "param_hints": {
-            "query": "str — search query",
-            "maxItems": "int — max results (default 5)",
-        },
-        "normalizer": "_normalize_tripadvisor",
-    },
-}
+_STORE_API_URL = "https://api.apify.com/v2/store"
 
 
-def get_registry_for_prompt() -> str:
-    """Return a compact description of the Actor registry for inclusion in an LLM prompt."""
+async def search_apify_store(
+    query: str,
+    *,
+    limit: int = 5,
+    sort_by: str = "popularity",
+) -> List[Dict[str, Any]]:
+    """Search the Apify Store for Actors matching a query.
+
+    Returns a list of lightweight Actor metadata dicts suitable for
+    inclusion in an LLM prompt.
+    """
+    api_key = os.getenv("APIFY_API_TOKEN")
+    params: Dict[str, Any] = {
+        "search": query,
+        "limit": limit,
+        "sortBy": sort_by,
+    }
+    headers = {}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(_STORE_API_URL, params=params, headers=headers)
+            resp.raise_for_status()
+            data = resp.json().get("data", {})
+            items = data.get("items", [])
+
+        results = []
+        for item in items:
+            actor_id = f"{item.get('username', '')}/{item.get('name', '')}"
+            results.append({
+                "actor_id": actor_id,
+                "title": item.get("title", ""),
+                "description": item.get("description", ""),
+                "readme_summary": item.get("readmeSummary", ""),
+                "total_users": item.get("stats", {}).get("totalUsers", 0),
+                "total_runs": item.get("stats", {}).get("totalRuns", 0),
+                "pricing": item.get("currentPricingInfo", {}).get("pricingModel", "UNKNOWN"),
+            })
+        logger.info("[ApifyStore] search='%s' found %d actors", query, len(results))
+        return results
+
+    except Exception as e:
+        logger.warning("[ApifyStore] Store search failed: %s", e)
+        return []
+
+
+def format_store_results_for_prompt(actors: List[Dict[str, Any]]) -> str:
+    """Format store search results into a compact string for the LLM."""
+    if not actors:
+        return "No Actors found in the Apify Store for this query."
     lines = []
-    for actor_id, meta in ACTOR_REGISTRY.items():
-        lines.append(f"- **{actor_id}**: {meta['description']}")
-        lines.append(f"  Best for: {', '.join(meta['best_for'])}")
-        params = "; ".join(f"`{k}`: {v}" for k, v in meta["param_hints"].items())
-        lines.append(f"  Params: {params}")
+    for a in actors:
+        lines.append(
+            f"- **{a['actor_id']}**: {a['title']}\n"
+            f"  {a['description']}\n"
+            f"  Users: {a['total_users']}, Runs: {a['total_runs']}, Pricing: {a['pricing']}"
+        )
+        if a.get("readme_summary"):
+            lines.append(f"  Summary: {a['readme_summary'][:200]}")
     return "\n".join(lines)
+
+
+# Known-good normalizer cache: if we've seen an Actor before and know its
+# output schema, use the optimized normalizer. Otherwise _normalize_generic.
+_KNOWN_NORMALIZERS: Dict[str, str] = {
+    "compass/crawler-google-places": "_normalize_google_maps",
+    "drobnikj/crawler-google-places": "_normalize_google_maps",
+    "apify/instagram-scraper": "_normalize_instagram",
+    "apify/website-content-crawler": "_normalize_website_content",
+    "voyager/tripadvisor-scraper": "_normalize_tripadvisor",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -115,9 +139,6 @@ class ApifyDiscoveryAdapter:
             logger.warning("[ApifyAdapter] APIFY_API_TOKEN not set, skipping")
             return self._error_batch(query, 0, "Missing APIFY_API_TOKEN")
 
-        if actor_id not in ACTOR_REGISTRY:
-            logger.warning("[ApifyAdapter] Unknown actor_id=%s, running anyway", actor_id)
-
         client = ApifyClientAsync(self.api_key)
         try:
             run = await client.actor(actor_id).call(
@@ -132,7 +153,8 @@ class ApifyDiscoveryAdapter:
                     if len(items) >= max_results:
                         break
 
-            normalizer_name = ACTOR_REGISTRY.get(actor_id, {}).get("normalizer", "_normalize_generic")
+            # Use optimized normalizer if we know this Actor, otherwise generic
+            normalizer_name = _KNOWN_NORMALIZERS.get(actor_id, "_normalize_generic")
             normalizer = _NORMALIZERS.get(normalizer_name, _normalize_generic)
             candidates = normalizer(items, query=query)
 
