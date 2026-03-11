@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 async def execute_tools_parallel(
     tool_calls: list[ToolCall],
-    timeout_per_tool: float = 15.0,
+    timeout_per_tool: float = 30.0,
 ) -> list[ToolResult]:
     """Execute multiple tool calls in parallel with per-tool timeout."""
 
@@ -154,34 +154,67 @@ async def _tool_search_web(
     query: str,
     max_results: int = 10,
 ) -> ToolResult:
-    """General web search via Google CSE or SerpAPI."""
-    from sourcing.repository import SourcingRepository
+    """General web search via SerpAPI or SearchAPI (engine=google, NOT shopping).
 
-    repo = SourcingRepository()
+    SourcingRepository providers all use engine=google_shopping which is wrong
+    for informational queries. This calls the APIs directly with engine=google.
+    """
+    import httpx
+    from sourcing.repository import SearchResult, extract_merchant_domain, normalize_url
 
-    # Prefer google_cse for web search, fall back to serpapi/searchapi
-    web_providers = []
-    for name in ("google_cse", "serpapi", "searchapi"):
-        if name in repo.providers:
-            web_providers.append(name)
-            break
-    if not web_providers:
-        return ToolResult(error="No web search provider configured")
+    # Try APIs in order until one works
+    attempts = [
+        ("serpapi", "SERPAPI_API_KEY", "https://serpapi.com/search", "organic_results"),
+        ("searchapi", "SEARCHAPI_API_KEY", "https://www.searchapi.io/api/v1/search", "organic_results"),
+    ]
 
-    try:
-        response = await repo.search_all_with_status(
-            query, providers=web_providers,
+    for provider_name, env_key, base_url, results_key in attempts:
+        api_key = os.getenv(env_key, "")
+        if not api_key:
+            continue
+
+        params = {
+            "engine": "google",
+            "q": query,
+            "api_key": api_key,
+            "gl": "us",
+            "hl": "en",
+            "num": max_results,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(base_url, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception as e:
+            logger.warning("[ToolExec] search_web %s failed: %s", provider_name, e)
+            continue
+
+        organic = data.get(results_key, [])
+        if not organic:
+            logger.info("[ToolExec] search_web %s returned 0 organic results", provider_name)
+            continue
+
+        normalized = []
+        for item in organic[:max_results]:
+            url = normalize_url(item.get("link", ""))
+            domain = extract_merchant_domain(url)
+            normalized.append(NormalizedResult(
+                title=item.get("title", "Unknown"),
+                url=url,
+                source=f"web_{provider_name}",
+                merchant_name=domain or "Web",
+                merchant_domain=domain,
+                raw_data={"snippet": item.get("snippet", "")},
+            ))
+
+        return ToolResult(
+            items=normalized,
+            metadata={"source": "web_search", "provider": provider_name},
         )
-    except Exception as e:
-        logger.error("[ToolExec] search_web failed: %s", e, exc_info=True)
-        return ToolResult(error=f"Web search failed: {e}")
 
-    normalized = normalize_results_for_provider(web_providers[0], response.results)
-
-    return ToolResult(
-        items=normalized[:max_results],
-        metadata={"source": "web_search", "provider": web_providers[0]},
-    )
+    return ToolResult(error="No web search API key configured or all returned 0 results")
 
 
 _APIFY_BLOCKLIST: set[str] = {
