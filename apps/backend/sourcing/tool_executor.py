@@ -184,12 +184,25 @@ async def _tool_search_web(
     )
 
 
+_APIFY_BLOCKLIST: set[str] = {
+    "webdatalabs/ebay-deal-finder",       # times out with 0 results
+    "apidojo/tiktok-scraper",             # fails immediately
+    "lukaskrivka/google-maps-with-contact-details",  # slow, use compass scraper
+}
+
+
 async def _tool_run_apify(
     actor_id: str,
     run_input: Optional[Dict[str, Any]] = None,
     max_results: int = 10,
 ) -> ToolResult:
     """Run an Apify actor and normalize results."""
+    if actor_id in _APIFY_BLOCKLIST:
+        return ToolResult(
+            error=f"Actor '{actor_id}' is blocklisted (known slow/flaky). "
+                  "Use an alternative actor or a different tool.",
+        )
+
     from sourcing.discovery.adapters.apify import ApifyDiscoveryAdapter
 
     adapter = ApifyDiscoveryAdapter()

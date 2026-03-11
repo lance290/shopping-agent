@@ -203,11 +203,17 @@ SEARCH_WEB = {
 RUN_APIFY_ACTOR = {
     "name": "run_apify_actor",
     "description": (
-        "Run a specialized web scraper via Apify. Common actors:\n"
-        "- 'compass/crawler-google-places' — Google Maps local businesses\n"
-        "- 'apify/instagram-scraper' — Instagram profiles/posts\n"
-        "- 'voyager/tripadvisor-scraper' — TripAdvisor listings\n"
+        "Run a specialized web scraper via Apify. "
+        "BEST actor (fast, reliable, 12-22s):\n"
+        "- 'compass/crawler-google-places' — Google Maps local businesses. "
+        "USE THIS for any local/service search.\n"
+        "Other actors (use only if needed):\n"
         "- 'apify/website-content-crawler' — Crawl any website\n"
+        "- 'voyager/tripadvisor-scraper' — TripAdvisor listings\n"
+        "AVOID these (slow/flaky, timeout or fail):\n"
+        "- 'webdatalabs/ebay-deal-finder' — times out, use search_marketplace instead\n"
+        "- 'apidojo/tiktok-scraper' — fails immediately\n"
+        "- 'lukaskrivka/google-maps-with-contact-details' — slow, use compass scraper instead\n"
         "Use when you need structured data from a specific platform "
         "that other tools don't cover."
     ),

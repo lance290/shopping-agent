@@ -376,6 +376,26 @@ class TestToolExecutor:
 
         assert _dedupe_results([]) == []
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("actor_id", [
+        "webdatalabs/ebay-deal-finder",
+        "apidojo/tiktok-scraper",
+        "lukaskrivka/google-maps-with-contact-details",
+    ])
+    async def test_blocklisted_apify_actors_rejected(self, actor_id):
+        from sourcing.tool_executor import _tool_run_apify
+
+        result = await _tool_run_apify(actor_id=actor_id, run_input={})
+        assert result.error is not None
+        assert "blocklisted" in result.error
+
+    @pytest.mark.asyncio
+    async def test_allowed_apify_actor_not_blocked(self):
+        """compass/crawler-google-places should NOT be blocklisted."""
+        from sourcing.tool_executor import _APIFY_BLOCKLIST
+
+        assert "compass/crawler-google-places" not in _APIFY_BLOCKLIST
+
 
 # ============================================================================
 # sourcing/agent.py — Agent Loop
