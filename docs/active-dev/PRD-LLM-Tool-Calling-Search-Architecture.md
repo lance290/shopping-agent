@@ -108,7 +108,37 @@ This is the standard tool-calling pattern used by modern AI assistants. The LLM 
 
 ## 4. What Changes
 
-### Removed (Entire Layers)
+### Relationship to `make_unified_decision()`
+
+The existing `make_unified_decision()` in `services/llm.py` handles **action routing** (create_row, update_row, search, clarify, etc.). The new agent handles only **search execution**. These are separate concerns:
+
+1. `make_unified_decision()` → decides WHAT to do (create row? update row? search?)
+2. `agent_search()` → decides HOW to search (which tools, what parameters)
+
+`make_unified_decision()` stays. The agent replaces only the search pipeline that runs after the decision.
+
+### Entry Points
+
+Both search entry points get the agent path:
+1. **`chat.py`** → `_stream_search()` → agent (primary path from chat)
+2. **`rows_search.py`** → `search_streaming` endpoint → agent (re-search from frontend)
+
+### Phase 1: New (Added Behind Feature Flag)
+- `sourcing/tools.py` — Tool definitions (function schemas for LLM)
+- `sourcing/tool_executor.py` — Executes tool calls, returns results
+- `sourcing/agent.py` — Agent loop: LLM → tools → results → LLM → done
+- `services/llm_core.py` — Add `call_gemini_with_tools()` using existing REST API pattern
+
+### Phase 1: Kept (Reused As-Is by Tool Wrappers)
+- `sourcing/vendor_provider.py` — `search_vendors` tool backend (includes embedding + hybrid search)
+- `sourcing/providers_marketplace.py` — `search_marketplace` tool backend
+- `sourcing/providers_search.py` — `search_web` tool backend
+- `sourcing/discovery/adapters/apify.py` — `run_apify_actor` tool backend
+- `sourcing/models.py` — `NormalizedResult` stays as the common result format
+- `sourcing/repository.py` — provider registry stays
+- Bid persistence logic in `rows_search.py` — reused by agent path
+
+### Phase 2: Removed (After Agent Proven in Production)
 - `sourcing/discovery/classifier.py` — LLM decides, no classifier needed
 - `sourcing/discovery/query_planner.py` — LLM writes its own queries
 - `sourcing/discovery/gating.py` — LLM picks relevant tools, no gating
@@ -120,20 +150,6 @@ This is the standard tool-calling pattern used by modern AI assistants. The LLM 
 - `sourcing/location.py` (most of it) — location is a tool parameter
 - `sourcing/discovery/adapters/organic.py` — replaced by `search_web` tool
 - Execution mode routing in `sourcing/service.py`
-
-### Kept (Thin Tool Implementations)
-- `sourcing/vendor_provider.py` — becomes the `search_vendors` tool backend
-- `sourcing/providers_marketplace.py` — becomes `search_marketplace` tool backend
-- `sourcing/providers_search.py` — becomes `search_web` tool backend
-- `sourcing/discovery/adapters/apify.py` — becomes `run_apify_actor` tool backend
-- `sourcing/scorer.py` — simplified, used within tools to compute basic scores
-- `sourcing/models.py` — `NormalizedResult` stays as the common result format
-- `sourcing/repository.py` — provider registry stays
-
-### New
-- `sourcing/tools.py` — Tool definitions (function schemas for LLM)
-- `sourcing/tool_executor.py` — Executes tool calls, returns results
-- `sourcing/agent.py` — Agent loop: LLM → tools → results → LLM → done
 
 ---
 
@@ -153,11 +169,12 @@ This is the standard tool-calling pattern used by modern AI assistants. The LLM 
 - Remove `SearchIntent` serialization/deserialization
 - **Success metric:** Codebase is 40% smaller, no regressions
 
-### Phase 3: Multi-Turn Agent
-- LLM can inspect results and refine (call tools again)
-- Streaming results as tools complete
-- Budget-aware (token/API cost tracking per search)
-- **Success metric:** Refinement queries preserve all context
+### Phase 3: Budget-Aware Agent
+- Token/API cost tracking per search
+- Adaptive tool selection based on budget remaining
+- **Success metric:** Cost per search stays under $0.05 at P99
+
+Note: Multi-turn (LLM inspects results and calls more tools) is built into Phase 1 via `max_iterations=2`. Refinement context preservation is also Phase 1 — the LLM sees conversation history directly.
 
 ---
 

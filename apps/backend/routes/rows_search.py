@@ -588,6 +588,91 @@ async def search_row_listings_stream(
     session.add(row)
     await session.commit()
 
+    # Feature flag: use LLM tool-calling agent instead of old pipeline
+    from sourcing.agent import USE_TOOL_CALLING_AGENT
+    if USE_TOOL_CALLING_AGENT:
+        async def generate_agent_sse() -> AsyncGenerator[str, None]:
+            """Agent-based SSE: LLM decides which tools to call."""
+            from sourcing.agent import agent_search
+            from sourcing.normalizers import normalize_generic_results
+
+            row_ctx = {
+                "title": row.title,
+                "is_service": row.is_service,
+                "service_category": row.service_category,
+                "desire_tier": row.desire_tier,
+            }
+            if row.choice_answers:
+                try:
+                    row_ctx["constraints"] = json.loads(row.choice_answers) if isinstance(row.choice_answers, str) else row.choice_answers
+                except Exception:
+                    pass
+
+            all_persisted_bid_ids: set[int] = set()
+
+            async for event in agent_search(
+                user_message=sanitized_query,
+                row_context=row_ctx,
+            ):
+                if event.type == "tool_results":
+                    # Persist tool results as Bids (reuse existing persistence)
+                    from sourcing.models import NormalizedResult
+                    normalized_items = []
+                    for item_data in event.data.get("results", []):
+                        try:
+                            normalized_items.append(NormalizedResult.model_validate(item_data))
+                        except Exception:
+                            pass
+
+                    if normalized_items:
+                        persisted = await sourcing_service._persist_results(
+                            row_id, normalized_items, row=row,
+                        )
+                        persisted_ids = {bid.id for bid in persisted if bid.id is not None}
+                        all_persisted_bid_ids.update(persisted_ids)
+
+                    # Convert to SearchResult format for frontend compatibility
+                    search_results = []
+                    for item_data in event.data.get("results", []):
+                        search_results.append({
+                            "title": item_data.get("title", ""),
+                            "price": item_data.get("price"),
+                            "currency": item_data.get("currency", "USD"),
+                            "merchant": item_data.get("merchant_name", "Unknown"),
+                            "url": item_data.get("url", ""),
+                            "image_url": item_data.get("image_url"),
+                            "source": item_data.get("source", event.data.get("tool", "agent")),
+                        })
+
+                    yield f"data: {json.dumps({'provider': event.data.get('tool', 'agent'), 'results': search_results, 'providers_remaining': 1, 'more_incoming': True, 'phase': 'agent_results', 'total_results_so_far': len(search_results)})}\n\n"
+
+                elif event.type == "agent_message":
+                    yield f"data: {json.dumps({'event': 'agent_message', 'text': event.data.get('text', ''), 'more_incoming': True})}\n\n"
+
+                elif event.type == "complete":
+                    # Supersede stale bids
+                    try:
+                        await sourcing_service.supersede_stale_bids(row_id, all_persisted_bid_ids)
+                    except Exception as e:
+                        logger.warning(f"[Agent SSE] Failed to supersede stale bids: {e}")
+
+                    row.status = "bids_arriving" if all_persisted_bid_ids else "sourcing"
+                    row.updated_at = datetime.utcnow()
+                    session.add(row)
+                    await session.commit()
+
+                    yield f"data: {json.dumps({'event': 'complete', 'total_results': event.data.get('total_results', 0), 'more_incoming': False, 'tool_calls_used': event.data.get('tool_calls_used', 0)})}\n\n"
+
+        return StreamingResponse(
+            generate_agent_sse(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
     async def generate_sse() -> AsyncGenerator[str, None]:
         """Generate SSE events as each provider completes."""
         all_results: List[SearchResult] = []

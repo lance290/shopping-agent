@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import time
+import uuid
 from typing import Optional, List, Any
 
 import httpx
@@ -189,3 +190,142 @@ def _extract_json_array(text: str) -> list:
     if first_bracket != -1 and last_bracket > first_bracket:
         cleaned = cleaned[first_bracket : last_bracket + 1]
     return json.loads(cleaned)
+
+
+# ---------------------------------------------------------------------------
+# Gemini function-calling (tool-calling) support
+# ---------------------------------------------------------------------------
+
+def _messages_to_gemini_contents(messages: List[dict]) -> List[dict]:
+    """Convert OpenAI-style messages to Gemini REST API contents format."""
+    contents: List[dict] = []
+    for msg in messages:
+        role = msg.get("role", "user")
+        if role == "system":
+            contents.append({
+                "role": "user",
+                "parts": [{"text": msg["content"]}],
+            })
+            contents.append({
+                "role": "model",
+                "parts": [{"text": "Understood."}],
+            })
+        elif role == "user":
+            contents.append({
+                "role": "user",
+                "parts": [{"text": msg["content"]}],
+            })
+        elif role in ("assistant", "model"):
+            parts = msg.get("parts")
+            if parts:
+                contents.append({"role": "model", "parts": parts})
+            else:
+                contents.append({
+                    "role": "model",
+                    "parts": [{"text": msg.get("content", "")}],
+                })
+        elif role == "tool":
+            contents.append({
+                "role": "function",
+                "parts": [{
+                    "functionResponse": {
+                        "name": msg["tool_name"],
+                        "response": {"result": msg["content"]},
+                    },
+                }],
+            })
+    return contents
+
+
+def _parse_gemini_tool_response(data: dict) -> "GeminiToolResponse":
+    """Parse Gemini REST API response into structured tool calls."""
+    from sourcing.tools import GeminiToolResponse, ToolCall
+
+    candidates = data.get("candidates", [])
+    if not candidates:
+        return GeminiToolResponse(text=None, tool_calls=[])
+
+    parts = candidates[0].get("content", {}).get("parts", [])
+    text_parts: List[str] = []
+    tool_calls: List[ToolCall] = []
+
+    for part in parts:
+        if "text" in part:
+            text_parts.append(part["text"])
+        elif "functionCall" in part:
+            fc = part["functionCall"]
+            tool_calls.append(ToolCall(
+                id=str(uuid.uuid4()),
+                name=fc.get("name", ""),
+                params=fc.get("args", {}),
+            ))
+
+    return GeminiToolResponse(
+        text="\n".join(text_parts) if text_parts else None,
+        tool_calls=tool_calls,
+    )
+
+
+async def call_gemini_with_tools(
+    messages: List[dict],
+    tools: List[dict],
+    timeout: float = 15.0,
+) -> "GeminiToolResponse":
+    """Call Gemini REST API with function-calling enabled.
+
+    Uses the same httpx + API-key pattern as ``call_gemini()``.
+    Falls back to Gemini direct only (no OpenRouter) because OpenRouter
+    doesn't reliably proxy Gemini function-calling.
+    """
+    from sourcing.tools import GeminiToolResponse
+
+    api_key = _get_gemini_api_key()
+    if not api_key:
+        raise ValueError("No Gemini API key for tool-calling")
+
+    model = GEMINI_MODEL
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/"
+        f"models/{model}:generateContent"
+    )
+
+    function_declarations = [
+        {
+            "name": t["name"],
+            "description": t["description"],
+            "parameters": t["parameters"],
+        }
+        for t in tools
+    ]
+
+    contents = _messages_to_gemini_contents(messages)
+
+    payload: dict[str, Any] = {
+        "contents": contents,
+        "tools": [{"functionDeclarations": function_declarations}],
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 4096,
+        },
+    }
+
+    t0 = time.monotonic()
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                url,
+                params={"key": api_key},
+                json=payload,
+                timeout=timeout,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        elapsed = time.monotonic() - t0
+        logger.info("[LLM] Gemini tool-calling responded in %.1fs", elapsed)
+        return _parse_gemini_tool_response(data)
+
+    except Exception as e:
+        elapsed = time.monotonic() - t0
+        logger.error("[LLM] Gemini tool-calling failed after %.1fs: %s", elapsed, e)
+        return GeminiToolResponse(text=None, tool_calls=[])
