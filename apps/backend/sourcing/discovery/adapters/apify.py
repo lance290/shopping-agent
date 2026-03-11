@@ -176,7 +176,8 @@ class ApifyDiscoveryAdapter:
             logger.error("[ApifyAdapter] actor=%s error: %s", actor_id, e, exc_info=True)
             return self._error_batch(query, latency_ms, str(e))
 
-    # Legacy DiscoveryAdapter.search() interface for the orchestrator
+    # DiscoveryAdapter protocol compliance — not used in the dynamic flow.
+    # The orchestrator calls run_actor() directly via _run_apify_actors().
     async def search(
         self,
         query: str,
@@ -185,18 +186,9 @@ class ApifyDiscoveryAdapter:
         timeout_seconds: float = 30.0,
         max_results: int = 5,
     ) -> DiscoveryBatch:
-        """Fallback search method using Google Maps when no LLM selection is available."""
-        return await self.run_actor(
-            actor_id="compass/crawler-google-places",
-            run_input={
-                "searchStringsArray": [query],
-                "language": "en",
-                "maxCrawledPlacesPerSearch": max_results,
-            },
-            query=query,
-            timeout_seconds=timeout_seconds,
-            max_results=max_results,
-        )
+        """Protocol stub — callers should use run_actor() with LLM-selected params."""
+        logger.warning("[ApifyAdapter] search() called directly; use run_actor() via _run_apify_actors instead")
+        return self._error_batch(query, 0, "Use run_actor() with LLM-selected Actor ID and params")
 
     @staticmethod
     def _error_batch(query: str, latency_ms: int, message: str) -> DiscoveryBatch:
@@ -245,7 +237,7 @@ def _normalize_google_maps(items: List[Dict], *, query: str) -> List[DiscoveryCa
             phone=item.get("phoneUnformatted") or item.get("phone"),
             location_hint=item.get("address"),
             official_site=bool(item.get("website")),
-            first_party_contact=bool(item.get("phone")),
+            first_party_contact=bool(item.get("phoneUnformatted") or item.get("phone")),
             canonical_domain=_domain_from_url(url),
             raw_payload=item,
             trust_signals=trust_signals,

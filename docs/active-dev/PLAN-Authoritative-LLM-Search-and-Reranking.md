@@ -76,6 +76,7 @@ This aligns with tech spec §11 ("Separation of concerns").
 
 - `vendor_directory` (internal)
 - SerpAPI / Tavily / web discovery
+- Apify (dynamic Actor discovery — see §6 below)
 - internal memory retrieval
 - broker, agent, specialist, or direct-vendor sources
 
@@ -85,11 +86,11 @@ Selection rule:
 - `sourcing_only` → discovery/source adapters only.
 - `affiliate_plus_sourcing` → both, with explicit provenance preserved per tech spec §7.8.
 
-### 3. Deterministic scoring anchors ranking; LLM reranker adds signal
+### 3. Deterministic scoring anchors ranking; LLM rerankers add signal
 
 Per tech spec §7.8 and §19.2: "Source trust and operational signals should anchor the ranking" and "do not make LLMs the sole source of trust ranking."
 
-The existing hybrid scoring formula (tech spec §7.8) remains the primary ranking mechanism:
+The tech spec §7.8 reference scoring formula is:
 
 ```text
 overall_score =
@@ -102,7 +103,22 @@ overall_score =
 - penalties
 ```
 
-The cheap LLM reranker is an **additional scoring input** for specific high-risk flows, not a replacement for this formula. Its output contributes to `semantic_match`, `actionability`, and penalty components rather than overriding the combined score.
+The implementation uses two LLM reranker passes at different pipeline stages, both supplementing (not replacing) deterministic scoring:
+
+**A. Discovery-level reranker** (`sourcing/discovery/llm_rerank.py`): runs on gated `DiscoveryCandidate` objects *before* normalization. Uses:
+
+```text
+final_score =
+  heuristic_fit * 0.45
++ llm_score * 0.35
++ trust_score * 0.10
++ location_score * 0.10
++ trust_adjustment
+```
+
+**B. Bid-level reranker** (`sourcing/reranker.py`): runs on `NormalizedResult` objects *after* normalization, for bid scoring in `service.py`. Blends a composite LLM score (relevance × 0.5 + trust × 0.3 + actionability × 0.2) into the existing combined score at 15% weight.
+
+Both are additional scoring inputs for specific high-risk flows, not replacements for deterministic scoring.
 
 ### 4. Search strategies shape query families and source archetypes
 
@@ -126,6 +142,24 @@ The LLM should not override:
 - malformed or unsafe URLs
 - system safety rules
 
+### 6. Dynamic Apify Actor discovery augments the discovery adapter pool
+
+Apify provides prebuilt web scrapers (Actors) for structured data from Google Maps, Instagram, TripAdvisor, Yelp, LinkedIn, and hundreds of other sources. Instead of hardcoding which Actors to use, the system discovers them dynamically:
+
+1. **LLM generates store search terms** — Given the intent, the LLM outputs 1–2 short terms (e.g., "google maps scraper", "tripadvisor reviews") or an empty list for commodity queries.
+2. **Apify Store API returns live results** — `GET /v2/store?search=...&sortBy=popularity` returns Actor metadata (title, description, stats, pricing).
+3. **LLM picks and parameterizes 0–2 Actors** — From the live results, the LLM selects Actors and fills in `run_input` parameters.
+4. **Generic adapter executes** — `ApifyDiscoveryAdapter.run_actor()` runs the selected Actor(s) and normalizes output via known normalizers (Google Maps, Instagram, TripAdvisor, website content) or a generic best-effort normalizer.
+5. **Standard pipeline** — Apify results flow through the same dedupe → classify → gate → rerank → normalize pipeline as organic results.
+
+This approach:
+- Adds zero configuration burden — the LLM decides relevance at runtime.
+- Skips Apify entirely for commodity queries ("AA batteries").
+- Discovers new Actors as they're published to the Apify Store.
+- Degrades gracefully if `APIFY_API_TOKEN` is missing or the Store API is down.
+
+Apify is a discovery/source adapter, not an affiliate adapter. It must not run for `affiliate_only` execution mode.
+
 ## Proposed Rollout
 
 ### Phase 1: Authoritative routing
@@ -147,20 +181,23 @@ Expected impact:
 - High-value and service requests stop accidentally taking commodity/affiliate paths.
 - Real-estate and local-market requests stop being misrouted by generic token matches.
 
-### Phase 2: Adapter-family enforcement
+### Phase 2: Adapter-family enforcement + Apify integration
 
 Objective:
 
 - Prevent adapter-family bleed between affiliate and discovery/source paths.
+- Integrate dynamic Apify Actor discovery as an additional discovery adapter.
 
 Changes:
 
 - In `sourcing/service.py`, select adapters from the LLM-chosen execution mode only.
 - `sourcing_only` must not silently include affiliate marketplace providers (Amazon, eBay, etc.).
-- `affiliate_only` must not silently include discovery-only vendor sources.
+- `affiliate_only` must not silently include discovery-only vendor sources (including Apify).
 - `affiliate_plus_sourcing` runs both with explicit provenance preserved per tech spec §7.8.
 - Connect LLM-selected `search_strategies` to query family generation (tech spec §7.2): different strategies produce different query families.
 - Connect LLM-selected `source_archetypes` to expected source types in gating (tech spec §7.4).
+- Wire dynamic Apify Actor selection into the orchestrator alongside organic adapters.
+- Apify results flow through the same gating, classification, and reranking pipeline.
 
 Expected impact:
 
@@ -236,22 +273,28 @@ Routing and strategy enforcement:
 
 Query family generation:
 
-- `apps/backend/sourcing/service.py` or query planner — connect `search_strategies` to query family generation per tech spec §7.2
+- `apps/backend/sourcing/discovery/query_planner.py` — connect `search_strategies` to query family generation per tech spec §7.2
 
 Adapter-family selection:
 
 - `apps/backend/sourcing/service.py` — enforce affiliate vs discovery adapter separation
 - `apps/backend/sourcing/repository.py` — provider routing respects execution mode
 
-Candidate reranking:
+Dynamic Apify integration:
 
-- new module for cheap structured LLM reranker (e.g., `apps/backend/sourcing/reranker.py`)
-- integrate after normalization and hard filters, before final hybrid scoring
-- reranker outputs feed into existing score components, not replace them
+- `apps/backend/sourcing/discovery/adapters/apify.py` — generic adapter + Apify Store API search + known/generic normalizers
+- `apps/backend/sourcing/discovery/apify_selector.py` — two-step LLM flow: generate store search terms → pick and parameterize Actors
+- `apps/backend/sourcing/discovery/orchestrator.py` — `_run_apify_actors()` wires LLM selection into both sync and streaming flows
+
+Candidate reranking (two levels):
+
+- `apps/backend/sourcing/discovery/llm_rerank.py` — discovery-level reranker on gated candidates pre-normalization
+- `apps/backend/sourcing/reranker.py` — bid-level reranker post-normalization, blends into combined score
+- both supplement deterministic scoring, neither replaces it
 
 Gating:
 
-- `apps/backend/sourcing/discovery/gating.py` — use `source_archetypes` and `candidate_type_label` from reranker
+- `apps/backend/sourcing/discovery/gating.py` — use `source_archetypes` and Apify trust signals (ratings, reviews)
 
 Scoring:
 
@@ -266,6 +309,8 @@ Testing:
 - locality regression tests
 - reranker contract tests for include/exclude behavior
 - reranker-to-hybrid-scoring integration tests
+- Apify Store search and Actor selection tests
+- Apify normalizer tests (known + generic)
 
 ## Non-Goals
 
@@ -317,3 +362,13 @@ This sequencing separates misrouting problems from ranking problems and makes th
 | `source_archetypes` | — | §11.3 source types | §7.1 expected_source_types |
 | `desire_tier` (existing) | — | prestige_level | — |
 | `location_context.relevance` (existing) | — | geography relevance | — |
+
+### Apify Terminology
+
+| Term | Meaning |
+|------|--------|
+| Actor | An Apify scraper/crawler (e.g., Google Maps, Instagram, TripAdvisor) |
+| Apify Store | Marketplace of ~2000+ public Actors searchable by keyword |
+| `run_input` | Parameters sent to an Actor (search terms, locations, limits) |
+| Known normalizer | Optimized output parser for a previously-seen Actor schema |
+| Generic normalizer | Best-effort parser for unknown Actor output schemas |

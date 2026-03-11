@@ -150,6 +150,33 @@ class DiscoveryOrchestrator:
                 await self._persist_candidates(row, session_id, discovery_mode, [batch.query], normalized_results)
             yield evaluation, normalized_results, status, session_id, discovery_mode
 
+        # Stream Apify results after organic batches
+        apify_batches = await self._run_apify_actors(
+            query=queries[0] if queries else "",
+            search_intent=search_intent,
+            discovery_mode=discovery_mode,
+            row=row,
+        )
+        for batch in apify_batches:
+            status = ProviderStatusSnapshot(
+                provider_id=f"vendor_discovery_{batch.adapter_id}",
+                status=batch.status if batch.status in {"ok", "error", "timeout", "exhausted", "rate_limited"} else "error",
+                result_count=len(batch.results),
+                latency_ms=batch.latency_ms,
+                message=batch.error_message,
+            )
+            normalized_results = await self._process_batch(
+                row=row,
+                discovery_session_id=session_id,
+                discovery_mode=discovery_mode,
+                query=batch.query,
+                search_intent=search_intent,
+                batch=batch,
+            )
+            if normalized_results:
+                await self._persist_candidates(row, session_id, discovery_mode, [batch.query], normalized_results)
+            yield evaluation, normalized_results, status, session_id, discovery_mode
+
     async def _run_batches(self, queries: Iterable[str], discovery_mode: str) -> List[DiscoveryBatch]:
         batches: List[DiscoveryBatch] = []
         for query in queries:
