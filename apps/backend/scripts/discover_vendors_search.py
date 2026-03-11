@@ -150,7 +150,7 @@ async def run_discovery(
         if row.website:
             existing_domains.add(extract_domain(row.website))
         if row.domain:
-            existing_domains.add(row.domain.lower().lstrip("www."))
+            existing_domains.add(row.domain.lower().removeprefix("www."))
 
     logger.info(f"Loaded {len(existing_domains)} existing vendor domains to deduplicate against")
 

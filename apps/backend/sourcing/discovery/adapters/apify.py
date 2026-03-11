@@ -208,7 +208,8 @@ class ApifyDiscoveryAdapter:
 
 def _domain_from_url(url: str) -> Optional[str]:
     try:
-        return urlparse(url).netloc.lower().lstrip("www.") or None
+        host = urlparse(url).netloc.lower()
+        return host.removeprefix("www.") or None
     except Exception:
         return None
 

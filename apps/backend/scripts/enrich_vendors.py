@@ -308,7 +308,7 @@ def extract_domain(url: Optional[str]) -> str:
         return ""
     try:
         parsed = urlparse(url if url.startswith(("http://", "https://")) else f"https://{url}")
-        return parsed.netloc.lower().lstrip("www.")
+        return parsed.netloc.lower().removeprefix("www.")
     except Exception:
         return ""
 
