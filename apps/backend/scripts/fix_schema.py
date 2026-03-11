@@ -444,6 +444,42 @@ async def fix_schema(conn):
     except Exception as e:
         print(f"[SCHEMA-FIX] WARNING: Could not create source_memory table: {e}")
 
+    # ── Ensure vendor.search_vector GENERATED ALWAYS column exists ──
+    # Migration s12_vendor_search_vector adds this, but if the table was
+    # recreated or the migration didn't apply, hybrid search silently
+    # falls back to vector-only. This is a safety net.
+    try:
+        sv_row = await conn.execute(text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = 'vendor' AND column_name = 'search_vector'"
+        ))
+        if sv_row.first() is None:
+            await conn.execute(text("""
+                ALTER TABLE vendor
+                ADD COLUMN search_vector tsvector
+                GENERATED ALWAYS AS (
+                    setweight(to_tsvector('english', coalesce(name, '')), 'A') ||
+                    setweight(to_tsvector('english', coalesce(tagline, '')), 'B') ||
+                    setweight(to_tsvector('english', coalesce(description, '')), 'C') ||
+                    setweight(to_tsvector('english', coalesce(specialties, '')), 'C') ||
+                    setweight(to_tsvector('english', coalesce(category, '')), 'D')
+                ) STORED
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS ix_vendor_search_vector
+                ON vendor USING GIN (search_vector)
+            """))
+            print("[SCHEMA-FIX] + vendor.search_vector (tsvector GENERATED ALWAYS + GIN index)")
+            added += 1
+        else:
+            # Column exists — ensure GIN index exists too
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS ix_vendor_search_vector
+                ON vendor USING GIN (search_vector)
+            """))
+    except Exception as e:
+        print(f"[SCHEMA-FIX] WARNING: Could not ensure vendor.search_vector: {e}")
+
     # Fix vendor.embedding column type: varchar -> vector(1536)
     try:
         row = await conn.execute(text(

@@ -48,11 +48,11 @@ async def restore_vendors_logic(session: AsyncSession):
 
     # Check DB state
     try:
-        await session.exec(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        await session.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         print("✅ Checked 'vector' extension.")
         
         # Check table columns
-        result = await session.exec(text("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'vendor'"))
+        result = await session.execute(text("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'vendor'"))
         db_cols = result.fetchall()
         print(f"DB Columns: {db_cols}")
     except Exception as e:

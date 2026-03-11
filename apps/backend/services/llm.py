@@ -280,7 +280,7 @@ Examples:
 Return ONLY valid JSON:
 {{
   "message": "Conversational response to user (REQUIRED)",
-  "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}}, "location_context": {{"relevance": "none|endpoint|service_area|vendor_proximity", "confidence": 0.0, "targets": {{}}, "notes": null}}, "desire_tier": "commodity|considered|service|bespoke|high_value|advisory", "desire_confidence": 0.9, "execution_mode": "affiliate_only|sourcing_only|affiliate_plus_sourcing", "search_strategies": ["specialist_first", "local_network_first"], "source_archetypes": ["brokerage", "local_directory"] }},
+  "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}}, "location_context": {{"relevance": "none|endpoint|service_area|vendor_proximity", "confidence": 0.85, "targets": {{}}, "notes": null}}, "desire_tier": "commodity|considered|service|bespoke|high_value|advisory", "desire_confidence": 0.9, "execution_mode": "affiliate_only|sourcing_only|affiliate_plus_sourcing", "search_strategies": ["specialist_first", "local_network_first"], "source_archetypes": ["brokerage", "local_directory"] }},
   "action": {{ "type": "..." }},
   "ui_hint": {{ "layout": "ROW_COMPACT|ROW_MEDIA_LEFT|ROW_TIMELINE", "blocks": ["..."], "value_vector": "unit_price|safety|speed|reliability|durability" }}
 }}"""

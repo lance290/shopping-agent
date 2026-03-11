@@ -479,7 +479,7 @@ class VendorDirectoryProvider(SourcingProvider):
         except Exception as e:
             # If search_vector column doesn't exist yet, fall back to vector-only
             if "search_vector" in str(e):
-                logger.warning("[VendorProvider] search_vector column missing — falling back to vector-only")
+                logger.warning(f"[VendorProvider] search_vector error — falling back to vector-only: {e}")
                 try:
                     async with self._engine.connect() as conn:
                         result = await conn.execute(
