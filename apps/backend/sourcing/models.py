@@ -76,6 +76,9 @@ class SearchIntent(BaseModel):
     raw_input: str = Field("", description="Original free-form text")
     location_context: LocationContext = Field(default_factory=LocationContext)
     location_resolution: LocationResolutionMap = Field(default_factory=LocationResolutionMap)
+    execution_mode: Optional[str] = Field(None, description="affiliate_only | sourcing_only | affiliate_plus_sourcing")
+    search_strategies: List[str] = Field(default_factory=list, description="Subset of official_first, market_first, specialist_first, prestige_first, local_network_first")
+    source_archetypes: List[str] = Field(default_factory=list, description="Expected source types: brokerage, association, registry, etc.")
 
     @field_validator("keywords", mode="before")
     @classmethod

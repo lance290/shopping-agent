@@ -107,7 +107,10 @@ You MUST always return an "intent" object that captures WHAT THE USER WANTS:
       "notes": "optional short explanation"
     }},
     "desire_tier": "one of: commodity, considered, service, bespoke, high_value, advisory",
-    "desire_confidence": 0.0-1.0
+    "desire_confidence": 0.0-1.0,
+    "execution_mode": "one of: affiliate_only, sourcing_only, affiliate_plus_sourcing",
+    "search_strategies": ["one or more of: official_first, market_first, specialist_first, prestige_first, local_network_first"],
+    "source_archetypes": ["zero or more of: brokerage, association, registry, curated_marketplace, editorial_ranking, local_directory, prior_trusted_source, brand_direct, auction_house, official_body"]
   }}
 }}
 
@@ -129,6 +132,37 @@ CRITICAL: The desire_tier drives how the system helps the user:
 - advisory → flag for human review — no search at all
 
 Set desire_confidence to how sure you are (0.0-1.0). If < 0.7, the system will ask a clarifying question.
+
+=== EXECUTION MODE (classify EVERY request) ===
+After determining the desire tier, decide the execution mode — this controls which provider families run:
+
+| Mode | When to use | Examples |
+| affiliate_only | Simple product purchases where affiliate/marketplace providers suffice | "AA batteries", "running shoes", "Roblox gift card" |
+| sourcing_only | Services, specialists, brokers, high-value assets where marketplace providers can't help | "private jet charter", "Nashville realtor", "yacht broker", "custom engagement ring" |
+| affiliate_plus_sourcing | Complex requests benefiting from both marketplace results AND specialist discovery | "luxury watch" (marketplace for new + specialist for pre-owned), "concert tickets" (Ticketmaster + broker) |
+
+Rules:
+- commodity/considered desire_tier usually → affiliate_only (unless the user explicitly wants specialists)
+- service/bespoke/high_value/advisory → sourcing_only (marketplace results are noise for these)
+- Only use affiliate_plus_sourcing when BOTH provider families genuinely add value
+
+=== SEARCH STRATEGIES (for sourcing_only and affiliate_plus_sourcing) ===
+When execution_mode includes sourcing, pick one or more search strategies that best match the request:
+
+| Strategy | When to use | Examples |
+| official_first | Authoritative/official sources matter most | "FAA registered aircraft", "licensed contractor" |
+| market_first | Broad market comparison matters | "best price on Rolex Submariner", "compare yacht charters" |
+| specialist_first | Need domain specialists, brokers, agents | "Nashville realtor", "M&A advisor", "private aviation broker" |
+| prestige_first | Prestige, editorial, or curated sources matter | "top-rated interior designer", "Michelin restaurant for event" |
+| local_network_first | Local vendor presence matters most | "HVAC repair near me", "Nashville wedding photographer" |
+
+Most real requests should use 1-3 strategies. For example, "realtors in Nashville for a $3M mansion" → ["specialist_first", "prestige_first", "local_network_first"].
+For affiliate_only requests, leave search_strategies as an empty array.
+
+=== SOURCE ARCHETYPES (optional, for sourcing modes) ===
+If you can infer what KIND of sources would be ideal, list them. This helps the system know what to look for:
+brokerage, association, registry, curated_marketplace, editorial_ranking, local_directory, prior_trusted_source, brand_direct, auction_house, official_body.
+Example: "Nashville realtor" → ["brokerage", "local_directory", "association"]. Leave empty if unsure.
 
 CRITICAL INTENT RULES:
 - "what" is NEVER a date, number, or clarification answer. It's the THING they want.
@@ -246,7 +280,7 @@ Examples:
 Return ONLY valid JSON:
 {{
   "message": "Conversational response to user (REQUIRED)",
-  "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}}, "location_context": {{"relevance": "none|endpoint|service_area|vendor_proximity", "confidence": 0.0, "targets": {{}}, "notes": null}}, "desire_tier": "commodity|considered|service|bespoke|high_value|advisory", "desire_confidence": 0.9 }},
+  "intent": {{ "what": "...", "category": "...", "service_type": "...", "search_query": "...", "constraints": {{...}}, "location_context": {{"relevance": "none|endpoint|service_area|vendor_proximity", "confidence": 0.0, "targets": {{}}, "notes": null}}, "desire_tier": "commodity|considered|service|bespoke|high_value|advisory", "desire_confidence": 0.9, "execution_mode": "affiliate_only|sourcing_only|affiliate_plus_sourcing", "search_strategies": ["specialist_first", "local_network_first"], "source_archetypes": ["brokerage", "local_directory"] }},
   "action": {{ "type": "..." }},
   "ui_hint": {{ "layout": "ROW_COMPACT|ROW_MEDIA_LEFT|ROW_TIMELINE", "blocks": ["..."], "value_vector": "unit_price|safety|speed|reliability|durability" }}
 }}"""

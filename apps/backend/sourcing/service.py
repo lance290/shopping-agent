@@ -13,7 +13,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from models import Bid, Row, Seller
 from models.auth import User
 from services.location_resolution import LocationResolutionService
-from sourcing.discovery.classifier import classify_search_path
+from sourcing.discovery.classifier import classify_search_path, execution_mode_for_row
 from sourcing.discovery.orchestrator import DiscoveryOrchestrator
 from sourcing.discovery.gating import visibility_threshold as discovery_visibility_threshold
 from sourcing.location import apply_location_resolution, normalize_search_intent_payload
@@ -22,6 +22,7 @@ from sourcing.repository import SourcingRepository
 from sourcing.metrics import get_metrics_collector, log_search_start
 from sourcing.scorer import score_results
 from sourcing.parsers import _parse_numeric, _parse_price_value
+from sourcing.reranker import should_rerank, rerank_candidates
 from sourcing.vendor_provider import build_query_embedding
 
 logger = logging.getLogger(__name__)
@@ -218,21 +219,20 @@ class SourcingService:
                 logger.warning(f"[SourcingService] Query embedding failed (graceful degradation): {e}")
 
         search_path = classify_search_path(search_intent, row)
+        resolved_mode = execution_mode_for_row(search_intent, row)
 
         # Persist routing_mode for trust-metric analysis (Trust Metrics PRD §7.1)
-        # Note: affiliate_plus_sourcing is reserved for a future hybrid search path
-        # that runs both vendor discovery AND affiliate providers simultaneously.
         if row:
-            resolved_mode = (
-                "sourcing_only" if search_path == "vendor_discovery_path"
-                else "affiliate_only"
-            )
             if row.routing_mode != resolved_mode:
                 row.routing_mode = resolved_mode
                 self.session.add(row)
                 await self.session.commit()
 
-        if row and search_path == "vendor_discovery_path" and search_intent:
+        # --- Phase 2: Adapter-family enforcement ---
+        # sourcing_only: only vendor discovery, no affiliate marketplace providers
+        # affiliate_only: only affiliate/marketplace providers, no vendor discovery
+        # affiliate_plus_sourcing: both adapter families run
+        if resolved_mode == "sourcing_only" and row and search_intent:
             return await self._search_vendor_discovery_path(
                 row=row,
                 query=query,
@@ -243,6 +243,25 @@ class SourcingService:
                 vendor_query=vendor_query,
                 query_embedding=query_embedding,
             )
+
+        if resolved_mode == "affiliate_plus_sourcing" and row and search_intent:
+            return await self._search_hybrid_path(
+                row=row,
+                query=query,
+                providers=providers,
+                min_price=min_price,
+                max_price=max_price,
+                search_intent=search_intent,
+                vendor_query=vendor_query,
+                query_embedding=query_embedding,
+            )
+
+        # affiliate_only (or fallback): run commodity marketplace path
+        # Exclude vendor_directory from affiliate-only searches
+        if resolved_mode == "affiliate_only" and not providers:
+            repo_providers = getattr(self.repo, "providers", None)
+            if repo_providers:
+                providers = [pid for pid in repo_providers if pid != "vendor_directory"]
 
         # Resolve user's zip_code for location-aware providers (Kroger, etc.)
         user_zip: Optional[str] = None
@@ -495,7 +514,148 @@ class SourcingService:
         all_statuses = internal_statuses + list(discovery_statuses)
         if evaluation.status in {"borderline", "insufficient"} and not user_message:
             user_message = "I’m expanding the search beyond our current vendor database."
+
+        # Phase 3: Cheap LLM reranker for high-risk/local/custom flows
+        if bids and should_rerank(search_intent, row.desire_tier, row.routing_mode):
+            try:
+                bid_results = [
+                    NormalizedResult(
+                        title=b.item_title or "",
+                        url=b.item_url or "",
+                        source=b.source or "",
+                        price=b.price,
+                        merchant_name=b.contact_name or "",
+                        merchant_domain=(b.seller.domain if b.seller else "") or "",
+                        raw_data=b.provenance if isinstance(b.provenance, dict) else {},
+                        provenance=b.provenance if isinstance(b.provenance, dict) else {},
+                    )
+                    for b in bids
+                ]
+                reranked = await rerank_candidates(query, bid_results, search_intent)
+                rerank_map = {}
+                for r in reranked:
+                    llm_data = r.provenance.get("llm_rerank")
+                    if llm_data:
+                        rerank_map[r.title] = llm_data
+                for b in bids:
+                    llm_data = rerank_map.get(b.item_title)
+                    if llm_data and isinstance(b.provenance, dict):
+                        b.provenance["llm_rerank"] = llm_data
+                        old_score = b.combined_score or 0.0
+                        blend_weight = 0.15
+                        composite = llm_data.get("composite", 0.5)
+                        b.combined_score = round(old_score * (1 - blend_weight) + composite * blend_weight, 4)
+                        self.session.add(b)
+                bids.sort(key=lambda b: (b.combined_score or 0.0), reverse=True)
+                await self.session.commit()
+                logger.info("[SourcingService] LLM reranker applied to %d bids", len(rerank_map))
+            except Exception as e:
+                logger.warning("[SourcingService] LLM reranker failed (graceful degradation): %s", e)
+
         return bids, all_statuses, user_message
+
+    async def _search_hybrid_path(
+        self,
+        *,
+        row: Row,
+        query: str,
+        providers: Optional[List[str]],
+        min_price: Optional[float],
+        max_price: Optional[float],
+        search_intent: SearchIntent,
+        vendor_query: Optional[str],
+        query_embedding: Optional[List[float]],
+    ) -> Tuple[List[Bid], List[ProviderStatusSnapshot], Optional[str]]:
+        """Run both affiliate marketplace and vendor discovery paths for hybrid execution mode."""
+        import asyncio
+
+        affiliate_providers = [pid for pid in self.repo.providers if pid != "vendor_directory"]
+
+        user_zip: Optional[str] = None
+        if row.user_id:
+            try:
+                user_res = await self.session.exec(
+                    select(User.zip_code).where(User.id == row.user_id)
+                )
+                user_zip = user_res.first()
+            except Exception:
+                pass
+
+        intent_payload = search_intent.model_dump()
+
+        async def _run_affiliate():
+            metrics = get_metrics_collector()
+            with metrics.track_search(row_id=row.id, query=query):
+                return await self.repo.search_all_with_status(
+                    query,
+                    providers=affiliate_providers,
+                    min_price=min_price,
+                    max_price=max_price,
+                    desire_tier=row.desire_tier,
+                    zip_code=user_zip,
+                    vendor_query=vendor_query,
+                    intent_payload=intent_payload,
+                    query_embedding=query_embedding,
+                )
+
+        async def _run_vendor_discovery():
+            return await self._search_vendor_discovery_path(
+                row=row,
+                query=query,
+                providers=["vendor_directory"],
+                min_price=min_price,
+                max_price=max_price,
+                search_intent=search_intent,
+                vendor_query=vendor_query,
+                query_embedding=query_embedding,
+            )
+
+        affiliate_result, vendor_result = await asyncio.gather(
+            _run_affiliate(),
+            _run_vendor_discovery(),
+            return_exceptions=True,
+        )
+
+        all_bids: List[Bid] = []
+        all_statuses: List[ProviderStatusSnapshot] = []
+        user_message: Optional[str] = None
+
+        if isinstance(vendor_result, tuple):
+            v_bids, v_statuses, v_msg = vendor_result
+            all_bids.extend(v_bids)
+            all_statuses.extend(v_statuses)
+            if v_msg:
+                user_message = v_msg
+
+        if isinstance(affiliate_result, Exception):
+            logger.warning("[SourcingService] Hybrid: affiliate path failed: %s", affiliate_result)
+        elif affiliate_result is not None:
+            from sourcing.filters import should_include_result
+            normalized = affiliate_result.normalized_results
+            if min_price is not None or max_price is not None:
+                normalized = [
+                    r for r in normalized
+                    if should_include_result(
+                        price=r.price, source=r.source,
+                        desire_tier=row.desire_tier,
+                        min_price=min_price, max_price=max_price,
+                    )
+                ]
+            normalized = score_results(
+                normalized, intent=search_intent,
+                min_price=min_price, max_price=max_price,
+                desire_tier=row.desire_tier,
+                is_service=row.is_service,
+                service_category=row.service_category,
+            )
+            affiliate_bids = await self._persist_results(row.id, normalized, row=row)
+            all_bids.extend(affiliate_bids)
+            all_statuses.extend(affiliate_result.provider_statuses)
+            if affiliate_result.user_message and not user_message:
+                user_message = affiliate_result.user_message
+
+        all_bids.sort(key=lambda b: (b.combined_score or 0.0), reverse=True)
+        return all_bids, all_statuses, user_message
 
     def _parse_search_intent(self, row: Row) -> Optional[SearchIntent]:
         """Parse SearchIntent from row's stored search_intent JSON."""

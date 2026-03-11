@@ -16,6 +16,8 @@ def build_discovery_queries(intent: SearchIntent, mode: str) -> List[str]:
     targets = intent.location_context.targets.non_empty_items()
     location_bits = [value for value in targets.values() if value]
     location_suffix = " ".join(location_bits[:2]).strip()
+    
+    strategies = set(intent.search_strategies) if intent.search_strategies else set()
 
     if mode == "luxury_brokerage_discovery":
         queries.extend([
@@ -41,6 +43,17 @@ def build_discovery_queries(intent: SearchIntent, mode: str) -> List[str]:
             f"{location_suffix} {base} official site".strip(),
             f"{location_suffix} {base} specialist".strip(),
         ])
+
+    # Add strategy-driven queries
+    if "local_network_first" in strategies and location_suffix:
+        queries.append(f"{location_suffix} local {base} specialists".strip())
+    if "prestige_first" in strategies:
+        queries.append(f"high end {base}".strip())
+        queries.append(f"luxury {base}".strip())
+    if "official_first" in strategies:
+        queries.append(f"{base} official authorized".strip())
+    if "market_first" in strategies:
+        queries.append(f"{base} marketplace".strip())
 
     seen = set()
     ordered: List[str] = []

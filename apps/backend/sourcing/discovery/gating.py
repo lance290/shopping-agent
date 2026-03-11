@@ -74,9 +74,30 @@ def gate_discovery_candidates(
     row_visibility_threshold = visibility_threshold()
     relevance = intent.location_context.relevance if intent else "none"
     requires_location = relevance in {"service_area", "vendor_proximity"}
-    preferred = PREFERRED_TYPES.get(discovery_mode, {"official_vendor_site"})
+    preferred = PREFERRED_TYPES.get(discovery_mode, {"official_vendor_site"}).copy()
     fallback = FALLBACK_TYPES.get(discovery_mode, set())
     rejected = REJECT_TYPES.get(discovery_mode, {"editorial_or_irrelevant"})
+
+    # Gap 2: Incorporate LLM's authoritative source_archetypes
+    if intent and intent.source_archetypes:
+        archetype_mapping = {
+            "brokerage": "brokerage_or_agent_site",
+            "association": "directory_or_aggregator",
+            "registry": "directory_or_aggregator",
+            "curated_marketplace": "marketplace_or_exchange",
+            "editorial_ranking": "editorial_or_irrelevant",  # Even if requested, we might treat it carefully, but let's map it
+            "local_directory": "directory_or_aggregator",
+            "brand_direct": "brand_site",
+            "auction_house": "marketplace_or_exchange",
+            "official_body": "official_vendor_site",
+        }
+        for arch in intent.source_archetypes:
+            mapped = archetype_mapping.get(arch)
+            if mapped:
+                preferred.add(mapped)
+                if mapped in rejected:
+                    # If LLM explicitly requested it, remove from rejected for this query
+                    rejected = set(rejected) - {mapped}
 
     for candidate in candidates:
         classification = candidate.classification or {}
