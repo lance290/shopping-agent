@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime
@@ -227,20 +228,30 @@ class DiscoveryOrchestrator:
                 return []
 
             adapter = ApifyDiscoveryAdapter()
-            batches: List[DiscoveryBatch] = []
             for actor in selection.actors:
                 logger.info(
                     "[VendorDiscovery] Running Apify actor=%s reason='%s'",
                     actor.actor_id, actor.reason,
                 )
-                batch = await adapter.run_actor(
-                    actor_id=actor.actor_id,
-                    run_input=actor.run_input,
-                    query=query,
-                    timeout_seconds=60.0,
-                    max_results=10,
-                )
-                batches.append(batch)
+            results = await asyncio.gather(
+                *[
+                    adapter.run_actor(
+                        actor_id=actor.actor_id,
+                        run_input=actor.run_input,
+                        query=query,
+                        timeout_seconds=60.0,
+                        max_results=10,
+                    )
+                    for actor in selection.actors
+                ],
+                return_exceptions=True,
+            )
+            batches: List[DiscoveryBatch] = []
+            for result in results:
+                if isinstance(result, Exception):
+                    logger.warning("[VendorDiscovery] Apify actor execution failed: %s", result)
+                    continue
+                batches.append(result)
             return batches
 
         except Exception as e:

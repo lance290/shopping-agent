@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 from models.rows import Row
 from sourcing.discovery.adapters.base import DiscoveryCandidate, DiscoveryBatch
+from sourcing.discovery.apify_selector import ActorSelection, ActorSelectionResponse
 from sourcing.discovery.adapters.organic import _search_organic
 from sourcing.discovery.classification import classify_candidate
 from sourcing.discovery.gating import gate_discovery_candidates
@@ -207,3 +208,55 @@ async def test_orchestrator_filters_listing_pages_before_normalization():
         )
 
     assert [result.merchant_domain for result in results] == ["bellemeadeestates.example"]
+
+
+@pytest.mark.asyncio
+async def test_run_apify_actors_executes_selected_actors():
+    row = Row(id=1, user_id=1, title="Find HVAC repair", is_service=True, service_category="hvac", desire_tier="service")
+    intent = _intent("find HVAC repair in Austin", relevance="service_area", category="home_services")
+    orchestrator = DiscoveryOrchestrator(session=None, sourcing_service=None)
+
+    selection = ActorSelectionResponse(
+        actors=[
+            ActorSelection(
+                actor_id="compass/crawler-google-places",
+                run_input={"searchStringsArray": ["HVAC Austin"]},
+                reason="maps data",
+            ),
+            ActorSelection(
+                actor_id="apify/instagram-scraper",
+                run_input={"search": "HVAC Austin"},
+                reason="social signals",
+            ),
+        ]
+    )
+    batch_one = DiscoveryBatch(
+        adapter_id="apify_compass_crawler-google-places",
+        query="HVAC Austin",
+        results=[],
+        status="ok",
+        latency_ms=10,
+    )
+    batch_two = DiscoveryBatch(
+        adapter_id="apify_apify_instagram-scraper",
+        query="HVAC Austin",
+        results=[],
+        status="ok",
+        latency_ms=12,
+    )
+
+    with patch("os.getenv", side_effect=lambda key, default=None: "token" if key == "APIFY_API_TOKEN" else default), \
+         patch("sourcing.discovery.apify_selector.select_apify_actors", AsyncMock(return_value=selection)), \
+         patch("sourcing.discovery.adapters.apify.ApifyDiscoveryAdapter.run_actor", AsyncMock(side_effect=[batch_one, batch_two])) as run_actor:
+        batches = await orchestrator._run_apify_actors(
+            query="HVAC Austin",
+            search_intent=intent,
+            discovery_mode="local_service_discovery",
+            row=row,
+        )
+
+    assert [batch.adapter_id for batch in batches] == [
+        "apify_compass_crawler-google-places",
+        "apify_apify_instagram-scraper",
+    ]
+    assert run_actor.await_count == 2

@@ -458,7 +458,7 @@ Apify provides ~2000+ prebuilt web scrapers ("Actors") for structured data from 
 1. **LLM generates store search terms** — Given the intent, the LLM outputs 1–2 short terms (e.g., "google maps scraper", "tripadvisor reviews") or an empty list for commodity queries.
 2. **Apify Store API search** — `GET /v2/store?search=...&sortBy=popularity` returns Actor metadata.
 3. **LLM picks and parameterizes 0–2 Actors** — From the live results, the LLM selects Actors and fills in `run_input` parameters.
-4. **Generic adapter executes** — Runs the selected Actor(s) and normalizes output via known normalizers (Google Maps, Instagram, TripAdvisor, website content) or a generic best-effort normalizer.
+4. **Generic adapter executes** — Runs the selected Actor(s) and normalizes output via known normalizers (Google Maps, Instagram, TripAdvisor, website content) or a generic best-effort normalizer. When multiple Actors are selected, the orchestrator executes them concurrently.
 5. **Standard pipeline** — Apify results flow through the same dedupe → classify → gate → rerank → normalize pipeline as organic results.
 
 Apify is a discovery/source adapter, not an affiliate adapter. It must not run for `affiliate_only` execution mode. It degrades gracefully if `APIFY_API_TOKEN` is missing or the Store API is down.
