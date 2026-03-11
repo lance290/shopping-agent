@@ -26,6 +26,7 @@ dependencies = [
   "aiohttp>=3.9.0",
   "aiofiles>=23.0.0",
   "twilio>=9.10.2",
+  "apify-client>=2.5.0",
 ]
 
 [project.optional-dependencies]

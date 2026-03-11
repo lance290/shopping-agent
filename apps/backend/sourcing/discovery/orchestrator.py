@@ -78,9 +78,37 @@ class DiscoveryOrchestrator:
                 )
                 normalized_results.extend(processed)
 
+        # Run LLM-selected Apify Actors (if available)
+        apify_batches = await self._run_apify_actors(
+            query=queries[0] if queries else "",
+            search_intent=search_intent,
+            discovery_mode=discovery_mode,
+            row=row,
+        )
+        for batch in apify_batches:
+            statuses.append(
+                ProviderStatusSnapshot(
+                    provider_id=f"vendor_discovery_{batch.adapter_id}",
+                    status=batch.status if batch.status in {"ok", "error", "timeout", "exhausted", "rate_limited"} else "error",
+                    result_count=len(batch.results),
+                    latency_ms=batch.latency_ms,
+                    message=batch.error_message,
+                )
+            )
+            if batch.results:
+                processed = await self._process_batch(
+                    row=row,
+                    discovery_session_id=session_id,
+                    discovery_mode=discovery_mode,
+                    query=batch.query,
+                    search_intent=search_intent,
+                    batch=batch,
+                )
+                normalized_results.extend(processed)
+
         user_message = None
         if evaluation.status in {"borderline", "insufficient"}:
-            user_message = "I’m expanding the search beyond our current vendor database."
+            user_message = "I'm expanding the search beyond our current vendor database."
 
         await self._persist_candidates(row, session_id, discovery_mode, queries, normalized_results)
         return evaluation, normalized_results, statuses, user_message, session_id
@@ -137,6 +165,60 @@ class DiscoveryOrchestrator:
                     )
                 )
         return batches
+
+    async def _run_apify_actors(
+        self,
+        *,
+        query: str,
+        search_intent: SearchIntent,
+        discovery_mode: str,
+        row: Row,
+    ) -> List[DiscoveryBatch]:
+        """Ask LLM which Apify Actors to run, then execute them."""
+        import os
+        if not os.getenv("APIFY_API_TOKEN") or not query:
+            return []
+
+        try:
+            from sourcing.discovery.adapters.apify import ApifyDiscoveryAdapter
+            from sourcing.discovery.apify_selector import select_apify_actors
+
+            # Build location hint from intent
+            location_hint = ""
+            if search_intent and search_intent.location_context:
+                targets = search_intent.location_context.targets.non_empty_items()
+                location_hint = " ".join(v for v in targets.values() if v)
+
+            selection = await select_apify_actors(
+                query=query,
+                intent=search_intent,
+                discovery_mode=discovery_mode,
+                location_hint=location_hint,
+            )
+
+            if not selection.actors:
+                return []
+
+            adapter = ApifyDiscoveryAdapter()
+            batches: List[DiscoveryBatch] = []
+            for actor in selection.actors:
+                logger.info(
+                    "[VendorDiscovery] Running Apify actor=%s reason='%s'",
+                    actor.actor_id, actor.reason,
+                )
+                batch = await adapter.run_actor(
+                    actor_id=actor.actor_id,
+                    run_input=actor.run_input,
+                    query=query,
+                    timeout_seconds=60.0,
+                    max_results=10,
+                )
+                batches.append(batch)
+            return batches
+
+        except Exception as e:
+            logger.warning("[VendorDiscovery] Apify actor execution failed: %s", e)
+            return []
 
     async def _stream_batches(self, queries: Iterable[str], discovery_mode: str) -> AsyncGenerator[DiscoveryBatch, None]:
         for query in queries:

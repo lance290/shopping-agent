@@ -113,14 +113,27 @@ def gate_discovery_candidates(
             reasons.append(f"type_rejected:{candidate_type}")
 
         trust_score = 0.35
-        if classification.get("official_site"):
+        if classification.get("official_site") or candidate.official_site:
             trust_score += 0.3
-        if classification.get("first_party_contact"):
+        if classification.get("first_party_contact") or candidate.first_party_contact:
             trust_score += 0.2
         if candidate.canonical_domain:
             trust_score += 0.1
         if candidate_type == "directory_or_aggregator":
             trust_score -= 0.15
+            
+        # Add Apify trust signals (e.g. Google Maps rating/reviews)
+        if candidate.trust_signals:
+            rating = candidate.trust_signals.get("rating")
+            reviews = candidate.trust_signals.get("reviews_count")
+            if rating and isinstance(rating, (int, float)):
+                if rating >= 4.5:
+                    trust_score += 0.2
+                elif rating >= 4.0:
+                    trust_score += 0.1
+            if reviews and isinstance(reviews, int) and reviews > 50:
+                trust_score += 0.1
+
         trust_score = max(0.0, min(trust_score, 1.0))
 
         location_score = 0.5
