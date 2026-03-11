@@ -226,7 +226,7 @@ def _messages_to_gemini_contents(messages: List[dict]) -> List[dict]:
                 })
         elif role == "tool":
             contents.append({
-                "role": "function",
+                "role": "user",
                 "parts": [{
                     "functionResponse": {
                         "name": msg["tool_name"],
@@ -263,6 +263,7 @@ def _parse_gemini_tool_response(data: dict) -> "GeminiToolResponse":
     return GeminiToolResponse(
         text="\n".join(text_parts) if text_parts else None,
         tool_calls=tool_calls,
+        raw_parts=parts,
     )
 
 

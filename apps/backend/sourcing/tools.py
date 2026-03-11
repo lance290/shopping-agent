@@ -51,9 +51,16 @@ class SearchEvent:
 class GeminiToolResponse:
     text: Optional[str]
     tool_calls: list[ToolCall]
+    raw_parts: list[dict[str, Any]] = field(default_factory=list)
 
     def to_message(self) -> dict:
-        """Convert to Gemini model message for conversation continuation."""
+        """Convert to Gemini model message for conversation continuation.
+
+        Uses raw_parts when available to preserve thought_signature fields
+        required by Gemini 3 for function-calling round-trips.
+        """
+        if self.raw_parts:
+            return {"role": "model", "parts": self.raw_parts}
         parts: list[dict[str, Any]] = []
         if self.text:
             parts.append({"text": self.text})

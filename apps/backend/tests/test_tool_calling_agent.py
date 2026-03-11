@@ -213,7 +213,7 @@ class TestGeminiMessageConversion:
 
         msgs = [{"role": "tool", "tool_name": "search_vendors", "content": '{"results": []}'}]
         contents = _messages_to_gemini_contents(msgs)
-        assert contents[0]["role"] == "function"
+        assert contents[0]["role"] == "user"
         fr = contents[0]["parts"][0]["functionResponse"]
         assert fr["name"] == "search_vendors"
 
