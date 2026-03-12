@@ -478,6 +478,20 @@ async def _tool_run_apify(
         # Also check with www. prefix
         if domain and f"www.{domain}" in AGGREGATOR_DOMAINS:
             continue
+        # Carry contact info through raw_data so _persist_results can
+        # enrich vendor records (phone, email, website, location, description).
+        raw_data: Dict[str, Any] = {}
+        if getattr(c, "phone", None):
+            raw_data["phone"] = c.phone
+        if getattr(c, "email", None):
+            raw_data["email"] = c.email
+        if getattr(c, "location_hint", None):
+            raw_data["location_hint"] = c.location_hint
+        if getattr(c, "snippet", None):
+            raw_data["description"] = c.snippet
+        if c.url:
+            raw_data["website"] = c.url
+
         normalized.append(NormalizedResult(
             title=c.title,
             url=c.url,
@@ -487,6 +501,7 @@ async def _tool_run_apify(
             image_url=getattr(c, "image_url", None),
             rating=c.trust_signals.get("rating") if hasattr(c, "trust_signals") else None,
             reviews_count=c.trust_signals.get("reviews_count") if hasattr(c, "trust_signals") else None,
+            raw_data=raw_data,
         ))
 
     return ToolResult(

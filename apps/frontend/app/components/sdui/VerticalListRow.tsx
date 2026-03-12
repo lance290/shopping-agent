@@ -93,7 +93,13 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
     return 0;
   }), [unsortedOffers, sortMode, prefersCustomVendors]);
   const rfpEligibleOffers = useMemo(
-    () => displayOffers.filter((offer) => offer.source === 'vendor_directory' && typeof offer.bid_id === 'number'),
+    () => displayOffers.filter((offer) =>
+      typeof offer.bid_id === 'number' && (
+        offer.source === 'vendor_directory'
+        || offer.is_service_provider
+        || (offer.vendor_id != null && offer.source?.startsWith('apify_'))
+      )
+    ),
     [displayOffers],
   );
   const selectedRfpBidIds = useMemo(
@@ -508,7 +514,7 @@ function BidCard({
     ? `$${offer.price.toFixed(2)}`
     : 'Request Quote';
 
-  const isVendor = offer.source === 'vendor_directory' || offer.is_service_provider;
+  const isVendor = offer.source === 'vendor_directory' || offer.is_service_provider || (offer.vendor_id != null && offer.source?.startsWith('apify_'));
   const showRfpToggle = typeof onToggleRfpSelection === 'function';
 
   const handleToggleLike = async () => {

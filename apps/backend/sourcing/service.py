@@ -4,7 +4,7 @@ import json
 import logging
 import re as _re
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import selectinload
 from sqlmodel import delete, select
@@ -730,8 +730,22 @@ class SourcingService:
             for r in results
             if not str(r.source or "").startswith("vendor_discovery_")
         }
+        # Build contact data lookup keyed by merchant name for vendor enrichment
+        contact_data_by_merchant: dict[str, Dict[str, Any]] = {}
+        for r in results:
+            if r.merchant_name and isinstance(r.raw_data, dict) and r.raw_data:
+                cd = dict(r.raw_data)
+                # Tag source provenance based on result source
+                if r.source.startswith("apify_"):
+                    cd.setdefault("source_provenance", "google_maps")
+                elif r.source.startswith("web_"):
+                    cd.setdefault("source_provenance", "web_search")
+                contact_data_by_merchant[r.merchant_name] = cd
+
         for name, domain in unique_merchants:
-            seller_cache[name] = await self._get_or_create_seller(name, domain)
+            seller_cache[name] = await self._get_or_create_seller(
+                name, domain, contact_data=contact_data_by_merchant.get(name),
+            )
 
         # Fetch existing bids to handle upserts (deduplication)
         existing_bids_stmt = select(Bid).where(Bid.row_id == row_id)
@@ -768,6 +782,14 @@ class SourcingService:
             elif res.source == "registered_merchant":
                 source_tier = "registered"
 
+            # Mark as service provider if the row is a service search or
+            # the result came from Google Places (always a real business)
+            is_svc = bool(
+                (row and row.is_service)
+                or res.source.startswith("apify_compass")
+                or res.source == "vendor_directory"
+            )
+
             if existing_bid:
                 existing_bid.price = res.price if res.price is not None else existing_bid.price
                 existing_bid.total_cost = self._safe_total_cost(existing_bid.price, existing_bid.shipping_cost)
@@ -784,6 +806,7 @@ class SourcingService:
                 existing_bid.quality_score = quality_score_val
                 existing_bid.diversity_bonus = diversity_bonus_val
                 existing_bid.source_tier = source_tier
+                existing_bid.is_service_provider = is_svc or existing_bid.is_service_provider
                 existing_bid.is_superseded = False
                 existing_bid.superseded_at = None
                 if isinstance(res.raw_data, dict):
@@ -806,6 +829,7 @@ class SourcingService:
                     source=res.source,
                     canonical_url=res.canonical_url,
                     is_selected=False,
+                    is_service_provider=is_svc,
                     provenance=provenance_json,
                     combined_score=combined_score,
                     price_score=price_score_val,
@@ -903,17 +927,39 @@ class SourcingService:
             logger.info(f"[SourcingService] Row {row_id}: Superseded {count} stale bids (kept {len(keep_bid_ids)})")
         return count
 
-    async def _get_or_create_seller(self, name: str, domain: str) -> Seller:
+    async def _get_or_create_seller(
+        self,
+        name: str,
+        domain: str,
+        contact_data: Optional[Dict[str, Any]] = None,
+    ) -> Seller:
         stmt = (
             select(Seller)
             .where(Seller.name == name)
         )
         result = await self.session.exec(stmt)
         seller = result.first()
-        
+
         if not seller:
             seller = Seller(name=name, domain=domain)
             self.session.add(seller)
-            await self.session.flush()  # Get ID without committing — avoids partial commits mid-loop
-            
+
+        # Enrich vendor record with contact data from Apify/web results
+        # (only fill empty fields — never overwrite existing data)
+        if contact_data and isinstance(contact_data, dict):
+            if not seller.phone and contact_data.get("phone"):
+                seller.phone = contact_data["phone"]
+            if not seller.email and contact_data.get("email"):
+                seller.email = contact_data["email"]
+            if not seller.website and contact_data.get("website"):
+                seller.website = contact_data["website"]
+            if not seller.store_geo_location and contact_data.get("location_hint"):
+                seller.store_geo_location = contact_data["location_hint"]
+            if not seller.description and contact_data.get("description"):
+                seller.description = contact_data["description"]
+            if not seller.source_provenance and contact_data.get("source_provenance"):
+                seller.source_provenance = contact_data["source_provenance"]
+
+        await self.session.flush()  # Get ID without committing — avoids partial commits mid-loop
+
         return seller
