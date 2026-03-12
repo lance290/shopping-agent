@@ -67,6 +67,7 @@ async def test_patch_row_anonymous_returns_200(
     response = await client.patch(
         f"/rows/{guest_row.id}",
         json={"title": "Updated by anon"},
+        headers={"X-Anonymous-Session-Id": "test-session-aaa"},
         # NO authorization header
     )
     assert response.status_code == 200, (
@@ -90,6 +91,7 @@ async def test_patch_row_anonymous_cannot_access_other_users_row(
     response = await client.patch(
         f"/rows/{other_row.id}",
         json={"title": "Hacked"},
+        headers={"X-Anonymous-Session-Id": "attacker-session"},
         # NO authorization header — resolves to guest user
     )
     assert response.status_code == 404, (
@@ -105,6 +107,7 @@ async def test_select_option_anonymous_returns_200(
     response = await client.post(
         f"/rows/{guest_row.id}/select-option",
         json={"bid_id": guest_bid.id},
+        headers={"X-Anonymous-Session-Id": "test-session-aaa"},
         # NO authorization header
     )
     # 200 means it worked, or 400/422 means validation issue — but NOT 401
@@ -135,6 +138,7 @@ async def test_select_option_anonymous_cannot_access_other_users_row(
     response = await client.post(
         f"/rows/{other_row.id}/select-option",
         json={"bid_id": bid.id},
+        headers={"X-Anonymous-Session-Id": "attacker-session"},
     )
     # Should be 404 (row not found for guest user), not 401
     assert response.status_code in (404, 403), (

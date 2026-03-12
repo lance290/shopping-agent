@@ -17,7 +17,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
-from dependencies import get_current_session, resolve_user_id
+from dependencies import get_current_session, resolve_user_id, resolve_user_id_and_guest_flag
 from models.rows import Row, Project
 from models.auth import User
 from utils.json_utils import safe_json_loads
@@ -71,7 +71,16 @@ async def chat_endpoint(
     Unified chat endpoint — SSE stream.
     Replaces BFF's POST /api/chat entirely.
     """
-    user_id = await resolve_user_id(authorization, session)
+    user_id, is_guest = await resolve_user_id_and_guest_flag(authorization, session)
+
+    def _row_owner_clauses(row_id_val):
+        """Build where clauses for row ownership — guest-aware."""
+        clauses = [Row.id == row_id_val]
+        if is_guest and x_anonymous_session_id:
+            clauses.append(Row.anonymous_session_id == x_anonymous_session_id)
+        else:
+            clauses.append(Row.user_id == user_id)
+        return clauses
 
     async def generate_events() -> AsyncGenerator[str, None]:
         try:
@@ -109,7 +118,7 @@ async def chat_endpoint(
             active_row_data = None
             if active_row_id:
                 result = await session.exec(
-                    select(Row).where(Row.id == active_row_id, Row.user_id == user_id)
+                    select(Row).where(*_row_owner_clauses(active_row_id))
                 )
                 active_row = result.first()
                 if active_row:
@@ -351,7 +360,7 @@ async def chat_endpoint(
                     return
 
                 result = await session.exec(
-                    select(Row).where(Row.id == active_row_id, Row.user_id == user_id)
+                    select(Row).where(*_row_owner_clauses(active_row_id))
                 )
                 row = result.first()
                 if not row:

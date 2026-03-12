@@ -20,7 +20,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
-from dependencies import resolve_user_id
+from dependencies import resolve_user_id_and_guest_flag
 from models import Row, RequestSpec, Project
 from services.intent import extract_search_intent
 from services.llm import triage_provider_query
@@ -48,15 +48,23 @@ async def enriched_search(
     Enriched search endpoint — adds intent extraction and provider query triage
     before delegating to the existing /rows/{rowId}/search.
     """
-    user_id = await resolve_user_id(authorization, session)
+    user_id, is_guest = await resolve_user_id_and_guest_flag(authorization, session)
 
     row_id = body.rowId
     if not row_id:
         raise HTTPException(status_code=400, detail="rowId is required")
 
     # Fetch the row
+    row_where_clauses = [Row.id == row_id]
+    if is_guest:
+        if not x_anonymous_session_id:
+            raise HTTPException(status_code=404, detail="Row not found")
+        row_where_clauses.append(Row.anonymous_session_id == x_anonymous_session_id)
+    else:
+        row_where_clauses.append(Row.user_id == user_id)
+
     result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == user_id)
+        select(Row).where(*row_where_clauses)
     )
     row = result.first()
     if not row:

@@ -98,6 +98,36 @@ async def resolve_user_id_and_guest_flag(
     return guest_user.id, True
 
 
+async def resolve_accessible_row(
+    session: AsyncSession,
+    row_id: int,
+    user_id: int,
+    is_guest: bool,
+    anonymous_session_id: Optional[str],
+) -> "Row":
+    """Single source of truth for row ownership resolution.
+
+    Guest users are scoped by anonymous_session_id.
+    Authenticated users are scoped by user_id.
+    Raises 404 if the row is not found or not accessible.
+    """
+    from models import Row
+
+    clauses = [Row.id == row_id]
+    if is_guest:
+        if not anonymous_session_id:
+            raise HTTPException(status_code=404, detail="Row not found")
+        clauses.append(Row.anonymous_session_id == anonymous_session_id)
+    else:
+        clauses.append(Row.user_id == user_id)
+
+    result = await session.exec(select(Row).where(*clauses))
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+    return row
+
+
 async def require_admin(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)

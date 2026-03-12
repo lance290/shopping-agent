@@ -8,14 +8,14 @@ from urllib.parse import urlparse
 
 from sqlmodel import select, delete
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlalchemy.orm import selectinload, defer, joinedload
+from sqlalchemy.orm import selectinload, defer, joinedload, load_only
 
 from database import get_session
 from models import Row, RowBase, RowCreate, RequestSpec, Bid, Project, User, Vendor, RequestFeedback, RequestEvent, SourceMemory
 from models.deals import Deal, DealMessage
 from models.bookmarks import VendorBookmark, ItemBookmark
 from models.outreach import OutreachMessage
-from dependencies import get_current_session, resolve_user_id, resolve_user_id_and_guest_flag, GUEST_EMAIL
+from dependencies import get_current_session, resolve_user_id, resolve_user_id_and_guest_flag, resolve_accessible_row, GUEST_EMAIL
 from routes.rows_search import router as rows_search_router
 from routes.bookmarks import _normalize_bookmark_url
 from sourcing.safety import SafetyService
@@ -407,18 +407,18 @@ async def read_rows(
     
     user_id, is_guest = await resolve_user_id_and_guest_flag(authorization, session)
 
-    # Build where clauses
-    where_clauses = [
-        Row.user_id == user_id,
-        True if include_archived else (Row.status != "archived"),
-    ]
-
-    # For guest users, scope to their browser session
-    if is_guest and x_anonymous_session_id:
-        where_clauses.append(Row.anonymous_session_id == x_anonymous_session_id)
-    elif is_guest:
-        # No session ID provided — return empty to avoid leaking all guest rows
-        return []
+    if is_guest:
+        if not x_anonymous_session_id:
+            return []
+        where_clauses = [
+            Row.anonymous_session_id == x_anonymous_session_id,
+            True if include_archived else (Row.status != "archived"),
+        ]
+    else:
+        where_clauses = [
+            Row.user_id == user_id,
+            True if include_archived else (Row.status != "archived"),
+        ]
 
     result = await session.exec(
         select(Row)
@@ -483,9 +483,17 @@ async def read_row(
     
     user_id, is_guest = await resolve_user_id_and_guest_flag(authorization, session)
 
+    row_where_clauses = [Row.id == row_id]
+    if is_guest:
+        if not x_anonymous_session_id:
+            raise HTTPException(status_code=404, detail="Row not found")
+        row_where_clauses.append(Row.anonymous_session_id == x_anonymous_session_id)
+    else:
+        row_where_clauses.append(Row.user_id == user_id)
+
     result = await session.exec(
         select(Row)
-        .where(Row.id == row_id, Row.user_id == user_id)
+        .where(*row_where_clauses)
         .options(
             selectinload(Row.bids).options(
                 joinedload(Bid.seller),
@@ -541,18 +549,12 @@ async def read_row(
 async def delete_row(
     row_id: int,
     authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
     
-    user_id = await resolve_user_id(authorization, session)
-
-    result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == user_id)
-    )
-    row = result.first()
-
-    if not row:
-        raise HTTPException(status_code=404, detail="Row not found")
+    user_id, is_guest = await resolve_user_id_and_guest_flag(authorization, session)
+    row = await resolve_accessible_row(session, row_id, user_id, is_guest, x_anonymous_session_id)
     
     row.status = "archived"
     row.updated_at = datetime.utcnow()
@@ -566,15 +568,25 @@ async def update_row(
     row_id: int,
     row_update: RowUpdate,
     authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
     
     print(f"Received PATCH request for row {row_id} with data: {row_update}")
     
-    user_id = await resolve_user_id(authorization, session)
+    user_id, is_guest = await resolve_user_id_and_guest_flag(authorization, session)
+
+    row_where_clauses = [Row.id == row_id]
+    if is_guest:
+        if not x_anonymous_session_id:
+            print(f"Row {row_id} not found for anonymous session")
+            raise HTTPException(status_code=404, detail="Row not found")
+        row_where_clauses.append(Row.anonymous_session_id == x_anonymous_session_id)
+    else:
+        row_where_clauses.append(Row.user_id == user_id)
 
     result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == user_id)
+        select(Row).where(*row_where_clauses)
     )
     row = result.first()
 
@@ -687,16 +699,11 @@ async def create_row_feedback(
     row_id: int,
     body: RequestFeedbackCreate,
     authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
-    user_id = await resolve_user_id(authorization, session)
-
-    result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == user_id)
-    )
-    row = result.first()
-    if not row:
-        raise HTTPException(status_code=404, detail="Row not found")
+    user_id, is_guest = await resolve_user_id_and_guest_flag(authorization, session)
+    row = await resolve_accessible_row(session, row_id, user_id, is_guest, x_anonymous_session_id)
 
     if body.bid_id is not None:
         bid_result = await session.exec(
@@ -742,16 +749,11 @@ async def record_row_outcome(
     row_id: int,
     body: RowOutcomeUpdate,
     authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
-    user_id = await resolve_user_id(authorization, session)
-
-    result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == user_id)
-    )
-    row = result.first()
-    if not row:
-        raise HTTPException(status_code=404, detail="Row not found")
+    user_id, is_guest = await resolve_user_id_and_guest_flag(authorization, session)
+    row = await resolve_accessible_row(session, row_id, user_id, is_guest, x_anonymous_session_id)
 
     VALID_RESOLUTIONS = {"solved", "partially_solved", "not_solved"}
     VALID_QUALITY = {
@@ -936,16 +938,11 @@ async def create_row_event(
     row_id: int,
     body: RequestEventCreate,
     authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
-    user_id = await resolve_user_id(authorization, session)
-
-    result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == user_id)
-    )
-    row = result.first()
-    if not row:
-        raise HTTPException(status_code=404, detail="Row not found")
+    user_id, is_guest = await resolve_user_id_and_guest_flag(authorization, session)
+    row = await resolve_accessible_row(session, row_id, user_id, is_guest, x_anonymous_session_id)
 
     if body.bid_id is not None:
         bid_result = await session.exec(
@@ -975,18 +972,12 @@ async def select_row_option(
     row_id: int,
     option_id: int,
     authorization: Optional[str] = Header(None),
+    x_anonymous_session_id: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session)
 ):
     
-    user_id = await resolve_user_id(authorization, session)
-
-    result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == user_id)
-    )
-    row = result.first()
-
-    if not row:
-        raise HTTPException(status_code=404, detail="Row not found")
+    user_id, is_guest = await resolve_user_id_and_guest_flag(authorization, session)
+    row = await resolve_accessible_row(session, row_id, user_id, is_guest, x_anonymous_session_id)
 
     bid_result = await session.exec(
         select(Bid).where(Bid.id == option_id, Bid.row_id == row_id)

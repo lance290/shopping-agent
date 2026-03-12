@@ -123,7 +123,7 @@ async def _resolve_all_location_targets(
             resolution_map[field_name] = resolution.model_dump()
             logger.info(
                 f"[ChatHelpers] Geocoded {field_name}='{value}' → "
-                f"status={resolution.status}, lat={resolution.latitude}, lon={resolution.longitude}"
+                f"status={resolution.status}, lat={resolution.lat}, lon={resolution.lon}"
             )
         except Exception as e:
             logger.warning(f"[ChatHelpers] Failed to geocode {field_name}='{value}': {e}")

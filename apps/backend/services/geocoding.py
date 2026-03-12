@@ -80,7 +80,7 @@ class GeocodingService:
         if not location_str or not location_str.strip():
             return LocationResolution(
                 status="unresolved",
-                error="Empty location string"
+                normalized_label=location_str or None,
             )
 
         location_str = location_str.strip()
@@ -89,7 +89,7 @@ class GeocodingService:
         # Try airport code first (instant, no API call)
         airport_result = self._try_airport_code(location_str)
         if airport_result:
-            logger.info(f"[Geocoding] Airport match: {location_str} → {airport_result.latitude}, {airport_result.longitude}")
+            logger.info(f"[Geocoding] Airport match: {location_str} → {airport_result.lat}, {airport_result.lon}")
             return airport_result
 
         # Try regex fallback for simple patterns
@@ -116,8 +116,7 @@ class GeocodingService:
             logger.error(f"[Geocoding] All methods failed for '{location_str}': {e}")
             return LocationResolution(
                 status="unresolved",
-                query=location_str,
-                error=str(e)
+                normalized_label=location_str,
             )
 
     def _try_airport_code(self, location_str: str) -> Optional[LocationResolution]:
@@ -129,12 +128,11 @@ class GeocodingService:
                 lat, lon = AIRPORT_COORDS[code]
                 return LocationResolution(
                     status="resolved",
-                    query=location_str,
-                    latitude=lat,
-                    longitude=lon,
+                    normalized_label=f"{code} Airport",
+                    lat=lat,
+                    lon=lon,
                     precision="city",
-                    display_name=f"{code} Airport",
-                    confidence=0.95
+                    resolved_by="airport_code",
                 )
         return None
 
@@ -147,10 +145,9 @@ class GeocodingService:
                 state = match.group(2).strip().upper()
                 return LocationResolution(
                     status="resolved",
-                    query=location_str,
+                    normalized_label=f"{city}, {state}",
                     precision="city",
-                    display_name=f"{city}, {state}",
-                    confidence=0.7,
+                    resolved_by="regex",
                     # No lat/lon yet - caller should try API geocoding
                 )
         return None
@@ -174,8 +171,7 @@ class GeocodingService:
             if not data or len(data) == 0:
                 return LocationResolution(
                     status="unresolved",
-                    query=location_str,
-                    error="No results from Nominatim"
+                    normalized_label=location_str,
                 )
 
             result = data[0]
@@ -189,13 +185,11 @@ class GeocodingService:
 
             return LocationResolution(
                 status="resolved",
-                query=location_str,
-                latitude=lat,
-                longitude=lon,
+                normalized_label=display_name,
+                lat=lat,
+                lon=lon,
                 precision=precision,
-                display_name=display_name,
-                confidence=0.85,
-                raw_response=result
+                resolved_by="nominatim",
             )
 
     async def _geocode_google(self, location_str: str) -> LocationResolution:
@@ -214,8 +208,7 @@ class GeocodingService:
             if data["status"] != "OK" or not data.get("results"):
                 return LocationResolution(
                     status="unresolved",
-                    query=location_str,
-                    error=f"Google API status: {data['status']}"
+                    normalized_label=location_str,
                 )
 
             result = data["results"][0]
@@ -229,13 +222,11 @@ class GeocodingService:
 
             return LocationResolution(
                 status="resolved",
-                query=location_str,
-                latitude=lat,
-                longitude=lon,
+                normalized_label=display_name,
+                lat=lat,
+                lon=lon,
                 precision=precision,
-                display_name=display_name,
-                confidence=0.9,
-                raw_response=result
+                resolved_by="google",
             )
 
     def _map_nominatim_precision(self, place_type: str, address: Dict[str, str]) -> str:

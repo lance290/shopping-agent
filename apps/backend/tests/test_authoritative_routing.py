@@ -19,7 +19,7 @@ from sourcing.discovery.classifier import (
     select_discovery_mode,
     _llm_execution_mode,
 )
-from sourcing.reranker import should_rerank, _build_rerank_prompt, _clamp
+from sourcing.reranker import should_rerank, _build_rerank_prompt, _clamp, rerank_candidates
 from sourcing.models import NormalizedResult
 
 
@@ -251,10 +251,10 @@ class TestRerankerTrigger:
     """should_rerank correctly identifies when to invoke the LLM reranker."""
 
     def test_sourcing_only_triggers_rerank(self):
-        assert should_rerank(None, "commodity", "sourcing_only") is True
+        assert should_rerank(None, "service", "sourcing_only") is True
 
     def test_affiliate_plus_sourcing_triggers_rerank(self):
-        assert should_rerank(None, "commodity", "affiliate_plus_sourcing") is True
+        assert should_rerank(None, "service", "affiliate_plus_sourcing") is True
 
     def test_affiliate_only_no_rerank(self):
         assert should_rerank(None, "commodity", "affiliate_only") is False
@@ -276,19 +276,22 @@ class TestRerankerTrigger:
 
     def test_specialist_strategy_triggers_rerank(self):
         intent = _intent(search_strategies=["specialist_first"])
-        assert should_rerank(intent, "commodity", None) is True
+        assert should_rerank(intent, "service", None) is True
 
     def test_local_network_strategy_triggers_rerank(self):
         intent = _intent(search_strategies=["local_network_first"])
-        assert should_rerank(intent, "commodity", None) is True
+        assert should_rerank(intent, "service", None) is True
 
     def test_prestige_strategy_triggers_rerank(self):
         intent = _intent(search_strategies=["prestige_first"])
-        assert should_rerank(intent, "commodity", None) is True
+        assert should_rerank(intent, "bespoke", None) is True
 
     def test_market_first_no_rerank(self):
         intent = _intent(search_strategies=["market_first"])
         assert should_rerank(intent, "commodity", None) is False
+
+    def test_commodity_bypasses_rerank_even_in_sourcing_mode(self):
+        assert should_rerank(None, "commodity", "sourcing_only") is False
 
 
 # ===========================================================================
@@ -308,6 +311,26 @@ class TestRerankerPrompt:
         assert "Vendor B" in prompt
         assert "brokerage" in prompt.lower()
 
+    def test_prompt_includes_strict_brand_rule(self):
+        candidates = [
+            {
+                "title": "Hermès",
+                "source": "vendor_directory",
+                "domain": "hermes.com",
+                "price": None,
+                "candidate_type": None,
+                "category": "luxury handbags",
+                "description": "Official maison for Birkin bags",
+                "heuristic_score": 0.91,
+            }
+        ]
+        intent = _intent(raw_input="Birkin bag")
+        intent.brand = "Hermes"
+        intent.product_name = "Birkin bag"
+        prompt = _build_rerank_prompt("Birkin bag", candidates, intent)
+        assert "STRICT BRAND MATCH" in prompt
+        assert "Official maison for Birkin bags" in prompt
+
     def test_clamp_normal(self):
         assert _clamp(0.7) == 0.7
 
@@ -319,6 +342,46 @@ class TestRerankerPrompt:
 
     def test_clamp_invalid(self):
         assert _clamp("not_a_number") == 0.5
+
+
+class TestRerankerExclusion:
+    @pytest.mark.asyncio
+    async def test_reranker_excludes_wrong_brand_candidate(self):
+        results = [
+            NormalizedResult(
+                title="Hermès",
+                url="https://hermes.com",
+                source="vendor_directory",
+                merchant_name="Hermès",
+                merchant_domain="hermes.com",
+                raw_data={"description": "Official maison for Birkin bags", "search_metadata": {"vendor_category": "luxury handbags"}},
+                provenance={"score": {"combined": 0.91}},
+            ),
+            NormalizedResult(
+                title="Goyard",
+                url="https://goyard.com",
+                source="vendor_directory",
+                merchant_name="Goyard",
+                merchant_domain="goyard.com",
+                raw_data={"description": "Luxury trunks and handbags", "search_metadata": {"vendor_category": "luxury handbags"}},
+                provenance={"score": {"combined": 0.89}},
+            ),
+        ]
+        intent = _intent(raw_input="Birkin bag")
+        intent.brand = "Hermes"
+        intent.product_name = "Birkin bag"
+
+        mock_response = [
+            {"idx": 0, "include": True, "relevance": 0.98, "trust": 0.95, "actionability": 0.90, "reason_codes": ["brand_match"]},
+            {"idx": 1, "include": False, "relevance": 0.10, "trust": 0.40, "actionability": 0.20, "reason_codes": ["wrong_brand"]},
+        ]
+
+        with patch("services.llm_core.call_gemini", new_callable=AsyncMock) as mock_call:
+            with patch("services.llm_core._extract_json_array", return_value=mock_response):
+                mock_call.return_value = "[]"
+                reranked = await rerank_candidates("Birkin bag", results, intent)
+
+        assert [r.title for r in reranked] == ["Hermès"]
 
 
 # ===========================================================================

@@ -1,13 +1,10 @@
-"""Cheap structured LLM reranker for high-risk, local, and custom-vendor flows.
+"""Cheap structured LLM vet/rerank for non-commodity vendor flows.
 
 Per plan §Phase 3, this supplements (never replaces) the hybrid scoring model.
-The reranker is called ONLY when:
-  - execution_mode is sourcing_only or affiliate_plus_sourcing
-  - desire_tier is high_value, advisory, bespoke, or service
-  - OR search_strategies include specialist_first, prestige_first, or local_network_first
+The LLM call is used only for non-commodity vendor results after search retrieval.
 
-The reranker asks a cheap LLM (Gemini Flash) to score the top-N candidates on
-relevance, trustworthiness, and actionability.  Results are written into
+The reranker asks a cheap LLM (Gemini Flash) to vet the top-N candidates on
+relevance, trustworthiness, and actionability. Results are written into
 provenance["llm_rerank"] and blended into the combined score.
 """
 
@@ -39,10 +36,13 @@ def should_rerank(
     desire_tier: Optional[str],
     execution_mode: Optional[str],
 ) -> bool:
-    """Decide whether to invoke the LLM reranker for this search."""
+    """Decide whether to invoke the LLM vet/rerank call for this search."""
+    tier = (desire_tier or "").strip().lower()
+    if tier == "commodity":
+        return False
     if execution_mode and execution_mode in ("sourcing_only", "affiliate_plus_sourcing"):
         return True
-    if desire_tier and desire_tier.strip().lower() in _RERANK_TIERS:
+    if tier in _RERANK_TIERS:
         return True
     if intent and intent.search_strategies:
         if set(intent.search_strategies) & _RERANK_STRATEGIES:
@@ -71,6 +71,20 @@ def _build_rerank_prompt(
             parts.append(f"Preferred source types: {', '.join(intent.source_archetypes)}")
         intent_summary = "\n".join(parts)
 
+    strict_rules: List[str] = []
+    if intent and intent.brand:
+        strict_rules.append(
+            f'- STRICT BRAND MATCH: if the requested brand is "{intent.brand}", exclude candidates that are clearly a different brand even if they are in the same luxury/category neighborhood.'
+        )
+    if intent and intent.model:
+        strict_rules.append(
+            f'- STRICT MODEL MATCH: if the requested model/item is "{intent.model}", exclude candidates that do not plausibly correspond to that model/item.'
+        )
+    if intent and intent.product_name:
+        strict_rules.append(
+            "- For highly specific item requests, prefer false negatives over showing semantically adjacent but wrong brands/items."
+        )
+
     candidate_lines = []
     for i, c in enumerate(candidates):
         line = f"{i}: title={c['title']!r}, source={c['source']!r}, domain={c['domain']!r}"
@@ -78,12 +92,19 @@ def _build_rerank_prompt(
             line += f", price=${c['price']}"
         if c.get("candidate_type"):
             line += f", type={c['candidate_type']}"
+        if c.get("category"):
+            line += f", category={c['category']!r}"
+        if c.get("description"):
+            line += f", description={c['description']!r}"
+        if c.get("heuristic_score") is not None:
+            line += f", heuristic_score={c['heuristic_score']}"
         candidate_lines.append(line)
 
     return f"""You are a search result quality assessor. Score each candidate for a procurement query.
 
 Query: "{query}"
 {intent_summary}
+{"".join(rule + chr(10) for rule in strict_rules)}
 
 Candidates:
 {chr(10).join(candidate_lines)}
@@ -118,12 +139,17 @@ async def rerank_candidates(
     for r in top_n:
         raw = r.raw_data if isinstance(r.raw_data, dict) else {}
         prov = r.provenance if isinstance(r.provenance, dict) else {}
+        search_metadata = raw.get("search_metadata", {}) if isinstance(raw.get("search_metadata"), dict) else {}
+        score = prov.get("score", {}) if isinstance(prov.get("score"), dict) else {}
         candidates.append({
             "title": r.title[:120],
             "source": r.source,
             "domain": r.merchant_domain[:80],
             "price": r.price,
             "candidate_type": raw.get("candidate_type") or prov.get("candidate_type"),
+            "category": search_metadata.get("vendor_category"),
+            "description": str(raw.get("description") or raw.get("snippet") or "")[:240],
+            "heuristic_score": round(float(score.get("combined", 0.0) or 0.0), 4),
         })
 
     prompt = _build_rerank_prompt(query, candidates, intent)

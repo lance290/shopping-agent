@@ -68,6 +68,8 @@ def _normalize_result(result: SearchResult, provider_id: str) -> NormalizedResul
         raw_data["embedding"] = result.embedding
     if getattr(result, "vendor_id", None) is not None:
         raw_data["vendor_id"] = result.vendor_id
+    if getattr(result, "description", None):
+        raw_data["description"] = result.description
     if getattr(result, "metadata", None):
         raw_data["search_metadata"] = result.metadata
 

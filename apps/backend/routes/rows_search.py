@@ -42,7 +42,8 @@ from routes.rows_search_helpers import (
 )
 from sourcing.adapters import build_provider_query_map
 from sourcing.normalizers import normalize_generic_results
-from sourcing.scorer import score_results
+from sourcing.scorer import filter_vendor_results, score_results
+from sourcing.reranker import rerank_candidates, should_rerank
 from sourcing.service import SourcingService
 from sourcing.discovery.classifier import classify_search_path
 from sourcing.coverage import evaluate_internal_vendor_coverage
@@ -307,15 +308,8 @@ async def search_row_listings(
     if not check_rate_limit(rate_key, "search"):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
-    result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == user_id)
-    )
-    row = result.first()
-    if not row:
-        raise HTTPException(status_code=404, detail="Row not found")
-
-    if is_guest and row.anonymous_session_id and row.anonymous_session_id != x_anonymous_session_id:
-        raise HTTPException(status_code=404, detail="Row not found")
+    from dependencies import resolve_accessible_row
+    row = await resolve_accessible_row(session, row_id, user_id, is_guest, x_anonymous_session_id)
 
     spec_result = await session.exec(select(RequestSpec).where(RequestSpec.row_id == row_id))
     spec = spec_result.first()
@@ -544,15 +538,8 @@ async def search_row_listings_stream(
     if not check_rate_limit(rate_key, "search"):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
-    result = await session.exec(
-        select(Row).where(Row.id == row_id, Row.user_id == user_id)
-    )
-    row = result.first()
-    if not row:
-        raise HTTPException(status_code=404, detail="Row not found")
-
-    if is_guest and row.anonymous_session_id and row.anonymous_session_id != x_anonymous_session_id:
-        raise HTTPException(status_code=404, detail="Row not found")
+    from dependencies import resolve_accessible_row
+    row = await resolve_accessible_row(session, row_id, user_id, is_guest, x_anonymous_session_id)
 
     await _log_request_event(
         session,
@@ -740,6 +727,24 @@ async def search_row_listings_stream(
                     service_category=row.service_category,
                     endorsement_boosts=endorsement_boosts,
                 )
+                normalized_internal = filter_vendor_results(
+                    normalized_internal,
+                    intent=parsed_intent,
+                    is_service=row.is_service,
+                    service_category=row.service_category,
+                )
+                if normalized_internal and should_rerank(parsed_intent, row.desire_tier, row.routing_mode):
+                    normalized_internal = await rerank_candidates(sanitized_query, normalized_internal, parsed_intent)
+                keep_vendor_ids = {
+                    int(result.raw_data["vendor_id"])
+                    for result in normalized_internal
+                    if isinstance(result.raw_data, dict) and result.raw_data.get("vendor_id") is not None
+                }
+                internal_results = [
+                    result
+                    for result in internal_results
+                    if getattr(result, "vendor_id", None) in keep_vendor_ids
+                ]
                 persisted_internal = await sourcing_service._persist_results(row_id, normalized_internal, row=row)
                 all_persisted_bid_ids.update({bid.id for bid in persisted_internal if bid.id is not None})
             all_results.extend(internal_results)
@@ -968,18 +973,17 @@ async def search_row_listings_stream(
                             except Exception as qe:
                                 logger.warning(f"[SEARCH STREAM] Quantum reranking failed for {provider_name}: {qe}")
 
-                        # Filter out low-quality vendor_directory results after scoring.
-                        # Vendors with near-zero relevance for product queries are noise.
-                        VENDOR_MIN_SCORE = 0.15
                         if provider_name == "vendor_directory":
                             before_count = len(normalized_batch)
-                            normalized_batch = [
-                                r for r in normalized_batch
-                                if (r.provenance.get("score", {}).get("combined", 1.0) >= VENDOR_MIN_SCORE)
-                            ]
+                            normalized_batch = filter_vendor_results(
+                                normalized_batch,
+                                intent=parsed_intent,
+                                is_service=row.is_service,
+                                service_category=row.service_category,
+                            )
                             dropped = before_count - len(normalized_batch)
                             if dropped:
-                                logger.info(f"[SEARCH STREAM] Filtered {dropped} low-score vendor results (< {VENDOR_MIN_SCORE})")
+                                logger.info(f"[SEARCH STREAM] Filtered {dropped} vendor results via shared vendor gate")
 
                         if normalized_batch:
                             async with db_lock:

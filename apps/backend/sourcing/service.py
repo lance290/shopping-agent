@@ -20,7 +20,7 @@ from sourcing.location import apply_location_resolution, normalize_search_intent
 from sourcing.models import NormalizedResult, ProviderStatusSnapshot, SearchIntent
 from sourcing.repository import SourcingRepository
 from sourcing.metrics import get_metrics_collector, log_search_start
-from sourcing.scorer import score_results
+from sourcing.scorer import filter_vendor_results, score_results
 from sourcing.parsers import _parse_numeric, _parse_price_value
 from sourcing.reranker import should_rerank, rerank_candidates
 from sourcing.vendor_provider import build_query_embedding
@@ -368,6 +368,12 @@ class SourcingService:
             is_service=row.is_service if row else None,
             service_category=row.service_category if row else None,
         )
+        normalized_results = filter_vendor_results(
+            normalized_results,
+            intent=search_intent,
+            is_service=row.is_service if row else None,
+            service_category=row.service_category if row else None,
+        )
 
         # 2b. Quantum re-ranking (for results with embeddings)
         try:
@@ -498,6 +504,24 @@ class SourcingService:
                 service_category=row.service_category,
                 endorsement_boosts=endorsement_boosts,
             )
+            normalized_internal = filter_vendor_results(
+                normalized_internal,
+                intent=search_intent,
+                is_service=row.is_service,
+                service_category=row.service_category,
+            )
+            if normalized_internal and should_rerank(search_intent, row.desire_tier, row.routing_mode):
+                normalized_internal = await rerank_candidates(query, normalized_internal, search_intent)
+            keep_vendor_ids = {
+                int(result.raw_data["vendor_id"])
+                for result in normalized_internal
+                if isinstance(result.raw_data, dict) and result.raw_data.get("vendor_id") is not None
+            }
+            internal_results = [
+                result
+                for result in internal_results
+                if getattr(result, "vendor_id", None) in keep_vendor_ids
+            ]
 
         bids: List[Bid] = []
         if normalized_internal:
@@ -533,43 +557,6 @@ class SourcingService:
         all_statuses = internal_statuses + list(discovery_statuses)
         if evaluation.status in {"borderline", "insufficient"} and not user_message:
             user_message = "I’m expanding the search beyond our current vendor database."
-
-        # Phase 3: Cheap LLM reranker for high-risk/local/custom flows
-        if bids and should_rerank(search_intent, row.desire_tier, row.routing_mode):
-            try:
-                bid_results = [
-                    NormalizedResult(
-                        title=b.item_title or "",
-                        url=b.item_url or "",
-                        source=b.source or "",
-                        price=b.price,
-                        merchant_name=b.contact_name or "",
-                        merchant_domain=(b.seller.domain if b.seller else "") or "",
-                        raw_data=b.provenance if isinstance(b.provenance, dict) else {},
-                        provenance=b.provenance if isinstance(b.provenance, dict) else {},
-                    )
-                    for b in bids
-                ]
-                reranked = await rerank_candidates(query, bid_results, search_intent)
-                rerank_map = {}
-                for r in reranked:
-                    llm_data = r.provenance.get("llm_rerank")
-                    if llm_data:
-                        rerank_map[r.title] = llm_data
-                for b in bids:
-                    llm_data = rerank_map.get(b.item_title)
-                    if llm_data and isinstance(b.provenance, dict):
-                        b.provenance["llm_rerank"] = llm_data
-                        old_score = b.combined_score or 0.0
-                        blend_weight = 0.15
-                        composite = llm_data.get("composite", 0.5)
-                        b.combined_score = round(old_score * (1 - blend_weight) + composite * blend_weight, 4)
-                        self.session.add(b)
-                bids.sort(key=lambda b: (b.combined_score or 0.0), reverse=True)
-                await self.session.commit()
-                logger.info("[SourcingService] LLM reranker applied to %d bids", len(rerank_map))
-            except Exception as e:
-                logger.warning("[SourcingService] LLM reranker failed (graceful degradation): %s", e)
 
         return bids, all_statuses, user_message
 
@@ -667,8 +654,14 @@ class SourcingService:
                 is_service=row.is_service,
                 service_category=row.service_category,
             )
-            affiliate_bids = await self._persist_results(row.id, normalized, row=row)
-            all_bids.extend(affiliate_bids)
+            normalized = filter_vendor_results(
+                normalized,
+                intent=search_intent,
+                is_service=row.is_service,
+                service_category=row.service_category,
+            )
+            persisted = await self._persist_results(row.id, normalized, row=row)
+            all_bids.extend(persisted)
             all_statuses.extend(affiliate_result.provider_statuses)
             if affiliate_result.user_message and not user_message:
                 user_message = affiliate_result.user_message
@@ -911,7 +904,10 @@ class SourcingService:
         return count
 
     async def _get_or_create_seller(self, name: str, domain: str) -> Seller:
-        stmt = select(Seller).where(Seller.name == name)
+        stmt = (
+            select(Seller)
+            .where(Seller.name == name)
+        )
         result = await self.session.exec(stmt)
         seller = result.first()
         

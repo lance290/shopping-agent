@@ -672,6 +672,7 @@ class VendorDirectoryProvider(SourcingProvider):
                     "fts_score": round(fts_norm, 4),
                     "geo_score": round(geo_score, 4),
                     "constraint_score": round(constraint_score, 4),
+                    "vendor_category": r.get("category"),
                     "location_mode": location_mode,
                     "location_match": location_match,
                     "store_geo_location": store_geo_location,

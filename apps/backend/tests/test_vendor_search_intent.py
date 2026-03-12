@@ -18,7 +18,7 @@ import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
 from sourcing.models import NormalizedResult, SearchIntent
-from sourcing.scorer import score_results, _relevance_score
+from sourcing.scorer import filter_vendor_results, score_results, _relevance_score
 
 
 # =============================================================================
@@ -343,6 +343,61 @@ class TestVectorSimilarityScoring:
         score = _relevance_score(result, intent)
         # Should fall through to keyword matching (base 0.05)
         assert score >= 0.05
+
+
+class TestVendorSpecificityFiltering:
+    def _make_vendor_result(self, name, vec_sim, description="", category="luxury handbags"):
+        return NormalizedResult(
+            title=name,
+            url=f"https://{name.lower().replace(' ', '')}.com",
+            source="vendor_directory",
+            merchant_name=name,
+            merchant_domain=f"{name.lower().replace(' ', '')}.com",
+            raw_data={
+                "description": description,
+                "search_metadata": {
+                    "vendor_category": category,
+                    "semantic_score": vec_sim,
+                    "fts_score": 0.0,
+                },
+            },
+            provenance={"vector_similarity": vec_sim},
+        )
+
+    def test_brand_specific_query_filters_adjacent_luxury_brands(self):
+        intent = SearchIntent(
+            product_category="luxury_handbags",
+            product_name="Birkin bag",
+            brand="Hermes",
+            keywords=["birkin", "bag"],
+        )
+        results = [
+            self._make_vendor_result("Hermès", 0.95, "Official maison for Birkin handbags"),
+            self._make_vendor_result("Goyard", 0.93, "Luxury trunks and handbags"),
+            self._make_vendor_result("Moynat", 0.92, "Paris leather goods house"),
+            self._make_vendor_result("Michael Kors", 0.91, "Accessible luxury handbags"),
+        ]
+
+        ranked = score_results(results, intent=intent)
+        filtered = filter_vendor_results(ranked, intent=intent, is_service=False, service_category=None)
+
+        assert [r.title for r in filtered] == ["Hermès"]
+
+    def test_service_query_keeps_high_similarity_vendors_without_keyword_name_match(self):
+        intent = SearchIntent(
+            product_category="aviation",
+            product_name="private jet charter",
+            keywords=["private", "jet", "charter"],
+        )
+        results = [
+            self._make_vendor_result("Jettly", 0.92, "On-demand private aviation broker", "private aviation"),
+            self._make_vendor_result("PrivateFly", 0.91, "Global charter platform", "private aviation"),
+        ]
+
+        ranked = score_results(results, intent=intent, desire_tier="service", is_service=True, service_category="private_aviation")
+        filtered = filter_vendor_results(ranked, intent=intent, is_service=True, service_category="private_aviation")
+
+        assert [r.title for r in filtered] == ["Jettly", "PrivateFly"]
 
 
 # =============================================================================

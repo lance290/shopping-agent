@@ -10,6 +10,8 @@ Dimensions:
 """
 
 import logging
+import re
+import unicodedata
 from typing import Dict, List, Optional
 
 from sourcing.location import location_weight_profile, neutral_geo_score
@@ -106,6 +108,134 @@ def score_results(
     )
 
     return [r for _, r in scored]
+
+
+def filter_vendor_results(
+    results: List[NormalizedResult],
+    *,
+    intent: Optional[SearchIntent] = None,
+    is_service: Optional[bool] = None,
+    service_category: Optional[str] = None,
+) -> List[NormalizedResult]:
+    return [
+        result
+        for result in results
+        if _should_keep_vendor_result(
+            result,
+            intent=intent,
+            is_service=is_service,
+            service_category=service_category,
+        )
+    ]
+
+
+def _should_keep_vendor_result(
+    result: NormalizedResult,
+    *,
+    intent: Optional[SearchIntent],
+    is_service: Optional[bool],
+    service_category: Optional[str],
+) -> bool:
+    if result.source != "vendor_directory":
+        return True
+
+    combined = _score_value(result, "combined")
+    semantic = _score_value(result, "semantic")
+    fts = _score_value(result, "fts")
+
+    if combined < 0.15:
+        return False
+
+    if is_service or service_category:
+        return combined >= 0.18
+
+    if not intent:
+        return combined >= 0.18
+
+    searchable = _vendor_searchable_text(result)
+    brand_terms = _important_terms(intent.brand)
+    model_terms = _important_terms(intent.model)
+    product_terms = _important_terms(intent.product_name)
+    keyword_terms = _important_terms(" ".join(intent.keywords))
+    category_terms = _important_terms(intent.product_category.replace("_", " ") if intent.product_category else None)
+
+    brand_match = _contains_any_term(searchable, brand_terms)
+    model_match = _contains_any_term(searchable, model_terms)
+    specific_product_terms = _specific_terms(product_terms + keyword_terms)
+    product_match = _contains_any_term(searchable, specific_product_terms)
+    category_match = _contains_any_term(searchable, category_terms)
+
+    if brand_terms:
+        if brand_match:
+            return combined >= 0.16
+        return semantic >= 0.92 and (fts >= 0.12 or model_match or product_match)
+
+    if model_terms:
+        if model_match:
+            return combined >= 0.16
+        return semantic >= 0.92 and (fts >= 0.12 or product_match)
+
+    if product_terms or keyword_terms:
+        if product_match:
+            return combined >= 0.16
+        return combined >= 0.28 and semantic >= 0.90 and fts >= 0.12
+
+    return combined >= 0.18
+
+
+def _score_value(result: NormalizedResult, key: str) -> float:
+    provenance = result.provenance if isinstance(result.provenance, dict) else {}
+    score = provenance.get("score", {}) if isinstance(provenance.get("score"), dict) else {}
+    if key in score:
+        try:
+            return float(score.get(key) or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
+    search_metadata = result.raw_data.get("search_metadata", {}) if isinstance(result.raw_data, dict) else {}
+    metadata_key = "semantic_score" if key == "semantic" else "fts_score" if key == "fts" else key
+    try:
+        return float(search_metadata.get(metadata_key) or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _vendor_searchable_text(result: NormalizedResult) -> str:
+    parts: List[str] = [result.title or "", result.merchant_name or "", result.merchant_domain or ""]
+    if isinstance(result.raw_data, dict):
+        parts.append(str(result.raw_data.get("description") or ""))
+        parts.append(str(result.raw_data.get("snippet") or ""))
+        search_metadata = result.raw_data.get("search_metadata", {}) or {}
+        if isinstance(search_metadata, dict):
+            parts.append(str(search_metadata.get("vendor_category") or ""))
+    normalized = " ".join(parts)
+    normalized = unicodedata.normalize("NFKD", normalized)
+    normalized = normalized.encode("ascii", "ignore").decode("ascii")
+    return normalized.casefold()
+
+
+def _important_terms(value: Optional[str]) -> List[str]:
+    if not value:
+        return []
+    normalized = unicodedata.normalize("NFKD", value)
+    normalized = normalized.encode("ascii", "ignore").decode("ascii")
+    return [
+        token
+        for token in re.findall(r"[a-z0-9]+", normalized.casefold())
+        if len(token) >= 3 and token not in {"the", "and", "for", "with"}
+    ]
+
+
+def _contains_any_term(searchable: str, terms: List[str]) -> bool:
+    return any(term in searchable for term in terms)
+
+
+def _specific_terms(terms: List[str]) -> List[str]:
+    generic = {
+        "bag", "bags", "handbag", "handbags", "purse", "purses",
+        "luxury", "goods", "accessories", "product", "products",
+        "item", "items", "service", "services", "vendor", "vendors",
+    }
+    return [term for term in terms if term not in generic]
 
 
 def _source_fit_score(source: str, is_service: Optional[bool], service_category: Optional[str] = None) -> float:
