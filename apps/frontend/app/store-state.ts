@@ -12,6 +12,22 @@ export interface PendingRowDelete {
   expiresAt: number;
 }
 
+export interface ProviderProgress {
+  name: string;
+  displayName: string;
+  status: 'searching' | 'done' | 'error';
+  resultCount: number;
+  completedAt?: number;
+}
+
+export interface SearchProgress {
+  startedAt: number;
+  providers: ProviderProgress[];
+  agentMessage: string;
+  totalResultsSoFar: number;
+  isComplete: boolean;
+}
+
 // ChoiceFactor, OfferSortMode, CommentData, BidSocialData — now in store-types.ts (re-exported above)
 
 // The source of truth state
@@ -29,6 +45,7 @@ export interface ShoppingState {
   rowOfferSort: Record<number, OfferSortMode>; // Per-row UI sort mode
   moreResultsIncoming: Record<number, boolean>; // Per-row flag for streaming results
   streamingRowIds: Record<number, boolean>; // Per-row lock: true while SSE is actively streaming results
+  searchProgress: Record<number, SearchProgress>; // Per-row streaming progress (providers, timing, agent text)
   isSearching: boolean;           // Loading state for search
   cardClickQuery: string | null;  // Query from card click (triggers chat append)
 
@@ -52,6 +69,11 @@ export interface ShoppingState {
   setIsSearching: (searching: boolean) => void;
   setMoreResultsIncoming: (rowId: number, incoming: boolean) => void;
   setStreamingLock: (rowId: number, locked: boolean) => void;
+  startSearchProgress: (rowId: number) => void;
+  addProviderResult: (rowId: number, providerName: string, resultCount: number) => void;
+  setAgentMessage: (rowId: number, message: string) => void;
+  completeSearchProgress: (rowId: number) => void;
+  clearSearchProgress: (rowId: number) => void;
   clearSearch: () => void;
   setCardClickQuery: (query: string | null) => void;  // For card click -> chat append
 
@@ -97,6 +119,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => {
   rowOfferSort: {},
   moreResultsIncoming: {},
   streamingRowIds: {},
+  searchProgress: {},
   isSearching: false,
   cardClickQuery: null,
   selectedProviders: { amazon: true, ebay: true, serpapi: true, vendor_directory: true },

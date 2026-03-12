@@ -20,6 +20,7 @@ type SsePayload = {
   results?: Offer[];
   provider_statuses?: ProviderStatusSnapshot[];
   more_incoming?: boolean;
+  provider?: string;
   user_message?: string;
   entity_id?: number;
   schema?: Record<string, unknown>;
@@ -274,6 +275,11 @@ export default function Chat() {
 
             if (eventName === 'assistant_message') {
               assistantContent = typeof payload.text === 'string' ? payload.text : '';
+              // Forward agent thinking text to progress UI
+              const agentRowId = store.activeRowId;
+              if (agentRowId && assistantContent) {
+                store.setAgentMessage(agentRowId, assistantContent);
+              }
             } else if (eventName === 'action_started') {
               if (payload.type === 'search') {
                 store.setIsSearching(true);
@@ -282,6 +288,7 @@ export default function Chat() {
                 const searchRowId = typeof payload.row_id === 'number' ? payload.row_id : null;
                 if (searchRowId) {
                   store.setMoreResultsIncoming(searchRowId, true);
+                  store.startSearchProgress(searchRowId);
                 }
               } else if (payload.type === 'fetch_vendors') {
                 // Service rows: show loading state while fetching vendors
@@ -289,6 +296,7 @@ export default function Chat() {
                 const vendorRowId = typeof payload.row_id === 'number' ? payload.row_id : null;
                 if (vendorRowId) {
                   store.setMoreResultsIncoming(vendorRowId, true);
+                  store.startSearchProgress(vendorRowId);
                 }
               }
             } else if (eventName === 'row_created') {
@@ -403,6 +411,10 @@ export default function Chat() {
                 // Always append during SSE streaming — never replace.
                 // The authoritative DB re-fetch happens on 'done'.
                 store.appendRowResults(rowId, results, providerStatuses, moreIncoming, userMessage);
+
+                // Track provider completion for progress UI
+                const provider = typeof payload.provider === 'string' ? payload.provider : 'agent';
+                store.addProviderResult(rowId, provider, results.length);
               }
               if (!moreIncoming) {
                 store.setIsSearching(false);
@@ -466,6 +478,7 @@ export default function Chat() {
               const doneRowId = store.activeRowId;
               if (doneRowId) {
                 store.setMoreResultsIncoming(doneRowId, false);
+                store.completeSearchProgress(doneRowId);
                 // Authoritative re-fetch: DB has all persisted, filtered bids.
                 // This replaces any stale/mixed results from the SSE stream.
                 const freshRow = await fetchSingleRowFromDb(doneRowId);

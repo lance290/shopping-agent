@@ -92,7 +92,75 @@ export const createStoreActions = (set: SetStoreState, get: () => ShoppingState)
   setStreamingLock: (rowId: number, locked: boolean) => set((state: ShoppingState) => ({
     streamingRowIds: { ...state.streamingRowIds, [rowId]: locked },
   })),
-  clearSearch: () => set({ rowResults: {}, rowProviderStatuses: {}, rowSearchErrors: {}, moreResultsIncoming: {}, currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
+  startSearchProgress: (rowId: number) => set((state: ShoppingState) => ({
+    searchProgress: {
+      ...state.searchProgress,
+      [rowId]: {
+        startedAt: Date.now(),
+        providers: [],
+        agentMessage: '',
+        totalResultsSoFar: 0,
+        isComplete: false,
+      },
+    },
+  })),
+  addProviderResult: (rowId: number, providerName: string, resultCount: number) => set((state: ShoppingState) => {
+    const existing = state.searchProgress[rowId];
+    if (!existing) return {};
+    const DISPLAY_NAMES: Record<string, string> = {
+      search_vendors: 'Vendors',
+      search_marketplace: 'Marketplace',
+      search_web: 'Web',
+      run_apify_actor: 'Local Search',
+      search_apify_store: 'App Store',
+      vendor_directory: 'Vendors',
+      amazon: 'Amazon',
+      ebay: 'eBay',
+      google_shopping: 'Google Shopping',
+      agent: 'AI Agent',
+    };
+    const displayName = DISPLAY_NAMES[providerName] || providerName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const existingProvider = existing.providers.find(p => p.name === providerName);
+    const updatedProviders = existingProvider
+      ? existing.providers.map(p => p.name === providerName ? { ...p, status: 'done' as const, resultCount: p.resultCount + resultCount, completedAt: Date.now() } : p)
+      : [...existing.providers, { name: providerName, displayName, status: 'done' as const, resultCount, completedAt: Date.now() }];
+    return {
+      searchProgress: {
+        ...state.searchProgress,
+        [rowId]: {
+          ...existing,
+          providers: updatedProviders,
+          totalResultsSoFar: existing.totalResultsSoFar + resultCount,
+        },
+      },
+    };
+  }),
+  setAgentMessage: (rowId: number, message: string) => set((state: ShoppingState) => {
+    const existing = state.searchProgress[rowId];
+    if (!existing) return {};
+    return {
+      searchProgress: {
+        ...state.searchProgress,
+        [rowId]: { ...existing, agentMessage: message },
+      },
+    };
+  }),
+  completeSearchProgress: (rowId: number) => set((state: ShoppingState) => {
+    const existing = state.searchProgress[rowId];
+    if (!existing) return {};
+    return {
+      searchProgress: {
+        ...state.searchProgress,
+        [rowId]: { ...existing, isComplete: true },
+      },
+    };
+  }),
+  clearSearchProgress: (rowId: number) => set((state: ShoppingState) => {
+    const rest = { ...state.searchProgress };
+    delete rest[rowId];
+    return { searchProgress: rest };
+  }),
+  clearSearch: () => set({ rowResults: {}, rowProviderStatuses: {}, rowSearchErrors: {}, moreResultsIncoming: {}, searchProgress: {}, currentQuery: '', isSearching: false, activeRowId: null, cardClickQuery: null }),
   setCardClickQuery: (query: string | null) => set({ cardClickQuery: query }),
 
   // Find a row that matches the query, or return null if we need to create one

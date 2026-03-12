@@ -10,6 +10,7 @@ import { DynamicRenderer } from './DynamicRenderer';
 import { validateUISchema } from '../../sdui/types';
 import VendorContactModal from '../VendorContactModal';
 import OutreachQueue from '../OutreachQueue';
+import { SearchProgressBar, SkeletonCardGroup } from './SearchProgressBar';
 
 interface VerticalListRowProps {
   row: Row;
@@ -106,6 +107,9 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
   const setIsSearching = useShoppingStore((s) => s.setIsSearching);
   const setRowResults = useShoppingStore((s) => s.setRowResults);
   const updateRow = useShoppingStore((s) => s.updateRow);
+  const moreIncoming = useShoppingStore((s) => s.moreResultsIncoming[row.id] ?? false);
+  const searchProgress = useShoppingStore((s) => s.searchProgress[row.id]);
+  const isRowSearching = moreIncoming || (searchProgress && !searchProgress.isComplete);
 
   useEffect(() => {
     const validBidIds = new Set(rfpEligibleOffers.map((offer) => offer.bid_id as number));
@@ -159,17 +163,27 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
       <div className="w-full text-left px-4 py-3 flex items-center gap-3 group cursor-pointer"
         onClick={() => { onSelect(); onToggleExpand(); }}
       >
-        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-          row.status === 'sourcing' ? 'bg-yellow-400 animate-pulse' :
-          row.status === 'closed' || row.status === 'delivered' ? 'bg-green-400' :
-          'bg-gold'
-        }`} />
+        {isRowSearching ? (
+          <div className="w-4 h-4 flex-shrink-0">
+            <div className="w-4 h-4 border-2 border-gold border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+            row.status === 'sourcing' ? 'bg-yellow-400 animate-pulse' :
+            row.status === 'closed' || row.status === 'delivered' ? 'bg-green-400' :
+            'bg-gold'
+          }`} />
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-ink truncate">{row.title}</p>
           <p className="text-xs text-ink-muted">
-            {row.status === 'sourcing' ? 'Searching...' :
-             bidCount > 0 ? `${bidCount} option${bidCount !== 1 ? 's' : ''}` :
-             row.status}
+            {isRowSearching
+              ? (searchProgress?.totalResultsSoFar
+                ? `Found ${searchProgress.totalResultsSoFar} result${searchProgress.totalResultsSoFar !== 1 ? 's' : ''} so far...`
+                : 'Searching...')
+              : row.status === 'sourcing' ? 'Searching...' :
+                bidCount > 0 ? `${bidCount} option${bidCount !== 1 ? 's' : ''}` :
+                row.status}
           </p>
         </div>
 
@@ -276,22 +290,42 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
             </div>
           )}
 
+          {/* Search progress bar — visible while streaming */}
+          {isRowSearching && (
+            <SearchProgressBar progress={searchProgress} isSearching={!!isRowSearching} />
+          )}
+
           <div className="space-y-2">
-            {displayOffers.length === 0 && !hasSchema && (
+            {displayOffers.length === 0 && !hasSchema && !isRowSearching && (
               <p className="text-sm text-onyx-muted italic">No options found yet.</p>
             )}
             {displayOffers.map((offer, i) => (
-              <BidCard
+              <div
                 key={offer.bid_id ?? i}
-                offer={offer}
-                row={row}
-                isRfpSelected={typeof offer.bid_id === 'number' ? rfpSelectedBidIds.has(offer.bid_id) : false}
-                isRfpSent={typeof offer.bid_id === 'number' ? rfpSentBidIds.has(offer.bid_id) : false}
-                onToggleRfpSelection={typeof offer.bid_id === 'number' && offer.source === 'vendor_directory'
-                  ? () => toggleRfpBid(offer.bid_id as number)
-                  : undefined}
-              />
+                className="bid-card-enter"
+                style={{ animationDelay: `${i * 80}ms` }}
+              >
+                <BidCard
+                  offer={offer}
+                  row={row}
+                  isRfpSelected={typeof offer.bid_id === 'number' ? rfpSelectedBidIds.has(offer.bid_id) : false}
+                  isRfpSent={typeof offer.bid_id === 'number' ? rfpSentBidIds.has(offer.bid_id) : false}
+                  onToggleRfpSelection={typeof offer.bid_id === 'number' && offer.source === 'vendor_directory'
+                    ? () => toggleRfpBid(offer.bid_id as number)
+                    : undefined}
+                />
+              </div>
             ))}
+
+            {/* Skeleton cards — visible while searching and no results yet */}
+            {isRowSearching && displayOffers.length === 0 && (
+              <SkeletonCardGroup count={4} />
+            )}
+
+            {/* Partial skeleton — show 1-2 more placeholders while more results are incoming */}
+            {isRowSearching && displayOffers.length > 0 && (
+              <SkeletonCardGroup count={2} />
+            )}
           </div>
 
           {/* Outcome selector — request-level feedback (Trust Metrics PRD §8.2) */}
