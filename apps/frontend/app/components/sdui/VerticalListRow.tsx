@@ -761,9 +761,15 @@ function BidCard({
               href={offer.click_url || `/api/out?url=${encodeURIComponent(offer.url)}${offer.bid_id ? `&bid_id=${offer.bid_id}` : ''}&row_id=${row.id}&source=${offer.source}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3 py-1.5 text-xs font-medium bg-gold text-navy rounded-lg hover:bg-gold-dark transition-colors"
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                (row.is_service || SERVICE_FIRST_DESIRE_TIERS.has(row.desire_tier || '')) && (offer.price === null || offer.price === undefined)
+                  ? 'bg-status-success text-white hover:bg-status-success/90'
+                  : 'bg-gold text-navy hover:bg-gold-dark'
+              }`}
             >
-              View Deal
+              {(row.is_service || SERVICE_FIRST_DESIRE_TIERS.has(row.desire_tier || '')) && (offer.price === null || offer.price === undefined)
+                ? 'Request Quote'
+                : 'View Deal'}
             </a>
           ) : null}
         </div>

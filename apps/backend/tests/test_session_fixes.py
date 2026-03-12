@@ -376,3 +376,69 @@ class TestAgentPromptRules:
 
         assert "SERVICES" in AGENT_SYSTEM_PROMPT
         assert "search_vendors" in AGENT_SYSTEM_PROMPT
+
+    def test_prompt_requires_commercial_intent_for_web_search(self):
+        from sourcing.agent import AGENT_SYSTEM_PROMPT
+
+        assert "buy" in AGENT_SYSTEM_PROMPT.lower()
+        assert "for sale" in AGENT_SYSTEM_PROMPT.lower()
+        assert "SHOPPING app" in AGENT_SYSTEM_PROMPT
+
+    def test_prompt_warns_against_aggregators_for_services(self):
+        from sourcing.agent import AGENT_SYSTEM_PROMPT
+
+        assert "aggregator" in AGENT_SYSTEM_PROMPT.lower() or "listicle" in AGENT_SYSTEM_PROMPT.lower()
+
+
+class TestNonCommercialDomainFilter:
+    """Tests for the _is_non_commercial_url filter in tool_executor."""
+
+    def test_blocks_news_sites(self):
+        from sourcing.tool_executor import _is_non_commercial_url
+
+        assert _is_non_commercial_url("https://www.robbreport.com/style/accessories/birkin")
+        assert _is_non_commercial_url("https://www.nytimes.com/2024/fashion/birkin-bag")
+        assert _is_non_commercial_url("https://cnn.com/style/birkin-bags")
+        assert _is_non_commercial_url("https://www.forbes.com/luxury/birkin")
+
+    def test_blocks_social_media(self):
+        from sourcing.tool_executor import _is_non_commercial_url
+
+        assert _is_non_commercial_url("https://www.youtube.com/watch?v=abc")
+        assert _is_non_commercial_url("https://www.reddit.com/r/handbags/birkin")
+        assert _is_non_commercial_url("https://www.instagram.com/p/abc123")
+
+    def test_blocks_aggregators(self):
+        from sourcing.tool_executor import _is_non_commercial_url
+
+        assert _is_non_commercial_url("https://www.yelp.com/biz/tennis-camp")
+        assert _is_non_commercial_url("https://www.tripadvisor.com/tennis")
+
+    def test_blocks_blog_sites(self):
+        from sourcing.tool_executor import _is_non_commercial_url
+
+        assert _is_non_commercial_url("https://luxurylearnings.com/birkin-guide")
+        assert _is_non_commercial_url("https://medium.com/@user/birkin-history")
+        assert _is_non_commercial_url("https://www.wikipedia.org/wiki/Birkin_bag")
+
+    def test_allows_commercial_sites(self):
+        from sourcing.tool_executor import _is_non_commercial_url
+
+        assert not _is_non_commercial_url("https://www.therealreal.com/products/birkin")
+        assert not _is_non_commercial_url("https://www.vestiairecollective.com/birkin")
+        assert not _is_non_commercial_url("https://www.christies.com/lot/birkin")
+        assert not _is_non_commercial_url("https://www.farfetch.com/shopping/birkin")
+        assert not _is_non_commercial_url("https://ussportscamps.com/tennis")
+        assert not _is_non_commercial_url("https://aggietenniscamp.com")
+
+    def test_blocks_subdomain_of_blocked_site(self):
+        from sourcing.tool_executor import _is_non_commercial_url
+
+        assert _is_non_commercial_url("https://news.bbc.co.uk/sport/tennis")
+        assert _is_non_commercial_url("https://sports.yahoo.com") is False  # yahoo not blocked
+
+    def test_handles_malformed_urls(self):
+        from sourcing.tool_executor import _is_non_commercial_url
+
+        assert not _is_non_commercial_url("")
+        assert not _is_non_commercial_url("not-a-url")

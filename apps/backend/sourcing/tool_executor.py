@@ -155,6 +155,48 @@ async def _tool_search_marketplace(
     )
 
 
+_NON_COMMERCIAL_DOMAINS: set[str] = {
+    # News / media
+    "nytimes.com", "washingtonpost.com", "bbc.com", "bbc.co.uk", "cnn.com",
+    "theguardian.com", "reuters.com", "apnews.com", "usatoday.com",
+    "nbcnews.com", "cbsnews.com", "abcnews.go.com", "foxnews.com",
+    "npr.org", "bloomberg.com", "cnbc.com", "forbes.com", "fortune.com",
+    "businessinsider.com", "insider.com", "vice.com", "vox.com",
+    "huffpost.com", "dailymail.co.uk", "nypost.com", "newsweek.com",
+    "time.com", "people.com", "tmz.com", "pagesix.com",
+    # Article / blog / listicle / entertainment
+    "wikipedia.org", "medium.com", "quora.com", "reddit.com",
+    "buzzfeed.com", "boredpanda.com", "ranker.com",
+    "robbreport.com", "luxurylearnings.com", "purseblog.com",
+    "bagaholicboy.com", "buro247.com", "highsnobiety.com",
+    "hypebeast.com", "complex.com", "gq.com", "vogue.com",
+    "elle.com", "harpersbazaar.com", "cosmopolitan.com",
+    "wmagazine.com", "instyle.com", "allure.com",
+    # Social media
+    "facebook.com", "instagram.com", "twitter.com", "x.com",
+    "tiktok.com", "pinterest.com", "linkedin.com", "youtube.com",
+    # Aggregators / listicles (not direct providers)
+    "yelp.com", "tripadvisor.com", "trustpilot.com",
+    "g2.com", "capterra.com", "glassdoor.com",
+    # Regional news
+    "fastnews.co.id", "euroweeklynews.com", "dailystar.co.uk",
+    "mirror.co.uk", "thesun.co.uk", "express.co.uk",
+}
+
+
+def _is_non_commercial_url(url: str) -> bool:
+    """Return True if a URL points to a non-commercial (news/article/blog) domain."""
+    try:
+        from urllib.parse import urlparse
+        domain = urlparse(url).netloc.lower().removeprefix("www.")
+        # Check exact match and parent domain match
+        return domain in _NON_COMMERCIAL_DOMAINS or any(
+            domain.endswith("." + blocked) for blocked in _NON_COMMERCIAL_DOMAINS
+        )
+    except Exception:
+        return False
+
+
 async def _tool_search_web(
     query: str,
     max_results: int = 10,
@@ -201,8 +243,10 @@ async def _tool_search_web(
             continue
 
         normalized = []
-        for item in organic[:max_results]:
+        for item in organic[:max_results * 2]:  # over-fetch to compensate for filtering
             url = normalize_url(item.get("link", ""))
+            if _is_non_commercial_url(url):
+                continue
             domain = extract_merchant_domain(url)
             normalized.append(NormalizedResult(
                 title=item.get("title", "Unknown"),
@@ -212,11 +256,16 @@ async def _tool_search_web(
                 merchant_domain=domain,
                 raw_data={"snippet": item.get("snippet", "")},
             ))
+            if len(normalized) >= max_results:
+                break
 
-        return ToolResult(
-            items=normalized,
-            metadata={"source": "web_search", "provider": provider_name},
-        )
+        if normalized:
+            return ToolResult(
+                items=normalized,
+                metadata={"source": "web_search", "provider": provider_name},
+            )
+        logger.info("[ToolExec] search_web %s: all results filtered as non-commercial", provider_name)
+        continue
 
     # Fallback: Google Custom Search Engine (free tier — 100 queries/day)
     cse_key = os.getenv("GOOGLE_CSE_API_KEY", "")
@@ -240,6 +289,8 @@ async def _tool_search_web(
                     normalized = []
                     for item in items[:max_results]:
                         url = normalize_url(item.get("link", ""))
+                        if _is_non_commercial_url(url):
+                            continue
                         domain = extract_merchant_domain(url)
                         normalized.append(NormalizedResult(
                             title=item.get("title", "Unknown"),
@@ -249,21 +300,24 @@ async def _tool_search_web(
                             merchant_domain=domain,
                             raw_data={"snippet": item.get("snippet", "")},
                         ))
-                    return ToolResult(
-                        items=normalized,
-                        metadata={"source": "web_search", "provider": "google_cse"},
-                    )
+                    if normalized:
+                        return ToolResult(
+                            items=normalized,
+                            metadata={"source": "web_search", "provider": "google_cse"},
+                        )
                 logger.info("[ToolExec] search_web google_cse returned 0 items")
         except Exception as e:
             logger.warning("[ToolExec] search_web google_cse failed: %s", e)
 
     # Last resort: DuckDuckGo HTML API (no API key needed)
     try:
-        ddg_results = await _ddg_html_search(query, max_results)
+        ddg_results = await _ddg_html_search(query, max_results * 2)  # over-fetch for filtering
         if ddg_results:
             normalized = []
-            for item in ddg_results[:max_results]:
+            for item in ddg_results:
                 url = normalize_url(item["url"])
+                if _is_non_commercial_url(url):
+                    continue
                 domain = extract_merchant_domain(url)
                 normalized.append(NormalizedResult(
                     title=item.get("title", "Unknown"),
@@ -273,10 +327,13 @@ async def _tool_search_web(
                     merchant_domain=domain,
                     raw_data={"snippet": item.get("snippet", "")},
                 ))
-            return ToolResult(
-                items=normalized,
-                metadata={"source": "web_search", "provider": "duckduckgo"},
-            )
+                if len(normalized) >= max_results:
+                    break
+            if normalized:
+                return ToolResult(
+                    items=normalized,
+                    metadata={"source": "web_search", "provider": "duckduckgo"},
+                )
         logger.info("[ToolExec] search_web duckduckgo returned 0 results")
     except Exception as e:
         logger.warning("[ToolExec] search_web duckduckgo failed: %s", e)
