@@ -9,9 +9,14 @@ from sourcing.models import NormalizedResult
 
 
 def normalize_discovery_candidates(candidates: List[object]) -> List[NormalizedResult]:
+    from sourcing.vendor_provider import AGGREGATOR_DOMAINS
     normalized: List[NormalizedResult] = []
     for item in candidates:
         candidate = item.candidate if hasattr(item, "candidate") else item
+        # Skip aggregator/directory domains
+        domain = (candidate.canonical_domain or "").lower()
+        if domain and (domain in AGGREGATOR_DOMAINS or f"www.{domain}" in AGGREGATOR_DOMAINS):
+            continue
         final_score = getattr(item, "final_score", None)
         admissible = getattr(item, "admissible", True)
         rejection_reasons = getattr(item, "rejection_reasons", [])

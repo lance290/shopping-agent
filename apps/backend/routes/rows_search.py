@@ -582,6 +582,10 @@ async def search_row_listings_stream(
             """Agent-based SSE: LLM decides which tools to call."""
             from sourcing.agent import agent_search
             from sourcing.normalizers import normalize_generic_results
+            from sourcing.scorer import score_results
+
+            # Parse search intent for scoring
+            agent_parsed_intent = _parse_intent_payload(row.search_intent)
 
             row_ctx = {
                 "title": row.title,
@@ -595,7 +599,8 @@ async def search_row_listings_stream(
                 except Exception:
                     pass
 
-            all_persisted_bid_ids: set[int] = set()
+            # Track only NEW bid IDs from this agent run (not all bids for the row)
+            new_bid_ids_this_run: set[int] = set()
 
             async for event in agent_search(
                 user_message=sanitized_query,
@@ -612,11 +617,25 @@ async def search_row_listings_stream(
                             pass
 
                     if normalized_items:
+                        # Score results before persisting so combined_score is populated
+                        normalized_items = score_results(
+                            normalized_items,
+                            intent=agent_parsed_intent,
+                            desire_tier=row.desire_tier,
+                            is_service=row.is_service,
+                            service_category=row.service_category,
+                        )
+                        # Record existing bid IDs so we can identify truly new ones
+                        existing_stmt = select(Bid.id).where(Bid.row_id == row_id, Bid.is_superseded == False)
+                        existing_res = await session.exec(existing_stmt)
+                        pre_existing_ids = {bid_id for bid_id in existing_res.all()}
+
                         persisted = await sourcing_service._persist_results(
                             row_id, normalized_items, row=row,
                         )
-                        persisted_ids = {bid.id for bid in persisted if bid.id is not None}
-                        all_persisted_bid_ids.update(persisted_ids)
+                        all_returned_ids = {bid.id for bid in persisted if bid.id is not None}
+                        # Only track IDs that are new or updated in THIS run
+                        new_bid_ids_this_run.update(all_returned_ids - pre_existing_ids)
 
                     # Convert to SearchResult format for frontend compatibility
                     search_results = []
@@ -637,13 +656,14 @@ async def search_row_listings_stream(
                     yield f"data: {json.dumps({'event': 'agent_message', 'text': event.data.get('text', ''), 'more_incoming': True})}\n\n"
 
                 elif event.type == "complete":
-                    # Supersede stale bids
+                    # Supersede stale bids — only keep bids from this run
                     try:
-                        await sourcing_service.supersede_stale_bids(row_id, all_persisted_bid_ids)
+                        if new_bid_ids_this_run:
+                            await sourcing_service.supersede_stale_bids(row_id, new_bid_ids_this_run)
                     except Exception as e:
                         logger.warning(f"[Agent SSE] Failed to supersede stale bids: {e}")
 
-                    row.status = "bids_arriving" if all_persisted_bid_ids else "sourcing"
+                    row.status = "bids_arriving" if new_bid_ids_this_run else "sourcing"
                     row.updated_at = datetime.utcnow()
                     session.add(row)
                     await session.commit()

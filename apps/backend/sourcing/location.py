@@ -289,10 +289,8 @@ def has_non_geo_relevance(semantic_score: float, fts_score: float, constraint_sc
 
 
 def neutral_geo_score(location_mode: str, semantic_score: float, fts_score: float, constraint_score: float) -> float:
-    if location_mode in {"service_area", "vendor_proximity"} and has_non_geo_relevance(
-        semantic_score, fts_score, constraint_score
-    ):
-        return 0.5
+    # Non-matching vendors get ZERO geo credit.  The old value of 0.5 let
+    # out-of-area vendors rank competitively with local ones.
     return 0.0
 
 

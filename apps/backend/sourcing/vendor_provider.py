@@ -9,6 +9,7 @@ with web search results in the sourcing pipeline.
 """
 import math
 import os
+import re
 import logging
 import time
 from typing import Dict, List, Optional
@@ -18,6 +19,33 @@ import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from sourcing.location import location_weight_profile, neutral_geo_score, precision_weight_multiplier
+
+# Domains that are social platforms, directories, or listing aggregators.
+# Vendor DB entries with these domains are duplicates of real-agent entries
+# and add no direct-engagement value.  Skip them entirely.
+AGGREGATOR_DOMAINS: set[str] = {
+    # Social / platform
+    "google.com", "www.google.com", "maps.google.com",
+    "yelp.com", "www.yelp.com",
+    "facebook.com", "www.facebook.com",
+    "linkedin.com", "www.linkedin.com",
+    "instagram.com", "www.instagram.com",
+    "twitter.com", "www.twitter.com", "x.com",
+    "youtube.com", "www.youtube.com",
+    # Directory / listing / lead-gen aggregators
+    "luxuryhomemagazine.com", "www.luxuryhomemagazine.com",
+    "ownluxuryhomes.com", "www.ownluxuryhomes.com",
+    "realtor.com", "www.realtor.com",
+    "zillow.com", "www.zillow.com",
+    "redfin.com", "www.redfin.com",
+    "trulia.com", "www.trulia.com",
+    "homes.com", "www.homes.com",
+    "homelight.com", "www.homelight.com",
+    "thumbtack.com", "www.thumbtack.com",
+    "angi.com", "www.angi.com",
+    "homeadvisor.com", "www.homeadvisor.com",
+    "bark.com", "www.bark.com",
+}
 from sourcing.repository import SearchResult, SourcingProvider
 
 logger = logging.getLogger(__name__)
@@ -303,7 +331,12 @@ class VendorDirectoryProvider(SourcingProvider):
         # to match any vendor with "Denver" in the name (e.g. Denver Art Museum).
         # Vector search handles fuzzy semantic matches; FTS should handle precise keyword overlap.
         stop_words = {"in", "the", "for", "a", "an", "and", "or", "with", "at", "to", "of", "on"}
-        fts_words = [w.strip() for w in query.split() if w.strip() and len(w.strip()) > 1 and w.strip().lower() not in stop_words]
+        _fts_sanitize = re.compile(r"[^a-zA-Z0-9]")
+        fts_words = []
+        for w in query.split():
+            cleaned = _fts_sanitize.sub("", w)
+            if cleaned and len(cleaned) > 1 and cleaned.lower() not in stop_words:
+                fts_words.append(cleaned)
         if fts_words:
             fts_query_str = " & ".join(fts_words)
         else:
@@ -526,20 +559,13 @@ class VendorDirectoryProvider(SourcingProvider):
             if not url and r["email"]:
                 url = f"mailto:{r['email']}"
 
-            # Extract a meaningful domain — skip aggregator/platform URLs
+            # Extract domain and skip aggregator/directory results entirely
             raw_domain = ""
             if r["website"]:
                 raw_domain = r["website"].replace("https://", "").replace("http://", "").split("/")[0]
-            aggregator_domains = {
-                "google.com", "www.google.com", "maps.google.com",
-                "yelp.com", "www.yelp.com",
-                "facebook.com", "www.facebook.com",
-                "linkedin.com", "www.linkedin.com",
-                "instagram.com", "www.instagram.com",
-                "twitter.com", "www.twitter.com", "x.com",
-                "youtube.com", "www.youtube.com",
-            }
-            merchant_domain = raw_domain if raw_domain and raw_domain.lower() not in aggregator_domains else ""
+            if raw_domain and raw_domain.lower() in AGGREGATOR_DOMAINS:
+                continue
+            merchant_domain = raw_domain
 
             favicon = ""
             if r["image_url"]:

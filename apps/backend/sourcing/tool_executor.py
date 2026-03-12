@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 async def execute_tools_parallel(
     tool_calls: list[ToolCall],
-    timeout_per_tool: float = 30.0,
+    timeout_per_tool: float = 90.0,
 ) -> list[ToolResult]:
     """Execute multiple tool calls in parallel with per-tool timeout."""
 
@@ -91,12 +91,41 @@ async def _tool_search_vendors(
 
     kwargs: Dict[str, Any] = {"limit": max_results}
 
-    # vendor_query = clean intent, context_query = full context with location
-    # This prevents query dilution (the root cause of the Nashville bug)
+    # Build structured intent_payload so the vendor provider's geo-filtering
+    # can activate (it needs location_context + location_resolution with lat/lon).
+    intent_payload: Dict[str, Any] = {}
+    if category:
+        intent_payload["product_category"] = category
+
     if location:
         kwargs["context_query"] = f"{query} {location}"
-    if category:
-        kwargs["intent_payload"] = {"product_category": category}
+        # Geocode the location so the vendor provider can do proximity filtering
+        try:
+            from services.geocoding import GeocodingService
+            geo_svc = GeocodingService()
+            resolution = await geo_svc.resolve_location(location, "service_location")
+            resolution_dict = resolution.model_dump()
+            intent_payload["location_context"] = {
+                "relevance": "service_area",
+                "targets": {"service_location": location},
+            }
+            intent_payload["location_resolution"] = {
+                "service_location": resolution_dict,
+            }
+            logger.info(
+                "[ToolExec] search_vendors geocoded location=%r → status=%s lat=%s lon=%s",
+                location, resolution.status, resolution.lat, resolution.lon,
+            )
+        except Exception as e:
+            logger.warning("[ToolExec] search_vendors geocoding failed for %r: %s", location, e)
+            # Fall back to text-based location matching (terms only, no lat/lon)
+            intent_payload["location_context"] = {
+                "relevance": "service_area",
+                "targets": {"service_location": location},
+            }
+
+    if intent_payload:
+        kwargs["intent_payload"] = intent_payload
 
     try:
         results = await provider.search(query, **kwargs)
@@ -423,7 +452,7 @@ async def _tool_run_apify(
             actor_id=actor_id,
             run_input=effective_input,
             query=actor_id,
-            timeout_seconds=30.0,
+            timeout_seconds=90.0,
             max_results=max_results,
         )
     except Exception as e:
@@ -435,7 +464,8 @@ async def _tool_run_apify(
             error=batch.error_message or f"Apify actor returned status: {batch.status}",
         )
 
-    # Convert DiscoveryCandidate → NormalizedResult
+    # Convert DiscoveryCandidate → NormalizedResult, skipping aggregator domains
+    from sourcing.vendor_provider import AGGREGATOR_DOMAINS
     normalized = []
     for c in batch.results:
         domain = ""
@@ -443,6 +473,11 @@ async def _tool_run_apify(
             domain = urlparse(c.url).netloc.lower().removeprefix("www.")
         except Exception:
             pass
+        if domain and domain in AGGREGATOR_DOMAINS:
+            continue
+        # Also check with www. prefix
+        if domain and f"www.{domain}" in AGGREGATOR_DOMAINS:
+            continue
         normalized.append(NormalizedResult(
             title=c.title,
             url=c.url,

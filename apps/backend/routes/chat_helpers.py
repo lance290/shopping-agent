@@ -334,7 +334,7 @@ async def _stream_search(
             f"{_SELF_BASE_URL}/rows/{row_id}/search/stream",
             headers=headers,
             json={"query": query},
-            timeout=60.0,
+            timeout=120.0,
         ) as resp:
             buffer = ""
             async for chunk in resp.aiter_text():
