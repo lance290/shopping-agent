@@ -66,6 +66,8 @@ def _normalize_result(result: SearchResult, provider_id: str) -> NormalizedResul
     # Carry vendor embedding through for quantum reranker
     if getattr(result, "embedding", None):
         raw_data["embedding"] = result.embedding
+    if getattr(result, "vendor_id", None) is not None:
+        raw_data["vendor_id"] = result.vendor_id
     if getattr(result, "metadata", None):
         raw_data["search_metadata"] = result.metadata
 

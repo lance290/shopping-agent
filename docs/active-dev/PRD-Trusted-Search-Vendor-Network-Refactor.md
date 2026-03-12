@@ -83,7 +83,7 @@ For BuyAnything, **search is not “find links.”** Search is:
 
 ### Team / Organization
 
-- As a team, we want to rate and reuse trusted vendors over time.
+- As a team, we want a clear path to shared trust over time, but Phase 3 ships with personal endorsements only until a Team/Organization model exists.
 - As an admin, I want provenance and auditability so I know who added or changed a vendor and why.
 - As an operator, I want search quality to improve because the system learns from saves, edits, trust signals, and misses.
 
@@ -178,7 +178,7 @@ Run in two parallel waves to keep latency under 8 seconds:
 
 **Post-search:**
 - Enrich strong candidates (extract contact info, validate website)
-- Persist newly discovered candidates with `verification_state=discovered`
+- Persist newly discovered candidates in discovery storage with `status="discovered"` and only promote them into the main Vendor graph after review/enrichment
 - Label results clearly: trusted vs newly discovered
 
 ### Layer 4: Transaction-Aware Presentation
@@ -209,7 +209,7 @@ Results should render based on how the deal closes.
 ### 6.2 Vendor Trust Requirements
 
 1. Vendors must have structured provenance for major fields.
-2. Vendors must support verification states.
+2. Vendors must support verification state semantics using the existing `status` and `verification_level` fields plus trust/provenance metadata.
 3. Vendors must support explicit trust scoring and contact-quality scoring.
 4. Aggregators must be identified and never outrank direct providers for equivalent intent.
 5. Ratings and edits must be attributable to a user and timestamped.
@@ -219,8 +219,8 @@ Results should render based on how the deal closes.
 1. EAs must be able to save a source from a result card into their trusted network.
 2. EAs must be able to create a vendor manually with minimal fields and let enrichment fill in the rest.
 3. EAs must be able to edit contacts, notes, categories, and service regions.
-4. EAs must be able to rate a vendor privately and at the team level.
-5. The system must prioritize personal and team-trusted sources before generic discovery results.
+4. EAs must be able to rate a vendor privately with personal notes and personal-contact flags.
+5. The system must prioritize personal-trusted sources before generic discovery results. Team trust is deferred until a Team model exists.
 
 ### 6.4 Miss Handling Requirements
 
@@ -251,18 +251,19 @@ If contactability is weak, the result should not rank highly regardless of seman
 
 Add or normalize support for:
 - `vendor_type`
-- `primary_category`
+- `category`
 - `secondary_categories`
 - `service_regions`
+- `contact_title`
 - `contact_form_url`
 - `booking_url`
-- `verification_state`
 - `trust_score`
-- `contact_quality_score`
-- `directness_score`
-- `source_provenance_summary`
+- computed `contact_quality_score`
+- `source_provenance`
 - `last_verified_at`
 - `last_contact_validated_at`
+
+Do not add a dedicated `contact_quality_score` DB column in Phase 2. It is computed from field completeness at read/ranking time.
 
 ### VendorEndorsement (new table)
 
@@ -341,7 +342,6 @@ The UI should clearly differentiate between:
 
 Every card should make confidence legible:
 - trusted by you
-- trusted by your team
 - verified by BuyAnything
 - newly discovered
 - low-confidence fallback
@@ -393,7 +393,7 @@ Every card should make confidence legible:
 | Location-sensitive queries returning location-fit results | unreliable | >90% |
 | Searches with clear trusted vs discovered labeling | low | 100% |
 | Vendor records with structured contactability | incomplete | >80% |
-| Verified or team-trusted vendors in top 5 | inconsistent | >70% |
+| Verified or personally trusted vendors in top 5 | inconsistent | >70% |
 | Time to first credible source on a miss | slow/unclear | <8s |
 | EA save/edit/rate workflow completion | manual/off-platform | <30s per action |
 

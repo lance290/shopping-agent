@@ -22,3 +22,12 @@
 
 ### Decision 7: contact_quality_score is computed, not stored
 **Rationale:** Computing it from field presence (phone, email, website, contact_name) avoids stale scores and migration overhead. trust_score IS stored because it blends multiple signals including endorsements.
+
+### Decision 8: Endorsements are private and ranking-aware
+**Rationale:** `VendorEndorsement` stores personal trust, so vendor endorsement listings must be user-scoped rather than public. Personal endorsements now add a bounded boost during internal vendor ranking to satisfy the PRD requirement that trusted sources rise ahead of generic discovery results.
+
+### Decision 9: Vendor edits require an existing trust relationship or admin access
+**Rationale:** Allowing any authenticated user to edit shared vendor records was too permissive. The safer Phase 3 rule is: admins can edit any vendor, and non-admins can edit only vendors they have already endorsed.
+
+### Decision 10: AuditLog details must be valid JSON
+**Rationale:** Stringified Python dicts are not reliable machine-readable audit data. Serializing audit details as JSON keeps the existing `AuditLog.details` field compatible while making downstream inspection and debugging deterministic.

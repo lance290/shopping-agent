@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from models import Bid, Row, Seller
+from models import Bid, Row, Seller, VendorEndorsement
 from models.auth import User
 from services.location_resolution import LocationResolutionService
 from sourcing.discovery.classifier import classify_search_path, execution_mode_for_row
@@ -140,6 +140,23 @@ class SourcingService:
             min_price, max_price = max_price, min_price
 
         return min_price, max_price
+
+    async def _build_endorsement_boosts(self, user_id: Optional[int]) -> dict[int, float]:
+        if not user_id:
+            return {}
+        stmt = select(VendorEndorsement).where(VendorEndorsement.user_id == user_id)
+        result = await self.session.exec(stmt)
+        boosts: dict[int, float] = {}
+        for endorsement in result.all():
+            rating = int(endorsement.trust_rating or 0)
+            base = 0.0
+            if rating > 0:
+                base += min(rating, 5) * 0.01
+            if endorsement.is_personal_contact:
+                base += 0.05
+            if base > 0:
+                boosts[int(endorsement.vendor_id)] = round(min(base, 0.10), 4)
+        return boosts
 
     async def search_and_persist(
         self,
@@ -470,6 +487,7 @@ class SourcingService:
         internal_statuses = list(internal_response.provider_statuses)
         normalized_internal = internal_response.normalized_results
         if normalized_internal:
+            endorsement_boosts = await self._build_endorsement_boosts(row.user_id)
             normalized_internal = score_results(
                 normalized_internal,
                 intent=search_intent,
@@ -478,6 +496,7 @@ class SourcingService:
                 desire_tier=row.desire_tier,
                 is_service=row.is_service,
                 service_category=row.service_category,
+                endorsement_boosts=endorsement_boosts,
             )
 
         bids: List[Bid] = []

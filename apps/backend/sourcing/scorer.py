@@ -26,6 +26,7 @@ def score_results(
     desire_tier: Optional[str] = None,  # DEPRECATED — kept for backwards compat, use is_service/service_category
     is_service: Optional[bool] = None,
     service_category: Optional[str] = None,
+    endorsement_boosts: Optional[Dict[int, float]] = None,
 ) -> List[NormalizedResult]:
     """
     Score and rank a list of NormalizedResults.
@@ -73,7 +74,11 @@ def score_results(
             + constraint_score * constraint_weight
         )
         support_bonus = ((ps * 0.4) + (qs * 0.4) + (db * 0.2)) * 0.05
-        combined = min(1.0, base + support_bonus) * (0.3 + 0.7 * sf)
+        vendor_id = r.raw_data.get("vendor_id") if isinstance(r.raw_data, dict) else None
+        endorsement_boost = 0.0
+        if isinstance(vendor_id, int) and endorsement_boosts:
+            endorsement_boost = float(endorsement_boosts.get(vendor_id, 0.0) or 0.0)
+        combined = min(1.0, (min(1.0, base + support_bonus) * (0.3 + 0.7 * sf)) + endorsement_boost)
 
         # Enrich provenance with score breakdown
         r.provenance["score"] = {
@@ -87,6 +92,7 @@ def score_results(
             "price": round(ps, 4),
             "quality": round(qs, 4),
             "diversity": round(db, 4),
+            "endorsement_boost": round(endorsement_boost, 4),
         }
 
         scored.append((combined, r))

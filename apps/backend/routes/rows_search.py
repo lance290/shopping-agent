@@ -729,6 +729,7 @@ async def search_row_listings_stream(
             internal_statuses = list(internal_response.provider_statuses)
             normalized_internal = list(internal_response.normalized_results)
             if normalized_internal:
+                endorsement_boosts = await sourcing_service._build_endorsement_boosts(row.user_id)
                 normalized_internal = score_results(
                     normalized_internal,
                     intent=parsed_intent,
@@ -737,6 +738,7 @@ async def search_row_listings_stream(
                     desire_tier=row.desire_tier,
                     is_service=row.is_service,
                     service_category=row.service_category,
+                    endorsement_boosts=endorsement_boosts,
                 )
                 persisted_internal = await sourcing_service._persist_results(row_id, normalized_internal, row=row)
                 all_persisted_bid_ids.update({bid.id for bid in persisted_internal if bid.id is not None})

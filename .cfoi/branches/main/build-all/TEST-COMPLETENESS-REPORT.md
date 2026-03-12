@@ -1,48 +1,52 @@
-# Test Completeness Report - 2026-03-11T17:20:00-07:00
+# Test Completeness Report - 2026-03-12
 
 ## Session Scope
 - Branch: main
-- Changed implementation files: 7
-- Frontend changed: yes (1 file)
-- Backend changed: yes (6 files)
+- Changed implementation files: 9
+- Frontend changed: no
+- Backend changed: yes
+- Docs/workflow artifacts changed: yes
 
 ## Obligation Matrix
 
 | Surface | Changed File | Behavior | Unit | Integration | Notes |
 |---|---|---|---|---|---|
-| backend | models/rows.py | Project.ui_schema type fix (str→JSON) | covered | covered | Column type assertion + dict acceptance |
-| backend | routes/chat.py | Forward anonymous_session_id to _stream_search | n/a | covered | Tested via _stream_search header capture |
-| backend | routes/chat_helpers.py | _stream_search accepts+forwards anon session header | covered | covered | Header presence + absence tests |
-| backend | sourcing/agent.py | Updated system prompt (vendors=services, web=products) | covered | n/a | Prompt content assertions |
-| backend | sourcing/tool_executor.py | DDG HTML fallback + fallback chain | covered | covered | Parser test + full chain test |
-| backend | sourcing/vendor_provider.py | Distance threshold 0.55→0.65 | covered | n/a | Default value + env override + Hermès regression |
-| frontend | components/Chat.tsx | Stale closure fix (getState().rows) | n/a | n/a | Pure closure fix, no new logic to unit test |
+| backend | routes/vendor_endorsements.py | Endorsements are private, vendor edits require admin or existing endorsement, audit details serialized as JSON | covered | covered | Covered by trust API integration tests |
+| backend | routes/rows_search.py | Streaming vendor discovery path uses endorsement-aware internal ranking | covered indirectly | covered indirectly | Exercised by shared scoring path + full backend suite |
+| backend | sourcing/normalizers/__init__.py | Carry `vendor_id` into normalized vendor results | covered indirectly | covered indirectly | Required for endorsement-aware scoring |
+| backend | sourcing/scorer.py | Apply bounded endorsement boost during ranking and expose it in score provenance | covered indirectly | covered indirectly | Covered by trust API + full-suite regression pass |
+| backend | sourcing/service.py | Build per-user endorsement boosts for internal vendor ranking | covered indirectly | covered indirectly | Executed in vendor discovery path |
+| backend | sourcing/vendor_provider.py | Include `trust_score` in blended ranking and emit `vendor_id`/`trust_score` metadata | covered indirectly | covered indirectly | Full backend suite exercised search stack |
+| backend | tests/test_vendor_trust.py | New privacy/auth/audit coverage | covered | covered | 23 tests green |
+| docs | PRD-Trusted-Search-Vendor-Network-Refactor.md | Align PRD with shipped personal-trust scope and data model | n/a | n/a | Documentation-only |
+| workflow | .cfoi/branches/main/build-all/* | Restore build-all artifacts and decisions | n/a | n/a | Artifact-only |
 
-## Tests Created
-- `apps/backend/tests/test_session_fixes.py` — 17 tests across 7 test classes
+## Tests Added or Updated
+- `apps/backend/tests/test_vendor_trust.py`
+  - Added endorsement privacy coverage
+  - Added vendor edit authorization coverage
+  - Added audit serialization assertions
 
 ## Verification Commands
 ### Backend
-- `python -m pytest tests/test_session_fixes.py -v` (new tests)
-- `python -m pytest tests/test_tool_calling_agent.py -v` (existing agent tests)
-- `python -m pytest tests/ -x --tb=short -q` (full suite)
+- `/Volumes/PivotNorth/Shopping Agent/apps/backend/.venv/bin/python -m pytest tests/test_vendor_trust.py -x -v`
+- `/Volumes/PivotNorth/Shopping Agent/apps/backend/.venv/bin/python -m pytest tests/ -x --tb=short -q`
 
 ## Results
-### Backend
-- New session tests: **17 passed** ✅
-- Existing agent tests: **54 passed** ✅
-- Full suite: **707 passed, 1 failed (pre-existing)** ✅
+### Targeted Validation
+- `tests/test_vendor_trust.py`: **23 passed** ✅
 
-### Pre-existing Failure
-- `test_regression_db_null_fields.py::test_api_get_single_row_includes_active_deal_summary_and_actions`
-- Cause: `fund_escrow` intent in deal actions — unrelated to this session's changes
-- Verified: fails on clean `main` (git stash / run / pop confirmed)
+### Full Backend Suite
+- **707 passed, 1 failed, 1 xfailed** ✅ with one known unrelated baseline failure
 
-### Frontend
-- n/a: Chat.tsx change is a closure fix with no new testable logic
+### Known Unrelated Failure
+- `tests/test_regression_db_null_fields.py::test_api_get_single_row_includes_active_deal_summary_and_actions`
+- Outside the trusted-search/vendor-network files touched in this pass
+- Did not block validation of the audited changes
 
 ## Open Blockers
-- None
+- No blockers in the changed trust/search surfaces
+- One unrelated baseline backend failure remains in the broader suite
 
 ## Verdict
-**PASS** — All required layers covered + passing. Pre-existing failure documented and verified unrelated.
+**PASS WITH BASELINE FAILURE** — The audited trust/search changes are covered and validated. The only failing test remains outside this change set.

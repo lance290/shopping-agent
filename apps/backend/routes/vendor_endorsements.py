@@ -7,6 +7,7 @@ Allows authenticated users to:
 - Edit vendor contact/category fields (admin or endorser)
 """
 
+import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -105,7 +106,7 @@ async def _audit(
         action=action,
         resource_type=resource_type,
         resource_id=str(resource_id),
-        details=str(details) if details else None,
+        details=json.dumps(details, default=str) if details else None,
     )
     session.add(log)
 
@@ -179,8 +180,11 @@ async def list_endorsements_for_vendor(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
-    """List all endorsements for a vendor (public)."""
-    stmt = select(VendorEndorsement).where(VendorEndorsement.vendor_id == vendor_id)
+    auth = await _require_user(authorization, session)
+    stmt = select(VendorEndorsement).where(
+        VendorEndorsement.vendor_id == vendor_id,
+        VendorEndorsement.user_id == auth.user_id,
+    )
     result = await session.exec(stmt)
     endorsements = result.all()
     return {"endorsements": [_endorsement_to_dict(e) for e in endorsements]}
@@ -235,12 +239,24 @@ async def update_vendor_fields(
     authorization: Optional[str] = Header(None),
     session: AsyncSession = Depends(get_session),
 ):
-    """Update allowed vendor fields. Requires auth. Tracks changes via AuditLog."""
     auth = await _require_user(authorization, session)
+    user = await session.get(User, auth.user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
 
     vendor = await session.get(Vendor, vendor_id)
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
+
+    if not user.is_admin:
+        endorsement_stmt = select(VendorEndorsement).where(
+            VendorEndorsement.vendor_id == vendor_id,
+            VendorEndorsement.user_id == auth.user_id,
+        )
+        endorsement_result = await session.exec(endorsement_stmt)
+        endorsement = endorsement_result.first()
+        if not endorsement:
+            raise HTTPException(status_code=403, detail="Only endorsers or admins can edit this vendor")
 
     changes: Dict[str, Dict[str, Any]] = {}
     update_data = body.model_dump(exclude_unset=True)

@@ -332,7 +332,7 @@ class VendorDirectoryProvider(SourcingProvider):
                         -- Top candidates by vector similarity
                         vec_candidates AS (
                             SELECT id, name, description, tagline, website, email, phone,
-                                   image_url, category, embedding::text AS embedding_text,
+                                   trust_score, image_url, category, embedding::text AS embedding_text,
                                    store_geo_location, latitude, longitude,
                                    (embedding <=> CAST(:qvec AS vector)) AS distance,
                                    CASE
@@ -348,7 +348,7 @@ class VendorDirectoryProvider(SourcingProvider):
                         -- Top candidates by FTS rank (guaranteed inclusion)
                         fts_candidates AS (
                             SELECT id, name, description, tagline, website, email, phone,
-                                   image_url, category, embedding::text AS embedding_text,
+                                   trust_score, image_url, category, embedding::text AS embedding_text,
                                    store_geo_location, latitude, longitude,
                                    (embedding <=> CAST(:qvec AS vector)) AS distance,
                                    ts_rank_cd(search_vector, to_tsquery('english', :fts_query)) AS fts_rank
@@ -361,7 +361,7 @@ class VendorDirectoryProvider(SourcingProvider):
                         ),
                         geo_candidates AS (
                             SELECT id, name, description, tagline, website, email, phone,
-                                   image_url, category, embedding::text AS embedding_text,
+                                   trust_score, image_url, category, embedding::text AS embedding_text,
                                    store_geo_location, latitude, longitude,
                                    (embedding <=> CAST(:qvec AS vector)) AS distance,
                                    CASE
@@ -416,7 +416,7 @@ class VendorDirectoryProvider(SourcingProvider):
                         ),
                         service_area_candidates AS (
                             SELECT id, name, description, tagline, website, email, phone,
-                                   image_url, category, embedding::text AS embedding_text,
+                                   trust_score, image_url, category, embedding::text AS embedding_text,
                                    store_geo_location, latitude, longitude,
                                    (embedding <=> CAST(:qvec AS vector)) AS distance,
                                    CASE
@@ -485,6 +485,7 @@ class VendorDirectoryProvider(SourcingProvider):
                         result = await conn.execute(
                             sa.text(
                                 "SELECT id, name, description, tagline, website, email, phone, "
+                                "trust_score, "
                                 "image_url, category, store_geo_location, latitude, longitude, "
                                 "(embedding <=> CAST(:qvec AS vector)) AS distance, "
                                 "0::float AS fts_rank "
@@ -629,11 +630,15 @@ class VendorDirectoryProvider(SourcingProvider):
             if r.get("description") or r.get("tagline"):
                 cq_score += 0.20
 
+            trust_score = float(r.get("trust_score") or 0.0)
+            trust_score = max(0.0, min(trust_score, 1.0))
+
             blended = (
                 weight_profile["semantic"] * vec_score
                 + weight_profile["fts"] * fts_norm
                 + weight_profile["geo"] * geo_score
                 + weight_profile["constraint"] * constraint_score
+                + 0.10 * trust_score
                 + 0.10 * cq_score
             )
 
@@ -655,6 +660,7 @@ class VendorDirectoryProvider(SourcingProvider):
                 merchant_domain=merchant_domain,
                 image_url=favicon,
                 source="vendor_directory",
+                vendor_id=r["id"],
                 match_score=round(blended, 4),
                 rating=None,
                 reviews_count=None,
@@ -671,6 +677,7 @@ class VendorDirectoryProvider(SourcingProvider):
                     "store_geo_location": store_geo_location,
                     "geo_distance_miles": round(geo_distance_miles, 3) if geo_distance_miles is not None else None,
                     "text_location_match": round(text_location_match, 4),
+                    "trust_score": round(trust_score, 4),
                     "contact_quality_score": round(cq_score, 2),
                 },
             )

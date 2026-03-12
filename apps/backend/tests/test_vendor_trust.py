@@ -218,6 +218,32 @@ async def test_endorsement_list_for_vendor(client: AsyncClient, session, auth_us
 
 
 @pytest.mark.asyncio
+async def test_endorsement_list_for_vendor_is_private_to_current_user(client: AsyncClient, session, auth_user_and_token, other_user):
+    from models.bids import Vendor
+
+    _, token = auth_user_and_token
+    _, other_token = other_user
+
+    vendor = Vendor(name="Private List Target")
+    session.add(vendor)
+    await session.commit()
+    await session.refresh(vendor)
+
+    await client.post(
+        f"/api/vendors/{vendor.id}/endorsements",
+        json={"vendor_id": vendor.id, "trust_rating": 5, "notes": "private"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    other_resp = await client.get(
+        f"/api/vendors/{vendor.id}/endorsements",
+        headers={"Authorization": f"Bearer {other_token}"},
+    )
+    assert other_resp.status_code == 200
+    assert other_resp.json()["endorsements"] == []
+
+
+@pytest.mark.asyncio
 async def test_endorsement_delete(client: AsyncClient, session, auth_user_and_token):
     """DELETE /api/vendors/{id}/endorsements deletes user's endorsement."""
     from models.bids import Vendor
@@ -298,6 +324,13 @@ async def test_vendor_field_update(client: AsyncClient, session, auth_user_and_t
     await session.commit()
     await session.refresh(vendor)
 
+    endorse_resp = await client.post(
+        f"/api/vendors/{vendor.id}/endorsements",
+        json={"vendor_id": vendor.id, "trust_rating": 4},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert endorse_resp.status_code == 200
+
     resp = await client.patch(
         f"/api/vendors/{vendor.id}",
         json={
@@ -323,6 +356,27 @@ async def test_vendor_field_update(client: AsyncClient, session, auth_user_and_t
     audit = result.first()
     assert audit is not None
     assert audit.action == "vendor.update"
+    assert audit.details is not None
+    assert "\"phone\"" in audit.details
+
+
+@pytest.mark.asyncio
+async def test_vendor_field_update_requires_endorsement_or_admin(client: AsyncClient, session, auth_user_and_token):
+    from models.bids import Vendor
+
+    _, token = auth_user_and_token
+
+    vendor = Vendor(name="Protected Vendor", phone="+1-555-0000")
+    session.add(vendor)
+    await session.commit()
+    await session.refresh(vendor)
+
+    resp = await client.patch(
+        f"/api/vendors/{vendor.id}",
+        json={"phone": "+1-555-2222"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -336,6 +390,13 @@ async def test_vendor_field_update_no_changes(client: AsyncClient, session, auth
     session.add(vendor)
     await session.commit()
     await session.refresh(vendor)
+
+    endorse_resp = await client.post(
+        f"/api/vendors/{vendor.id}/endorsements",
+        json={"vendor_id": vendor.id, "trust_rating": 3},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert endorse_resp.status_code == 200
 
     resp = await client.patch(
         f"/api/vendors/{vendor.id}",
