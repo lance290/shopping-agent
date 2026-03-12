@@ -125,6 +125,9 @@ export const runSearchApiWithStatus = async (
         vendor_email: typeof r?.vendor_email === 'string' ? r.vendor_email : undefined,
         vendor_name: typeof r?.vendor_name === 'string' ? r.vendor_name : undefined,
         vendor_company: typeof r?.vendor_company === 'string' ? r.vendor_company : undefined,
+        contact_quality_score: typeof (r?.metadata as Record<string, unknown>)?.contact_quality_score === 'number'
+          ? (r.metadata as Record<string, unknown>).contact_quality_score as number
+          : undefined,
       } satisfies Offer;
     })];
     

@@ -7,6 +7,7 @@ from pgvector.sqlalchemy import Vector
 import sqlalchemy as sa
 from sqlmodel import Field, SQLModel, Relationship, Column
 from pydantic import ConfigDict, computed_field
+from typing import Literal
 
 if TYPE_CHECKING:
     from models.rows import Row
@@ -39,6 +40,13 @@ class Vendor(SQLModel, table=True):
     embedded_at: Optional[datetime] = None
     # Contact
     contact_name: Optional[str] = None
+    contact_title: Optional[str] = None
+    contact_form_url: Optional[str] = None
+    booking_url: Optional[str] = None
+    # Classification (extended)
+    vendor_type: Optional[str] = None  # retailer, reseller, broker, service_provider, advisor, marketplace, aggregator
+    secondary_categories: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    service_regions: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
     # Status & trust
     is_verified: bool = False
     status: str = "unverified"
@@ -53,6 +61,11 @@ class Vendor(SQLModel, table=True):
     tier_affinity: Optional[str] = None
     price_range_min: Optional[float] = None  # Typical minimum order/price
     price_range_max: Optional[float] = None  # Typical maximum order/price
+    # Trust & provenance
+    source_provenance: Optional[str] = None  # ea_submitted, google_maps, web_search, manual_research, marketplace
+    trust_score: Optional[float] = None  # blended: verification + contact quality + reputation + freshness
+    last_verified_at: Optional[datetime] = None
+    last_contact_validated_at: Optional[datetime] = None
     # Programmatic SEO / GEO
     slug: Optional[str] = Field(default=None, index=True, unique=True)
     seo_content: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
@@ -62,6 +75,44 @@ class Vendor(SQLModel, table=True):
     updated_at: Optional[datetime] = None
 
     bids: List["Bid"] = Relationship(back_populates="seller")
+
+    @property
+    def contact_quality_score(self) -> float:
+        """Computed score (0.0-1.0) based on contact field completeness.
+
+        Weights: phone=0.25, email=0.20, website=0.20, contact_name=0.15,
+        contact_form/booking=0.10, description=0.10
+        """
+        score = 0.0
+        if self.phone:
+            score += 0.25
+        if self.email:
+            score += 0.20
+        if self.website:
+            score += 0.20
+        if self.contact_name:
+            score += 0.15
+        if self.contact_form_url or self.booking_url:
+            score += 0.10
+        if self.description:
+            score += 0.10
+        return round(score, 2)
+
+
+class VendorEndorsement(SQLModel, table=True):
+    """User-attributed trust and rating for a vendor."""
+    __tablename__ = "vendor_endorsement"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    vendor_id: int = Field(foreign_key="vendor.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    trust_rating: Optional[int] = None  # 1-5 scale
+    recommended_for_categories: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    recommended_for_regions: Optional[Any] = Field(default=None, sa_column=Column(sa.JSON, nullable=True))
+    notes: Optional[str] = None
+    is_personal_contact: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
 
 
 # Backward-compatible alias during migration

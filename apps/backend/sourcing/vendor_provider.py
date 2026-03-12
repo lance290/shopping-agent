@@ -618,11 +618,23 @@ class VendorDirectoryProvider(SourcingProvider):
                     constraint_score = min(1.0, term_hits / len(location_terms))
                 geo_score = 0.0 if not geo_resolution else 0.05 * precision_multiplier
 
+            # Contact quality boost: vendors with real contact info rank higher
+            cq_score = 0.0
+            if r.get("phone"):
+                cq_score += 0.30
+            if r.get("email"):
+                cq_score += 0.25
+            if r.get("website"):
+                cq_score += 0.25
+            if r.get("description") or r.get("tagline"):
+                cq_score += 0.20
+
             blended = (
                 weight_profile["semantic"] * vec_score
                 + weight_profile["fts"] * fts_norm
                 + weight_profile["geo"] * geo_score
                 + weight_profile["constraint"] * constraint_score
+                + 0.10 * cq_score
             )
 
             # Parse vendor embedding for quantum reranker
@@ -659,6 +671,7 @@ class VendorDirectoryProvider(SourcingProvider):
                     "store_geo_location": store_geo_location,
                     "geo_distance_miles": round(geo_distance_miles, 3) if geo_distance_miles is not None else None,
                     "text_location_match": round(text_location_match, 4),
+                    "contact_quality_score": round(cq_score, 2),
                 },
             )
             results.append(result_item)

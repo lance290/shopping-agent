@@ -42,6 +42,7 @@ from models.rows import (
 from models.bids import (
     Vendor,
     Seller,  # backward-compatible alias for Vendor
+    VendorEndorsement,
     Bid,
     BidWithProvenance,
 )
@@ -139,6 +140,7 @@ __all__ = [
     "Seller",
     "Bid",
     "BidWithProvenance",
+    "VendorEndorsement",
     # Social
     "Comment",
     "ShareLink",

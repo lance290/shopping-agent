@@ -182,10 +182,13 @@ SEARCH_MARKETPLACE = {
 SEARCH_WEB = {
     "name": "search_web",
     "description": (
-        "Search the web via Google for information, reviews, directories, "
-        "or niche marketplaces. Use when you need editorial content, "
-        "'best of' lists, industry directories, or sources not covered "
-        "by vendor DB or marketplaces. Good for discovery and research."
+        "Search the web via Google for commercial pages where the user "
+        "can BUY or INQUIRE. Use for: authenticated luxury resellers, "
+        "specialty dealers, niche marketplaces, broker websites, and "
+        "direct provider sites not covered by vendor DB or marketplaces. "
+        "NEVER use this to find articles, blog posts, or listicles. "
+        "Always include commercial intent words (buy, for sale, shop, "
+        "price, dealer, broker) in your query."
     ),
     "parameters": {
         "type": "object",

@@ -37,6 +37,7 @@ export interface Offer {
   is_vendor_bookmarked?: boolean;
   is_item_bookmarked?: boolean;
   is_emailed?: boolean;
+  contact_quality_score?: number;
 }
 
 export type ProviderStatusType = 'ok' | 'error' | 'timeout' | 'exhausted' | 'rate_limited';

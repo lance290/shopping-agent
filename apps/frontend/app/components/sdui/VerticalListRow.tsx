@@ -5,7 +5,7 @@ import { useShoppingStore, mapBidToOffer } from '../../store';
 import type { Row, Offer } from '../../store';
 import { runSearchApiWithStatus, fetchSingleRowFromDb, toggleVendorBookmark, toggleItemBookmark, createShareLink, createCommentApi, fetchCommentsApi, fetchWithAuth, AUTH_REQUIRED, preferredSearchQueryForRow, submitFeedback, submitOutcome, FEEDBACK_OPTIONS, RESOLUTION_OPTIONS, QUALITY_OPTIONS } from '../../utils/api';
 import type { CommentDto, FeedbackType, ResolutionType, QualityType } from '../../utils/api';
-import { Trash2, RotateCw, Heart, CheckCircle2, MessageSquare, Share2, Copy, Send, Star, ThumbsUp, ThumbsDown, ChevronDown } from 'lucide-react';
+import { Trash2, RotateCw, Heart, CheckCircle2, MessageSquare, Share2, Copy, Send, Star, ThumbsUp, ThumbsDown, ChevronDown, Shield } from 'lucide-react';
 import { DynamicRenderer } from './DynamicRenderer';
 import { validateUISchema } from '../../sdui/types';
 import VendorContactModal from '../VendorContactModal';
@@ -649,6 +649,16 @@ function BidCard({
             {offer.merchant && offer.merchant !== 'Unknown' && (
               <span className="text-[10px] text-onyx-muted">{offer.merchant}</span>
             )}
+            {isVendor && offer.contact_quality_score != null && offer.contact_quality_score >= 0.7 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-0.5">
+                <Shield size={8} /> Verified Contact
+              </span>
+            )}
+            {isVendor && offer.contact_quality_score != null && offer.contact_quality_score >= 0.4 && offer.contact_quality_score < 0.7 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-0.5">
+                <Shield size={8} /> Has Contact
+              </span>
+            )}
             {offer.is_vendor_bookmarked && (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-0.5">
                 <Star size={8} className="fill-current" /> Saved to Rolodex
@@ -769,7 +779,9 @@ function BidCard({
             >
               {(row.is_service || SERVICE_FIRST_DESIRE_TIERS.has(row.desire_tier || '')) && (offer.price === null || offer.price === undefined)
                 ? 'Request Quote'
-                : 'View Deal'}
+                : (row.desire_tier === 'bespoke' || row.desire_tier === 'high_value')
+                  ? 'Contact Source'
+                  : 'View Deal'}
             </a>
           ) : null}
         </div>
