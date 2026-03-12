@@ -314,6 +314,7 @@ async def _stream_search(
     row_id: int,
     query: str,
     authorization: Optional[str],
+    anonymous_session_id: Optional[str] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Stream search results from the backend's own search/stream endpoint.
@@ -324,6 +325,8 @@ async def _stream_search(
     headers: Dict[str, str] = {"Content-Type": "application/json"}
     if authorization:
         headers["Authorization"] = authorization
+    if anonymous_session_id:
+        headers["X-Anonymous-Session-Id"] = anonymous_session_id
 
     async with httpx.AsyncClient() as client:
         async with client.stream(

@@ -78,7 +78,7 @@ def _get_embedding_dimensions() -> int:
 # Cosine distance threshold: 0 = identical, 2 = opposite
 # Default read at call time so .env overrides work
 def _get_distance_threshold() -> float:
-    return float(os.getenv("VENDOR_DISTANCE_THRESHOLD", "0.55"))
+    return float(os.getenv("VENDOR_DISTANCE_THRESHOLD", "0.65"))
 
 
 async def _embed_texts(texts: List[str]) -> Optional[List[List[float]]]:

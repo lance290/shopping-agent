@@ -12,6 +12,11 @@ import os
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
+from html.parser import HTMLParser
+from urllib.parse import unquote, parse_qs
+
+import httpx
+
 from sourcing.models import NormalizedResult
 from sourcing.normalizers import normalize_results_for_provider
 from sourcing.tools import ToolCall, ToolResult
@@ -159,7 +164,6 @@ async def _tool_search_web(
     SourcingRepository providers all use engine=google_shopping which is wrong
     for informational queries. This calls the APIs directly with engine=google.
     """
-    import httpx
     from sourcing.repository import SearchResult, extract_merchant_domain, normalize_url
 
     # Try APIs in order until one works
@@ -214,7 +218,123 @@ async def _tool_search_web(
             metadata={"source": "web_search", "provider": provider_name},
         )
 
-    return ToolResult(error="No web search API key configured or all returned 0 results")
+    # Fallback: Google Custom Search Engine (free tier — 100 queries/day)
+    cse_key = os.getenv("GOOGLE_CSE_API_KEY", "")
+    cse_cx = os.getenv("GOOGLE_CSE_CX", "")
+    if cse_key and cse_cx:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    "https://www.googleapis.com/customsearch/v1",
+                    params={
+                        "key": cse_key,
+                        "cx": cse_cx,
+                        "q": query,
+                        "num": min(max_results, 10),  # CSE max is 10 per request
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                items = data.get("items", [])
+                if items:
+                    normalized = []
+                    for item in items[:max_results]:
+                        url = normalize_url(item.get("link", ""))
+                        domain = extract_merchant_domain(url)
+                        normalized.append(NormalizedResult(
+                            title=item.get("title", "Unknown"),
+                            url=url,
+                            source="web_google_cse",
+                            merchant_name=domain or "Web",
+                            merchant_domain=domain,
+                            raw_data={"snippet": item.get("snippet", "")},
+                        ))
+                    return ToolResult(
+                        items=normalized,
+                        metadata={"source": "web_search", "provider": "google_cse"},
+                    )
+                logger.info("[ToolExec] search_web google_cse returned 0 items")
+        except Exception as e:
+            logger.warning("[ToolExec] search_web google_cse failed: %s", e)
+
+    # Last resort: DuckDuckGo HTML API (no API key needed)
+    try:
+        ddg_results = await _ddg_html_search(query, max_results)
+        if ddg_results:
+            normalized = []
+            for item in ddg_results[:max_results]:
+                url = normalize_url(item["url"])
+                domain = extract_merchant_domain(url)
+                normalized.append(NormalizedResult(
+                    title=item.get("title", "Unknown"),
+                    url=url,
+                    source="web_duckduckgo",
+                    merchant_name=domain or "Web",
+                    merchant_domain=domain,
+                    raw_data={"snippet": item.get("snippet", "")},
+                ))
+            return ToolResult(
+                items=normalized,
+                metadata={"source": "web_search", "provider": "duckduckgo"},
+            )
+        logger.info("[ToolExec] search_web duckduckgo returned 0 results")
+    except Exception as e:
+        logger.warning("[ToolExec] search_web duckduckgo failed: %s", e)
+
+    return ToolResult(error="All web search providers failed")
+
+
+async def _ddg_html_search(query: str, max_results: int = 10) -> List[Dict[str, str]]:
+    """Scrape DuckDuckGo HTML search — zero API keys required."""
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+        resp = await client.get(
+            "https://html.duckduckgo.com/html/",
+            params={"q": query},
+            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"},
+        )
+        resp.raise_for_status()
+
+    results: List[Dict[str, str]] = []
+
+    class DDGParser(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self._in_result_link = False
+            self._in_snippet = False
+            self._current: Dict[str, str] = {}
+
+        def handle_starttag(self, tag, attrs):
+            d = dict(attrs)
+            cls = d.get("class", "")
+            if tag == "a" and "result__a" in cls:
+                self._in_result_link = True
+                raw_href = d.get("href", "")
+                # DDG wraps URLs: //duckduckgo.com/l/?uddg=<encoded_url>&...
+                if "uddg=" in raw_href:
+                    qs = parse_qs(urlparse(raw_href).query)
+                    self._current["url"] = unquote(qs.get("uddg", [""])[0])
+                else:
+                    self._current["url"] = raw_href
+            if tag == "a" and "result__snippet" in cls:
+                self._in_snippet = True
+
+        def handle_data(self, data):
+            if self._in_result_link:
+                self._current["title"] = self._current.get("title", "") + data
+            if self._in_snippet:
+                self._current["snippet"] = self._current.get("snippet", "") + data
+
+        def handle_endtag(self, tag):
+            if tag == "a" and self._in_result_link:
+                self._in_result_link = False
+            if tag == "a" and self._in_snippet:
+                self._in_snippet = False
+                if self._current.get("url"):
+                    results.append(self._current)
+                self._current = {}
+
+    DDGParser().feed(resp.text)
+    return results[:max_results]
 
 
 _APIFY_BLOCKLIST: set[str] = {

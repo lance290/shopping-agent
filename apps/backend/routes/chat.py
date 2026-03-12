@@ -222,7 +222,7 @@ async def chat_endpoint(
                 # Search for deals on each created row sequentially
                 for row, q, tier in created_rows:
                     yield sse_event("action_started", {"type": "search", "row_id": row.id, "query": q})
-                    async for batch in _stream_search(row.id, q, authorization):
+                    async for batch in _stream_search(row.id, q, authorization, x_anonymous_session_id):
                         if batch.get("event") == "complete":
                             if batch.get("user_message"):
                                 yield sse_event("search_results", {
@@ -278,7 +278,7 @@ async def chat_endpoint(
 
                 # Search — tier filtering happens inside the search pipeline
                 yield sse_event("action_started", {"type": "search", "row_id": row.id, "query": search_query})
-                async for batch in _stream_search(row.id, search_query, authorization):
+                async for batch in _stream_search(row.id, search_query, authorization, x_anonymous_session_id):
                     if batch.get("event") == "complete":
                         if batch.get("user_message"):
                             yield sse_event("search_results", {
@@ -335,7 +335,7 @@ async def chat_endpoint(
                     yield sse_event("factors_updated", {"row": row_to_dict(row)})
 
                     yield sse_event("action_started", {"type": "search", "row_id": row.id, "query": search_query})
-                    async for batch in _stream_search(row.id, search_query, authorization):
+                    async for batch in _stream_search(row.id, search_query, authorization, x_anonymous_session_id):
                         if batch.get("event") == "complete":
                             if batch.get("user_message"):
                                 yield sse_event("search_results", {"row_id": row.id, "results": [], "more_incoming": False, "user_message": batch["user_message"]})
@@ -393,7 +393,7 @@ async def chat_endpoint(
                 # Search — tier filtering happens inside the search pipeline
                 if search_query:
                     yield sse_event("action_started", {"type": "search", "row_id": active_row_id, "query": search_query})
-                    async for batch in _stream_search(active_row_id, search_query, authorization):
+                    async for batch in _stream_search(active_row_id, search_query, authorization, x_anonymous_session_id):
                         if batch.get("event") == "complete":
                             if batch.get("user_message"):
                                 yield sse_event("search_results", {
@@ -442,7 +442,7 @@ async def chat_endpoint(
                     yield sse_event("factors_updated", {"row": row_to_dict(row)})
 
                 yield sse_event("action_started", {"type": "search", "row_id": active_row_id, "query": search_query})
-                async for batch in _stream_search(active_row_id, search_query, authorization):
+                async for batch in _stream_search(active_row_id, search_query, authorization, x_anonymous_session_id):
                     if batch.get("event") == "complete":
                         if batch.get("user_message"):
                             yield sse_event("search_results", {

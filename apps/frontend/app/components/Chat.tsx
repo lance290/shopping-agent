@@ -300,7 +300,8 @@ export default function Chat() {
                   const currentMessages = [...messages, userMessage, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
                   saveChatHistory(row.id, currentMessages);
                   const rowWithHistory = { ...row, chat_history: JSON.stringify(currentMessages) };
-                  const mergedRows = [...rows.filter((r) => r.id !== row.id), rowWithHistory];
+                  const freshRows = useShoppingStore.getState().rows;
+                  const mergedRows = [...freshRows.filter((r) => r.id !== row.id), rowWithHistory];
                   setRows(mergedRows);
                 } else {
                   // New request — save outgoing row's chat, then start fresh for the new row
@@ -312,7 +313,8 @@ export default function Chat() {
                   const freshMessages = [userMessage, { id: assistantMessage.id, role: 'assistant' as const, content: assistantContent }];
                   saveChatHistory(row.id, freshMessages);
                   const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages) };
-                  const mergedRows = [...rows.filter((r) => r.id !== row.id), rowWithHistory];
+                  const freshRows = useShoppingStore.getState().rows;
+                  const mergedRows = [...freshRows.filter((r) => r.id !== row.id), rowWithHistory];
                   setRows(mergedRows);
                   setMessages(freshMessages);
                 }
@@ -341,7 +343,8 @@ export default function Chat() {
                 ];
                 saveChatHistory(row.id, freshMessages);
                 const rowWithHistory = { ...row, chat_history: JSON.stringify(freshMessages) };
-                const mergedRows = [...rows.filter((r) => r.id !== row.id), rowWithHistory];
+                const freshRows = useShoppingStore.getState().rows;
+                const mergedRows = [...freshRows.filter((r) => r.id !== row.id), rowWithHistory];
                 setRows(mergedRows);
                 store.setActiveRowId(row.id);
                 store.setCurrentQuery(row.title);
@@ -359,7 +362,8 @@ export default function Chat() {
                 store.setIsSearching(true);
                 const updatedRow = row ?? await fetchSingleRowFromDb(rowId);
                 if (updatedRow) {
-                  const mergedRows = [...rows.filter((r) => r.id !== updatedRow.id), updatedRow];
+                  const freshRows = useShoppingStore.getState().rows;
+                  const mergedRows = [...freshRows.filter((r) => r.id !== updatedRow.id), updatedRow];
                   setRows(mergedRows);
                   store.setActiveRowId(updatedRow.id);
                   store.setCurrentQuery(updatedRow.title);
