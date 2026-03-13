@@ -776,12 +776,6 @@ class SourcingService:
             quality_score_val = score_data.get("quality")
             diversity_bonus_val = score_data.get("diversity")
 
-            source_tier = "marketplace"
-            if res.source in ("seller_quote", "vendor_directory"):
-                source_tier = "outreach"
-            elif res.source == "registered_merchant":
-                source_tier = "registered"
-
             # Mark as service provider if the row is a service search or
             # the result came from Google Places (always a real business)
             is_svc = bool(
@@ -789,6 +783,14 @@ class SourcingService:
                 or res.source.startswith("apify_compass")
                 or res.source == "vendor_directory"
             )
+
+            source_tier = "marketplace"
+            if res.source in ("seller_quote", "vendor_directory"):
+                source_tier = "outreach"
+            elif is_svc and res.source.startswith("apify_"):
+                source_tier = "outreach"
+            elif res.source == "registered_merchant":
+                source_tier = "registered"
 
             if existing_bid:
                 existing_bid.price = res.price if res.price is not None else existing_bid.price

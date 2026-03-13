@@ -56,9 +56,13 @@ export default function OutreachQueue({ isOpen, onClose, onSent, rowId, desireTi
     setFlowState('capture');
   }, [isOpen, selectedBidIds]);
 
-  const vendorOffers = offers.filter(o => o.source === 'vendor_directory');
-  const selectedOffers = vendorOffers.filter((offer) => typeof offer.bid_id === 'number' && selectedBidIds.includes(offer.bid_id));
-  if (!isOpen || vendorOffers.length === 0) return null;
+  const outreachEligibleOffers = offers.filter(o =>
+    o.source === 'vendor_directory'
+    || o.is_service_provider === true
+    || (o.vendor_id != null && o.source?.startsWith('apify_'))
+  );
+  const selectedOffers = outreachEligibleOffers.filter((offer) => typeof offer.bid_id === 'number' && selectedBidIds.includes(offer.bid_id));
+  if (!isOpen || outreachEligibleOffers.length === 0) return null;
 
   const draftCampaign = async (bidIds: number[], name: string, email: string) => {
     if (!name.trim()) { setErrorMsg('Please enter your name.'); return; }

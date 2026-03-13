@@ -30,6 +30,14 @@ function isCustomVendorOffer(offer: Offer): boolean {
     || offer.is_service_provider === true;
 }
 
+function isOutreachEligible(offer: Offer): boolean {
+  return typeof offer.bid_id === 'number' && (
+    offer.source === 'vendor_directory'
+    || offer.is_service_provider === true
+    || (offer.vendor_id != null && offer.source?.startsWith('apify_'))
+  );
+}
+
 export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, onToggleExpand }: VerticalListRowProps) {
   const rowRef = useRef<HTMLDivElement>(null);
 
@@ -93,13 +101,7 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
     return 0;
   }), [unsortedOffers, sortMode, prefersCustomVendors]);
   const rfpEligibleOffers = useMemo(
-    () => displayOffers.filter((offer) =>
-      typeof offer.bid_id === 'number' && (
-        offer.source === 'vendor_directory'
-        || offer.is_service_provider
-        || (offer.vendor_id != null && offer.source?.startsWith('apify_'))
-      )
-    ),
+    () => displayOffers.filter(isOutreachEligible),
     [displayOffers],
   );
   const selectedRfpBidIds = useMemo(
@@ -316,7 +318,7 @@ export function VerticalListRow({ row, offers, isActive, isExpanded, onSelect, o
                   row={row}
                   isRfpSelected={typeof offer.bid_id === 'number' ? rfpSelectedBidIds.has(offer.bid_id) : false}
                   isRfpSent={typeof offer.bid_id === 'number' ? rfpSentBidIds.has(offer.bid_id) : false}
-                  onToggleRfpSelection={typeof offer.bid_id === 'number' && offer.source === 'vendor_directory'
+                  onToggleRfpSelection={isOutreachEligible(offer)
                     ? () => toggleRfpBid(offer.bid_id as number)
                     : undefined}
                 />
