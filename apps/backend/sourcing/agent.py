@@ -28,7 +28,7 @@ from sourcing.tools import (
 logger = logging.getLogger(__name__)
 
 USE_TOOL_CALLING_AGENT = (
-    os.getenv("USE_TOOL_CALLING_AGENT", "false").lower() == "true"
+    os.getenv("USE_TOOL_CALLING_AGENT", "true").lower() == "true"
 )
 
 

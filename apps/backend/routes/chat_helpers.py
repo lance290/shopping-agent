@@ -149,6 +149,7 @@ async def _build_search_intent_json(title: str, search_query: str, constraints: 
         desire_tier=None,
         constraints=constraints,
         features=constraints,
+        payload={"raw_input": search_query or title, "keywords": keywords},
     )
 
     # Phase 1.1: Geocode location targets

@@ -712,8 +712,13 @@ class VendorDirectoryProvider(SourcingProvider):
             if location_match:
                 matched_location_results.append(result_item)
 
-        if has_explicit_location_target and location_mode in {"service_area", "vendor_proximity"} and matched_location_results:
+        if has_explicit_location_target and matched_location_results:
             results = matched_location_results
+            if location_mode not in {"service_area", "vendor_proximity"}:
+                logger.warning(
+                    f"[VendorProvider] Defense-in-depth: location_terms={location_terms} "
+                    f"but mode={location_mode}; still hard-filtering to {len(matched_location_results)} local results"
+                )
 
         # PHASE 1.3: Hard filter by delivery_type constraint
         if intent_payload and isinstance(intent_payload, dict):

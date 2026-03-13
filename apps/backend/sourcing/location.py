@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 from sourcing.models import (
     LocationContext,
@@ -59,6 +62,83 @@ LEGACY_LOCATION_KEYS = {
     "city": "search_area",
     "market": "vendor_market",
 }
+
+# Major US cities (population > ~75k) for fallback location extraction.
+# Used when the LLM constraints dict doesn't contain an explicit location key
+# but the user's raw input mentions a city name.
+US_MAJOR_CITIES: set[str] = {
+    "albuquerque", "anaheim", "anchorage", "arlington", "atlanta", "aurora",
+    "austin", "bakersfield", "baltimore", "baton rouge", "birmingham", "boise",
+    "boston", "buffalo", "chandler", "charlotte", "chattanooga", "chesapeake",
+    "chicago", "chula vista", "cincinnati", "cleveland", "colorado springs",
+    "columbus", "corpus christi", "dallas", "denver", "des moines", "detroit",
+    "durham", "el paso", "eugene", "fort collins", "fort lauderdale", "fort wayne",
+    "fort worth", "fremont", "fresno", "garland", "gilbert", "glendale",
+    "greensboro", "henderson", "hialeah", "honolulu", "houston", "huntsville",
+    "indianapolis", "irvine", "irving", "jackson", "jacksonville", "jersey city",
+    "kansas city", "knoxville", "las vegas", "lexington", "lincoln", "little rock",
+    "long beach", "los angeles", "louisville", "lubbock", "madison", "memphis",
+    "mesa", "miami", "milwaukee", "minneapolis", "modesto", "montgomery",
+    "moreno valley", "nashville", "new orleans", "new york", "newark", "norfolk",
+    "north las vegas", "oakland", "oklahoma city", "omaha", "ontario", "orlando",
+    "oxnard", "palm bay", "paradise", "pembroke pines", "peoria", "philadelphia",
+    "phoenix", "pittsburgh", "plano", "portland", "providence", "raleigh",
+    "reno", "richmond", "riverside", "rochester", "sacramento", "saint paul",
+    "salt lake city", "san antonio", "san bernardino", "san diego", "san francisco",
+    "san jose", "santa ana", "santa clarita", "santa rosa", "savannah", "scottsdale",
+    "seattle", "shreveport", "spokane", "springfield", "st. louis", "st. paul",
+    "st. petersburg", "stamford", "stockton", "tampa", "tempe", "toledo",
+    "tucson", "tulsa", "virginia beach", "washington", "wichita", "wilmington",
+    "winston-salem", "worcester", "yonkers",
+}
+
+# US state names and abbreviations for context
+US_STATES: dict[str, str] = {
+    "al": "alabama", "ak": "alaska", "az": "arizona", "ar": "arkansas",
+    "ca": "california", "co": "colorado", "ct": "connecticut", "de": "delaware",
+    "fl": "florida", "ga": "georgia", "hi": "hawaii", "id": "idaho",
+    "il": "illinois", "in": "indiana", "ia": "iowa", "ks": "kansas",
+    "ky": "kentucky", "la": "louisiana", "me": "maine", "md": "maryland",
+    "ma": "massachusetts", "mi": "michigan", "mn": "minnesota", "ms": "mississippi",
+    "mo": "missouri", "mt": "montana", "ne": "nebraska", "nv": "nevada",
+    "nh": "new hampshire", "nj": "new jersey", "nm": "new mexico", "ny": "new york",
+    "nc": "north carolina", "nd": "north dakota", "oh": "ohio", "ok": "oklahoma",
+    "or": "oregon", "pa": "pennsylvania", "ri": "rhode island", "sc": "south carolina",
+    "sd": "south dakota", "tn": "tennessee", "tx": "texas", "ut": "utah",
+    "vt": "vermont", "va": "virginia", "wa": "washington", "wv": "west virginia",
+    "wi": "wisconsin", "wy": "wyoming", "dc": "district of columbia",
+}
+US_STATE_NAMES: set[str] = set(US_STATES.values())
+
+
+def _extract_location_from_text(text: str) -> Optional[str]:
+    """Extract a US city or state name from raw text.
+
+    Returns the first recognized city/state as a location string suitable for
+    service_location, or None if nothing found.  This is the safety net that
+    catches "Nashville" when the LLM constraints dict doesn't have a location key.
+    """
+    if not text:
+        return None
+    lowered = text.lower()
+
+    # Check two-word cities first ("san diego", "new york", etc.)
+    for city in US_MAJOR_CITIES:
+        if " " in city and city in lowered:
+            return city.title()
+
+    # Check single-word cities against word boundaries
+    words = re.findall(r'[a-z]+', lowered)
+    for city in US_MAJOR_CITIES:
+        if " " not in city and city in words:
+            return city.title()
+
+    # Check state names ("Tennessee", "California", etc.)
+    for state_name in US_STATE_NAMES:
+        if state_name in lowered:
+            return state_name.title()
+
+    return None
 
 
 def category_location_mode(service_category: Optional[str], desire_tier: Optional[str] = None) -> str:
@@ -178,6 +258,23 @@ def resolve_location_context(
     payload: Optional[Dict[str, Any]] = None,
 ) -> LocationContext:
     targets = normalize_location_targets(constraints, features)
+
+    # Fallback: if no explicit location target was found in constraints,
+    # scan the raw text (product_name, raw_input, keywords) for city names.
+    if not targets.non_empty_items():
+        request_text = _build_request_text(
+            service_category=service_category,
+            constraints=constraints,
+            features=features,
+            payload=payload,
+        )
+        extracted = _extract_location_from_text(request_text)
+        if extracted:
+            targets = LocationTargets(service_location=extracted)
+            logger.info(
+                f"[Location] Fallback extraction: found '{extracted}' in raw text -> service_location"
+            )
+
     shape_mode = infer_location_mode_from_request_shape(
         service_category=service_category,
         desire_tier=desire_tier,
