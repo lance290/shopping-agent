@@ -298,3 +298,104 @@ class TestVendorDirectoryHardFilter:
             location_mode="none",
         )
         assert len(filtered) == 1
+
+
+# ---------------------------------------------------------------------------
+# Scorer geo penalty (defense-in-depth)
+# ---------------------------------------------------------------------------
+
+class TestScorerGeoPenalty:
+    """Verify that the scorer crushes non-local vendor_directory results
+    when location_mode is service_area or vendor_proximity."""
+
+    @staticmethod
+    def _make_normalized(title, source="vendor_directory", geo_score=0.0, semantic_score=0.8):
+        from sourcing.models import NormalizedResult
+        raw_data = {
+            "provider_id": source,
+            "search_metadata": {
+                "semantic_score": semantic_score,
+                "fts_score": 0.4,
+                "geo_score": geo_score,
+                "constraint_score": 0.1,
+            },
+        }
+        if source == "vendor_directory":
+            raw_data["vendor_id"] = 999
+        domain = f"{title.lower().replace(' ', '')}.com"
+        return NormalizedResult(
+            title=title,
+            url=f"https://{domain}",
+            source=source,
+            price=None,
+            currency="USD",
+            merchant_name=title,
+            merchant_domain=domain,
+            raw_data=raw_data,
+            provenance={"source_provider": source},
+        )
+
+    @staticmethod
+    def _make_intent(location_mode):
+        from sourcing.models import SearchIntent, LocationContext
+        return SearchIntent(
+            product_category="real_estate",
+            product_name="realtor",
+            keywords=["realtor", "nashville"],
+            location_context=LocationContext(
+                relevance=location_mode,
+                targets={"service_location": "Nashville, TN"},
+            ),
+        )
+
+    def test_nonlocal_vendor_crushed_in_service_area(self):
+        from sourcing.scorer import score_results
+        intent = self._make_intent("service_area")
+        national = self._make_normalized("Sotheby's International Realty", geo_score=0.0)
+        scored = score_results([national], intent=intent, is_service=True)
+        combined = scored[0].provenance["score"]["combined"]
+        assert combined < 0.10, f"Non-local vendor scored {combined}, should be < 0.10"
+        assert scored[0].provenance["score"]["geo_penalty"] < 1.0
+
+    def test_local_vendor_not_penalized(self):
+        from sourcing.scorer import score_results
+        intent = self._make_intent("service_area")
+        local = self._make_normalized("Nashville Realty Co", geo_score=0.6)
+        scored = score_results([local], intent=intent, is_service=True)
+        combined = scored[0].provenance["score"]["combined"]
+        assert combined > 0.20, f"Local vendor scored {combined}, should be > 0.20"
+        assert scored[0].provenance["score"]["geo_penalty"] == 1.0
+
+    def test_apify_results_not_penalized(self):
+        from sourcing.scorer import score_results
+        intent = self._make_intent("service_area")
+        apify = self._make_normalized("Nashville Best Realtors", source="apify_google_places", geo_score=0.0)
+        scored = score_results([apify], intent=intent, is_service=True)
+        combined = scored[0].provenance["score"]["combined"]
+        assert combined > 0.10, f"Apify result scored {combined}, should be > 0.10"
+        assert scored[0].provenance["score"]["geo_penalty"] == 1.0
+
+    def test_local_outranks_national_in_service_area(self):
+        """Core regression: local Apify results MUST outrank national vendor_directory brands."""
+        from sourcing.scorer import score_results
+        intent = self._make_intent("service_area")
+        national = self._make_normalized("Sotheby's International Realty", geo_score=0.0)
+        local_apify = self._make_normalized("Nashville Best Realtors", source="apify_google_places", geo_score=0.0)
+        scored = score_results([national, local_apify], intent=intent, is_service=True)
+        assert scored[0].source != "vendor_directory", \
+            f"National vendor ({scored[0].title}) should NOT outrank local Apify result"
+
+    def test_no_penalty_for_endpoint_mode(self):
+        """Jet charter to Nashville: vendor_directory results should NOT be penalized."""
+        from sourcing.scorer import score_results
+        intent = self._make_intent("endpoint")
+        vendor = self._make_normalized("PrivateFly", geo_score=0.0)
+        scored = score_results([vendor], intent=intent, is_service=True)
+        assert scored[0].provenance["score"]["geo_penalty"] == 1.0
+
+    def test_no_penalty_for_none_mode(self):
+        from sourcing.scorer import score_results
+        intent = self._make_intent("none")
+        vendor = self._make_normalized("Best Buy", geo_score=0.0)
+        scored = score_results([vendor], intent=intent)
+        assert scored[0].provenance["score"]["geo_penalty"] == 1.0

@@ -82,6 +82,24 @@ def score_results(
             endorsement_boost = float(endorsement_boosts.get(vendor_id, 0.0) or 0.0)
         combined = min(1.0, (min(1.0, base + support_bonus) * (0.3 + 0.7 * sf)) + endorsement_boost)
 
+        # DEFENSE-IN-DEPTH: multiplicative geo penalty.
+        # When location is important and a vendor_directory result has NO geo
+        # match (geo_score==0), crush its score so local Apify/web results
+        # always outrank generic national brands.
+        geo_penalty = 1.0
+        location_mode = (
+            intent.location_context.relevance
+            if intent and intent.location_context
+            else "none"
+        )
+        if (
+            r.source == "vendor_directory"
+            and geo_score == 0.0
+            and location_mode in {"service_area", "vendor_proximity"}
+        ):
+            geo_penalty = 0.15 if location_mode == "service_area" else 0.10
+            combined = combined * geo_penalty
+
         # Enrich provenance with score breakdown
         r.provenance["score"] = {
             "combined": round(combined, 4),
@@ -89,6 +107,7 @@ def score_results(
             "semantic": round(float(semantic_signal), 4),
             "fts": round(fts_score, 4),
             "geo": round(geo_score, 4),
+            "geo_penalty": round(geo_penalty, 4),
             "constraint": round(constraint_score, 4),
             "source_fit": round(sf, 4),
             "price": round(ps, 4),
