@@ -231,34 +231,70 @@ class TestVendorDirectoryHardFilter:
             },
         )
 
+    @staticmethod
+    def _apply_hard_filter(results, has_explicit_location_target, location_mode):
+        """Replicate the hard-filter logic from vendor_provider.py."""
+        matched = [r for r in results if r.metadata.get("location_match")]
+        if has_explicit_location_target:
+            if matched:
+                return matched
+            elif location_mode in {"service_area", "vendor_proximity"}:
+                return []
+        return results
+
     def test_hard_filter_keeps_only_local_when_location_present(self):
         local = self._make_result("Nashville Realty Co", True, "Nashville, TN")
         remote1 = self._make_result("CA Luxury Homes", False, "Los Angeles, CA")
         remote2 = self._make_result("Nationwide Brokers", False, "")
 
-        all_results = [local, remote1, remote2]
-        matched = [r for r in all_results if r.metadata.get("location_match")]
-
-        has_explicit_location_target = True
-        # Simulate the hard-filter logic from vendor_provider.py
-        if has_explicit_location_target and matched:
-            filtered = matched
-        else:
-            filtered = all_results
-
+        filtered = self._apply_hard_filter(
+            [local, remote1, remote2],
+            has_explicit_location_target=True,
+            location_mode="service_area",
+        )
         assert len(filtered) == 1
         assert filtered[0].title == "Nashville Realty Co"
+
+    def test_no_local_matches_returns_empty_for_service_area(self):
+        """THE core regression: national brands like Sotheby's, Christie's should
+        NOT appear when searching for Nashville realtors and none match locally."""
+        remote1 = self._make_result("Sotheby's International Realty", False, "")
+        remote2 = self._make_result("Christie's International Real Estate", False, "")
+        remote3 = self._make_result("Coldwell Banker Global Luxury", False, "")
+
+        filtered = self._apply_hard_filter(
+            [remote1, remote2, remote3],
+            has_explicit_location_target=True,
+            location_mode="service_area",
+        )
+        assert len(filtered) == 0, "National brands must NOT appear for local searches"
+
+    def test_no_local_matches_returns_empty_for_vendor_proximity(self):
+        remote1 = self._make_result("Nationwide HVAC", False, "")
+        filtered = self._apply_hard_filter(
+            [remote1],
+            has_explicit_location_target=True,
+            location_mode="vendor_proximity",
+        )
+        assert len(filtered) == 0
 
     def test_no_filter_when_no_location_target(self):
         r1 = self._make_result("Vendor A", False, "")
         r2 = self._make_result("Vendor B", False, "")
-        all_results = [r1, r2]
-        matched = [r for r in all_results if r.metadata.get("location_match")]
-
-        has_explicit_location_target = False
-        if has_explicit_location_target and matched:
-            filtered = matched
-        else:
-            filtered = all_results
-
+        filtered = self._apply_hard_filter(
+            [r1, r2],
+            has_explicit_location_target=False,
+            location_mode="none",
+        )
         assert len(filtered) == 2
+
+    def test_no_filter_when_mode_is_none_but_location_target_exists(self):
+        """For non-local modes (e.g. online products with a location hint),
+        keep results even if none match the location."""
+        r1 = self._make_result("Online Store", False, "")
+        filtered = self._apply_hard_filter(
+            [r1],
+            has_explicit_location_target=True,
+            location_mode="none",
+        )
+        assert len(filtered) == 1
