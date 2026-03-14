@@ -21,7 +21,6 @@ from services.sdui_builder import (
     _hydrate_message_list,
     _hydrate_choice_factor_form,
     _hydrate_action_row,
-    _hydrate_receipt_uploader,
 )
 
 
@@ -198,11 +197,6 @@ class TestHydrateBadgeList:
         assert block is not None
         assert any("Rainforest" in t for t in block.tags)
 
-    def test_includes_pop_swap_badge(self):
-        bids = [make_swap_bid()]
-        block = _hydrate_badge_list(make_row(), bids)
-        assert "Pop Swap" in block.tags
-
     def test_manual_source_excluded(self):
         bids = [make_bid(source="manual")]
         block = _hydrate_badge_list(make_row(), bids)
@@ -313,21 +307,3 @@ class TestHydrateActionRow:
         block = _hydrate_action_row(make_row(), [])
         assert block is not None
         assert block.actions[0].intent == "edit_request"
-
-
-class TestHydrateReceiptUploader:
-    def test_renders_for_swap_pending(self):
-        bid = make_bid(is_swap=True, closing_status="pending")
-        block = _hydrate_receipt_uploader(make_row(), [bid])
-        assert block is not None
-        assert block.type == "ReceiptUploader"
-
-    def test_no_render_without_pending_swap(self):
-        bid = make_bid(is_swap=False, closing_status="pending")
-        block = _hydrate_receipt_uploader(make_row(), [bid])
-        assert block is None
-
-    def test_no_render_without_swap(self):
-        bid = make_bid()
-        block = _hydrate_receipt_uploader(make_row(), [bid])
-        assert block is None

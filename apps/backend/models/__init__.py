@@ -81,23 +81,6 @@ from models.deals import (
     DealMessage,
 )
 
-# Pop V2 models
-from models.pop import (
-    WalletTransaction,
-    Receipt,
-    Referral,
-    _gen_ref_code,
-)
-
-# Coupon/swap models
-from models.coupons import (
-    PopSwap,
-    PopSwapClaim,
-    Campaign,
-    CouponCampaign,
-    BrandPortalToken,
-)
-
 # Admin models
 from models.admin import (
     BugReport,
@@ -157,16 +140,6 @@ __all__ = [
     # Deal pipeline
     "Deal",
     "DealMessage",
-    # Pop V2
-    "WalletTransaction",
-    "Receipt",
-    "Referral",
-    "_gen_ref_code",
-    # Coupons
-    "PopSwap",
-    "PopSwapClaim",
-    "CouponCampaign",
-    "BrandPortalToken",
     # Admin
     "BugReport",
     "Notification",

@@ -1,6 +1,6 @@
 """
 Chat helpers — SSE formatting, row CRUD, search streaming, SDUI schema.
-Shared by routes/chat.py and routes/pop_chat.py / pop_processor.py.
+Shared by routes/chat.py.
 """
 
 import json

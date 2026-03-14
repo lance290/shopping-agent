@@ -3,7 +3,7 @@ LLM service — unified decision engine, choice factor generation, provider quer
 
 Ported from apps/bff/src/llm.ts as part of PRD-02 (Kill BFF).
 Implementations split across llm_core.py (API calls), llm_models.py (data models),
-and llm_pop.py (Pop grocery engine). This file keeps make_unified_decision,
+This file keeps make_unified_decision,
 choice factors, provider triage, outreach email, and re-exports everything.
 """
 
@@ -37,9 +37,6 @@ from services.llm_models import (  # noqa: E402, F401
     VendorCoverageAssessment,
     ChatContext,
 )
-
-# Re-export Pop decision engine for backward compatibility
-from services.llm_pop import make_pop_decision  # noqa: E402, F401
 
 
 # =============================================================================
@@ -287,8 +284,6 @@ Return ONLY valid JSON:
             action={"type": "create_row"},
         )
 
-
-# make_pop_decision extracted to services/llm_pop.py (re-exported above)
 
 
 # =============================================================================

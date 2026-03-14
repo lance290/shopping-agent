@@ -92,7 +92,7 @@ class TestExtractVendorQuery:
 
 
 class TestUserIntentModel:
-    """Regression: UserIntent must include all fields used by pop_chat/pop_processor."""
+    """Regression: UserIntent must include all required fields."""
 
     def test_basic_fields(self):
         from services.llm import UserIntent
@@ -118,48 +118,6 @@ class TestUserIntentModel:
         from services.llm import UserIntent
         intent = UserIntent(what="jet charter", category="service", service_type="private_aviation")
         assert intent.service_type == "private_aviation"
-
-
-# ---------------------------------------------------------------------------
-# 7. Pop chat regression: create_row from decision (integration)
-# ---------------------------------------------------------------------------
-
-
-async def _empty_async_gen():
-    return
-    yield
-
-
-@pytest.mark.asyncio
-async def test_pop_chat_create_row_does_not_crash(
-    client: AsyncClient, session: AsyncSession, guest_user: User
-):
-    """Regression: POST /pop/chat with create_row decision must not crash."""
-    decision = _mock_decision(action_type="create_row", what="eggs")
-    with patch("routes.pop_chat.make_pop_decision", new_callable=AsyncMock, return_value=decision):
-        with patch("routes.pop_chat._stream_search", return_value=_empty_async_gen()):
-            resp = await client.post(
-                "/pop/chat",
-                json={"message": "I need eggs"},
-            )
-    # Should not crash with UnifiedDecision.items AttributeError
-    assert resp.status_code in (200, 201, 422)  # 422 if missing required fields
-
-
-@pytest.mark.asyncio
-async def test_pop_chat_chat_action_does_not_crash(
-    client: AsyncClient, session: AsyncSession, guest_user: User
-):
-    """Regression: POST /pop/chat with 'chat' action must not crash."""
-    decision = _mock_decision(action_type="chat", what="", message="Hi there!")
-    decision.intent.what = ""
-    decision.intent.search_query = None
-    with patch("routes.pop_chat.make_pop_decision", new_callable=AsyncMock, return_value=decision):
-        resp = await client.post(
-            "/pop/chat",
-            json={"message": "hello"},
-        )
-    assert resp.status_code in (200, 201, 422)
 
 
 # ---------------------------------------------------------------------------

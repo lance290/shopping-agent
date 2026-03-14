@@ -1,5 +1,5 @@
 """
-LLM data models — shared between main llm.py and llm_pop.py.
+LLM data models — shared by llm.py and other services.
 """
 from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field

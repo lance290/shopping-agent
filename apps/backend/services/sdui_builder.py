@@ -31,13 +31,11 @@ from services.sdui_schema import (
     MessageItem,
     PriceBlock,
     ProductImageBlock,
-    ReceiptUploaderBlock,
     TimelineBlock,
     TimelineStep,
     UIBlock,
     UIHint,
     UISchema,
-    WalletLedgerBlock,
     get_minimum_viable_row,
     validate_ui_hint,
 )
@@ -173,9 +171,6 @@ def _hydrate_badge_list(row: "Row", bids: List["Bid"]) -> Optional[BadgeListBloc
             sources.add(src)
     for s in sorted(sources):
         tags.append(s.replace("_", " ").title())
-    # Check for swaps
-    if any(getattr(b, "is_swap", None) for b in bids):
-        tags.append("Pop Swap")
     return BadgeListBlock(tags=tags) if tags else None
 
 
@@ -281,21 +276,6 @@ def _hydrate_action_row(row: "Row", bids: List["Bid"], total_bid_count: Optional
         actions.append(ActionObject(label="Edit Request", intent="edit_request"))
 
     return ActionRowBlock(actions=actions[:3])
-
-
-def _hydrate_receipt_uploader(row: "Row", bids: List["Bid"]) -> Optional[ReceiptUploaderBlock]:
-    """Hydrate ReceiptUploader — only if row state permits."""
-    # State machine check: only render if a swap has been claimed
-    for bid in bids:
-        cs = getattr(bid, "closing_status", None)
-        if cs == "pending" and getattr(bid, "is_swap", False):
-            return ReceiptUploaderBlock(campaign_id=str(getattr(bid, "id", "")))
-    return None
-
-
-def _hydrate_wallet_ledger(row: "Row", bids: List["Bid"]) -> Optional[WalletLedgerBlock]:
-    """Hydrate WalletLedger — stub for now."""
-    return WalletLedgerBlock()
 
 
 def _get_active_deal_amount(active_deal: Dict[str, Any]) -> Optional[float]:
@@ -536,8 +516,6 @@ BLOCK_HYDRATORS = {
     "MessageList": _hydrate_message_list,
     "ChoiceFactorForm": _hydrate_choice_factor_form,
     "ActionRow": _hydrate_action_row,
-    "ReceiptUploader": _hydrate_receipt_uploader,
-    "WalletLedger": _hydrate_wallet_ledger,
 }
 
 

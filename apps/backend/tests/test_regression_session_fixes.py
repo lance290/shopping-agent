@@ -39,9 +39,9 @@ class TestGetAppBase:
     def test_x_forwarded_host_defaults_to_https(self):
         from routes.checkout import _get_app_base
         request = self._make_request([
-            (b"x-forwarded-host", b"popsavings.com"),
+            (b"x-forwarded-host", b"staging.buy-anything.com"),
         ])
-        assert _get_app_base(request) == "https://popsavings.com"
+        assert _get_app_base(request) == "https://staging.buy-anything.com"
 
     def test_origin_used_when_no_forwarded_host(self):
         from routes.checkout import _get_app_base
@@ -53,9 +53,9 @@ class TestGetAppBase:
     def test_referer_fallback(self):
         from routes.checkout import _get_app_base
         request = self._make_request([
-            (b"referer", b"https://dev.popsavings.com/some/page"),
+            (b"referer", b"https://dev.buy-anything.com/some/page"),
         ])
-        assert _get_app_base(request) == "https://dev.popsavings.com"
+        assert _get_app_base(request) == "https://dev.buy-anything.com"
 
     def test_env_fallback(self, monkeypatch):
         from routes.checkout import _get_app_base

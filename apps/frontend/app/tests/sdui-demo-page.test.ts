@@ -15,11 +15,10 @@ const GROCERY_SCHEMA = {
   blocks: [
     { type: 'ProductImage', url: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200', alt: 'Organic Eggs' },
     { type: 'PriceBlock', amount: 3.49, currency: 'USD', label: 'Best Price' },
-    { type: 'BadgeList', tags: ['Organic', 'Kroger', 'Pop Swap'] },
+    { type: 'BadgeList', tags: ['Organic', 'Kroger'] },
     { type: 'FeatureList', features: ['Free Range', 'Non-GMO', 'USDA Organic'] },
     { type: 'ActionRow', actions: [
       { label: 'View Deal', intent: 'outbound_affiliate', bid_id: '100', url: 'https://kroger.com/eggs' },
-      { label: 'Claim $1.00 Swap', intent: 'claim_swap' },
     ]},
   ],
 };
@@ -69,17 +68,6 @@ const QUOTE_ACCEPTED_SCHEMA = {
   ],
 };
 
-const SWAP_CLAIM_SCHEMA = {
-  version: 2,
-  layout: 'ROW_COMPACT',
-  blocks: [
-    { type: 'MarkdownText', content: '**Eggs — Pop Swap Claimed!**' },
-    { type: 'BadgeList', tags: ['Pop Swap', 'Pending Receipt'] },
-    { type: 'ReceiptUploader', campaign_id: 'camp_eggs_spring26' },
-    { type: 'ActionRow', actions: [{ label: 'Undo Claim', intent: 'claim_swap' }] },
-  ],
-};
-
 const COMPACT_TEXT_SCHEMA = {
   version: 1,
   layout: 'ROW_COMPACT',
@@ -115,17 +103,6 @@ const ZERO_RESULTS_SCHEMA = {
   ],
 };
 
-const WALLET_SCHEMA = {
-  version: 1,
-  layout: 'ROW_COMPACT',
-  blocks: [
-    { type: 'MarkdownText', content: '**Your Savings Dashboard**' },
-    { type: 'WalletLedger' },
-    { type: 'BadgeList', tags: ['3 Swaps Claimed'] },
-    { type: 'ActionRow', actions: [{ label: 'Share & Earn 30%', intent: 'edit_request' }] },
-  ],
-};
-
 const MESSAGE_HISTORY_SCHEMA = {
   version: 1,
   layout: 'ROW_COMPACT',
@@ -147,11 +124,9 @@ describe('SDUI Demo Page Schemas', () => {
     { name: 'Grocery', schema: GROCERY_SCHEMA },
     { name: 'Jet Charter', schema: JET_CHARTER_SCHEMA },
     { name: 'Quote Accepted', schema: QUOTE_ACCEPTED_SCHEMA },
-    { name: 'Swap Claim', schema: SWAP_CLAIM_SCHEMA },
     { name: 'Compact Text', schema: COMPACT_TEXT_SCHEMA },
     { name: 'Choice Factors', schema: CHOICE_FACTOR_SCHEMA },
     { name: 'Zero Results', schema: ZERO_RESULTS_SCHEMA },
-    { name: 'Wallet', schema: WALLET_SCHEMA },
     { name: 'Message History', schema: MESSAGE_HISTORY_SCHEMA },
   ];
 
@@ -171,7 +146,7 @@ describe('SDUI Demo Page Schemas', () => {
     });
   }
 
-  test('all 9 schemas use valid layout tokens', () => {
+  test('all 7 schemas use valid layout tokens', () => {
     for (const { schema } of schemas) {
       expect(['ROW_COMPACT', 'ROW_MEDIA_LEFT', 'ROW_TIMELINE']).toContain(schema.layout);
     }
@@ -184,7 +159,7 @@ describe('SDUI Demo Page Schemas', () => {
     }
   });
 
-  test('all 12 block types are represented across demos', () => {
+  test('all 10 block types are represented across demos', () => {
     const allTypes = new Set<string>();
     for (const { schema } of schemas) {
       for (const block of schema.blocks) {
@@ -201,8 +176,6 @@ describe('SDUI Demo Page Schemas', () => {
     expect(allTypes).toContain('MessageList');
     expect(allTypes).toContain('ChoiceFactorForm');
     expect(allTypes).toContain('ActionRow');
-    expect(allTypes).toContain('ReceiptUploader');
-    expect(allTypes).toContain('WalletLedger');
     expect(allTypes).not.toContain('EscrowStatus');
   });
 });

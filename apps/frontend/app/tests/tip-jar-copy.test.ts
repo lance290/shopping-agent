@@ -23,9 +23,4 @@ describe('Thank-you copy regressions', () => {
     expect(source).not.toContain("'Tip Jar'");
   });
 
-  test('pop chat page uses thank-you copy in the nav link', () => {
-    const source = read('pop-site/chat/page.tsx');
-    expect(source).toContain('Send a Thank-You');
-    expect(source).not.toContain('Tip Jar');
-  });
 });

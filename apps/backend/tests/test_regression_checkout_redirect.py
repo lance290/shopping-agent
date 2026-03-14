@@ -12,9 +12,9 @@ def test_get_app_base_origin():
 
 def test_get_app_base_referer():
     # Test Referer header (fallback)
-    scope = {"type": "http", "headers": [(b"referer", b"https://popsavings.com/path/to/page")]}
+    scope = {"type": "http", "headers": [(b"referer", b"https://dev.buy-anything.com/path/to/page")]}
     request = Request(scope)
-    assert _get_app_base(request) == "https://popsavings.com"
+    assert _get_app_base(request) == "https://dev.buy-anything.com"
 
 def test_get_app_base_fallback_env(monkeypatch):
     # Test fallback to env var

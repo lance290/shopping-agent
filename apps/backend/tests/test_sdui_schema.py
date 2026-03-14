@@ -45,13 +45,11 @@ from services.sdui_schema import (
     MessageListBlock,
     PriceBlock,
     ProductImageBlock,
-    ReceiptUploaderBlock,
     TimelineBlock,
     TimelineStep,
     UIBlock,
     UIHint,
     UISchema,
-    WalletLedgerBlock,
     get_minimum_viable_row,
     strip_unknown_blocks,
     validate_ui_hint,
@@ -70,8 +68,8 @@ class TestConstants:
         assert "ROW_MEDIA_LEFT" in LAYOUT_TOKENS
         assert "ROW_TIMELINE" in LAYOUT_TOKENS
 
-    def test_block_types_are_twelve(self):
-        assert len(BLOCK_TYPES) == 12
+    def test_block_types_are_ten(self):
+        assert len(BLOCK_TYPES) == 10
 
     def test_action_intents_are_ten(self):
         assert len(ACTION_INTENTS) == 10
@@ -92,8 +90,6 @@ class TestConstants:
         assert "safety" in VALUE_VECTORS
 
     def test_state_driven_blocks(self):
-        assert "ReceiptUploader" in STATE_DRIVEN_BLOCKS
-        assert "WalletLedger" in STATE_DRIVEN_BLOCKS
         assert "EscrowStatus" not in STATE_DRIVEN_BLOCKS
 
     def test_bid_caps(self):

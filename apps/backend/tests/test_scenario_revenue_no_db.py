@@ -158,13 +158,11 @@ async def test_scenario_tip_jar_503_when_no_price_id(no_db_client):
 # ---------------------------------------------------------------------------
 
 class TestMultiDomainRedirect:
-    """Verify _get_app_base returns correct domain for each of the 4 production domains."""
+    """Verify _get_app_base returns correct domain for production domains."""
 
     DOMAINS = [
         "buy-anything.com",
         "dev.buy-anything.com",
-        "popsavings.com",
-        "dev.popsavings.com",
     ]
 
     def _make_request(self, host):

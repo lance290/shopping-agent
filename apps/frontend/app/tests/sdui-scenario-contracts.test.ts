@@ -34,7 +34,7 @@ function makeGrocerySchema() {
     blocks: [
       { type: 'ProductImage', url: 'https://img.com/eggs.jpg', alt: 'Organic Eggs' },
       { type: 'PriceBlock', amount: 3.49, currency: 'USD', label: 'Best Price' },
-      { type: 'BadgeList', tags: ['Sourcing', 'Kroger', 'Pop Swap'] },
+      { type: 'BadgeList', tags: ['Sourcing', 'Kroger'] },
       { type: 'ActionRow', actions: [
         { label: 'View Deal', intent: 'outbound_affiliate', bid_id: '100', url: 'https://kroger.com/eggs' },
       ]},
@@ -87,20 +87,6 @@ function makeQuoteAcceptedSchema() {
   };
 }
 
-function makeSwapClaimSchema() {
-  return {
-    version: 2,
-    layout: 'ROW_COMPACT',
-    blocks: [
-      { type: 'MarkdownText', content: '**Eggs — Swap Claimed**' },
-      { type: 'ReceiptUploader', campaign_id: 'camp_eggs_123' },
-      { type: 'ActionRow', actions: [
-        { label: 'Undo Claim', intent: 'claim_swap' },
-      ]},
-    ],
-  };
-}
-
 // =========================================================================
 // 1. Schema Parsing
 // =========================================================================
@@ -125,12 +111,6 @@ describe('Schema parsing from API responses', () => {
     const result = validateUISchema(makeQuoteAcceptedSchema());
     expect(result).not.toBeNull();
     expect(result!.blocks.find((b) => b.type === 'BadgeList')).toBeDefined();
-  });
-
-  test('swap claim schema validates', () => {
-    const result = validateUISchema(makeSwapClaimSchema());
-    expect(result).not.toBeNull();
-    expect(result!.blocks.find((b) => b.type === 'ReceiptUploader')).toBeDefined();
   });
 
   test('JSON roundtrip preserves schema', () => {
@@ -252,13 +232,6 @@ describe('Scenario: grocery flow', () => {
     expect(comparison!.blocks.find((b) => b.type === 'ProductImage')).toBeDefined();
   });
 
-  test('swap claimed → receipt uploader', () => {
-    const preClaim = validateUISchema(makeGrocerySchema());
-    expect(preClaim!.blocks.find((b) => b.type === 'ReceiptUploader')).toBeUndefined();
-
-    const postClaim = validateUISchema(makeSwapClaimSchema());
-    expect(postClaim!.blocks.find((b) => b.type === 'ReceiptUploader')).toBeDefined();
-  });
 });
 
 describe('Scenario: high-ticket service flow', () => {

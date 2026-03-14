@@ -20,7 +20,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from database import get_session
 from models import (
-    AuthLoginCode, AuthSession, User, ShareLink,
+    AuthLoginCode, AuthSession, User,
     hash_token, generate_verification_code, generate_session_token
 )
 from dependencies import get_current_session
@@ -74,8 +74,6 @@ class AuthVerifyRequest(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     code: str
-    referral_token: Optional[str] = None  # Viral Flywheel (PRD 06): share token that brought this user
-    ref_code: Optional[str] = None  # TeamPop Referral (PRD 06): affiliate code from /?ref=XYZ
 
     @validator('phone')
     def validate_phone(cls, v):
@@ -334,109 +332,13 @@ async def auth_verify(
                 await session.commit()
 
     if not user:
-        # Viral Flywheel (PRD 06): capture referral attribution on signup
-        referral_share_token = request.referral_token
-        signup_source = "share" if referral_share_token else "direct"
-        
-        # TeamPop Referral (PRD 06): capture referrer if present
-        ref_code = (request.ref_code or "").strip().upper()
-        referrer: Optional[User] = None
-        if ref_code:
-            referrer_stmt = (
-                select(User)
-                .where(User.ref_code == ref_code)
-                .order_by(User.id)
-                .limit(1)
-            )
-            referrer = (await session.exec(referrer_stmt)).first()
-            if referrer:
-                signup_source = "referral"
-
         user = User(
             email=next(iter(emails), None),
             phone_number=phone,
-            referral_share_token=referral_share_token,
-            signup_source=signup_source,
-            referred_by_id=referrer.id if referrer else None,
         )
         session.add(user)
         await session.commit()
         await session.refresh(user)
-
-        # Process TeamPop Referral Bonus
-        if referrer:
-            try:
-                from models.pop import Referral, WalletTransaction
-                
-                # Check for existing referral to be safe (idempotent)
-                existing_stmt = select(Referral).where(Referral.referred_user_id == user.id)
-                existing_result = await session.execute(existing_stmt)
-                
-                if not existing_result.scalar_one_or_none():
-                    referral = Referral(
-                        referrer_user_id=referrer.id,
-                        referred_user_id=user.id,
-                        ref_code=ref_code,
-                        status="activated",
-                        activated_at=datetime.utcnow(),
-                    )
-                    session.add(referral)
-                    
-                    # Referral bonus for referrer: $1.00
-                    referrer.wallet_balance_cents = (referrer.wallet_balance_cents or 0) + 100
-                    session.add(referrer)
-                    
-                    txn = WalletTransaction(
-                        user_id=referrer.id,
-                        amount_cents=100,
-                        description="Referral bonus — friend joined via your link",
-                        source="referral_bonus",
-                    )
-                    session.add(txn)
-                    
-                    # Notify referrer
-                    from routes.notifications import create_notification
-                    await create_notification(
-                        session,
-                        user_id=referrer.id,
-                        type="referral",
-                        title="Someone used your referral link!",
-                        body="A new friend signed up and you earned $1.00.",
-                        resource_type="user",
-                        resource_id=user.id,
-                    )
-                    
-                    await session.commit()
-            except Exception as e:
-                logger.warning(f"Referral processing error (non-fatal): {e}")
-
-        # If referred via list share, increment ShareLink.signup_conversion_count and notify sharer
-        if referral_share_token:
-            try:
-                share_result = await session.exec(
-                    select(ShareLink).where(ShareLink.token == referral_share_token)
-                )
-                share_link = share_result.first()
-                if share_link:
-                    share_link.signup_conversion_count = (share_link.signup_conversion_count or 0) + 1
-                    session.add(share_link)
-
-                    # Notify the referrer
-                    if share_link.created_by:
-                        from routes.notifications import create_notification
-                        await create_notification(
-                            session,
-                            user_id=share_link.created_by,
-                            type="referral",
-                            title="Someone you shared with just joined!",
-                            body=f"A new user signed up via your share link.",
-                            resource_type="user",
-                            resource_id=user.id,
-                        )
-
-                    await session.commit()
-            except Exception as e:
-                logger.warning(f"Referral attribution error (non-fatal): {e}")
 
     updated = False
     if phone and not user.phone_number:

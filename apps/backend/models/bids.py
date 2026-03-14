@@ -117,7 +117,7 @@ class Bid(SQLModel, table=True):
     is_liked: bool = False
     liked_at: Optional[datetime] = None
 
-    # Swap classification (Pop V2) — None=unclassified, True=swap, False=direct match
+    # Swap classification — None=unclassified, True=swap, False=direct match
     is_swap: Optional[bool] = Field(default=None)
 
     # Soft-delete for bid reset — superseded bids are hidden, not deleted

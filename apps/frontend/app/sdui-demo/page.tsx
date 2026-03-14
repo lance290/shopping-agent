@@ -10,11 +10,10 @@ const GROCERY_SCHEMA = {
   blocks: [
     { type: 'ProductImage', url: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&h=200&fit=crop', alt: 'Organic Eggs' },
     { type: 'PriceBlock', amount: 3.49, currency: 'USD', label: 'Best Price' },
-    { type: 'BadgeList', tags: ['Organic', 'Kroger', 'Pop Swap'] },
+    { type: 'BadgeList', tags: ['Organic', 'Kroger'] },
     { type: 'FeatureList', features: ['Free Range', 'Non-GMO', 'USDA Organic'] },
     { type: 'ActionRow', actions: [
       { label: 'View Deal', intent: 'outbound_affiliate', bid_id: '100', url: 'https://kroger.com/eggs' },
-      { label: 'Claim $1.00 Swap', intent: 'claim_swap' },
     ]},
   ],
 };
@@ -66,19 +65,6 @@ const QUOTE_ACCEPTED_SCHEMA = {
   ],
 };
 
-const SWAP_CLAIM_SCHEMA = {
-  version: 2,
-  layout: 'ROW_COMPACT',
-  blocks: [
-    { type: 'MarkdownText', content: '**Eggs — Pop Swap Claimed!** \\n Scan your receipt to earn $1.00 back' },
-    { type: 'BadgeList', tags: ['Pop Swap', 'Pending Receipt'] },
-    { type: 'ReceiptUploader', campaign_id: 'camp_eggs_spring26' },
-    { type: 'ActionRow', actions: [
-      { label: 'Undo Claim', intent: 'claim_swap' },
-    ]},
-  ],
-};
-
 const COMPACT_TEXT_SCHEMA = {
   version: 1,
   layout: 'ROW_COMPACT',
@@ -121,19 +107,6 @@ const ZERO_RESULTS_SCHEMA = {
   ],
 };
 
-const WALLET_SCHEMA = {
-  version: 1,
-  layout: 'ROW_COMPACT',
-  blocks: [
-    { type: 'MarkdownText', content: '**Your Savings Dashboard**' },
-    { type: 'WalletLedger' },
-    { type: 'BadgeList', tags: ['3 Swaps Claimed', '$4.50 Earned This Week'] },
-    { type: 'ActionRow', actions: [
-      { label: 'Share & Earn 30%', intent: 'edit_request' },
-    ]},
-  ],
-};
-
 const MESSAGE_HISTORY_SCHEMA = {
   version: 1,
   layout: 'ROW_COMPACT',
@@ -151,17 +124,15 @@ const MESSAGE_HISTORY_SCHEMA = {
   ],
 };
 
-type SchemaKey = 'grocery' | 'jet' | 'quote_accepted' | 'swap' | 'compact' | 'choice' | 'zero' | 'wallet' | 'messages';
+type SchemaKey = 'grocery' | 'jet' | 'quote_accepted' | 'compact' | 'choice' | 'zero' | 'messages';
 
 const SCHEMAS: Record<SchemaKey, { label: string; description: string; schema: Record<string, unknown> }> = {
   grocery: { label: 'Grocery Comparison', description: 'ROW_MEDIA_LEFT — image + price + badges + actions', schema: GROCERY_SCHEMA },
   jet: { label: 'Jet Charter (Service)', description: 'ROW_TIMELINE — specs grid + safety badges + progress', schema: JET_CHARTER_SCHEMA },
   quote_accepted: { label: 'Quote Accepted', description: 'ROW_TIMELINE — post-negotiation tracking with direct vendor payment', schema: QUOTE_ACCEPTED_SCHEMA },
-  swap: { label: 'Pop Swap Claimed', description: 'ROW_COMPACT — receipt uploader for swap redemption', schema: SWAP_CLAIM_SCHEMA },
   compact: { label: 'Product Search', description: 'ROW_COMPACT — text-heavy comparison with affiliate links', schema: COMPACT_TEXT_SCHEMA },
   choice: { label: 'Choice Factors', description: 'ROW_COMPACT — interactive form for refining bespoke requests', schema: CHOICE_FACTOR_SCHEMA },
   zero: { label: 'Zero Results', description: 'ROW_COMPACT — graceful empty state with edit action', schema: ZERO_RESULTS_SCHEMA },
-  wallet: { label: 'Wallet / Savings', description: 'ROW_COMPACT — savings dashboard with wallet ledger', schema: WALLET_SCHEMA },
   messages: { label: 'Vendor Messages', description: 'ROW_COMPACT — conversation excerpt with accept/counter', schema: MESSAGE_HISTORY_SCHEMA },
 };
 
@@ -229,7 +200,7 @@ export default function SDUIDemoPage() {
 
         {/* Primitives Registry */}
         <div className="mt-12 border-t border-gray-200 pt-8">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">v0 Primitive Registry (12 blocks)</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-4">v0 Primitive Registry (10 blocks)</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {[
               { name: 'ProductImage', category: 'Display' },
@@ -242,8 +213,6 @@ export default function SDUIDemoPage() {
               { name: 'MessageList', category: 'Interactive' },
               { name: 'ChoiceFactorForm', category: 'Interactive' },
               { name: 'ActionRow', category: 'Interactive' },
-              { name: 'ReceiptUploader', category: 'State-Driven' },
-              { name: 'WalletLedger', category: 'State-Driven' },
             ].map((block) => (
               <div key={block.name} className="bg-white rounded-lg border border-gray-200 px-3 py-2">
                 <p className="text-sm font-mono font-medium text-gray-800">{block.name}</p>

@@ -15,8 +15,6 @@ import type {
   MessageListBlock,
   ChoiceFactorFormBlock,
   ActionRowBlock,
-  ReceiptUploaderBlock,
-  WalletLedgerBlock,
   UISchemaUpdatedEvent,
 } from '../sdui/types';
 
@@ -113,15 +111,6 @@ describe('Block Type Shapes', () => {
     expect(block.actions[1].amount).toBe(5);
   });
 
-  test('ReceiptUploader with campaign_id', () => {
-    const block: ReceiptUploaderBlock = { type: 'ReceiptUploader', campaign_id: 'camp_123' };
-    expect(block.campaign_id).toBe('camp_123');
-  });
-
-  test('WalletLedger (no fields)', () => {
-    const block: WalletLedgerBlock = { type: 'WalletLedger' };
-    expect(block.type).toBe('WalletLedger');
-  });
 });
 
 // =========================================================================

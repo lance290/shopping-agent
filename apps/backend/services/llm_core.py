@@ -1,6 +1,6 @@
 """
 Core LLM call functions — Gemini direct, OpenRouter, JSON extraction.
-Shared by llm.py, llm_pop.py, and other services.
+Shared by llm.py and other services.
 """
 
 import json

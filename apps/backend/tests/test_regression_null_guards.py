@@ -1,7 +1,7 @@
 """Regression tests for bugs fixed in the Feb/Mar 2026 production incident.
 
 Covers:
-- UnifiedDecision treated as single item (not list) in pop_chat / pop_processor
+- UnifiedDecision treated as single item (not list)
 - filter_bids_by_price handling null/invalid choice_answers
 - Guest user fallback on GET /rows
 - Price constraint extraction from various LLM key formats
@@ -19,7 +19,7 @@ from models import User, Row, Project, Bid
 
 
 # ---------------------------------------------------------------------------
-# 1. UnifiedDecision single-item regression (pop_processor + pop_chat)
+# 1. UnifiedDecision single-item regression
 # ---------------------------------------------------------------------------
 
 

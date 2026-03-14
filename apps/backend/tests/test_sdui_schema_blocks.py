@@ -26,10 +26,8 @@ from services.sdui_schema import (
     MessageListBlock,
     PriceBlock,
     ProductImageBlock,
-    ReceiptUploaderBlock,
     TimelineBlock,
     TimelineStep,
-    WalletLedgerBlock,
 )
 
 
@@ -99,9 +97,9 @@ class TestFeatureListBlock:
 
 class TestBadgeListBlock:
     def test_valid(self):
-        b = BadgeListBlock(tags=["Pop Swap", "Organic"])
+        b = BadgeListBlock(tags=["Sourcing", "Organic"])
         assert b.type == "BadgeList"
-        assert "Pop Swap" in b.tags
+        assert "Sourcing" in b.tags
 
     def test_source_refs(self):
         b = BadgeListBlock(tags=["Safest Jet"], source_refs=["vendor_safety_db_44"])
@@ -229,20 +227,3 @@ class TestActionObject:
     def test_view_all_with_count(self):
         a = ActionObject(label="View All (42)", intent="view_all_bids", count=42)
         assert a.count == 42
-
-
-# =========================================================================
-# State-Driven Primitives
-# =========================================================================
-
-class TestReceiptUploaderBlock:
-    def test_valid(self):
-        b = ReceiptUploaderBlock(campaign_id="camp_123")
-        assert b.type == "ReceiptUploader"
-        assert b.campaign_id == "camp_123"
-
-
-class TestWalletLedgerBlock:
-    def test_valid(self):
-        b = WalletLedgerBlock()
-        assert b.type == "WalletLedger"

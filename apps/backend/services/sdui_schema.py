@@ -41,8 +41,6 @@ BLOCK_TYPES = (
     "MessageList",
     "ChoiceFactorForm",
     "ActionRow",
-    "ReceiptUploader",
-    "WalletLedger",
 )
 
 ACTION_INTENTS = (
@@ -59,7 +57,7 @@ ACTION_INTENTS = (
 )
 
 # Post-purchase block types that require backend state verification
-STATE_DRIVEN_BLOCKS = ("ReceiptUploader", "WalletLedger")
+STATE_DRIVEN_BLOCKS = ()
 
 
 # ---------------------------------------------------------------------------
@@ -193,15 +191,6 @@ class ActionRowBlock(BaseModel):
         return v
 
 
-class ReceiptUploaderBlock(BaseModel):
-    type: Literal["ReceiptUploader"] = "ReceiptUploader"
-    campaign_id: str = ""
-
-
-class WalletLedgerBlock(BaseModel):
-    type: Literal["WalletLedger"] = "WalletLedger"
-
-
 # Union of all block types for validation
 UIBlock = Union[
     ProductImageBlock,
@@ -214,8 +203,6 @@ UIBlock = Union[
     MessageListBlock,
     ChoiceFactorFormBlock,
     ActionRowBlock,
-    ReceiptUploaderBlock,
-    WalletLedgerBlock,
 ]
 
 

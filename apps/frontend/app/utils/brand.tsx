@@ -2,7 +2,7 @@
 
 import { createContext, useContext, ReactNode } from 'react';
 
-export type BrandId = 'buyanything' | 'pop';
+export type BrandId = 'buyanything';
 
 export interface BrandConfig {
   id: BrandId;
@@ -44,25 +44,6 @@ export const BRANDS: Record<BrandId, BrandConfig> = {
     chatPlaceholder: 'What are you looking for?',
     logo: '/logo.svg',
   },
-  pop: {
-    id: 'pop',
-    name: 'Pop',
-    tagline: 'Save money on groceries with AI',
-    domain: 'popsavings.com',
-    agentName: 'Pop',
-    agentEmail: 'pop@popsavings.com',
-    colors: {
-      primary: '#16a34a',
-      primaryHover: '#15803d',
-      accent: '#22c55e',
-      bg: '#ffffff',
-      bgAlt: '#f0fdf4',
-      text: '#052e16',
-      textMuted: '#4b5563',
-    },
-    chatPlaceholder: 'What do you need from the store?',
-    logo: '/pop-logo.svg',
-  },
 };
 
 const BrandContext = createContext<BrandConfig>(BRANDS.buyanything);
@@ -86,10 +67,5 @@ export function useBrand(): BrandConfig {
 }
 
 export function detectBrand(): BrandId {
-  if (typeof window === 'undefined') return 'buyanything';
-  const hostname = window.location.hostname;
-  if (hostname.includes('popsavings.com')) return 'pop';
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('brand') === 'pop') return 'pop';
   return 'buyanything';
 }

@@ -45,8 +45,8 @@ describe('SDUI Constants', () => {
     expect(LAYOUT_TOKENS).toContain('ROW_TIMELINE');
   });
 
-  test('BLOCK_TYPES has 12 types', () => {
-    expect(BLOCK_TYPES).toHaveLength(12);
+  test('BLOCK_TYPES has 10 types', () => {
+    expect(BLOCK_TYPES).toHaveLength(10);
   });
 
   test('ACTION_INTENTS has 10 intents', () => {
@@ -72,10 +72,8 @@ describe('SDUI Constants', () => {
     expect(VALUE_VECTORS).toContain('durability');
   });
 
-  test('STATE_DRIVEN_BLOCKS has 2 types', () => {
-    expect(STATE_DRIVEN_BLOCKS).toHaveLength(2);
-    expect(STATE_DRIVEN_BLOCKS).toContain('ReceiptUploader');
-    expect(STATE_DRIVEN_BLOCKS).toContain('WalletLedger');
+  test('STATE_DRIVEN_BLOCKS is empty', () => {
+    expect(STATE_DRIVEN_BLOCKS).toHaveLength(0);
     expect(STATE_DRIVEN_BLOCKS).not.toContain('EscrowStatus');
   });
 
@@ -169,7 +167,7 @@ describe('validateUISchema', () => {
       blocks: [
         { type: 'ProductImage', url: 'https://img.com/a.jpg', alt: 'Eggs' },
         { type: 'PriceBlock', amount: 3.49, currency: 'USD', label: 'Best Price' },
-        { type: 'BadgeList', tags: ['Organic', 'Pop Swap'] },
+        { type: 'BadgeList', tags: ['Organic', 'Kroger'] },
         { type: 'ActionRow', actions: [{ label: 'Buy', intent: 'outbound_affiliate' }] },
       ],
     };

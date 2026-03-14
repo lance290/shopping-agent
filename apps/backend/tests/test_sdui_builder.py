@@ -47,7 +47,6 @@ from services.sdui_builder import (
     _hydrate_message_list,
     _hydrate_choice_factor_form,
     _hydrate_action_row,
-    _hydrate_receipt_uploader,
     _is_post_decision_fulfillment,
 )
 
@@ -279,29 +278,6 @@ class TestHydrateUISchema:
         # The builder should cap at GROCERY_BID_CAP internally
         assert isinstance(schema, UISchema)
 
-    def test_state_driven_blocks_gated(self):
-        """ReceiptUploader should only render when state allows."""
-        hint = UIHint(
-            layout=LayoutToken.ROW_COMPACT,
-            blocks=["MarkdownText", "ReceiptUploader", "ActionRow"],
-        )
-        row = make_row()
-        bids = [make_bid()]  # No swap, no pending claim
-        schema = hydrate_ui_schema(hint, row, bids)
-        block_types = [b.type for b in schema.blocks]
-        assert "ReceiptUploader" not in block_types
-
-    def test_state_driven_blocks_render_when_permitted(self):
-        hint = UIHint(
-            layout=LayoutToken.ROW_COMPACT,
-            blocks=["MarkdownText", "ReceiptUploader", "ActionRow"],
-        )
-        row = make_row()
-        bids = [make_swap_bid(closing_status="pending")]
-        schema = hydrate_ui_schema(hint, row, bids)
-        block_types = [b.type for b in schema.blocks]
-        assert "ReceiptUploader" in block_types
-
 
 # =========================================================================
 # build_ui_schema (top-level entry)
@@ -449,7 +425,7 @@ class TestScenarios:
         bids = [
             make_bid(id=1, price=3.49, item_title="Store Brand Eggs", image_url="https://img.com/eggs1.jpg"),
             make_bid(id=2, price=4.99, item_title="Organic Free Range Eggs", image_url="https://img.com/eggs2.jpg"),
-            make_swap_bid(id=3, price=2.99, item_title="Pop Swap: Brand Eggs"),
+            make_swap_bid(id=3, price=2.99, item_title="Store Brand Eggs (Swap)"),
         ]
         hint_data = {
             "layout": "ROW_MEDIA_LEFT",
@@ -499,18 +475,6 @@ class TestScenarios:
         block_types = [b["type"] for b in result["blocks"]]
         assert "Timeline" in block_types
         assert "EscrowStatus" not in block_types  # retired
-
-    def test_swap_claim_receipt_flow(self):
-        """Simulate: user claimed a swap → receipt uploader rendered."""
-        row = make_row(title="Eggs", status="sourcing")
-        bids = [make_swap_bid(closing_status="pending")]
-        hint_data = {
-            "layout": "ROW_COMPACT",
-            "blocks": ["MarkdownText", "ReceiptUploader", "ActionRow"],
-        }
-        result = build_ui_schema(hint_data, row, bids)
-        block_types = [b["type"] for b in result["blocks"]]
-        assert "ReceiptUploader" in block_types
 
     def test_fallback_on_llm_failure(self):
         """When LLM produces garbage, system degrades gracefully."""

@@ -9,6 +9,16 @@ GUEST_EMAIL = "guest@buy-anything.com"
 
 
 @pytest_asyncio.fixture
+async def guest_user(session: AsyncSession) -> User:
+    """The shared guest user used by anonymous browsing."""
+    user = User(email=GUEST_EMAIL, is_admin=False)
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
 async def real_user(session: AsyncSession) -> User:
     """Create a real authenticated user (the one logging in)."""
     user = User(email="buyer@example.com", phone_number="+15551234567", is_admin=False)

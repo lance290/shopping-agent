@@ -51,7 +51,7 @@ export const ACTION_INTENTS: ActionIntent[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Block Types (the 13 v0 Legos)
+// Block Types (the 10 v0 Legos)
 // ---------------------------------------------------------------------------
 
 export type BlockType =
@@ -64,9 +64,7 @@ export type BlockType =
   | 'Timeline'
   | 'MessageList'
   | 'ChoiceFactorForm'
-  | 'ActionRow'
-  | 'ReceiptUploader'
-  | 'WalletLedger';
+  | 'ActionRow';
 
 export const BLOCK_TYPES: BlockType[] = [
   'ProductImage',
@@ -79,11 +77,9 @@ export const BLOCK_TYPES: BlockType[] = [
   'MessageList',
   'ChoiceFactorForm',
   'ActionRow',
-  'ReceiptUploader',
-  'WalletLedger',
 ];
 
-export const STATE_DRIVEN_BLOCKS: BlockType[] = ['ReceiptUploader', 'WalletLedger'];
+export const STATE_DRIVEN_BLOCKS: BlockType[] = [];
 
 // ---------------------------------------------------------------------------
 // Block Data Shapes
@@ -181,15 +177,6 @@ export interface ActionRowBlock {
   actions: ActionObject[];
 }
 
-export interface ReceiptUploaderBlock {
-  type: 'ReceiptUploader';
-  campaign_id: string;
-}
-
-export interface WalletLedgerBlock {
-  type: 'WalletLedger';
-}
-
 // Union of all block types
 export type UIBlock =
   | ProductImageBlock
@@ -201,9 +188,7 @@ export type UIBlock =
   | TimelineBlock
   | MessageListBlock
   | ChoiceFactorFormBlock
-  | ActionRowBlock
-  | ReceiptUploaderBlock
-  | WalletLedgerBlock;
+  | ActionRowBlock;
 
 // ---------------------------------------------------------------------------
 // Top-Level Schema

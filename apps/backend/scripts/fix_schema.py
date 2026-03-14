@@ -154,25 +154,6 @@ EXPECTED_COLS = [
     ("outreach_quote", "confidence", "FLOAT", None),
     ("outreach_quote", "is_finalist", "BOOLEAN", "false"),
 
-    # PopSwap — full coupon/swap fields
-    ("pop_swap", "target_product", "VARCHAR", None),
-    ("pop_swap", "swap_product_name", "VARCHAR", None),
-    ("pop_swap", "swap_product_image", "VARCHAR", None),
-    ("pop_swap", "swap_product_url", "VARCHAR", None),
-    ("pop_swap", "offer_type", "VARCHAR", "'coupon'"),
-    ("pop_swap", "discount_percent", "FLOAT", None),
-    ("pop_swap", "offer_description", "VARCHAR", None),
-    ("pop_swap", "brand_user_id", "INTEGER", None),
-    ("pop_swap", "brand_contact_email", "VARCHAR", None),
-    ("pop_swap", "provider_payout_cents", "INTEGER", None),
-    ("pop_swap", "max_redemptions", "INTEGER", None),
-    ("pop_swap", "current_redemptions", "INTEGER", "0"),
-    ("pop_swap", "updated_at", "TIMESTAMP", None),
-
-    # PopSwapClaim — verification + payment timestamps
-    ("pop_swap_claim", "verified_at", "TIMESTAMP", None),
-    ("pop_swap_claim", "paid_at", "TIMESTAMP", None),
-
     # VendorCoverageGap
     ("vendor_coverage_gap", "row_id", "INTEGER", None),
     ("vendor_coverage_gap", "user_id", "INTEGER", None),
