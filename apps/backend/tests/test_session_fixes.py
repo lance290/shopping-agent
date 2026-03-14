@@ -146,7 +146,7 @@ class TestSearchWebFallbackChain:
             "GOOGLE_CSE_API_KEY": "",
             "GOOGLE_CSE_CX": "",
         }, clear=False):
-            with patch("sourcing.tool_executor._ddg_html_search", new_callable=AsyncMock) as mock_ddg:
+            with patch("sourcing.tool_web_search._ddg_html_search", new_callable=AsyncMock) as mock_ddg:
                 mock_ddg.return_value = ddg_results
                 result = await _tool_search_web(query="test query", max_results=5)
 
@@ -192,7 +192,7 @@ class TestSearchWebFallbackChain:
             "GOOGLE_CSE_API_KEY": "",
             "GOOGLE_CSE_CX": "",
         }, clear=False):
-            with patch("sourcing.tool_executor._ddg_html_search", new_callable=AsyncMock) as mock_ddg:
+            with patch("sourcing.tool_web_search._ddg_html_search", new_callable=AsyncMock) as mock_ddg:
                 mock_ddg.return_value = []
                 result = await _tool_search_web(query="test", max_results=5)
 

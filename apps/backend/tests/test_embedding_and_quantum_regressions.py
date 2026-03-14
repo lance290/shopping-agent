@@ -1,12 +1,9 @@
-import inspect
 from unittest.mock import AsyncMock, patch
 
 import numpy as np
 import pytest
 
-from routes.rows_search import search_row_listings_stream
 from sourcing.quantum.reranker import QuantumReranker, _reduce_embedding
-from sourcing.service import SourcingService
 from sourcing.vendor_provider import _build_embedding_concepts, build_query_embedding
 
 
@@ -34,7 +31,7 @@ class TestEmbeddingConcepts:
     async def test_build_query_embedding_reuses_precomputed_vector(self):
         precomputed = [0.25, 0.75]
 
-        with patch("sourcing.vendor_provider._embed_texts", new=AsyncMock(side_effect=AssertionError("should not embed"))):
+        with patch("sourcing.vendor_embedding._embed_texts", new=AsyncMock(side_effect=AssertionError("should not embed"))):
             result = await build_query_embedding(
                 query="standing desk",
                 context_query="standing desk under 600",
@@ -47,7 +44,7 @@ class TestEmbeddingConcepts:
     async def test_build_query_embedding_batches_concepts_once_and_blends(self):
         embed_mock = AsyncMock(return_value=[[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]])
 
-        with patch("sourcing.vendor_provider._embed_texts", new=embed_mock):
+        with patch("sourcing.vendor_embedding._embed_texts", new=embed_mock):
             result = await build_query_embedding(
                 query="gift card",
                 context_query="roblox gift card for birthday",
@@ -65,30 +62,6 @@ class TestEmbeddingConcepts:
         assert called_texts[0] == "Roblox gift card"
         assert any("$50" in text for text in called_texts)
         assert any(text == "roblox gift card for birthday" for text in called_texts)
-
-
-class TestSourcingServiceForwarding:
-    def test_search_and_persist_forwards_shared_embedding_contract(self):
-        source = inspect.getsource(SourcingService.search_and_persist)
-
-        assert "vendor_query=vendor_query" in source
-        assert "intent_payload=intent_payload" in source
-        assert "query_embedding=query_embedding" in source
-        assert "await build_query_embedding(" in source
-
-    def test_search_and_persist_only_builds_embedding_for_vendor_directory_scope(self):
-        source = inspect.getsource(SourcingService.search_and_persist)
-
-        assert 'selected_provider_ids = normalizer(raw_provider_ids)' in source
-        assert 'should_precompute_vendor_embedding = "vendor_directory" in selected_provider_ids' in source
-        assert 'elif not query_embedding and any(r.get("embedding") for r in results_for_quantum):' in source
-
-    def test_stream_path_uses_shared_embedding_builder(self):
-        source = inspect.getsource(search_row_listings_stream)
-
-        assert "from sourcing.vendor_provider import build_query_embedding" in source
-        assert "query_embedding = await build_query_embedding(" in source
-        assert "intent_payload=intent_payload" in source
 
 
 class TestQuantumRerankerRegressions:

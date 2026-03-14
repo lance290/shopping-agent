@@ -491,3 +491,117 @@ Build the next artifact as a file-by-file implementation checklist with four col
 - blockers/dependencies
 
 That checklist should be used as the actual execution tracker during extraction.
+
+## Execution Checklist
+
+Use this checklist as the live tracker while extracting PopSavings into `/Volumes/PivotNorth/PopSavings`.
+
+### Guardrails
+
+| ID | Task | Status | Notes |
+| --- | --- | --- | --- |
+| G1 | Do not modify BuyAnything runtime codepaths during extraction | In Progress | Only this planning doc in `Shopping Agent` has been updated so far. |
+| G2 | Copy code into PopSavings before any refactor | In Progress | Initial copy-only extraction slices are underway. |
+| G3 | Keep PopSavings fully standalone | In Progress | All copied code is being duplicated into `PopSavings`, not referenced cross-repo. |
+
+### Phase 1A: Safe Copy Slice
+
+| Path | Action | Status | Reason | Blockers / Dependencies |
+| --- | --- | --- | --- | --- |
+| `apps/backend/routes/pop.py` | copy as-is | Copied | Pop-only router aggregation | None for copied state |
+| `apps/backend/routes/pop_chat.py` | copy as-is | Copied | Pop-only backend surface | None for copied state |
+| `apps/backend/routes/pop_list.py` | copy as-is | Copied | Pop-only backend surface | None for copied state |
+| `apps/backend/routes/pop_offers.py` | copy as-is | Copied | Pop-only backend surface | None for copied state |
+| `apps/backend/routes/pop_wallet.py` | copy as-is | Copied | Pop-only backend surface | None for copied state |
+| `apps/backend/routes/pop_referral.py` | copy as-is | Copied | Pop-only backend surface | None for copied state |
+| `apps/backend/routes/pop_social.py` | copy as-is | Copied | Pop-only backend surface | None for copied state |
+| `apps/backend/routes/pop_swaps.py` | copy as-is | Copied | Pop-only backend surface | None for copied state |
+| `apps/backend/routes/pop_brand_portal.py` | copy as-is | Copied | Pop-only backend surface | None for copied state |
+| `apps/backend/routes/pop_notify.py` | copy as-is | Copied | Pop-only backend surface | None for copied state |
+| `apps/backend/routes/pop_processor.py` | copy as-is | Copied | Pop-only backend surface | None for copied state |
+| `apps/backend/routes/pop_helpers.py` | copy as-is | Copied | Pop-only backend surface | None for copied state |
+| `apps/backend/models/pop.py` | copy as-is | Copied | Pop-only models | None for copied state |
+| `apps/backend/models/coupons.py` | copy as-is | Copied | Pop-only models | None for copied state |
+| `apps/frontend/app/pop-site/**` | copy as-is | Copied | Pop-only frontend app | None for copied state |
+| `apps/frontend/app/api/pop/**` | copy as-is | Copied | Pop-only frontend API proxies | None for copied state |
+| `apps/frontend/public/pop-*` | copy as-is | Copied | Pop-only static assets | None for copied state |
+| `docs/prd/pop-penny-beater/**` | copy as-is | Copied | Pop product requirements | None |
+| `docs/archive/pop/**` | copy as-is | Copied | Pop history/context | None |
+
+### Phase 1B: Shared Dependencies To Duplicate Next
+
+| Path | Action | Status | Reason | Blockers / Dependencies |
+| --- | --- | --- | --- | --- |
+| `apps/backend/main.py` | copy then refactor | In Progress | Needed to boot backend | PopSavings copy now reduced to `auth`, `auth_profile`, and `pop`; more boot/runtime cleanup may still be needed |
+| `apps/backend/routes/chat_helpers.py` | copy then refactor | Copied | Pop depends on helper internals | Replace with Pop-local services later |
+| `apps/backend/models/auth.py` | copy then refactor | Copied | Pop auth/user state depends on it | Must split Pop-owned fields cleanly |
+| `apps/backend/models/rows.py` | copy then refactor | Copied | Pop list/project state depends on it | Must preserve list/project/member relations |
+| `apps/backend/models/bids.py` | copy then refactor | Copied | Pop offer/swap state depends on it | Includes `is_swap` |
+| `apps/backend/models/social.py` | copy then refactor | Copied | Pop comments/reactions depend on it | Must remain Pop-local after copy |
+| vendor/search-related models and services | copy then refactor | Pending | Pop sourcing depends on them | Need exact dependency inventory |
+| `apps/backend/services/llm.py` | copy then refactor | Copied | Pop imports shared decisioning | Must remove shared-hub assumption |
+| `apps/backend/services/llm_pop.py` | copy then refactor | Copied | Pop-local decisioning logic | Depends on `llm_core.py` |
+| `apps/backend/services/llm_core.py` | copy then refactor | Copied | Pop LLM calls depend on it | Env/config dependency audit needed |
+| `apps/backend/services/coupon_provider.py` | copy then refactor | Copied | Pop swaps/campaigns depend on it | Depends on Pop + shared offer models |
+| `apps/backend/services/veryfi.py` | copy then refactor | Copied | Pop wallet/receipt scan depends on it | Env/config dependency audit needed |
+| `apps/backend/services/sdui_builder.py` | copy then refactor | Copied | Pop UI schema rendering depends on it | Depends on bid/row models |
+| `apps/frontend/app/utils/auth.ts` | copy then refactor | Copied | Pop frontend auth flow depends on it | Remove shared-brand assumptions |
+| `apps/frontend/app/utils/api-proxy.ts` | copy then refactor | Copied | Pop frontend API calls depend on it | Repoint backend URL/config |
+| `apps/frontend/app/store.ts` | copy then refactor | Copied | Pop UI uses shared state helpers | Depends on `store-state.ts` |
+| `apps/frontend/app/store-state.ts` | copy then refactor | Copied | Pop UI uses shared state | Must prune BuyAnything state later |
+| `apps/frontend/app/components/ReportBugModal.tsx` | copy then refactor | Copied | Imported by Pop layout | Depends on shared store today |
+| `apps/frontend/app/components/LocationPrompt.tsx` | copy then refactor | Copied | Imported by Pop onboarding | Depends on auth/location utilities |
+| `apps/frontend/app/components/sdui/**` | copy then refactor | Copied | Pop renders shared UI schema blocks | Must isolate Pop-only rendering |
+
+### Immediate Execution Order
+
+| Order | Step | Status | Notes |
+| --- | --- | --- | --- |
+| 1 | Create target repo skeleton under `/Volumes/PivotNorth/PopSavings` | Complete | Done |
+| 2 | Copy Phase 1A Pop-only files into matching structure | Complete | Done |
+| 3 | Inventory unresolved imports inside copied Pop files | Complete | First direct dependency layer identified |
+| 4 | Copy Phase 1B shared dependencies into PopSavings | Complete | Direct dependency layers plus minimal auth + sourcing slices have been copied |
+| 5 | Boot PopSavings locally against its own config | Complete | Backend (8001) + Frontend (3004) boot and serve all core flows |
+| 6 | Data isolation (separate DB, session cookies) | Complete | Dedicated `popsavings` DB, `pop_session` cookie, guest email `guest@popsavings.com` |
+| 7 | End-to-end functional validation | Complete | All 15 automated checks pass (auth, chat, sourcing, my-list, lists, wallet, referral, logout, guest) |
+| 8 | BuyAnything rebrand cleanup | Complete | Defaults, fallbacks, docstrings, package name, footer, brand context all rebranded to PopSavings |
+
+### Current Extraction Status
+
+| Area | Status | Notes |
+| --- | --- | --- |
+| Pop-only routes/models/frontend/docs copied | Complete | Initial safe-copy slice is present in `/Volumes/PivotNorth/PopSavings`. |
+| First shared dependency layer copied | Complete | Backend and frontend direct dependencies were duplicated into `PopSavings`. |
+| Additional boot/config files copied | Complete | Included backend entrypoint/lockfiles and frontend config/lockfiles. |
+| Minimal auth slice copied | Complete | `auth.py`, `auth_profile.py`, `auth_helpers.py`, `rate_limit.py`, security helpers, and audit support copied into `PopSavings`. |
+| Pop backend entrypoint reduced to standalone surface | Complete | `PopSavings/apps/backend/main.py` now wires `auth`, `auth_profile`, `chat`, and `pop` routers. |
+| Backend static syntax validation | Complete | `python3 -m compileall` passes. |
+| Backend import validation | Complete | `uv run python -c 'import main'` succeeds. |
+| Frontend validation | Complete | `pnpm exec tsc --noEmit` succeeds. |
+| Live backend boot | Complete | Backend serving on `http://127.0.0.1:8001` (tmux `popsavings_220aa0__dev`). |
+| Live frontend boot | Complete | Frontend serving on `http://127.0.0.1:3004` (tmux `popsavings_220aa0__worker`). |
+| Database isolation | Complete | Standalone `popsavings` DB on port 5437. Fallbacks in `database.py` and `alembic/env.py` updated. |
+| Session cookie isolation | Complete | Cookie renamed from `sa_session` to `pop_session` in backend + frontend. |
+| Guest identity isolation | Complete | `GUEST_EMAIL` set to `guest@popsavings.com` in `dependencies.py` and `pop_chat.py`. |
+| Standalone search endpoint | Complete | `/rows/{id}/search/stream` added to `routes/chat.py` with fallback bid creation. |
+| BuyAnything rebrand | Complete | DB fallbacks, `main.py` title, email defaults, brand context, package name, footer, docstrings all rebranded. |
+| End-to-end validation | Complete | 15/15 automated checks pass: backend health, pop health, frontend homepage, auth start/verify/cookie, auth me, chat (logged-in + guest), my-list, lists, wallet, referral, logout, post-logout, frontend pages. |
+
+### Remaining Known Blockers Before First Boot
+
+| Blocker | Type | Notes |
+| --- | --- | --- |
+| ~~End-to-end functional validation not yet exercised~~ | ~~Validation~~ | **RESOLVED** — 15/15 automated checks pass. |
+| ~~Repo-local runtime env still needs confirmation~~ | ~~Environment~~ | **RESOLVED** — `.env` points to `popsavings` DB, all fallbacks updated. |
+
+### Remaining Work (Phase 2+)
+
+| Item | Phase | Priority | Notes |
+| --- | --- | --- | --- |
+| Replace `chat_helpers._stream_search` HTTP self-call with direct service call | Phase 2 | Medium | Currently works but is an unnecessary HTTP round-trip. |
+| Remove BuyAnything-specific dead code (email_handoff.py, outreach templates, vendor contact modal) | Phase 2 | Low | Not called by Pop flows; safe to remove. |
+| Remove BuyAnything brand config from `brand.tsx` | Phase 4 | Low | Defaults already set to Pop; BA config is dead code. |
+| Remove shared components not used by Pop (OutreachQueue, VendorContactModal, AppView BA sections) | Phase 4 | Low | Copied but unused by Pop pages. |
+| Pop-specific Alembic migration chain | Phase 3 | Medium | Currently using copied migrations from monorepo. |
+| Production deployment config (Railway/Vercel) | Phase 5 | High | Needed before cutover. |
+| Remove Pop code from Shopping Agent after cutover | Phase 5 | High | Only after PopSavings is in production. |

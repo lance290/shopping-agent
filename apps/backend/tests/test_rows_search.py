@@ -9,7 +9,8 @@ from models import Row, RequestSpec, User, AuthSession, hash_token, VendorCovera
 from models.outreach import OutreachCampaign, OutreachMessage
 from services.llm_models import VendorCoverageAssessment
 from sourcing import SearchResultWithStatus
-from routes.rows_search import router, _record_vendor_coverage_gap_if_needed
+from routes.rows_search import router
+from routes.rows_search_coverage import record_vendor_coverage_gap_if_needed as _record_vendor_coverage_gap_if_needed
 
 
 @pytest.mark.asyncio
@@ -37,7 +38,7 @@ async def test_user_provided_query_not_truncated(client: AsyncClient, session: A
     await session.refresh(row)
 
     # Mock the sourcing repository
-    with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+    with patch("routes.rows_search_sync.get_sourcing_repo") as mock_repo:
         mock_search = AsyncMock(
             return_value=SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
         )
@@ -104,7 +105,7 @@ async def test_constructed_query_with_constraints_limited(client: AsyncClient, s
     await session.commit()
 
     # Mock the sourcing repository
-    with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+    with patch("routes.rows_search_sync.get_sourcing_repo") as mock_repo:
         mock_search = AsyncMock(
             return_value=SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
         )
@@ -159,7 +160,7 @@ async def test_short_user_query_preserved(client: AsyncClient, session: AsyncSes
     await session.refresh(row)
 
     # Mock the sourcing repository
-    with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+    with patch("routes.rows_search_sync.get_sourcing_repo") as mock_repo:
         mock_search = AsyncMock(
             return_value=SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
         )
@@ -211,7 +212,7 @@ async def test_price_patterns_removed_from_user_query(client: AsyncClient, sessi
     await session.refresh(row)
 
     # Mock the sourcing repository
-    with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+    with patch("routes.rows_search_sync.get_sourcing_repo") as mock_repo:
         mock_search = AsyncMock(
             return_value=SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
         )
@@ -303,7 +304,7 @@ async def test_choice_factor_filtering(client: AsyncClient, session: AsyncSessio
     ]
 
     # Mock the sourcing service to return our test results
-    with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+    with patch("routes.rows_search_sync.get_sourcing_repo") as mock_repo:
         mock_search = AsyncMock(
             return_value=SearchResultWithStatus(
                 results=mock_results,
@@ -314,7 +315,7 @@ async def test_choice_factor_filtering(client: AsyncClient, session: AsyncSessio
         mock_repo.return_value.search_all_with_status = mock_search
 
         # Mock SourcingService
-        with patch("routes.rows_search.SourcingService") as mock_service_class:
+        with patch("routes.rows_search_sync.SourcingService") as mock_service_class:
             mock_service = AsyncMock()
             mock_service.search_and_persist = AsyncMock(return_value=([], [], None))
             mock_service.supersede_stale_bids = AsyncMock(return_value=0)
@@ -367,10 +368,10 @@ async def test_search_records_vendor_coverage_gap(client: AsyncClient, session: 
         confidence=0.93,
     )
 
-    with patch("routes.rows_search._resolve_user_id_and_guest", AsyncMock(return_value=(test_user.id, False))):
+    with patch("routes.rows_search_sync.resolve_user_id_and_guest", AsyncMock(return_value=(test_user.id, False))):
         with patch("routes.rate_limit.check_rate_limit", return_value=True):
-            with patch("routes.rows_search.assess_vendor_coverage", AsyncMock(return_value=assessment)):
-                with patch("routes.rows_search.SourcingService") as mock_service_class:
+            with patch("routes.rows_search_coverage.assess_vendor_coverage", AsyncMock(return_value=assessment)):
+                with patch("routes.rows_search_sync.SourcingService") as mock_service_class:
                     mock_service = AsyncMock()
                     mock_service.search_and_persist = AsyncMock(return_value=([], [], None))
                     mock_service.supersede_stale_bids = AsyncMock(return_value=0)
@@ -485,7 +486,7 @@ async def test_vendor_coverage_helper_returns_none_when_persist_fails(session: A
         session.commit = original_commit
         raise RuntimeError("commit failed")
 
-    with patch("routes.rows_search.assess_vendor_coverage", AsyncMock(return_value=assessment)):
+    with patch("routes.rows_search_coverage.assess_vendor_coverage", AsyncMock(return_value=assessment)):
         session.commit = AsyncMock(side_effect=fail_commit_once)
         result = await _record_vendor_coverage_gap_if_needed(
             session=session,
@@ -521,13 +522,13 @@ async def test_search_records_request_events(client: AsyncClient, session: Async
     await session.commit()
     await session.refresh(row)
 
-    with patch("routes.rows_search.get_sourcing_repo") as mock_repo:
+    with patch("routes.rows_search_sync.get_sourcing_repo") as mock_repo:
         mock_search = AsyncMock(
             return_value=SearchResultWithStatus(results=[], provider_statuses=[], all_providers_failed=False)
         )
         mock_repo.return_value.search_all_with_status = mock_search
 
-        with patch("routes.rows_search.SourcingService") as mock_service_class:
+        with patch("routes.rows_search_sync.SourcingService") as mock_service_class:
             mock_service = AsyncMock()
             mock_service.search_and_persist = AsyncMock(return_value=([], [], None))
             mock_service.supersede_stale_bids = AsyncMock(return_value=0)

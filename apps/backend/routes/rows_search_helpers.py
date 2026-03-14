@@ -1,11 +1,118 @@
 import re
 import json
-from typing import Optional, Any
-from models import Row, RequestSpec
+import logging
+from typing import Optional, List, Any
+
+from pydantic import BaseModel
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+from models import Row, RequestSpec, Bid, User
+from models.bookmarks import VendorBookmark, ItemBookmark
+from models.outreach import OutreachMessage
+from sourcing import SourcingRepository, SearchResult, ProviderStatusSnapshot
 from sourcing.location import normalize_search_intent_payload
 from sourcing.choice_filter import extract_choice_constraints
 from sourcing.models import SearchIntent
 from utils.json_utils import safe_json_loads
+from routes.bookmarks import _normalize_bookmark_url
+
+logger = logging.getLogger(__name__)
+
+GUEST_EMAIL = "guest@buy-anything.com"
+
+# Lazy init sourcing repository to ensure env vars are loaded
+_sourcing_repo = None
+
+def get_sourcing_repo():
+    global _sourcing_repo
+    if _sourcing_repo is None:
+        _sourcing_repo = SourcingRepository()
+    return _sourcing_repo
+
+
+class RowSearchRequest(BaseModel):
+    query: Optional[str] = None
+    providers: Optional[List[str]] = None
+    search_intent: Optional[Any] = None
+    provider_query_map: Optional[Any] = None
+
+
+class SearchResponse(BaseModel):
+    results: List[SearchResult]
+    provider_statuses: List[ProviderStatusSnapshot]
+    user_message: Optional[str] = None
+
+
+async def resolve_user_id_and_guest(authorization: Optional[str], session: AsyncSession) -> tuple[int, bool]:
+    from dependencies import resolve_user_id_and_guest_flag
+    return await resolve_user_id_and_guest_flag(authorization, session)
+
+
+async def log_request_event(
+    session: AsyncSession,
+    *,
+    row_id: int,
+    user_id: int,
+    event_type: str,
+    event_value: Optional[str] = None,
+    bid_id: Optional[int] = None,
+    metadata: Optional[dict[str, Any]] = None,
+) -> None:
+    from models import RequestEvent
+    event = RequestEvent(
+        row_id=row_id,
+        bid_id=bid_id,
+        user_id=user_id,
+        event_type=event_type,
+        event_value=event_value,
+        metadata_json=json.dumps(metadata) if metadata is not None else None,
+    )
+    session.add(event)
+
+
+async def load_search_state_for_bids(
+    session: AsyncSession,
+    user_id: int,
+    bids: List[Bid],
+) -> tuple[set[int], set[str], set[int]]:
+    vendor_ids = {bid.vendor_id for bid in bids if bid.vendor_id}
+    item_urls = {
+        normalized
+        for bid in bids
+        if (normalized := _normalize_bookmark_url(bid.canonical_url or bid.item_url))
+    }
+    bid_ids = {bid.id for bid in bids if bid.id is not None}
+
+    bookmarked_vendor_ids: set[int] = set()
+    if vendor_ids:
+        result = await session.exec(
+            select(VendorBookmark.vendor_id)
+            .where(VendorBookmark.user_id == user_id, VendorBookmark.vendor_id.in_(vendor_ids))
+        )
+        bookmarked_vendor_ids = set(result.all())
+
+    bookmarked_item_urls: set[str] = set()
+    if item_urls:
+        result = await session.exec(
+            select(ItemBookmark.canonical_url)
+            .where(ItemBookmark.user_id == user_id, ItemBookmark.canonical_url.in_(item_urls))
+        )
+        bookmarked_item_urls = set(result.all())
+
+    emailed_bid_ids: set[int] = set()
+    if bid_ids:
+        result = await session.exec(
+            select(OutreachMessage.bid_id)
+            .where(
+                OutreachMessage.bid_id.isnot(None),
+                OutreachMessage.bid_id.in_(bid_ids),
+                OutreachMessage.status.in_(("sent", "delivered", "replied")),
+            )
+        )
+        emailed_bid_ids = {bid_id for bid_id in result.all() if bid_id is not None}
+
+    return bookmarked_vendor_ids, bookmarked_item_urls, emailed_bid_ids
 
 def _build_base_query(row: Row, spec: Optional[RequestSpec], explicit_query: Optional[str]) -> tuple[str, bool]:
     """Build the base search query from row data."""
