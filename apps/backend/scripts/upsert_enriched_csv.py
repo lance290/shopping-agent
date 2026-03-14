@@ -120,8 +120,96 @@ def normalize_category(raw: str) -> str:
     """Turn raw category into a slug: 'Diamonds & Jewelry — Nashville' -> 'diamonds_jewelry'."""
     base = raw.split("—")[0].strip() if "—" in raw else raw.strip()
     slug = base.lower().replace("&", "and").replace("/", "_")
-    slug = "".join(c if c.isalnum() or c == " " else "" for c in slug)
+    slug = "".join(c if c.isalnum() or c in {" ", "_"} else "" for c in slug)
     return "_".join(slug.split())
+
+
+def unique_preserve_order(values: List[Optional[str]], limit: int = 12) -> List[str]:
+    seen = set()
+    result: List[str] = []
+    for value in values:
+        cleaned = sanitize(value)
+        if not cleaned:
+            continue
+        key = cleaned.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(cleaned)
+        if len(result) >= limit:
+            break
+    return result
+
+
+def parse_personal_emails(value: Optional[str]) -> List[str]:
+    cleaned = sanitize(value)
+    if not cleaned:
+        return []
+    stripped = cleaned.strip("{}")
+    return unique_preserve_order([part.strip() for part in stripped.split(",")])
+
+
+def parse_experience(row: Dict[str, str]) -> List[Dict[str, Any]]:
+    raw = sanitize(row.get("experience"))
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except Exception:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def summarize_experience(row: Dict[str, str]) -> Dict[str, Any]:
+    experiences = parse_experience(row)
+    current_items = [item for item in experiences if item.get("is_current") or item.get("status") == "ongoing"]
+    ordered_items = current_items or experiences
+
+    titles: List[Optional[str]] = []
+    companies: List[Optional[str]] = []
+    industries: List[Optional[str]] = []
+    locations: List[Optional[str]] = []
+    descriptions: List[Optional[str]] = []
+    websites: List[Optional[str]] = []
+    earliest_start: Optional[str] = None
+
+    for item in ordered_items:
+        company = item.get("company") or {}
+        titles.append(item.get("title"))
+        companies.append(company.get("name"))
+        websites.append(company.get("website"))
+        industries.append(company.get("industry"))
+        for industry in company.get("industries") or []:
+            industries.append(industry)
+        for location in item.get("location") or []:
+            locations.append(location)
+        for location in company.get("locations") or []:
+            if isinstance(location, dict):
+                locations.append(location.get("name"))
+                city = sanitize(location.get("city"))
+                state = sanitize(location.get("state"))
+                if city and state:
+                    locations.append(f"{city}, {state}")
+                elif city:
+                    locations.append(city)
+                elif state:
+                    locations.append(state)
+        descriptions.append(item.get("description"))
+        start_date = sanitize(item.get("start_date"))
+        if start_date and (earliest_start is None or start_date < earliest_start):
+            earliest_start = start_date
+
+    return {
+        "current_items": current_items,
+        "titles": unique_preserve_order(titles),
+        "companies": unique_preserve_order(companies),
+        "industries": unique_preserve_order(industries),
+        "locations": unique_preserve_order(locations),
+        "descriptions": unique_preserve_order(descriptions, limit=6),
+        "websites": unique_preserve_order(websites),
+        "earliest_start": earliest_start,
+        "count": len(experiences),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +218,10 @@ def normalize_category(raw: str) -> str:
 
 def row_name(row: Dict[str, str]) -> Optional[str]:
     """Extract vendor/agent name from CSV row."""
+    first_name = sanitize(row.get("first_name"))
+    last_name = sanitize(row.get("last_name"))
+    if first_name or last_name:
+        return " ".join(part for part in [first_name, last_name] if part)
     for key in ["Agent_or_Team", "Vendor", "Brand", "Company"]:
         val = sanitize(row.get(key))
         if val:
@@ -140,6 +232,8 @@ def row_name(row: Dict[str, str]) -> Optional[str]:
 def row_category(row: Dict[str, str]) -> str:
     """Extract and normalize category."""
     raw = sanitize(row.get("Category")) or ""
+    if not raw and (row.get("first_name") or row.get("last_name")):
+        raw = "luxury_real_estate"
     if not raw and row.get("Agent_or_Team"):
         raw = "luxury_real_estate"
     return normalize_category(raw) if raw else "uncategorized"
@@ -150,7 +244,35 @@ def row_geo(row: Dict[str, str]) -> Optional[str]:
     city = sanitize(row.get("City")) or ""
     state = sanitize(row.get("State")) or ""
     parts = [p for p in [city, state] if p]
-    return ", ".join(parts) if parts else None
+    if parts:
+        return ", ".join(parts)
+    summary = summarize_experience(row)
+    locations = summary["locations"]
+    return locations[0] if locations else None
+
+
+def row_email(row: Dict[str, str]) -> Optional[str]:
+    email = sanitize(row.get("Resolved_Contact_Email")) or sanitize(row.get("work_email"))
+    if email:
+        return email
+    personal_emails = parse_personal_emails(row.get("personal_emails"))
+    return personal_emails[0] if personal_emails else None
+
+
+def row_contact_name(row: Dict[str, str], name: str) -> Optional[str]:
+    return sanitize(row.get("Resolved_Contact_Name")) or name
+
+
+def row_website(row: Dict[str, str]) -> Optional[str]:
+    website = sanitize(row.get("Resolved_Website")) or sanitize(row.get("current_company_website"))
+    if website:
+        return website
+    summary = summarize_experience(row)
+    return summary["websites"][0] if summary["websites"] else None
+
+
+def row_tagline(row: Dict[str, str]) -> Optional[str]:
+    return sanitize(row.get("Resolved_Tagline")) or sanitize(row.get("headline")) or sanitize(row.get("current_title"))
 
 
 def row_specialties(row: Dict[str, str]) -> Optional[str]:
@@ -158,8 +280,54 @@ def row_specialties(row: Dict[str, str]) -> Optional[str]:
     services = sanitize(row.get("Resolved_Services"))
     if services:
         return services.replace(" | ", ", ")
+    summary = summarize_experience(row)
+    specialty_parts = unique_preserve_order(
+        [
+            sanitize(row.get("current_title")),
+            sanitize(row.get("current_company_name")),
+            *summary["titles"],
+            *summary["industries"],
+        ],
+        limit=12,
+    )
+    if specialty_parts:
+        return ", ".join(specialty_parts)
     brokerage = sanitize(row.get("Brokerage"))
     return brokerage
+
+
+def row_description(row: Dict[str, str], name: str, category: str) -> Optional[str]:
+    description = sanitize(row.get("Resolved_Description"))
+    if description:
+        return description
+
+    headline = sanitize(row.get("headline"))
+    current_title = sanitize(row.get("current_title"))
+    current_company = sanitize(row.get("current_company_name"))
+    summary = summarize_experience(row)
+    desc_parts: List[str] = []
+
+    if headline and headline != "--":
+        desc_parts.append(headline)
+    elif current_title and current_company:
+        desc_parts.append(f"{current_title} at {current_company}.")
+    elif current_title:
+        desc_parts.append(f"{current_title}.")
+    elif current_company:
+        desc_parts.append(f"Works with {current_company}.")
+
+    if summary["locations"]:
+        desc_parts.append(f"Locations: {', '.join(summary['locations'][:3])}.")
+    if summary["titles"]:
+        desc_parts.append(f"Roles: {', '.join(summary['titles'][:5])}.")
+    if summary["industries"]:
+        desc_parts.append(f"Industries: {', '.join(summary['industries'][:5])}.")
+    if summary["descriptions"]:
+        desc_parts.append(" ".join(summary["descriptions"][:2]))
+    if not desc_parts and category != "uncategorized":
+        desc_parts.append(f"{name} provides {category.replace('_', ' ')} services.")
+
+    return " ".join(part.strip() for part in desc_parts if sanitize(part)) or None
 
 
 def build_profile_text(
@@ -188,9 +356,23 @@ def build_profile_text(
 
 
 def build_seo_content(row: Dict[str, str]) -> Dict[str, Any]:
-    summary = sanitize(row.get("Resolved_SEO_Summary")) or sanitize(row.get("Resolved_Description"))
+    experience_summary = summarize_experience(row)
+    summary = (
+        sanitize(row.get("Resolved_SEO_Summary"))
+        or sanitize(row.get("Resolved_Description"))
+        or sanitize(row.get("headline"))
+    )
     services_raw = sanitize(row.get("Resolved_Services")) or ""
     services_list = [s.strip() for s in services_raw.split("|") if s.strip()] if services_raw else []
+    if not services_list:
+        services_list = unique_preserve_order(
+            [
+                sanitize(row.get("current_title")),
+                *experience_summary["titles"],
+                *experience_summary["industries"],
+            ],
+            limit=10,
+        )
     confidence = sanitize(row.get("Resolved_Confidence")) or "medium"
     return {
         "summary": summary,
@@ -199,9 +381,20 @@ def build_seo_content(row: Dict[str, str]) -> Dict[str, Any]:
         "pricing_model": None,
         "pros": [],
         "cons": [],
+        "experience": {
+            "company_names": experience_summary["companies"],
+            "titles": experience_summary["titles"],
+            "industries": experience_summary["industries"],
+            "locations": experience_summary["locations"],
+            "descriptions": experience_summary["descriptions"],
+            "earliest_start": experience_summary["earliest_start"],
+            "experience_count": experience_summary["count"],
+            "personal_emails": parse_personal_emails(row.get("personal_emails")),
+            "linkedin_url": sanitize(row.get("concat")),
+        },
         "validation": {
             "contact_confidence": confidence,
-            "description_confidence": "high" if sanitize(row.get("Resolved_Description")) else "low",
+            "description_confidence": "high" if sanitize(row.get("Resolved_Description")) or sanitize(row.get("headline")) else "low",
             "seo_confidence": "high" if summary and services_list else "medium" if summary else "low",
         },
     }
@@ -301,7 +494,7 @@ async def geocode(location: str) -> Optional[Dict[str, float]]:
 async def upsert_csv(csv_path: Path, dry_run: bool, skip_embed: bool, skip_geo: bool):
     if not csv_path.exists():
         logger.error(f"CSV not found: {csv_path}")
-        return
+        return {"created": 0, "updated": 0, "embedded": 0, "geocoded": 0, "errors": 1, "total": 0}
 
     with open(csv_path, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -310,7 +503,12 @@ async def upsert_csv(csv_path: Path, dry_run: bool, skip_embed: bool, skip_geo: 
     # Filter to rows that have been enriched
     enriched_rows = [
         r for r in rows
-        if sanitize(r.get("Resolved_Last_Run_UTC")) and row_name(r)
+        if row_name(r) and (
+            sanitize(r.get("Resolved_Last_Run_UTC"))
+            or sanitize(r.get("work_email"))
+            or sanitize(r.get("current_company_name"))
+            or sanitize(r.get("experience"))
+        )
     ]
 
     total = len(enriched_rows)
@@ -318,7 +516,7 @@ async def upsert_csv(csv_path: Path, dry_run: bool, skip_embed: bool, skip_geo: 
 
     if total == 0:
         logger.info("No enriched rows found. Nothing to do.")
-        return
+        return {"created": 0, "updated": 0, "embedded": 0, "geocoded": 0, "errors": 0, "total": 0}
 
     async_session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -335,13 +533,13 @@ async def upsert_csv(csv_path: Path, dry_run: bool, skip_embed: bool, skip_geo: 
                 continue
 
             category = row_category(row)
-            website = sanitize(row.get("Resolved_Website"))
+            website = row_website(row)
             domain = extract_domain(website)
-            email = sanitize(row.get("Resolved_Contact_Email"))
+            email = row_email(row)
             phone = sanitize(row.get("Resolved_Contact_Phone"))
-            contact_name = sanitize(row.get("Resolved_Contact_Name"))
-            tagline = sanitize(row.get("Resolved_Tagline"))
-            description = sanitize(row.get("Resolved_Description"))
+            contact_name = row_contact_name(row, name)
+            tagline = row_tagline(row)
+            description = row_description(row, name, category)
             seo_summary = sanitize(row.get("Resolved_SEO_Summary"))
             contact_link = sanitize(row.get("Resolved_Contact_Link"))
             specialties = row_specialties(row)
@@ -358,10 +556,15 @@ async def upsert_csv(csv_path: Path, dry_run: bool, skip_embed: bool, skip_geo: 
                 continue
 
             async with async_session_factory() as session:
-                # Upsert by (name, category)
-                stmt = select(Vendor).where(Vendor.name == name, Vendor.category == category)
-                result = await session.exec(stmt)
-                existing = result.first()
+                existing = None
+                if email:
+                    email_stmt = select(Vendor).where(Vendor.email == email)
+                    email_result = await session.exec(email_stmt)
+                    existing = email_result.first()
+                if not existing:
+                    stmt = select(Vendor).where(Vendor.name == name, Vendor.category == category)
+                    result = await session.exec(stmt)
+                    existing = result.first()
 
                 if existing:
                     existing.website = website or existing.website
@@ -446,6 +649,14 @@ async def upsert_csv(csv_path: Path, dry_run: bool, skip_embed: bool, skip_geo: 
         f"DONE {csv_path.name}: created={created} updated={updated} "
         f"embedded={embedded} geocoded={geocoded} errors={errors}"
     )
+    return {
+        "created": created,
+        "updated": updated,
+        "embedded": embedded,
+        "geocoded": geocoded,
+        "errors": errors,
+        "total": total,
+    }
 
 
 def main():

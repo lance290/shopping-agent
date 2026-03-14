@@ -65,6 +65,38 @@ async def restore_vendors_endpoint(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/admin/ops/upsert-vendors-csv")
+async def upsert_vendors_csv_endpoint(
+    x_restore_key: str = Header(None),
+    csv_file: Optional[UploadFile] = File(None),
+    skip_embed: bool = True,
+    skip_geo: bool = True,
+):
+    if x_restore_key != _get_restore_key():
+        raise HTTPException(status_code=403, detail="Invalid restore key")
+    if csv_file is None:
+        raise HTTPException(status_code=400, detail="CSV file is required")
+
+    payload = await csv_file.read()
+    if not payload:
+        raise HTTPException(status_code=400, detail="Uploaded CSV file is empty")
+
+    data_dir = Path(__file__).parent.parent / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    upload_path = data_dir / "vendor_upsert_upload.csv"
+    upload_path.write_bytes(payload)
+
+    from scripts.upsert_enriched_csv import upsert_csv
+
+    try:
+        result = await upsert_csv(upload_path, dry_run=False, skip_embed=skip_embed, skip_geo=skip_geo)
+        return {"status": "success", **result}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/admin/ops/db-diag")
 async def db_diagnostics(
     x_ops_key: str = Header(None),
